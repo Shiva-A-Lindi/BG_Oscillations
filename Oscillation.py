@@ -6,9 +6,9 @@ N_sim = 50
 population_list = ['STN', 'GPe']
 N = { 'STN': N_sim , 'GPe': N_sim}
 N_real = { 'STN': 13560 , 'GPe': 34470}
-rest_ext_input = { 'STN': 30 , 'GPe': -20} # external input coming from Ctx and Str
+rest_ext_input = { 'STN': 60 , 'GPe': -1} # external input coming from Ctx and Str
 A = { 'STN': 34 , 'GPe': 14} # mean firing rate from experiments
-threshold = { 'STN': -0.1 ,'GPe': 0.1}
+threshold = { 'STN': 0.1 ,'GPe': 0.1}
 neuron_type = {'STN': 'Glut', 'GPe': 'GABA'}
 gain = { 'STN': 1 ,'GPe': 1}
 
@@ -21,8 +21,8 @@ K_real = { ('STN', 'GPe'): 883,
 T = { ('STN', 'GPe'): 1,
       ('GPe', 'STN'): 2.5, 
       ('GPe', 'GPe'): 1} # transmission delay in ms
-G = { ('STN', 'GPe'): -0.2 ,
-      ('GPe', 'STN'): 0.6 , 
+G = { ('STN', 'GPe'): -0.05 ,
+      ('GPe', 'STN'): 0.05 , 
       ('GPe', 'GPe'): -0.1} # synaptic weight
 tau = {'GABA' : 5, 'Glut': 1} # synaptic time scale for excitation and inhibition
 J = {}
@@ -141,15 +141,18 @@ stop = timeit.default_timer()
 print("t = ", stop - start)
 plot_start = int(5/dt)
 plt.figure(1)    
-plt.plot(t_list[plot_start:]*dt,GPe.pop_act[plot_start:])
-plt.title("GPe")
+plt.plot(t_list[plot_start:]*dt,GPe.pop_act[plot_start:],label = "GPe", c = 'r')
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '--', c = 'r' )
+#plt.title("GPe")
 plt.xlabel("time (ms)")
 plt.ylabel("firing rate (spk/s)")
 #plt.figure(2)    
-plt.plot(t_list[plot_start:]*dt,STN.pop_act[plot_start:])
-plt.title("STN")    
+plt.plot(t_list[plot_start:]*dt,STN.pop_act[plot_start:], label = "STN", c = 'k')
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '--', c = 'k' )
+#plt.title("STN")    
 plt.xlabel("time (ms)")
 plt.ylabel("firing rate (spk/s)")
+plt.legend()
     
     
     
