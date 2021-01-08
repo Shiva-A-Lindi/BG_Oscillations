@@ -35,23 +35,28 @@ mvt_ext_input_dict = { 'STN': A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['
                    'GPe': A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe']} # external input coming from Ctx and Str
 
 J = {}
-t_sim = 400 # simulation time in ms
+t_sim = 1000 # simulation time in ms
 dt = 0.5 # euler time step in ms
 t_mvt = 200
-D_mvt = 5
+D_mvt = 500
 d_Str = 200 # duration of external input to Str
 t_ext_to_Ctx = (t_mvt-D_mvt/2,t_mvt+D_mvt/2)
 t_ext_to_Str = (t_mvt-D_mvt/2,t_mvt-D_mvt/2+d_Str)
 t_list = np.arange(int(t_sim/dt))
 
-def perturbing_ext_input(D_pert,t_pert,H0, t_series):
-    
-    print(max(t_series))
-    H = H0*np.cos(np.pi*(t_series-t_pert)/D_pert)**2
-    ind = np.logical_or(t_series<t_pert-D_pert/2, t_series>t_pert+D_pert/2)
+def mvt_grad_ext_input(D_mvt,t_mvt,H0, t_series):
+    ''' a gradually increasing deacreasing input mimicing movement'''
+
+    H = H0*np.cos(np.pi*(t_series-t_mvt)/D_pert)**2
+    ind = np.logical_or(t_series<t_mvt-D_mvt/2, t_series>t_mvt+D_mvt/2)
     H[ind] = 0
     return H
-
+def mvt_step_ext_input(D_mvt,t_mvt,H0, t_series):
+    
+    H = H0*np.ones_like(t_series)
+    ind = np.logical_or(t_series<t_mvt, t_series>t_mvt+D_mvt)
+    H[ind] = 0
+    return H
 #plt.plot(t_list, mvt_ext_input(D_mvt,t_mvt,H0, t_list/dt))
 
 def calculate_number_of_connections(N_sim,N_real,K_real):
@@ -148,8 +153,11 @@ STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, 'Glut', rest_ext_input)
 GPe.set_connections(K, N)
 STN.set_connections(K, N)
 
-GPe.perturbation_in_t =  perturbing_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
-STN.perturbation_in_t =  perturbing_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
+#GPe.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
+#STN.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
+GPe.perturbation_in_t =  mvt_step_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
+STN.perturbation_in_t =  mvt_step_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
+ 
 nuclei_list = [GPe, STN]
 receiving_class_dict = {'STN': [GPe], 'GPe': [GPe, STN]} # points to the classes of nuclei each receive projections from
 
@@ -180,10 +188,10 @@ plt.xlabel("time (ms)")
 plt.ylabel("firing rate (spk/s)")
 plt.legend()
     
-plt.figure(2)
-spec = fft(STN.pop_act[plot_start:])
-freq = fftfreq(STN.pop_act[plot_start:].shape[-1])
-plt.plot(freq, spec.real)
+#plt.figure(2)
+#spec = fft(STN.pop_act[plot_start:])
+#freq = fftfreq(STN.pop_act[plot_start:].shape[-1])
+#plt.plot(freq, spec.real)
     
 
     
