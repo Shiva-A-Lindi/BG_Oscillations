@@ -7,8 +7,8 @@ population_list = ['STN', 'GPe']
 N = { 'STN': N_sim , 'GPe': N_sim}
 N_real = { 'STN': 13560 , 'GPe': 34470}
 
-A = { 'STN': 15 , 'GPe': 20} # mean firing rate from experiments
-A_mvt = { 'STN': 50 , 'GPe': 20} # mean firing rate during movement from experiments
+A = { 'STN': 15 , 'GPe': 30} # mean firing rate from experiments
+A_mvt = { 'STN': 50 , 'GPe': 22} # mean firing rate during movement from experiments
 threshold = { 'STN': .1 ,'GPe': .1}
 neuron_type = {'STN': 'Glut', 'GPe': 'GABA'}
 gain = { 'STN': 1 ,'GPe': 1}
@@ -21,18 +21,18 @@ K_real = { ('STN', 'GPe'): 883,
            ('GPe', 'GPe'): 650}
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
       ('GPe', 'STN'): 2, # kita & Kitai (1991)
-      ('GPe', 'GPe'): 1} # transmission delay in ms
+      ('GPe', 'GPe'): 1.5} # transmission delay in ms
 G = { ('STN', 'GPe'): -2 ,
       ('GPe', 'STN'): 1 , 
       ('GPe', 'GPe'): 0} # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
-tau = {'GABA' : 10, 'Glut': 1} # synaptic time scale for excitation and inhibition
+tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
 
 rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
                    'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} # external input coming from Ctx and Str
 
-mvt_ext_input_dict = { 'STN': A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] ,
-                   'GPe': A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe']} # external input coming from Ctx and Str
+mvt_ext_input_dict = { 'STN': A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] -rest_ext_input['STN'],
+                   'GPe': A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # external input coming from Ctx and Str
 
 J = {}
 t_sim = 1000 # simulation time in ms
@@ -47,7 +47,7 @@ t_list = np.arange(int(t_sim/dt))
 def mvt_grad_ext_input(D_mvt,t_mvt,H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
-    H = H0*np.cos(np.pi*(t_series-t_mvt)/D_pert)**2
+    H = H0*np.cos(np.pi*(t_series-t_mvt)/D_mvt)**2
     ind = np.logical_or(t_series<t_mvt-D_mvt/2, t_series>t_mvt+D_mvt/2)
     H[ind] = 0
     return H
@@ -83,15 +83,15 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
     cols = projection_list.flatten().astype(int)
     JJ[rows,cols] = 1
     return JJ
-
+dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 #build_connection_matrix(4,10,2)
 class Nucleus:
 
-    def __init__(self, N, A, name, T, t_sim, dt, tau, neuron_type, rest_ext_input):
+    def __init__(self, N, A, name, T, t_sim, dt, tau, n_trans_types, rest_ext_input):
         self.n = N[name] # population size
         self.name = name
         self.nat_firing = A[name]
-        self.tau = tau[neuron_type] # synaptic time scale based on neuron type
+        self.tau = dictfilt(tau, n_trans_types) # synaptic time scale based on neuron type
         self.transmission_delays = {k: v for k, v in T.items() if k[1]==name} # filter based on the sending nucleus
         self.history_duration = max(self.transmission_delays.values()) # stored history in ms derived from the longest transmission delay of the projections
         self.output = np.zeros((self.n,int(self.history_duration/dt)))
@@ -113,8 +113,8 @@ class Nucleus:
         for projecting in receiving_from_class_list:
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
             syn_inputs += G[(self.name, projecting.name)]*np.matmul(J[(self.name, projecting.name)], 
-                           projecting.output[:,-int(T[(self.name,projecting.name)]/dt)].reshape(-1,1))/K[(self.name, projecting.name)]+ mvt_ext_inp
-        self.input = syn_inputs + self.rest_ext_input 
+                           projecting.output[:,-int(T[(self.name,projecting.name)]/dt)].reshape(-1,1))/K[(self.name, projecting.name)]
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp
 #        self.input =  self.rest_ext_input* np.ones_like(syn_inputs) 
 
         self.neuron_act = transfer_func(threshold[self.name], gain[self.name], self.input)
@@ -122,10 +122,11 @@ class Nucleus:
 
         self.pop_act[t] = np.average(self.neuron_act)
         
-    def update_output(self, new_output):
-        
-        new = np.hstack((self.output[:,1:], new_output))
-        self.output = new
+    def update_output(self):
+        new_output = nucleus.output[:,-1].reshape(-1,1)
+        for tau in self.tau.keys():
+            new_output += dt*(-nucleus.output[:,-1].reshape(-1,1)+nucleus.neuron_act)/nucleus.tau[tau]
+        self.output = np.hstack((self.output[:,1:], new_output))
         
     def set_connections(self, K, N):
         ''' creat Jij connection matrix
@@ -146,9 +147,10 @@ class Nucleus:
 
 #%%
 K = calculate_number_of_connections(N,N_real,K_real)
+#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-B'], rest_ext_input)
 
-GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, 'GABA', rest_ext_input)
-STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, 'Glut', rest_ext_input)
+GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
+STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, ['Glut'], rest_ext_input)
 
 GPe.set_connections(K, N)
 STN.set_connections(K, N)
@@ -165,24 +167,28 @@ start = timeit.default_timer()
 
 for t in t_list:
     for nucleus in nuclei_list:
-#        mvt_ext_inp = np.zeros((nucleus.n,1))
-        mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.perturbation_in_t[t]
+#        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
+        mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.perturbation_in_t[t] # movement added 
         nucleus.calculate_input_and_inst_act(threshold,gain, T, t, dt, receiving_class_dict[nucleus.name],mvt_ext_inp)
-        new_output = nucleus.output[:,-1].reshape(-1,1) + dt*(-nucleus.output[:,-1].reshape(-1,1)+nucleus.neuron_act)/nucleus.tau
-        nucleus.update_output(new_output)
+        nucleus.update_output()
         
 stop = timeit.default_timer()
 print("t = ", stop - start)
 plot_start = int(5/dt)
 plt.figure(1)    
 plt.plot(t_list[plot_start:]*dt,GPe.pop_act[plot_start:],label = "GPe", c = 'r')
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '--', c = 'r' )
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '--', c = 'r', alpha=0.8 )
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['GPe'], '--', c = 'r', alpha=0.15 )
+
 #plt.title("GPe")
 #plt.xlabel("time (ms)")
 #plt.ylabel("firing rate (spk/s)")
 #plt.figure(2)    
 plt.plot(t_list[plot_start:]*dt,STN.pop_act[plot_start:], label = "STN", c = 'k')
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '--', c = 'k' )
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '--', c = 'k', alpha=0.8 )
+plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['STN'], '--', c = 'k', alpha=0.15 )
+plt.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
+
 #plt.title("STN")    
 plt.xlabel("time (ms)")
 plt.ylabel("firing rate (spk/s)")
