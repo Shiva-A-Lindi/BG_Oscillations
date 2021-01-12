@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import timeit
 from numpy.fft import rfft,fft
 from scipy import signal
+#from scipy.ndimage.filters import generic_filter
 
 N_sim = 1000
 population_list = ['STN', 'GPe']
@@ -18,12 +19,15 @@ gain = { 'STN': 1 ,'GPe': 1}
 #K = { ('STN', 'GPe'): 475,
 #      ('GPe', 'STN'): 161,
 #      ('GPe', 'GPe'): 399}
-K_real = { ('STN', 'GPe'): 883,
-           ('GPe', 'STN'): 190,
-           ('GPe', 'GPe'): 650}
+K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
+           ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
+           ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
       ('GPe', 'STN'): 2, # kita & Kitai (1991)
-      ('GPe', 'GPe'): 1.5} # transmission delay in ms
+      ('GPe', 'GPe'): 1.5,
+      ('GPe', 'Str'): 5, # Kita & Kitai (1991)
+      ('STN', 'Ctx'): 5.5} # kita & Kita (2011)
+    # transmission delay in ms
 G = { ('STN', 'GPe'): -2 ,
       ('GPe', 'STN'): 1 , 
       ('GPe', 'GPe'): 0} # synaptic weight
@@ -45,7 +49,7 @@ d_Str = 200 # duration of external input to Str
 t_ext_to_Ctx = (t_mvt-D_mvt/2,t_mvt+D_mvt/2)
 t_ext_to_Str = (t_mvt-D_mvt/2,t_mvt-D_mvt/2+d_Str)
 t_list = np.arange(int(t_sim/dt))
-
+duration_mvt = [int(t_mvt/dt), int((t_mvt+D_mvt)/dt)]
 def freq_from_fft(sig):
     """
     Estimate frequency from peak of FFT
@@ -62,26 +66,33 @@ def freq_from_fft(sig):
 #    return fs * true_i / len(windowed)
     return i
 
+def cut_plateau(sig,epsilon = 10**(-2)):
+    variation = (sig-np.average(sig))**2
+    ind = np.where(variation >= epsilon)
+#    plt.plot(variation)
+#    plt.axvline(ind[0][0])
+    return ind[0]
+
 def freq_from_welch(sig,dt):
     """
-    Estimate frequency from peak of FFT
+    Estimate frequency with Welch method
     """
     fs = 1/(dt/1000)
     [ff,pxx] = signal.welch(sig,axis=0,nperseg=int(fs),fs=fs)#,nfft=1024)
     
     return ff[np.argmax(pxx)]
 
-def mvt_grad_ext_input(D_mvt,t_mvt,H0, t_series):
+def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
     H = H0*np.cos(2*np.pi*(t_series-t_mvt)/D_mvt)**2
-    ind = np.logical_or(t_series<t_mvt, t_series>t_mvt+D_mvt)
+    ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
     H[ind] = 0
     return H
-def mvt_step_ext_input(D_mvt,t_mvt,H0, t_series):
+def mvt_step_ext_input(D_mvt,t_mvt,delay, H0, t_series):
     
     H = H0*np.ones_like(t_series)
-    ind = np.logical_or(t_series<t_mvt, t_series>t_mvt+D_mvt)
+    ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
     H[ind] = 0
     return H
 #plt.plot(t_list, mvt_ext_input(D_mvt,t_mvt,H0, t_list/dt))
@@ -114,7 +125,7 @@ dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 #build_connection_matrix(4,10,2)
 class Nucleus:
 
-    def __init__(self, N, A, name, T, t_sim, dt, tau, n_trans_types, rest_ext_input):
+    def __init__(self, N, A, name, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_list):
         self.n = N[name] # population size
         self.name = name
         self.nat_firing = A[name]
@@ -125,10 +136,13 @@ class Nucleus:
         self.input = np.zeros((self.n))
         self.neuron_act = np.zeros((self.n))
         self.pop_act = np.zeros((int(t_sim/dt))) # time series of population activity
-        self.receiving_from_list = [k[1] for k, v in T.items() if k[0]==name]
+#        self.receiving_from_list = [k[1] for k, v in T.items() if k[0]==name]
+        self.receiving_from_list = receiving_from_list
+
         self.rest_ext_input = rest_ext_input[name]
         self.mvt_ext_input = np.zeros((int(t_sim/dt))) # external input mimicing movement
-        self.perturbation_in_time = np.zeros((int(t_sim/dt)))
+        self.external_inp_t_series = np.zeros((int(t_sim/dt)))
+        self.pop_act_mvt = None
 #        connection_arr = np.random.choice(n, k, replace=False) # choose k neurons out of n to send input to neuron i 
         
     def fix_firing_rate(self,inputs):
@@ -150,9 +164,9 @@ class Nucleus:
         self.pop_act[t] = np.average(self.neuron_act)
         
     def update_output(self):
-        new_output = nucleus.output[:,-1].reshape(-1,1)
+        new_output = self.output[:,-1].reshape(-1,1)
         for tau in self.tau.keys():
-            new_output += dt*(-nucleus.output[:,-1].reshape(-1,1)+nucleus.neuron_act)/nucleus.tau[tau]
+            new_output += dt*(-self.output[:,-1].reshape(-1,1)+self.neuron_act)/self.tau[tau]
         self.output = np.hstack((self.output[:,1:], new_output))
         
     def set_connections(self, K, N):
@@ -173,68 +187,86 @@ class Nucleus:
             J[(self.name, projecting)] = build_connection_matrix(self.n, N[projecting], n_connections)
 
 #%%
-K = calculate_number_of_connections(N,N_real,K_real)
-#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-B'], rest_ext_input)
+def run():
 
-GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
-STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, ['Glut'], rest_ext_input)
-
-GPe.set_connections(K, N)
-STN.set_connections(K, N)
-
-#GPe.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
-#STN.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
-GPe.perturbation_in_t =  mvt_step_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
-STN.perturbation_in_t =  mvt_step_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
- 
-nuclei_list = [GPe, STN]
-receiving_class_dict = {'STN': [GPe], 'GPe': [GPe, STN]} # points to the classes of nuclei each receive projections from
-
-start = timeit.default_timer()
-
-for t in t_list:
-    for nucleus in nuclei_list:
-#        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
-        mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.perturbation_in_t[t] # movement added 
-        nucleus.calculate_input_and_inst_act(threshold,gain, T, t, dt, receiving_class_dict[nucleus.name],mvt_ext_inp)
-        nucleus.update_output()
+    
+    GPe.set_connections(K, N)
+    STN.set_connections(K, N)
+    
+    #GPe.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['GPe'], t_list*dt)
+    #STN.perturbation_in_t =  mvt_grad_ext_input(D_mvt,t_mvt,mvt_ext_input_dict['STN'], t_list*dt)
+    GPe.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'Str')],mvt_ext_input_dict['GPe'], t_list*dt)
+    STN.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict['STN'], t_list*dt)
+     
+    nuclei_list = [GPe, STN]
+    receiving_class_dict = {'STN': [GPe], 'GPe': [GPe, STN]} # points to the classes of nuclei each receive projections from
+    
+    start = timeit.default_timer()
+    
+    for t in t_list:
+        for nucleus in nuclei_list:
+    #        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
+            mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.external_inp_t_series[t] # movement added 
+            nucleus.calculate_input_and_inst_act(threshold,gain, T, t, dt, receiving_class_dict[nucleus.name],mvt_ext_inp)
+            nucleus.update_output()
         
-stop = timeit.default_timer()
-print("t = ", stop - start)
-plot_start = int(5/dt)
-plt.figure(1)    
-plt.plot(t_list[plot_start:]*dt,GPe.pop_act[plot_start:],label = "GPe", c = 'r')
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '--', c = 'r', alpha=0.8 )
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['GPe'], '--', c = 'r', alpha=0.15 )
 
-#plt.title("GPe")
-#plt.xlabel("time (ms)")
-#plt.ylabel("firing rate (spk/s)")
-#plt.figure(2)    
-plt.plot(t_list[plot_start:]*dt,STN.pop_act[plot_start:], label = "STN", c = 'k')
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '--', c = 'k', alpha=0.8 )
-plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['STN'], '--', c = 'k', alpha=0.15 )
-plt.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    return 
+    
+def plot(GPe, STN):    
+    plot_start = int(5/dt)
+    
+    plt.figure(1)    
+    plt.plot(t_list[plot_start:]*dt,GPe.pop_act[plot_start:],label = "GPe", c = 'r')
+    plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '--', c = 'r', alpha=0.8 )
+    plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['GPe'], '--', c = 'r', alpha=0.15 )
+    
+      
+    plt.plot(t_list[plot_start:]*dt,STN.pop_act[plot_start:], label = "STN", c = 'k')
+    plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '--', c = 'k', alpha=0.8 )
+    plt.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['STN'], '--', c = 'k', alpha=0.15 )
+    plt.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
+    
+    plt.xlabel("time (ms)")
+    plt.ylabel("firing rate (spk/s)")
+    plt.legend()
+  
+    
+K = calculate_number_of_connections(N,N_real,K_real)
+GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A'], rest_ext_input)
 
-#plt.title("STN")    
-plt.xlabel("time (ms)")
-plt.ylabel("firing rate (spk/s)")
-plt.legend()
-   
- 
-from scipy.ndimage.filters import generic_filter
+#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
+STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, ['Glut'], rest_ext_input)
+run()
+plot(GPe,STN)
+#%%
+    
+n = 10
+GABA_A = np.linspace(3,20,n)
+GABA_B = np.linspace(100,300,n)
+Glut = np.linspace(1,15,n)
+for i in range(n):
+    GPe.tau = {'GABA-A' : GABA_A[n], 'Glut': 3.5} 
+    run()
 
-t_freq = [int(t_mvt/dt), int((t_mvt+D_mvt/5)/dt)]
-freq_from_welch(STN.pop_act[t_freq[0]:t_freq[1]],dt)
+    sig_STN = STN.pop_act[duration_mvt[0]:duration_mvt[1]]
+    STN_freq = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt)
+    sig_GPe = GPe.pop_act[duration_mvt[0]:duration_mvt[1]]
+    GPe_freq = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt)
+
+
 
 #tt = t_list[t_freq[0]:t_freq[1]]
 #sig1  = np.sin(2*np.pi*10*tt)#*np.exp(-0.015*t_list[t_freq[0]:t_freq[1]])
 
-sig2 = STN.pop_act[t_freq[0]:t_freq[1]]#-np.average(STN.pop_act[t_freq[0]:t_freq[1]])+10
-sig_filtered = generic_filter(sig2, np.std, size=10)
+#-np.average(STN.pop_act[t_freq[0]:t_freq[1]])+10
+
+#sig_filtered = generic_filter(sig2, np.std, size=10)
 #plt.plot(sig1)
-plt.plot(sig2)
-plt.plot(sig_filtered)
+#plt.plot(sig2)
+#plt.plot(sig_filtered)
 #fs = 1/(dt/1000)
 #[ff,pxx] = signal.welch(sig2,axis=0,nperseg=int(fs),fs=fs)#,nfft=1024)
 #plt.plot(ff,pxx)
