@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import timeit
-from scipy.fft import fft, fftfreq
+from numpy.fft import rfft,fft
+from scipy import signal
+
 N_sim = 1000
 population_list = ['STN', 'GPe']
 N = { 'STN': N_sim , 'GPe': N_sim}
@@ -44,11 +46,36 @@ t_ext_to_Ctx = (t_mvt-D_mvt/2,t_mvt+D_mvt/2)
 t_ext_to_Str = (t_mvt-D_mvt/2,t_mvt-D_mvt/2+d_Str)
 t_list = np.arange(int(t_sim/dt))
 
+def freq_from_fft(sig):
+    """
+    Estimate frequency from peak of FFT
+    """
+    # Compute Fourier transform of windowed signal
+    windowed = sig * signal.blackmanharris(len(sig))
+    f = rfft(windowed)
+
+    # Find the peak and interpolate to get a more accurate peak
+    i = np.argmax(abs(f))  # Just use this for less-accurate, naive version
+#    true_i = parabolic(log(abs(f)), i)[0]
+
+    # Convert to equivalent frequency
+#    return fs * true_i / len(windowed)
+    return i
+
+def freq_from_welch(sig,dt):
+    """
+    Estimate frequency from peak of FFT
+    """
+    fs = 1/(dt/1000)
+    [ff,pxx] = signal.welch(sig,axis=0,nperseg=int(fs),fs=fs)#,nfft=1024)
+    
+    return ff[np.argmax(pxx)]
+
 def mvt_grad_ext_input(D_mvt,t_mvt,H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
-    H = H0*np.cos(np.pi*(t_series-t_mvt)/D_mvt)**2
-    ind = np.logical_or(t_series<t_mvt-D_mvt/2, t_series>t_mvt+D_mvt/2)
+    H = H0*np.cos(2*np.pi*(t_series-t_mvt)/D_mvt)**2
+    ind = np.logical_or(t_series<t_mvt, t_series>t_mvt+D_mvt)
     H[ind] = 0
     return H
 def mvt_step_ext_input(D_mvt,t_mvt,H0, t_series):
@@ -193,22 +220,43 @@ plt.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
 plt.xlabel("time (ms)")
 plt.ylabel("firing rate (spk/s)")
 plt.legend()
-    
+   
+ 
+from scipy.ndimage.filters import generic_filter
+
+t_freq = [int(t_mvt/dt), int((t_mvt+D_mvt/5)/dt)]
+freq_from_welch(STN.pop_act[t_freq[0]:t_freq[1]],dt)
+
+#tt = t_list[t_freq[0]:t_freq[1]]
+#sig1  = np.sin(2*np.pi*10*tt)#*np.exp(-0.015*t_list[t_freq[0]:t_freq[1]])
+
+sig2 = STN.pop_act[t_freq[0]:t_freq[1]]#-np.average(STN.pop_act[t_freq[0]:t_freq[1]])+10
+sig_filtered = generic_filter(sig2, np.std, size=10)
+#plt.plot(sig1)
+plt.plot(sig2)
+plt.plot(sig_filtered)
+#fs = 1/(dt/1000)
+#[ff,pxx] = signal.welch(sig2,axis=0,nperseg=int(fs),fs=fs)#,nfft=1024)
+#plt.plot(ff,pxx)
+#ff[np.argmax(pxx)]
+#f1 = fft(sig1)
+#f2 = fft(sig2)
 #plt.figure(2)
-#spec = fft(STN.pop_act[plot_start:])
-#freq = fftfreq(STN.pop_act[plot_start:].shape[-1])
-#plt.plot(freq, spec.real)
+#windowed1 = sig1 * signal.blackmanharris(len(sig1))
+#windowed2 = sig2 * signal.blackmanharris(len(sig2))
+#plt.plot(f1)
+#plt.plot(windowed2)
+#
+## Find the peak and interpolate to get a more accurate peak
+#np.argmax(abs(f1))
+#np.argmax(abs(f2))
+    
+
+
     
 
     
-    
-    
-    
-    
-    
-    
-    
-    
+
     
     
     
