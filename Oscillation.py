@@ -243,19 +243,28 @@ run()
 plot(GPe,STN)
 #%%
     
-n = 10
+n = 5
 GABA_A = np.linspace(3,20,n)
 GABA_B = np.linspace(100,300,n)
 Glut = np.linspace(1,15,n)
-for i in range(n):
-    GPe.tau = {'GABA-A' : GABA_A[n], 'Glut': 3.5} 
-    run()
+STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
+count = 0
+for gaba_b in GABA_B:
+    for gaba_a in GABA_A:
+        for glut in Glut:
+            
+            GPe.tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
+            STN.tau = {'Glut': glut} 
 
-    sig_STN = STN.pop_act[duration_mvt[0]:duration_mvt[1]]
-    STN_freq = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt)
-    sig_GPe = GPe.pop_act[duration_mvt[0]:duration_mvt[1]]
-    GPe_freq = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt)
-
+            run()
+            tau_mat[count,:] = [gaba_a, gaba_b, glut]
+            sig_STN = STN.pop_act[duration_mvt[0]:duration_mvt[1]]
+            STN_freq [count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt)
+            sig_GPe = GPe.pop_act[duration_mvt[0]:duration_mvt[1]]
+            GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt)
+            count +=1
 
 
 #tt = t_list[t_freq[0]:t_freq[1]]
