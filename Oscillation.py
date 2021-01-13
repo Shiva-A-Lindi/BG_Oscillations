@@ -266,7 +266,16 @@ for gaba_b in GABA_B:
             GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt)
             count +=1
 
-
+from tempfile import TemporaryFile
+from mpl_toolkits.mplot3d import Axes3D
+outfile = TemporaryFile()
+np.savez('data.npz', tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
+file = np.load('data.npz')
+X,Y = np.meshgrid(tau_mat[:,0],tau_mat[:,1])
+plt.figure(2)
+plt.axes(projection='3d')
+tau_mat = file['tau_mat']
+plt.scatter(tau_mat[:,0],tau_mat[:,1],tau_mat[:,2], c = file['GPe'], cmap='viridis')
 #tt = t_list[t_freq[0]:t_freq[1]]
 #sig1  = np.sin(2*np.pi*10*tt)#*np.exp(-0.015*t_list[t_freq[0]:t_freq[1]])
 
