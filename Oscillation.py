@@ -243,10 +243,10 @@ run()
 plot(GPe,STN)
 #%%
     
-n = 5
-GABA_A = np.linspace(3,20,n)
-GABA_B = np.linspace(100,300,n)
-Glut = np.linspace(1,15,n)
+n = 10
+GABA_A = np.linspace(5,17,n)
+GABA_B = np.linspace(150,300,n)
+Glut = np.linspace(0.5,10,n)
 STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
 GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
 tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
@@ -271,11 +271,27 @@ from mpl_toolkits.mplot3d import Axes3D
 outfile = TemporaryFile()
 np.savez('data.npz', tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
 file = np.load('data.npz')
-X,Y = np.meshgrid(tau_mat[:,0],tau_mat[:,1])
+file.files
+#X,Y = np.meshgrid(tau_mat[:,0],tau_mat[:,1])
 plt.figure(2)
 plt.axes(projection='3d')
 tau_mat = file['tau_mat']
-plt.scatter(tau_mat[:,0],tau_mat[:,1],tau_mat[:,2], c = file['GPe'], cmap='viridis')
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+x = tau_mat[:,0]
+y = tau_mat[:,1]
+z = tau_mat[:,2]
+c = file['GPe']
+
+img = ax.scatter(x, y, z, c=c, cmap=plt.hot())
+ax.set_xlabel('GABA-A')
+ax.set_ylabel('GABA-B')
+ax.set_zlabel('Glut')
+clb = fig.colorbar(img)
+clb.set_label('frequency', labelpad=-40, y=1.05, rotation=0)
+plt.show()
 #tt = t_list[t_freq[0]:t_freq[1]]
 #sig1  = np.sin(2*np.pi*10*tt)#*np.exp(-0.015*t_list[t_freq[0]:t_freq[1]])
 
