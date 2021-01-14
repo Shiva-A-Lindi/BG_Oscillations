@@ -4,7 +4,7 @@ import timeit
 from numpy.fft import rfft,fft, fftfreq
 from scipy import signal
 from tempfile import TemporaryFile
-#from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D
 #from scipy.ndimage.filters import generic_filter
 
 N_sim = 1000
@@ -127,8 +127,8 @@ def freq_from_fft(sig,dt):
     f = rfft(sig)
     N = len(sig)
     freq = fftfreq(N, dt)#[:N//2]
-    plt.figure()
-    plt.semilogy(freq[:N//2], f[:N//2])
+#    plt.figure()
+#    plt.semilogy(freq[:N//2], f[:N//2])
     # Find the peak and interpolate to get a more accurate peak
     peak_freq = freq[np.argmax(abs(f))]  # Just use this for less-accurate, naive version
 #    true_i = parabolic(log(abs(f)), i)[0]
@@ -143,7 +143,7 @@ def freq_from_welch(sig,dt):
     """
     fs = 1/(dt)
     [ff,pxx] = signal.welch(sig,axis=0,fs=fs,nperseg=int(fs))
-    plt.semilogy(ff,pxx)
+#    plt.semilogy(ff,pxx)
     return ff[np.argmax(pxx)]
 
 def run():
@@ -192,11 +192,8 @@ def plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt):
     plt.ylabel("firing rate (spk/s)")
     plt.legend()
   
-def sweep_time_scales():
-    n = 10
-    GABA_A = np.linspace(5,17,n)
-    GABA_B = np.linspace(150,300,n)
-    Glut = np.linspace(0.5,10,n)
+def sweep_time_scales(GABA_A, GABA_B, Glut, dt):
+
     STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
     GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
     tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
@@ -219,30 +216,14 @@ def sweep_time_scales():
                 GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
 
                 count +=1
+                print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
     
     
 #    outfile = TemporaryFile()
     np.savez('data.npz', tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
-    file = np.load('data.npz')
+    
     #X,Y = np.meshgrid(tau_mat[:,0],tau_mat[:,1])
-    tau_mat = file['tau_mat']
-    
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    
-    x = tau_mat[:,0]
-    y = tau_mat[:,1]
-    z = tau_mat[:,2]
-    c = file['GPe']
-    
-    img = ax.scatter(x, y, z, c=c, cmap=plt.hot())
-    ax.set_xlabel('GABA-A')
-    ax.set_ylabel('GABA-B')
-    ax.set_zlabel('Glut')
-    clb = fig.colorbar(img)
-    clb.set_label('frequency', labelpad=-40, y=1.05, rotation=0)
-    plt.show()
-    
+
 def cut_plateau(sig,epsilon = 10**(-2)):
     variation = (sig-np.average(sig))**2
     ind = np.where(variation >= epsilon)
@@ -290,6 +271,32 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
     JJ[rows,cols] = 1
     return JJ
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
+
+def scatter_3d_plot_tau_space(file):
+    
+    tau_mat = file['tau_mat']
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    
+    x = tau_mat[:,0]
+    y = tau_mat[:,1]
+    z = tau_mat[:,2]
+    c = file['GPe']
+
+    img = ax.scatter(x, y, z, c=c, cmap=plt.hot())
+    
+    # only beta
+#    ind = np.logical_and(c<30, c>15)
+#    img = ax.scatter(x[ind], y[ind], z[ind], c=c[ind], cmap=plt.hot())
+    
+    ax.set_xlabel('GABA-A')
+    ax.set_ylabel('GABA-B')
+    ax.set_zlabel('Glut')
+    clb = fig.colorbar(img)
+    clb.set_label('frequency', labelpad=-40, y=1.05, rotation=0)
+    plt.show()
+    return x,y,z
 #build_connection_matrix(4,10,2)
 #%%  
 K = calculate_number_of_connections(N,N_real,K_real)
@@ -297,10 +304,39 @@ GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, ['STN'
 #GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input, ['STN', 'GPe'])
 STN = Nucleus(N, A, 'STN', T, t_sim, dt, tau, ['Glut'], rest_ext_input, ['GPe'])
 
-run()
-plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt)
-#sweep_time_scales()
+#run()
+#plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt)
+n = 8
+GABA_A = np.linspace(5,20,n)
+GABA_B = np.linspace(150,300,4)
+Glut = np.linspace(0.5,12,n)
+sweep_time_scales(GABA_A, GABA_B, Glut, dt )
+file = np.load('data.npz')
+x,y,z = scatter_3d_plot_tau_space(file)
+x = file['tau_mat'][:,0]
+y = file['tau_mat'][:,1]
+z = file['tau_mat'][:,2]
+c = file['GPe']
+ind = np.logical_and(c<31, c>29)
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+img = ax.scatter(x[ind], y[ind], z[ind], c=c[ind], cmap=plt.hot())
 
+ax.set_xlabel('GABA-A')
+ax.set_ylabel('GABA-B')
+ax.set_zlabel('Glut')
+clb = fig.colorbar(img)
+clb.set_label('frequency', labelpad=-40, y=1.05, rotation=0)
+plt.show()
+X,Y = np.meshgrid(x,y)
+Z = z.reshape(X.shape)
+fig = plt.figure(figsize=(6,6))
+ax = Axes3D(fig)
+surf = ax.plot_trisurf(x[ind],y[ind],z[ind], cmap = cm.coolwarm)
+ax.set_xlabel('GABA-A')
+ax.set_ylabel('GABA-B')
+ax.set_zlabel('Glut')
+fig.colorbar(surf, shrink=0.5, aspect=5)
 
 #%% Scribble
 
