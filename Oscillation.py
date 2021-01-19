@@ -57,9 +57,10 @@ duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/d
 #%%
 class Nucleus:
 
-    def __init__(self, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_list):
+    def __init__(self,population_number, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input):
         
         self.n = N[name] # population size
+        self.population_num = population_number
         self.name = name
         self.nat_firing = A[name]
         self.tau = dictfilt(tau, n_trans_types) # synaptic time scale based on neuron type
@@ -70,8 +71,8 @@ class Nucleus:
         self.input = np.zeros((self.n))
         self.neuron_act = np.zeros((self.n))
         self.pop_act = np.zeros((int(t_sim/dt))) # time series of population activity
-#        self.receiving_from_list = [k[1] for k, v in T.items() if k[0]==name]
-        self.receiving_from_list = receiving_from_list
+        self.receiving_from_list = [k[1] for k, v in G.items() if k[0]==name]
+#        self.receiving_from_list = receiving_from_list
         self.rest_ext_input = rest_ext_input[name]
         self.mvt_ext_input = np.zeros((int(t_sim/dt))) # external input mimicing movement
         self.external_inp_t_series = np.zeros((int(t_sim/dt)))
@@ -138,10 +139,6 @@ def freq_from_fft(sig,dt):
 
         return peak_freq
 
-def find_peaks(sig,dt):
-    
-    peaks, _ = signal.find_peaks(sig)
-    frequency = np.shift()
     
 def freq_from_welch(sig,dt):
     """
@@ -152,7 +149,7 @@ def freq_from_welch(sig,dt):
 #    plt.semilogy(ff,pxx)
     return ff[np.argmax(pxx)]
 
-def run():
+def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, J, K, threshold, gain):
 
     
     GPe.set_connections(K, N)
@@ -162,7 +159,7 @@ def run():
     STN.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict['STN'], t_list*dt)
      
     nuclei_list = [GPe, STN]
-    receiving_class_dict = {'STN': [GPe], 'GPe': [GPe, STN]} # points to the classes of nuclei each receive projections from
+    
     
     start = timeit.default_timer()
     
@@ -170,7 +167,7 @@ def run():
         for nucleus in nuclei_list:
     #        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
             mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.external_inp_t_series[t] # movement added 
-            nucleus.calculate_input_and_inst_act(J, K, threshold,gain, t, dt, receiving_class_dict[nucleus.name],mvt_ext_inp)
+            nucleus.calculate_input_and_inst_act(J, K, threshold, gain, t, dt, receiving_class_dict[nucleus.name], mvt_ext_inp)
             nucleus.update_output()
         
 
@@ -348,10 +345,12 @@ def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duratio
     for g_inh in g_inh_list:
         for g_exit in g_exit_list:
             GPe.synaptic_weight[('GPe', 'STN')] = g_exit
-#            GPe.synaptic_weight[('GPe', 'GPe')] = 0#g_inh*0.5
+            GPe.synaptic_weight[('GPe', 'GPe')] = g_inh*0.5
             STN.synaptic_weight[('STN','GPe')] = g_inh
             g_mat[count,:] = [g_exit, g_inh, g_inh*0.5]
-            run()
+            
+            run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, J, K, threshold, gain)
+            
             x1_gp_mvt = np.argmax(GPe.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
             x1_stn_mvt = np.argmax(STN.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
             x2_mvt = duration_mvt[1]
@@ -433,13 +432,13 @@ def rolling_window(a, window):
 ##G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
 
 K = calculate_number_of_connections(N,N_real,K_real)
-GPe = Nucleus(N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, ['STN'])#, 'GPe'])
-#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input, ['STN', 'GPe'])
-STN = Nucleus(N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, ['GPe'])
+GPe = Nucleus(1, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input)
+#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
+STN = Nucleus(1, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input)
+receiving_class_dict = {('STN','1'): [GPe], ('GPe','1'): [ GPe, STN]} # points to the classes of nuclei each receive projections from
+#run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, J, K, threshold, gain)
 
-run()
-
-plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+#plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 n_inh = 10 ; n_exit = 10
 g_inh_list = np.linspace(-3, -0.1, n_inh)
 g_exit_list = np.linspace(0.1, 3, n_exit)
@@ -454,7 +453,16 @@ plt.xlabel(r'$G_{GPe-STN}$')
 plt.ylabel(r'$G_{STN-GPe}$')
 plt.title('STN')
 clb = fig.colorbar(img)
-clb.set_label('% oscillation period', labelpad=-40, y=1.05, rotation=0)
+clb.set_label('% basal oscillation period', labelpad=-40, y=1.05, rotation=0)
+plt.show()
+
+fig = plt.figure()
+img = plt.scatter(g_mat[:,0],-g_mat[:,1], c = STN_prop['perc_t_oscil_mvt'], cmap=plt.hot(),lw = 1,edgecolor = 'k')
+plt.xlabel(r'$G_{GPe-STN}$')
+plt.ylabel(r'$G_{STN-GPe}$')
+plt.title('STN')
+clb = fig.colorbar(img)
+clb.set_label('% mvt oscillation period', labelpad=-40, y=1.05, rotation=0)
 plt.show()
 #%% # time scale parameter space with frequency of transient oscillations at steady state
 n = 8
