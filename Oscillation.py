@@ -11,10 +11,13 @@ N_sim = 500
 population_list = ['STN', 'GPe']
 N_sub_pop = 2
 N = { 'STN': N_sim , 'GPe': N_sim}
-N_real = { 'STN': 13560 , 'GPe': 34470}
-
-A = { 'STN': 15 , 'GPe': 30} # mean firing rate from experiments
-A_mvt = { 'STN': 50 , 'GPe': 22} # mean firing rate during movement from experiments
+# MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
+N_Str = 2.79*10^6 # Oorschot 1998
+N_real = { 'STN': 13560 , 'GPe': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str/2), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
+A = { 'STN': 15 , 'GPe': 30,
+     'FSI': 12.5, 'D1': 0, 'D2': 0, 'GPi':0} # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008). 
+# mean firing rate from experiments
+A_mvt = { 'STN': 50 , 'GPe': 22, 'FSI': 70} # mean firing rate during movement from experiments
 threshold = { 'STN': .1 ,'GPe': .1}
 neuron_type = {'STN': 'Glut', 'GPe': 'GABA'}
 gain = { 'STN': 1 ,'GPe': 1}
@@ -24,7 +27,14 @@ gain = { 'STN': 1 ,'GPe': 1}
 #      ('GPe', 'GPe'): 399}
 K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
            ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
-           ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
+           ('GPe', 'GPe'): 650, # Hegeman et al. (2017)
+           ('GPe', 'FSI'): 0,
+           ('D1', 'FSI'): 0,
+           ('D2', 'FSI'): 0,
+           ('GPe', 'D2'): 0,
+           ('GPi', 'D1'): 0,
+           ('GPi', 'STN'): 0,
+           ('D1', 'D2'): .28*N_real['D2'],('D2', 'D2'):.36**N_real['D2'],  ('D1', 'D1'):.26**N_real['D1'],  ('D2', 'D1'):.5**N_real['D1']} # (Taverna et al 2008 -mice-)
 K_real_STN_GPe_diverse = K_real.copy()
 K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
@@ -34,7 +44,7 @@ T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
       ('STN', 'Ctx'): 5.5} # kita & Kita (2011)
     # transmission delay in ms
 G = { ('STN', 'GPe'): -2 ,
-      ('GPe', 'STN'): 1 , 
+      ('GPe', 'STN'): 0.5 , 
       ('GPe', 'GPe'): 0,
       ('Str', 'Ctx'): 0} # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
@@ -43,11 +53,18 @@ receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')]
                         ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
 tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
 noise_variance = {'GPe' : 0.1, 'STN': 0.1}
+noise_amplitude = {'GPe' : 50, 'STN': 50}
+#rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
+#                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} #  <Single pop> external input coming from Ctx and Str
+
+#mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] -rest_ext_input['STN'],
+#                   ('GPe', '1') : A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # <single pop> external input coming from Ctx and Str
+
 rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
-                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} # external input coming from Ctx and Str
+                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN']*2 + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} # <double pop> external input coming from Ctx and Str
 
 mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] -rest_ext_input['STN'],
-                   ('GPe', '1') : A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # external input coming from Ctx and Str
+                   ('GPe', '1') : A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN']*2 + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # external input coming from Ctx and Str
 mvt_ext_input_dict[('STN', '2')] = mvt_ext_input_dict[('STN', '1')] ; mvt_ext_input_dict[('GPe', '2')] = mvt_ext_input_dict[('GPe', '1')]  
 pert_val = 10
 mvt_selective_ext_input_dict = {('GPe','1') : pert_val, ('GPe','2') : -pert_val,
@@ -66,7 +83,7 @@ duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/d
 #%%
 class Nucleus:
 
-    def __init__(self,population_number, noise_variance, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_dict):
+    def __init__(self,population_number, noise_variance, noise_amplitude, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_dict):
         
         self.n = N[name] # population size
         self.population_num = population_number
@@ -87,7 +104,8 @@ class Nucleus:
         self.external_inp_t_series = np.zeros((int(t_sim/dt)))
         self.avg_pop_act_mvt = None
         self.avg_pop_act_base = None
-        self.noise_variance = np.random.normal(0,noise_variance, self.n).reshape(-1,1) #additive gaussian white noise with mean zero and variance sigma'''
+        self.noise_variance =  noise_variance[self.name ] #additive gaussian white noise with mean zero and variance sigma
+        self.noise_amplitude =  noise_amplitude[self.name ] #additive gaussian white noise with mean zero and variance sigma
         self.connectivity_matrix = {}
         
     def calculate_input_and_inst_act(self, K, threshold, gain, t, dt, receiving_from_class_list, mvt_ext_inp):  
@@ -99,7 +117,7 @@ class Nucleus:
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
                            projecting.output[:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/K[(self.name, projecting.name)]
         
-        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp + self.noise_variance
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp + noise_generator(self.noise_variance)
         self.neuron_act = transfer_func(threshold[self.name], gain[self.name], self.input)
         self.pop_act[t] = np.average(self.neuron_act)
         
@@ -133,6 +151,8 @@ def dopamine_effect(threshold, G, dopamine_percentage):
     G[('Str','Ctx')] = 0.75/(1+np.exp(-0.09*(dopamine_percentage - 60)))
     return threshold, G
 
+def noise_generator(amplitude, variance, n):
+    return amplitude * np.random.normal(0,noise_variance, n).reshape(-1,1)
 def freq_from_fft(sig,dt):
     """
     Estimate frequency from peak of FFT
@@ -167,7 +187,7 @@ def freq_from_welch(sig,dt):
 #    plt.semilogy(ff,pxx)
     return ff[np.argmax(pxx)]
 
-def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, threshold, gain, nuceli_dict):
+def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuceli_dict):
     
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -462,22 +482,17 @@ def rolling_window(a, window):
 #K = calculate_number_of_connections(N,N_real,K_real)
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
-GPe = [Nucleus(1, noise_variance['GPe'], N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance['GPe'], N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list)]
-#GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
-STN = [Nucleus(1, noise_variance['STN'], N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance['STN'], N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
-#receiving_class_dict = {('STN','1'): [GPe[0]], ('STN','2'): [GPe[1]], 
-#                        ('GPe','1'): [ GPe[0], STN[0], STN[1]], ('GPe','2'): [ GPe[1], STN[0], STN[1]]} # points to the classes of nuclei each receive projections from
-##receiving_class_dict = {('STN','1'): [GPe[0]], ('STN','2'): [GPe[1]], 
-##                        ('GPe','1'): [ GPe[0], GPe[1], STN[0], STN[1]], ('GPe','2'): [ GPe[0], GPe[1], STN[0], STN[1]]} # if GPe lateal inhibition is also diverse
-run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list,  K, threshold, gain, nuclei_dict)
 
+run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 #%%
 n_inh = 10 ; n_exit = 10
