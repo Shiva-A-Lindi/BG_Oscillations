@@ -12,10 +12,12 @@ population_list = ['STN', 'GPe']
 N_sub_pop = 2
 N = { 'STN': N_sim , 'GPe': N_sim}
 # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
-N_Str = 2.79*10^6 # Oorschot 1998
+N_Str = 2.79*10**6 # Oorschot 1998
 N_real = { 'STN': 13560 , 'GPe': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str/2), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
 A = { 'STN': 15 , 'GPe': 30,
-     'FSI': 12.5, 'D1': 0, 'D2': 0, 'GPi':0} # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008). 
+     'FSI': 12.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
+     'D1': 1.1, 'D2': 1.1, #Berke et al. 2010
+     'GPi':0} 
 # mean firing rate from experiments
 A_mvt = { 'STN': 50 , 'GPe': 22, 'FSI': 70} # mean firing rate during movement from experiments
 threshold = { 'STN': .1 ,'GPe': .1}
@@ -25,29 +27,44 @@ gain = { 'STN': 1 ,'GPe': 1}
 #K = { ('STN', 'GPe'): 475,
 #      ('GPe', 'STN'): 161,
 #      ('GPe', 'GPe'): 399}
+Str_connec = {('D1', 'D2'): .28,('D2', 'D2'):.36,  ('D1', 'D1'):.26,  ('D2', 'D1'):.05, ('MSN','MSN'): 1350} # Taverna et al 2008
 K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
            ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
            ('GPe', 'GPe'): 650, # Hegeman et al. (2017)
-           ('GPe', 'FSI'): 0,
-           ('D1', 'FSI'): 0,
-           ('D2', 'FSI'): 0,
-           ('GPe', 'D2'): 0,
+#           ('FSI', 'GPe'): int(800*15*N_real['GPe']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per GPe Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
+           ('FSI', 'GPe'): 360, # averaging the FSI contacting of GPe boutons Bevan 1998
+           ('D1', 'FSI'): int(36*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 36% (FSI-D1) Gittis et al.2010
+           ('D2', 'FSI'): int(53*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
+           ('FSI','FSI'): int(N_real['FSI']*0.58), # Gittis et al.
+           ('GPe', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
            ('GPi', 'D1'): 0,
            ('GPi', 'STN'): 0,
-           ('D1', 'D2'): .28*N_real['D2'],('D2', 'D2'):.36**N_real['D2'],  ('D1', 'D1'):.26**N_real['D1'],  ('D2', 'D1'):.5**N_real['D1']} # (Taverna et al 2008 -mice-)
+           ('D1', 'D2'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')]),
+           ('D2', 'D2'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')]),
+           ('D1', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]),  
+           ('D2', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]), #Guzman et al (2003) based on Taverna et al (2008)
+           ('D1', 'GPe'): int(N_real['GPe']*(1-np.power(64/81, 1/N_real['GPe'])))} # Klug et al 2018
 K_real_STN_GPe_diverse = K_real.copy()
 K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
       ('GPe', 'STN'): 2, # kita & Kitai (1991)
       ('GPe', 'GPe'): 1.5, # estimate
       ('GPe', 'Str'): 5, # Kita & Kitai (1991)
-      ('STN', 'Ctx'): 5.5} # kita & Kita (2011)
+      ('STN', 'Ctx'): 5.5, # kita & Kita (2011)
+      ('GPi', 'D1'): 7.2} # IPSP latency for now Kita et al. 2001
     # transmission delay in ms
 G = { ('STN', 'GPe'): -2 ,
       ('GPe', 'STN'): 0.5 , 
       ('GPe', 'GPe'): 0,
-      ('Str', 'Ctx'): 0} # synaptic weight
+      ('Str', 'Ctx'): 0,
+      ('D2','GPe'): 0} # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
+G_DD = { ('STN', 'GPe'): -2 ,
+      ('GPe', 'STN'): 0.5 , 
+      ('GPe', 'GPe'): 0,
+      ('Str', 'Ctx'): 0,
+      ('D2','GPe'): G[('D2','GPe')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
+G_DD[('GPe', 'GPe')] = 0.5* G_DD[('STN', 'GPe')]
 receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
                         ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
                         ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
