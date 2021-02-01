@@ -5,12 +5,13 @@ from numpy.fft import rfft,fft, fftfreq
 from scipy import signal
 from tempfile import TemporaryFile
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 #from scipy.ndimage.filters import generic_filter
 
 N_sim = 500
 population_list = ['STN', 'GPe']
 N_sub_pop = 2
-N = { 'STN': N_sim , 'GPe': N_sim}
+N = { 'STN': N_sim , 'GPe': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim}
 # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
 N_Str = 2.79*10**6 # Oorschot 1998
 N_real = { 'STN': 13560 , 'GPe': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str/2), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
@@ -121,7 +122,7 @@ G_DD[('GPe', 'GPe')] = 0.5* G_DD[('STN', 'GPe')]
 
 tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
 noise_variance = {'GPe' : 0.1, 'STN': 0.1}
-noise_amplitude = {'GPe' : 50, 'STN': 50}
+noise_amplitude = {'GPe' : 1, 'STN': 1}
 #rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
 #                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} #  <Single pop> external input coming from Ctx and Str
 
@@ -145,7 +146,7 @@ D_mvt = 500
 D_perturb = 500 # transient selective perturbation
 d_Str = 200 # duration of external input to Str
 t_list = np.arange(int(t_sim/dt))
-duration_mvt = [int((t_mvt+ max(T[('GPe', 'Str')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt+max(T[('GPe', 'Str')],T[('STN', 'Ctx')]))/dt)]
+duration_mvt = [int((t_mvt+ max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt+max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt)]
 duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/dt)]
 
 #%%
@@ -185,7 +186,8 @@ class Nucleus:
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
                            projecting.output[:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/K[(self.name, projecting.name)]
         
-        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp + noise_generator(self.noise_variance)
+#        print(self.noise_amplitude)
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         self.neuron_act = transfer_func(threshold[self.name], gain[self.name], self.input)
         self.pop_act[t] = np.average(self.neuron_act)
         
@@ -220,7 +222,7 @@ def dopamine_effect(threshold, G, dopamine_percentage):
     return threshold, G
 
 def noise_generator(amplitude, variance, n):
-    return amplitude * np.random.normal(0,noise_variance, n).reshape(-1,1)
+    return amplitude * np.random.normal(0,variance, n).reshape(-1,1)
 def freq_from_fft(sig,dt):
     """
     Estimate frequency from peak of FFT
@@ -261,10 +263,10 @@ def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, th
         for nucleus in nuclei_list:
             nucleus.set_connections(K, N)
     
-    GPe[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'Str')],mvt_ext_input_dict[('GPe','1')], t_list*dt)
+    GPe[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'D2')],mvt_ext_input_dict[('GPe','1')], t_list*dt)
     STN[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict[('STN','1')], t_list*dt)
      
-    GPe[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'Str')],mvt_ext_input_dict[('GPe','2')], t_list*dt)
+    GPe[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'D2')],mvt_ext_input_dict[('GPe','2')], t_list*dt)
     STN[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict[('STN','2')], t_list*dt)
      
 
@@ -311,65 +313,65 @@ def plot( GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_s
     plt.ylabel("firing rate (spk/s)", fontsize = 10)
     plt.legend(fontsize = 10)
     ax.tick_params(axis='both', which='major', labelsize=10)
-def sweep_time_scales(GABA_A, GABA_B, Glut, dt, filename):
-
-    STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
-    GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
-    tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
-    count = 0
-    for gaba_b in GABA_B:
-        for gaba_a in GABA_A:
-            for glut in Glut:
-                
-                GPe.tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
-                STN.tau = {'Glut': glut} 
-    
-                run()
-                tau_mat[count,:] = [gaba_a, gaba_b, glut]
-                sig_STN = STN.pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN.pop_act[duration_mvt[0]:duration_mvt[1]])
-#                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
-                STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
-
-                sig_GPe = GPe.pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe.pop_act[duration_mvt[0]:duration_mvt[1]])
-#                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
-                GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
-
-                count +=1
-                print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
-    
-    
-    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
-    
-def sweep_time_scales_one_GABA(inhibitory_trans,inhibitory_series, Glut, dt, filename):
-
-    STN_freq = np.zeros((len(inhibitory_series)*len(Glut)))
-    GPe_freq = np.zeros((len(inhibitory_series)*len(Glut)))
-    tau_mat = np.zeros((len(inhibitory_series)*len(Glut),2))
-    count = 0
-
-    for gaba in inhibitory_series:
-        for glut in Glut:
-            
-            GPe.tau = {inhibitory_trans : gaba}
-            STN.tau = {'Glut': glut} 
-
-            run()
-            tau_mat[count,:] = [gaba, glut]
-            sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]]) + STN[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[1].pop_act[duration_mvt[0]:duration_mvt[1]])
-            
-#                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
-            STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
-
-            sig_GPe = GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]]) +GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]])
-#                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
-            GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
-
-            count +=1
-            print(count, "from ", len(inhibitory_series)*len(Glut))
-
-    
-    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
-    
+#def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuceli_dict):
+#
+#    STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+#    GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+#    tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
+#    count = 0
+#    for gaba_b in GABA_B:
+#        for gaba_a in GABA_A:
+#            for glut in Glut:
+#                
+#                GPe.tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
+#                STN.tau = {'Glut': glut} 
+#    
+#                run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuceli_dict)
+#                tau_mat[count,:] = [gaba_a, gaba_b, glut]
+#                sig_STN = STN.pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN.pop_act[duration_mvt[0]:duration_mvt[1]])
+##                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
+#                STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
+#
+#                sig_GPe = GPe.pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe.pop_act[duration_mvt[0]:duration_mvt[1]])
+##                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+#                GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+#
+#                count +=1
+#                print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
+#    
+#    
+#    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
+#    
+#def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuceli_dict):
+#
+#    STN_freq = np.zeros((len(inhibitory_series)*len(Glut)))
+#    GPe_freq = np.zeros((len(inhibitory_series)*len(Glut)))
+#    tau_mat = np.zeros((len(inhibitory_series)*len(Glut),2))
+#    count = 0
+#
+#    for gaba in inhibitory_series:
+#        for glut in Glut:
+#            
+#            GPe.tau = {inhibitory_trans : gaba}
+#            STN.tau = {'Glut': glut} 
+#
+#            run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuceli_dict)
+#            tau_mat[count,:] = [gaba, glut]
+#            sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]]) + STN[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[1].pop_act[duration_mvt[0]:duration_mvt[1]])
+#            
+##                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
+#            STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
+#
+#            sig_GPe = GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]]) +GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]])
+##                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+#            GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+#
+#            count +=1
+#            print(count, "from ", len(inhibitory_series)*len(Glut))
+#
+#    
+#    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
+#    
 
 
 
@@ -415,12 +417,18 @@ dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+
     
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
 #    print(ind)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
     img = ax.scatter(x[ind], y[ind], z[ind], c=c[ind], cmap=plt.hot(),lw = 1,edgecolor = 'k')
+    
+
+#    ax = Axes3D(fig)
+#    surf = ax.plot_trisurf(x[ind],y[ind],z[ind], cmap = cm.coolwarm)
+#    fig.colorbar(surf, shrink=0.5, aspect=5)
     
     ax.set_xlabel(label[0])
     ax.set_ylabel(label[1])
@@ -429,13 +437,6 @@ def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
     clb = fig.colorbar(img)
     clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
-#    fig = plt.figure(figsize=(6,6))
-#    ax = Axes3D(fig)
-#    surf = ax.plot_trisurf(x[ind],y[ind],z[ind], cmap = cm.coolwarm)
-#    ax.set_xlabel('GABA-A')
-#    ax.set_ylabel('GABA-B')
-#    ax.set_zlabel('Glut')
-#    fig.colorbar(surf, shrink=0.5, aspect=5)
 #build_connection_matrix(4,10,2)
    
 def max_non_empty_array(array):
@@ -463,38 +464,38 @@ def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duratio
             GPe.synaptic_weight[('GPe', 'GPe')] = g_inh*0.5
             STN.synaptic_weight[('STN','GPe')] = g_inh
             g_mat[count,:] = [g_exit, g_inh, g_inh*0.5]
-            
-            run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, threshold, gain)
-            
-            x1_gp_mvt = np.argmax(GPe.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
-            x1_stn_mvt = np.argmax(STN.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
+            nuclei_dict = {'GPe': GPe, 'STN' : STN}
+            run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+            GPe_test = GPe[0] ; STN_test = STN[0]
+            x1_gp_mvt = np.argmax(GPe_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
+            x1_stn_mvt = np.argmax(STN_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
             x2_mvt = duration_mvt[1]
-            x1_gp_base = np.argmax(GPe.pop_act[0:int(t_mvt/dt)])
-            x1_stn_base = np.argmax(STN.pop_act[0:int(t_mvt/dt)])
+            x1_gp_base = np.argmax(GPe_test.pop_act[0:int(t_mvt/dt)])
+            x1_stn_base = np.argmax(STN_test.pop_act[0:int(t_mvt/dt)])
             x2_base = duration_base[1]
-            sig_STN_mvt = STN.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN.pop_act[x1_stn_mvt:x2_mvt])
+            sig_STN_mvt = STN_test.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN_test.pop_act[x1_stn_mvt:x2_mvt])
             cut_sig_ind_mvt = cut_plateau(sig_STN_mvt)
             
             STN_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_STN_mvt)*100
             STN_prop[('mvt_f')][count] = freq_from_fft(sig_STN_mvt[cut_sig_ind_mvt],dt/1000)
 
-            sig_STN_base = STN.pop_act[x1_stn_base:x2_base] - np.average(STN.pop_act[x1_stn_base:x2_base])
+            sig_STN_base = STN_test.pop_act[x1_stn_base:x2_base] - np.average(STN_test.pop_act[x1_stn_base:x2_base])
             cut_sig_ind_base = cut_plateau(sig_STN_base)
             STN_prop[('perc_t_oscil_base')][count] = max_non_empty_array(cut_sig_ind_base)/len(sig_STN_base)*100
             STN_prop[('base_f')][count] = freq_from_fft(sig_STN_base[cut_sig_ind_base],dt/1000)
 
-            sig_GPe_mvt = GPe.pop_act[x1_gp_mvt:x2_mvt] - np.average(GPe.pop_act[x1_gp_mvt:x2_mvt])
+            sig_GPe_mvt = GPe_test.pop_act[x1_gp_mvt:x2_mvt] - np.average(GPe_test.pop_act[x1_gp_mvt:x2_mvt])
             cut_sig_ind_mvt = cut_plateau(sig_GPe_mvt)
             GPe_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_GPe_mvt)*100
             GPe_prop[('mvt_f')][count] = freq_from_fft(sig_GPe_mvt[cut_sig_ind_mvt],dt/1000)
 
-            sig_GPe_base = GPe.pop_act[x1_gp_base:x2_base] - np.average(GPe.pop_act[x1_gp_base:x2_base])
+            sig_GPe_base = GPe_test.pop_act[x1_gp_base:x2_base] - np.average(GPe_test.pop_act[x1_gp_base:x2_base])
             cut_sig_ind_base = cut_plateau(sig_GPe_base)
             GPe_prop[('perc_t_oscil_base')][count] = max_non_empty_array(cut_sig_ind_base)/len(sig_GPe_base)*100
             GPe_prop[('base_f')][count] = freq_from_fft(sig_GPe_base[cut_sig_ind_base],dt/1000)
             
             ax = fig.add_subplot(n,m,count+1)
-            plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-GPe}$ = "+ str(round(g_inh,2))+r' $G_{GPe-STN}$ ='+str(round(g_exit,2)), n_subplots = int(n*m))
+            plot(GPe_test, STN_test, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-GPe}$ = "+ str(round(g_inh,2))+r' $G_{GPe-STN}$ ='+str(round(g_exit,2)), n_subplots = int(n*m))
             plt.title( r"$G_{STN-GPe}$ = "+ str(round(g_inh,2))+r' $G_{GPe-STN}$ ='+str(round(g_exit,2)), fontsize = 5)
             plt.xlabel("time (ms)", fontsize = 5)
             plt.ylabel("firing rate (spk/s)", fontsize = 5)
@@ -540,6 +541,67 @@ def rolling_window(a, window):
     strides = a.strides + (a.strides[-1],)
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
+def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
+
+    STN_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+    GPe_freq = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut)))
+    tau_mat = np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))
+    count = 0
+    for gaba_b in GABA_B:
+        for gaba_a in GABA_A:
+            for glut in Glut:
+                for k in range (len(GPe)):
+                    GPe[k].tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
+                    STN[k].tau = {'Glut': glut} 
+                nuclei_dict = {'GPe': GPe, 'STN' : STN}
+                run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+                tau_mat[count,:] = [gaba_a, gaba_b, glut]
+                sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]])
+#                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
+                STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
+
+                sig_GPe = GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]])
+#                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+                GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+
+                count +=1
+                print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
+    
+    
+    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
+    
+def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
+
+    STN_freq = np.zeros((len(inhibitory_series)*len(Glut)))
+    GPe_freq = np.zeros((len(inhibitory_series)*len(Glut)))
+    tau_mat = np.zeros((len(inhibitory_series)*len(Glut),2))
+    count = 0
+
+    for gaba in inhibitory_series:
+        for glut in Glut:
+            
+            for k in range (len(GPe)):
+                GPe[k].tau = {inhibitory_trans : gaba}
+                STN[k].tau = {'Glut': glut} 
+
+            nuclei_dict = {'GPe': GPe, 'STN' : STN}
+            run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+            tau_mat[count,:] = [gaba, glut]
+            sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]]) + STN[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[1].pop_act[duration_mvt[0]:duration_mvt[1]])
+            
+#                STN_freq[count] = freq_from_welch(sig_STN[cut_plateau(sig_STN)],dt/1000)
+            STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
+
+            sig_GPe = GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]]) +GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[1].pop_act[duration_mvt[0]:duration_mvt[1]])
+#                GPe_freq [count] = freq_from_welch(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+            GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
+
+            count +=1
+            print(count, "from ", len(inhibitory_series)*len(Glut))
+
+    
+    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
+    
 
 #%% STN-GPe network
 #G = { ('STN', 'GPe'): g_mat[15,1] ,
@@ -586,7 +648,7 @@ for key in receiving_class_dict.keys():
 
 run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
-#%%
+#%% synaptic weight phase exploration
 n_inh = 10 ; n_exit = 10
 g_inh_list = np.linspace(-3, -0.1, n_inh)
 g_exit_list = np.linspace(0.1, 3, n_exit)
@@ -613,39 +675,90 @@ clb = fig.colorbar(img)
 clb.set_label('% mvt oscillation period', labelpad=-40, y=1.05, rotation=0)
 plt.show()
 #%% # time scale parameter space with frequency of transient oscillations at steady state
-n = 8
+K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
+           ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
+           ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
+K_real_STN_GPe_diverse = K_real.copy()
+K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
+
+receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
+                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
+                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
+K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+nuclei_dict = {'GPe': GPe, 'STN' : STN}
+
+receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
+for key in receiving_class_dict.keys():
+    receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
+
+#run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+n = 7
 GABA_A = np.linspace(5,20,n)
 GABA_B = np.linspace(150,300,4)
 Glut = np.linspace(0.5,12,n)
-sweep_time_scales(GABA_A, GABA_B, Glut, dt, 'data_GABA_A_B_Glut.npz')
+sweep_time_scales(GPe,STN, GABA_A, GABA_B, Glut, dt, 'data_GABA_A_B_Glut.npz',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 file = np.load('data_GABA_A_B_Glut.npz')
 x = file['tau_mat'][:,0]
 y = file['tau_mat'][:,1]
 z = file['tau_mat'][:,2]
 
-scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_A','GABA_B','Glut'])
+scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_A','GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['STN'],'STN', 30, 20,['GABA_A','GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['STN'],'STN', 31, 27,['GABA_A','GABA_B','Glut','freq'])
+
+scatter_3d_plot(x,y,z, file['GPe'],'GPe', np.max(file['GPe']), np.min(file['GPe']),['GABA_A','GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['GPe'],'GPe',  30, 20 ,['GABA_A','GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['GPe'],'GPe', 31, 27,['GABA_A','GABA_B','Glut','freq'])
 
 
-sweep_time_scales_one_GABA('GABA_A', GABA_A, Glut, dt, 'data_GABA_A.npz')
+######################################3 only GABA-A
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+nuclei_dict = {'GPe': GPe, 'STN' : STN}
+
+receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
+for key in receiving_class_dict.keys():
+    receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
+    
+sweep_time_scales_one_GABA(GPe, STN, 'GABA_A', GABA_A, Glut, dt, 'data_GABA_A.npz',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 file = np.load('data_GABA_A.npz')
 x = file['tau_mat'][:,0]
 y = file['tau_mat'][:,1]
 z = file['STN']
-scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_A','Glut','freq'])
+scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_A','Glut','freq','freq'])
 
 z = file['GPe']
-scatter_3d_plot(x,y,z, file['GPe'],'GPe', np.max(z), np.min(z),['GABA_A','Glut','freq'])
+scatter_3d_plot(x,y,z, file['GPe'],'GPe', np.max(z), np.min(z),['GABA_A','Glut','freq', 'freq'])
 
+
+################################### only GABA-B
+
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+nuclei_dict = {'GPe': GPe, 'STN' : STN}
+
+receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
+for key in receiving_class_dict.keys():
+    receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 GABA_B = np.linspace(150,300,8)
-sweep_time_scales_one_GABA('GABA_B', GABA_B, Glut, dt, 'data_GABA_B_Glut.npz')
+sweep_time_scales_one_GABA(GPe, STN, 'GABA_B', GABA_B, Glut, dt, 'data_GABA_B_Glut.npz',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 file = np.load('data_GABA_B_Glut.npz')
 x = file['tau_mat'][:,0]
 y = file['tau_mat'][:,1]
 z = file['STN']
-scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['STN'],'STN', np.max(file['STN']), np.min(file['STN']),['GABA_B','Glut','freq','freq'])
 
 z = file['GPe']
-scatter_3d_plot(x,y,z, file['GPe'],'GPe', np.max(z), np.min(z),['GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z, file['GPe'],'GPe', np.max(z), np.min(z),['GABA_B','Glut','freq', 'freq'])
 
 #%% Scribble
 
