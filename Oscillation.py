@@ -653,6 +653,28 @@ plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 n_inh = 10 ; n_exit = 10
 g_inh_list = np.linspace(-3, -0.1, n_inh)
 g_exit_list = np.linspace(0.1, 3, n_exit)
+
+K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
+           ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
+           ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
+K_real_STN_GPe_diverse = K_real.copy()
+K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
+
+receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
+                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
+                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
+K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+nuclei_dict = {'GPe': GPe, 'STN' : STN}
+
+receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
+for key in receiving_class_dict.keys():
+    receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
+
 g_mat, GPe_prop, STN_prop = synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duration_mvt, duration_base)
 #scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_base'],STN_prop['perc_t_oscil_base'], 'STN', np.max(STN_prop['perc_t_oscil_base']), np.min(STN_prop['perc_t_oscil_base']), ['GPe-STN', 'STN-GPe', '% basal oscillatory period',  '% basal oscillatory period'])
 #scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_mvt'],STN_prop['perc_t_oscil_mvt'], 'STN', np.max(STN_prop['perc_t_oscil_mvt']), np.min(STN_prop['perc_t_oscil_mvt']), ['GPe-STN', 'STN-GPe', '% mvt oscillatory period', '% mvt oscillatory period'])
