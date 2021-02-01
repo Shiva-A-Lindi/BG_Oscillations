@@ -80,7 +80,7 @@ K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] 
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('GPe', 'STN'): 2, # kita & Kitai (1991) - [firing rate]
       ('GPe', 'GPe'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ in the begining was 1.5
-      ('GPe', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) - [IPSP] /7ms Kita & Kitai (1991) - [IPSP]
+      ('GPe', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at GPe}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP]
       ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
 #      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> GPe Kita & Kita (2011) - D2-GPe of Kita & Kitai (1991)
       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
@@ -88,9 +88,10 @@ T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP]
       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-      ('GPi', 'GPe'): 4 - 2, # Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-GPe-GPi circuit?
-      ('Ctx', 'GPi'): 0,
-      ('FSI', 'GPe'): 0,
+      ('GPi', 'GPe'): 2.8, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-GPe-GPi circuit?
+      ('Th', 'GPi'): 5, # estimate 
+      ('Th', 'Ctx'): 5, # estimate
+      ('FSI', 'GPe'): 6, #estimate
       ('D1' , 'FSI'): 0.84, #mice Gittis et al 2010
       ('D2' , 'FSI'): 0.93, # mice Gittis et al 2010
       ('FSI' , 'FSI'): 1, # estimate based on proximity
@@ -99,18 +100,24 @@ T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('D1', 'D2'): 1,
       ('D2', 'D2'): 1} 
     # transmission delay in ms
-T_DD = {('D2', 'Ctx'): 5.5, # excitation of MC--> Str Kita & Kita (2011) 
+T_DD = {('D2', 'Ctx'): 5.5, # excitation of MC--> Str Kita & Kita (2011)  [firing rate]
         ('D1', 'Ctx'): 5.5,
-        ('STN', 'Ctx'): 5.9} # kita & Kita (2011)
+        ('STN', 'Ctx'): 5.9} # kita & Kita (2011) [firing rate]
 G = {('STN', 'GPe'): -2 ,
      ('GPe', 'STN'): 0.5 , 
      ('GPe', 'GPe'): 0,
-     ('Str', 'Ctx'): 0,
+     ('D2', 'Ctx'): 0,
+     ('D1', 'Ctx'): 0,
      ('D2','GPe'): 0,
      ('D2', 'FSI'): 0, 
      ('FSI', 'GPe'): 0,
      ('FSI', 'FSI'): 0,
-     ('D2','D2'): 0
+     ('D2','D2'): 0,
+     ('D2','D1'): 0,
+     ('D1','D2'): 0,
+     ('D1', 'D1'): 0,
+     ('GPi', 'GPe'): 0,
+     ('Th', 'GPi') : 0
      } # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
 G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
@@ -414,19 +421,16 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
     cols = projection_list.flatten().astype(int)
     JJ[rows,cols] = 1
     return JJ
+
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
 
-
-    
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
-#    print(ind)
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     img = ax.scatter(x[ind], y[ind], z[ind], c=c[ind], cmap=plt.hot(),lw = 1,edgecolor = 'k')
     
-
 #    ax = Axes3D(fig)
 #    surf = ax.plot_trisurf(x[ind],y[ind],z[ind], cmap = cm.coolwarm)
 #    fig.colorbar(surf, shrink=0.5, aspect=5)
@@ -438,6 +442,7 @@ def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
     clb = fig.colorbar(img)
     clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
+    
 #build_connection_matrix(4,10,2)
    
 def max_non_empty_array(array):
@@ -445,8 +450,16 @@ def max_non_empty_array(array):
         return 0
     else:
         return np.max(array)
-    
 
+def if_oscillatory(sig, x_plateau, noise_amplitude):
+    ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
+    fluctuations = sig - np.average(sig[x_plateau:-1])
+    peaks,_ = signal.find_peaks(fluctuations, height = noise_amplitude)
+    
+    if len(peaks) >0:
+        return True
+    else:
+        return False
 def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duration_mvt, duration_base):
     
     n = len(g_inh_list)
@@ -468,12 +481,14 @@ def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duratio
             nuclei_dict = {'GPe': GPe, 'STN' : STN}
             run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
             GPe_test = GPe[0] ; STN_test = STN[0]
+            
             x1_gp_mvt = np.argmax(GPe_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
             x1_stn_mvt = np.argmax(STN_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
             x2_mvt = duration_mvt[1]
             x1_gp_base = np.argmax(GPe_test.pop_act[0:int(t_mvt/dt)])
             x1_stn_base = np.argmax(STN_test.pop_act[0:int(t_mvt/dt)])
             x2_base = duration_base[1]
+            
             sig_STN_mvt = STN_test.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN_test.pop_act[x1_stn_mvt:x2_mvt])
             cut_sig_ind_mvt = cut_plateau(sig_STN_mvt)
             
@@ -525,13 +540,13 @@ def cut_plateau(sig,epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
     rolling_var = np.var(rolling_window(sig, window), axis=-1)
     ind = np.where(rolling_var > epsilon)
     return ind[0]
+
 def moving_average_array(X, n):
 	'''Return the moving average over X with window n without changing dimesions of X'''
 
 	z2= np.cumsum(np.pad(X, (n,0), 'constant', constant_values=0))
 	z1 = np.cumsum(np.pad(X, (0,n), 'constant', constant_values=X[-1]))
 	return (z1-z2)[(n-1):-1]/n
-
 
 def rolling_window(a, window):
     pad = np.ones(len(a.shape), dtype=np.int32)
@@ -567,7 +582,6 @@ def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_d
 
                 count +=1
                 print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
-    
     
     np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
     
@@ -605,10 +619,10 @@ def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glu
     
 
 #%% STN-GPe network
-#G = { ('STN', 'GPe'): g_mat[15,1] ,
-#  ('GPe', 'STN'): g_mat[15,0], 
-#  ('GPe', 'GPe'): 0} # synaptic weight
-##G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
+G = { ('STN', 'GPe'): -3 ,
+  ('GPe', 'STN'): .62, 
+  ('GPe', 'GPe'): 0} # synaptic weight
+G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
 
 #K = calculate_number_of_connections(N,N_real,K_real)
 receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
@@ -650,7 +664,7 @@ for key in receiving_class_dict.keys():
 run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 #%% synaptic weight phase exploration
-n_inh = 10 ; n_exit = 10
+n_inh = 8 ; n_exit = 8
 g_inh_list = np.linspace(-3, -0.1, n_inh)
 g_exit_list = np.linspace(0.1, 3, n_exit)
 
@@ -663,6 +677,9 @@ K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] 
 receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
                     ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
                     ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
+#receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
+#                    ('GPe','1') : [('STN', '1'), ('STN', '2')],
+#                    ('GPe','2') : [('STN', '1'), ('STN', '2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
 GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
@@ -676,9 +693,9 @@ for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 
 g_mat, GPe_prop, STN_prop = synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duration_mvt, duration_base)
-#scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_base'],STN_prop['perc_t_oscil_base'], 'STN', np.max(STN_prop['perc_t_oscil_base']), np.min(STN_prop['perc_t_oscil_base']), ['GPe-STN', 'STN-GPe', '% basal oscillatory period',  '% basal oscillatory period'])
-#scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_mvt'],STN_prop['perc_t_oscil_mvt'], 'STN', np.max(STN_prop['perc_t_oscil_mvt']), np.min(STN_prop['perc_t_oscil_mvt']), ['GPe-STN', 'STN-GPe', '% mvt oscillatory period', '% mvt oscillatory period'])
-#scatter_3d_plot(g_mat[:,0],g_mat[:,1],GPe_prop['perc_t_oscil_mvt'],GPe_prop['perc_t_oscil_mvt'], 'GPe', np.max(GPe_prop['perc_t_oscil_mvt']), np.min(GPe_prop['perc_t_oscil_mvt']), ['GPe-STN', 'STN-GPe', '% mvt oscillatory period', '% mvt oscillatory period'])
+scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_base'],STN_prop['perc_t_oscil_base'], 'STN', np.max(STN_prop['perc_t_oscil_base']), np.min(STN_prop['perc_t_oscil_base']), ['GPe-STN', 'STN-GPe', '% basal oscillatory period',  '% basal oscillatory period'])
+scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['perc_t_oscil_mvt'],STN_prop['perc_t_oscil_mvt'], 'STN', np.max(STN_prop['perc_t_oscil_mvt']), np.min(STN_prop['perc_t_oscil_mvt']), ['GPe-STN', 'STN-GPe', '% mvt oscillatory period', '% mvt oscillatory period'])
+scatter_3d_plot(g_mat[:,0],g_mat[:,1],GPe_prop['perc_t_oscil_mvt'],GPe_prop['perc_t_oscil_mvt'], 'GPe', np.max(GPe_prop['perc_t_oscil_mvt']), np.min(GPe_prop['perc_t_oscil_mvt']), ['GPe-STN', 'STN-GPe', '% mvt oscillatory period', '% mvt oscillatory period'])
 #scatter_3d_plot(g_mat[:,0],g_mat[:,1],STN_prop['mvt_f'],STN_prop['mvt_f'], 'STN', np.max(STN_prop['mvt_f']), np.min(STN_prop['mvt_f']), ['GPe-STN', 'STN-GPe', 'mvt freq', 'mvt freq'])
 fig = plt.figure()
 img = plt.scatter(g_mat[:,0],-g_mat[:,1], c = STN_prop['perc_t_oscil_base'], cmap=plt.hot(),lw = 1,edgecolor = 'k')
