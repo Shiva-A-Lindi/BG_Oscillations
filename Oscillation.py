@@ -18,7 +18,8 @@ N_real = { 'STN': 13560 , 'GPe': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.4
 A = { 'STN': 15 , 'GPe': 30,
      'FSI': 12.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
      'D1': 1.1, 'D2': 1.1, #Berke et al. 2010
-     'GPi':0} # mean firing rate from experiments
+     'GPi':26} # Benhamou & Cohen (201)
+# mean firing rate from experiments
 A_DD = { 'STN': 0 , 'GPe': 0,
      'FSI': 0, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
      'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011
