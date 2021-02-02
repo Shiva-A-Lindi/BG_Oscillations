@@ -195,7 +195,7 @@ class Nucleus:
                            projecting.output[:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/K[(self.name, projecting.name)]
         
 #        print(self.noise_amplitude)
-        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp + noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         self.neuron_act = transfer_func(threshold[self.name], gain[self.name], self.input)
         self.pop_act[t] = np.average(self.neuron_act)
         
@@ -451,16 +451,7 @@ def max_non_empty_array(array):
     else:
         return np.max(array)
 
-def if_oscillatory(sig, x_plateau, noise_amplitude):
-    ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
-    fluctuations = sig - np.average(sig[x_plateau:-1])
-    peaks,_ = signal.find_peaks(fluctuations, height = noise_amplitude)
-    
-    if len(peaks) >0:
-        return True
-    else:
-        return False
-    
+
 def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duration_mvt, duration_base):
     
     n = len(g_inh_list)
@@ -660,12 +651,27 @@ x2_mvt = duration_mvt[1]
 x1_gp_base = np.argmax(GPe_test.pop_act[0:int(t_mvt/dt)])
 x1_stn_base = np.argmax(STN_test.pop_act[0:int(t_mvt/dt)])
 x2_base = duration_base[1]
-
+def if_oscillatory(sig, x_plateau, noise_amplitude):
+    ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
+    fluctuations = sig - np.average(sig[x_plateau:-1])
+    peaks,_ = signal.find_peaks(fluctuations, height = noise_amplitude)
+    troughs,_ = signal.find_peaks(-fluctuations, height = noise_amplitude)
+#    plt.figure()
+#    plt.plot(sig)
+#    plt.plot(peaks,sig[peaks],"x", markersize = 10,markeredgewidth = 2)
+#    plt.plot(troughs,sig[troughs],"x", markersize = 10, markeredgewidth = 2)
+    if len(peaks)>0 and len(troughs)>0: # to have at least one maxima and one minima to count as oscillation
+        return True
+    else:
+        return False
+    
 sig_STN_mvt = STN_test.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN_test.pop_act[x1_stn_mvt:x2_mvt])
-cut_sig_ind_mvt = cut_plateau(sig_STN_mvt[:-3])
+cut_sig_ind_mvt = cut_plateau(sig_STN_mvt)
+
 plt.figure()
 plt.plot(sig_STN_mvt)
-plt.plot(cut_sig_ind_mvt)
+plt.plot(sig_STN_mvt[cut_sig_ind_mvt])
+if_oscillatory(sig_STN_mvt,max(cut_sig_ind_mvt), 0.1)
 #STN_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_STN_mvt)*100
 #STN_prop[('mvt_f')][count] = freq_from_fft(sig_STN_mvt[cut_sig_ind_mvt],dt/1000)
 #
