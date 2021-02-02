@@ -71,7 +71,7 @@ K_real_DD = {('STN', 'GPe'):0, #883, # Baufreton et al. (2009)
            ('GPi', 'GPe'): 0,
            ('D1', 'D2'): 0.7*K_real[('D1', 'D2')], #Damodaran et al 2015 based on Taverna et al. 2008
            ('D2', 'D2'): 0.5*K_real[('D2', 'D2')], #Damodaran et al 2015 based on Taverna et al. 2008
-           ('D1', 'D1'): 0, #Damodaran et al 2015 based on Taverna et al. 2008
+           ('D1', 'D1'): 0,
            ('D2', 'D1'): 0,
            ('D1', 'GPe'): int(N_real['GPe']*(1-np.power(64/81, 1/N_real['GPe'])))} # Klug et al 2018
 
@@ -80,20 +80,20 @@ K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] 
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('GPe', 'STN'): 2, # kita & Kitai (1991) - [firing rate]
       ('GPe', 'GPe'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ in the begining was 1.5
-      ('GPe', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at GPe}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP]
+      ('GPe', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at GPe}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
       ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
 #      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> GPe Kita & Kita (2011) - D2-GPe of Kita & Kitai (1991)
       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
       ('D1', 'Ctx'): 10.5,
       ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
-      ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP]
+      ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
       ('GPi', 'GPe'): 2.8, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-GPe-GPi circuit?
       ('Th', 'GPi'): 5, # estimate 
       ('Th', 'Ctx'): 5, # estimate
       ('FSI', 'GPe'): 6, #estimate
-      ('D1' , 'FSI'): 0.84, #mice Gittis et al 2010
-      ('D2' , 'FSI'): 0.93, # mice Gittis et al 2010
+      ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
+      ('D2' , 'FSI'): 1, #0.93 ms mice Gittis et al 2010
       ('FSI' , 'FSI'): 1, # estimate based on proximity
       ('D2', 'D1'): 1,
       ('D1', 'D1'): 1,
@@ -154,7 +154,7 @@ D_mvt = 500
 D_perturb = 500 # transient selective perturbation
 d_Str = 200 # duration of external input to Str
 t_list = np.arange(int(t_sim/dt))
-duration_mvt = [int((t_mvt+ max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt+max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt)]
+duration_mvt = [int((t_mvt+ max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
 duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/dt)]
 
 #%%
@@ -460,6 +460,7 @@ def if_oscillatory(sig, x_plateau, noise_amplitude):
         return True
     else:
         return False
+    
 def synaptic_weight_space_exploration(g_inh_list, g_exit_list, GPe, STN, duration_mvt, duration_base):
     
     n = len(g_inh_list)
@@ -619,10 +620,15 @@ def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glu
     
 
 #%% STN-GPe network
-G = { ('STN', 'GPe'): -3 ,
-  ('GPe', 'STN'): .62, 
+G = { ('STN', 'GPe'): -1 ,
+  ('GPe', 'STN'): .42, 
   ('GPe', 'GPe'): 0} # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
+K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
+           ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
+           ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
+K_real_STN_GPe_diverse = K_real.copy()
+K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
 
 #K = calculate_number_of_connections(N,N_real,K_real)
 receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
@@ -640,8 +646,34 @@ receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 
-run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+#run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+run(mvt_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
+
 plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+
+
+GPe_test = GPe[0] ; STN_test = STN[0]
+            
+x1_gp_mvt = np.argmax(GPe_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
+x1_stn_mvt = np.argmax(STN_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
+x2_mvt = duration_mvt[1]
+x1_gp_base = np.argmax(GPe_test.pop_act[0:int(t_mvt/dt)])
+x1_stn_base = np.argmax(STN_test.pop_act[0:int(t_mvt/dt)])
+x2_base = duration_base[1]
+
+sig_STN_mvt = STN_test.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN_test.pop_act[x1_stn_mvt:x2_mvt])
+cut_sig_ind_mvt = cut_plateau(sig_STN_mvt[:-3])
+plt.figure()
+plt.plot(sig_STN_mvt)
+plt.plot(cut_sig_ind_mvt)
+#STN_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_STN_mvt)*100
+#STN_prop[('mvt_f')][count] = freq_from_fft(sig_STN_mvt[cut_sig_ind_mvt],dt/1000)
+#
+#sig_STN_base = STN_test.pop_act[x1_stn_base:x2_base] - np.average(STN_test.pop_act[x1_stn_base:x2_base])
+#cut_sig_ind_base = cut_plateau(sig_STN_base)
+#STN_prop[('perc_t_oscil_base')][count] = max_non_empty_array(cut_sig_ind_base)/len(sig_STN_base)*100
+#STN_prop[('base_f')][count] = freq_from_fft(sig_STN_base[cut_sig_ind_base],dt/1000)
+
 #%% GPe-FSI-D2 network
 receiving_pop_list = {('FSI','1') : [('GPe', '1')], ('FSI','2') : [('GPe', '2')],
                     ('GPe','1') : [('GPe', '1'), ('D2', '1')],
