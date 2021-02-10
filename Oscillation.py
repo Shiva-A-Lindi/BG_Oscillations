@@ -10,7 +10,7 @@ from scipy.ndimage import gaussian_filter1d
 import pickle
 #from scipy.ndimage.filters import generic_filter
 
-N_sim = 500
+N_sim = 100
 population_list = ['STN', 'GPe']
 N_sub_pop = 2
 N = { 'STN': N_sim , 'GPe': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim}
@@ -133,7 +133,9 @@ G_DD[('GPe', 'GPe')] = 0.5* G_DD[('STN', 'GPe')]
 tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
 noise_variance = {'GPe' : 0.1, 'STN': 0.1}
 noise_amplitude = {'GPe' : 10, 'STN': 10}
+oscil_peak_threshold = {'GPe' : 0.1, 'STN': 0.1}
 smooth_kern_window = {key: value * 30 for key, value in noise_variance.items()}
+#oscil_peak_threshold = {key: (gain[key]*noise_amplitude[key]*noise_variance[key]-threshold[key])/5 for key in noise_variance.keys()}
 #rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
 #                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} #  <Single pop> external input coming from Ctx and Str
 
@@ -150,11 +152,11 @@ pert_val = 10
 mvt_selective_ext_input_dict = {('GPe','1') : pert_val, ('GPe','2') : -pert_val,
                                 ('STN','1') : pert_val, ('STN','2') : -pert_val} # external input coming from Ctx and Str
 dopamine_percentage = 100
-t_sim = 1000 # simulation time in ms
+t_sim = 400 # simulation time in ms
 dt = 0.5 # euler time step in ms
 t_mvt = 200
-D_mvt = 500
-D_perturb = 500 # transient selective perturbation
+D_mvt = 200
+D_perturb = 250 # transient selective perturbation
 d_Str = 200 # duration of external input to Str
 t_list = np.arange(int(t_sim/dt))
 duration_mvt = [int((t_mvt+ max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
@@ -163,7 +165,7 @@ duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/d
 #%%
 class Nucleus:
 
-    def __init__(self,population_number, noise_variance, noise_amplitude, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_dict,smooth_kern_window):
+    def __init__(self,population_number, noise_variance, noise_amplitude, N, A, name, G, T, t_sim, dt, tau, n_trans_types, rest_ext_input, receiving_from_dict,smooth_kern_window,oscil_peak_threshold):
         
         self.n = N[name] # population size
         self.population_num = population_number
@@ -178,7 +180,6 @@ class Nucleus:
         self.neuron_act = np.zeros((self.n))
         self.pop_act = np.zeros((int(t_sim/dt))) # time series of population activity
         self.receiving_from_dict = receiving_from_dict[(self.name, str(self.population_num))] 
-#        self.receiving_from_list = receiving_from_list
         self.rest_ext_input = rest_ext_input[name]
         self.mvt_ext_input = np.zeros((int(t_sim/dt))) # external input mimicing movement
         self.external_inp_t_series = np.zeros((int(t_sim/dt)))
@@ -188,13 +189,11 @@ class Nucleus:
         self.noise_amplitude =  noise_amplitude[self.name ] #additive gaussian white noise with mean zero and variance sigma
         self.connectivity_matrix = {}
         self.noise_induced_basal_firing = None # the basal firing as a result of noise at steady state
-        self.peak_threshold = None
+        self.oscil_peak_threshold = oscil_peak_threshold[self.name]
         self.smooth_kern_window = smooth_kern_window[self.name]
     def calculate_input_and_inst_act(self, K, threshold, gain, t, dt, receiving_from_class_list, mvt_ext_inp):  
         
         syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
-        self.noise_induced_basal_firing = gain[self.name]*(self.noise_amplitude*self.noise_variance-threshold[self.name])
-        self.peak_threshold = self.noise_induced_basal_firing
         for projecting in receiving_from_class_list:
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
@@ -202,7 +201,7 @@ class Nucleus:
         
 #        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
 #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
-        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp + noise_generator(self.noise_amplitude, self.noise_variance, self.n)
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         self.neuron_act = transfer_func(threshold[self.name], gain[self.name], self.input)
         self.pop_act[t] = np.average(self.neuron_act)
         
@@ -300,7 +299,7 @@ def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, th
     return 
     
 def plot( GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1):    
-    plot_start = int(5/dt)
+    plot_start =0# int(5/dt)
     if plot_ob == None:
         fig, ax = plt.subplots()
     else:
@@ -367,7 +366,7 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
+def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits = None):
 
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
     fig = plt.figure()
@@ -377,11 +376,16 @@ def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label):
 #    ax = Axes3D(fig)
 #    surf = ax.plot_trisurf(x[ind],y[ind],z[ind], cmap = cm.coolwarm)
 #    fig.colorbar(surf, shrink=0.5, aspect=5)
-    
+    if limits == None:
+        limits = {'x':(min(x),max(x)), 'y':(min(y),max(y)), 'z':(min(z),max(z))}
+        
     ax.set_xlabel(label[0])
     ax.set_ylabel(label[1])
     ax.set_zlabel(label[2])
     ax.set_title(title)
+    ax.set_xlim(limits['x'])
+    ax.set_ylim(limits['y'])
+    ax.set_zlim(limits['z'])
     clb = fig.colorbar(img)
     clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
@@ -394,18 +398,13 @@ def max_non_empty_array(array):
     else:
         return np.max(array)
 
-def trim_start_end_sig_rm_offset(sig,start, end):
-    ''' trim with max point at the start and the given end point'''
-    trimmed = sig[start:end]
-    max_point = np.argmax(trimmed)
-    return(trimmed[max_point:] - np.average(trimmed[max_point:]))
+
     
 def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
     ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
-    fluctuations = sig - np.average(sig[x_plateau:-1]) # remove the offset determined with plateau level
-    fluctuations = gaussian_filter1d(fluctuations[:x_plateau],smooth_kern_window)
-    peaks,_ = signal.find_peaks(fluctuations, height = peak_threshold)
-    troughs,_ = signal.find_peaks(-fluctuations, height = peak_threshold)
+#    fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
+    peaks,_ = signal.find_peaks(sig, height = peak_threshold)
+    troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
 #    plt.figure()
 #    plt.plot(sig)
 #    plt.axvline(x_plateau)
@@ -423,10 +422,18 @@ def find_freq_of_pop_act_spec_window(nucleus,start, end):
     the plateau and in case it is oscillation determine the frequency '''
     sig = trim_start_end_sig_rm_offset(nucleus.pop_act,start, end)
     cut_sig_ind = cut_plateau(sig)
-    if if_oscillatory(sig, max(cut_sig_ind),nucleus.peak_threshold/5, nucleus.smooth_kern_window):
-        perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
-        freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
-        return perc_oscil, freq
+#    print(cut_sig_ind)
+#    plt.figure()
+#    plt.plot(sig)
+#    plt.plot(sig[cut_sig_ind])
+    if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
+        if if_oscillatory(sig, max(cut_sig_ind),nucleus.oscil_peak_threshold, nucleus.smooth_kern_window): # then check if there's oscillations
+            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
+#            freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
+            freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
+            return perc_oscil, freq
+        else:
+            return 0,0
     else:
         return 0,0
 def synaptic_weight_space_exploration(g_1_list, g_2_list, GPe, STN, duration_mvt, duration_base):
@@ -458,50 +465,6 @@ def synaptic_weight_space_exploration(g_1_list, g_2_list, GPe, STN, duration_mvt
             GPe_prop[('perc_t_oscil_mvt')][count], GPe_prop[('mvt_f')][count]= find_freq_of_pop_act_spec_window(GPe_test,*duration_mvt)
             GPe_prop[('perc_t_oscil_base')][count], GPe_prop[('base_f')][count]= find_freq_of_pop_act_spec_window(GPe_test,*duration_base)
 
-#            x1_gp_mvt = np.argmax(GPe_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
-#            x1_stn_mvt = np.argmax(STN_test.pop_act[int(t_mvt/dt):int((t_mvt+D_mvt)/dt)])+int(t_mvt/dt)
-#            x2_mvt = duration_mvt[1]
-#            x1_gp_base = np.argmax(GPe_test.pop_act[0:int(t_mvt/dt)])
-#            x1_stn_base = np.argmax(STN_test.pop_act[0:int(t_mvt/dt)])
-#            x2_base = duration_base[1]
-#            
-#            sig_STN_mvt = trim_start_end_sig_rm_offset(STN_test.pop_act,int(t_mvt/dt), duration_mvt[1])#STN_test.pop_act[x1_stn_mvt:x2_mvt] - np.average(STN_test.pop_act[x1_stn_mvt:x2_mvt])
-#            cut_sig_ind_mvt = cut_plateau(sig_STN_mvt)
-#            if if_oscillatory(sig_STN_mvt, max(cut_sig_ind_mvt),STN_test.noise_induced_basal_firing/10):
-#                STN_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_STN_mvt)*100
-#                STN_prop[('mvt_f')][count] = freq_from_fft(sig_STN_mvt[cut_sig_ind_mvt],dt/1000)
-#            else:
-#                STN_prop[('perc_t_oscil_mvt')][count] = 0
-#                STN_prop[('mvt_f')][count] = 0
-#                
-#            sig_STN_base = trim_start_end_sig_rm_offset(STN_test.pop_act,duration_base[0], duration_base[1])#STN_test.pop_act[x1_stn_base:x2_base] - np.average(STN_test.pop_act[x1_stn_base:x2_base])
-#            cut_sig_ind_base = cut_plateau(sig_STN_base)
-#            if if_oscillatory(sig_STN_base, max(cut_sig_ind_base),STN_test.noise_induced_basal_firing/10):
-#                STN_prop[('perc_t_oscil_base')][count] = max_non_empty_array(cut_sig_ind_base)/len(sig_STN_base)*100
-#                STN_prop[('base_f')][count] = freq_from_fft(sig_STN_base[cut_sig_ind_base],dt/1000)
-#            else:
-#                STN_prop[('perc_t_oscil_base')][count] = 0
-#                STN_prop[('base_f')][count] = 0
-#                
-#            sig_GPe_mvt = trim_start_end_sig_rm_offset(GPe_test.pop_act,int(t_mvt/dt), duration_mvt[1])#GPe_test.pop_act[x1_gp_mvt:x2_mvt] - np.average(GPe_test.pop_act[x1_gp_mvt:x2_mvt])
-#            cut_sig_ind_mvt = cut_plateau(sig_GPe_mvt)
-#            if if_oscillatory(sig_GPe_mvt, max(cut_sig_ind_mvt),GPe_test.noise_induced_basal_firing/10):
-#
-#                GPe_prop[('perc_t_oscil_mvt')][count] = max_non_empty_array(cut_sig_ind_mvt)/len(sig_GPe_mvt)*100
-#                GPe_prop[('mvt_f')][count] = freq_from_fft(sig_GPe_mvt[cut_sig_ind_mvt],dt/1000)
-#            else:
-#                GPe_prop[('perc_t_oscil_mvt')][count] = 0
-#                GPe_prop[('mvt_f')][count] = 0
-#                
-#            sig_GPe_base = trim_start_end_sig_rm_offset(GPe_test.pop_act,duration_base[0], duration_base[1])#GPe_test.pop_act[x1_gp_base:x2_base] - np.average(GPe_test.pop_act[x1_gp_base:x2_base])
-#            cut_sig_ind_base = cut_plateau(sig_GPe_base)
-#            if if_oscillatory(sig_GPe_base, max(cut_sig_ind_base),GPe_test.noise_induced_basal_firing/10):
-#
-#                GPe_prop[('perc_t_oscil_base')][count] = max_non_empty_array(cut_sig_ind_base)/len(sig_GPe_base)*100
-#                GPe_prop[('base_f')][count] = freq_from_fft(sig_GPe_base[cut_sig_ind_base],dt/1000)
-#            else:
-#                GPe_prop[('perc_t_oscil_base')][count] = 0
-#                GPe_prop[('base_f')][count] = 0
             ax = fig.add_subplot(n,m,count+1)
             plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-GPe}$ = "+ str(round(g_1,2))+r' $G_{GPe-GPe}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
             plt.title( r"$G_{STN-GPe}$ = "+ str(round(g_1,2))+r' $G_{GPe-GPe}$ ='+str(round(g_2,2)), fontsize = 5)
@@ -552,8 +515,9 @@ def rolling_window(a, window):
 
 def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
 
-    freq = {('STN','mvt'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('STN','base'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
-            ('GPe','mvt'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('GPe','base'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
+    data = {('STN','mvt_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('STN','base_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
+            ('GPe','mvt_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('GPe','base_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
+            ('STN','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))), ('GPe','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))),
             'tau':np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))}
     count = 0
     for gaba_b in GABA_B:
@@ -564,29 +528,25 @@ def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_d
                     STN[k].tau = {'Glut': glut} 
                 nuclei_dict = {'GPe': GPe, 'STN' : STN}
                 run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
-                freq['tau'][count,:] = [gaba_a, gaba_b, glut]
-                GPe_test = GPe[0] ; STN_test = STN[0]
-#                sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]])
-#                STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
-                
-                _, freq['STN','mvt'][count] = find_freq_of_pop_act_spec_window(STN_test,*duration_mvt)
-                _, freq['STN','base'][count] = find_freq_of_pop_act_spec_window(STN_test,*duration_base)
-                _, freq['GPe','base'] = find_freq_of_pop_act_spec_window(GPe_test,*duration_base)
-                _, freq['GPe','mvt'] = find_freq_of_pop_act_spec_window(GPe_test,*duration_mvt)
-#                sig_GPe = GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(GPe[0].pop_act[duration_mvt[0]:duration_mvt[1]])
-#                GPe_freq [count] = freq_from_fft(sig_GPe[cut_plateau(sig_GPe)],dt/1000)
-
+                data['tau'][count,:] = [gaba_a, gaba_b, glut]
+                nucleus_list =[ GPe[1], STN[1]]
+#                plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+                for nucleus in nucleus_list:
+                    data[(nucleus.name,'pop_act')][count,:] = nucleus.pop_act
+                    _, data[nucleus.name,'mvt_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt)
+                    _, data[nucleus.name,'base_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_base)
                 count +=1
                 print(count, "from ", len(GABA_A)*len(GABA_B)*len(Glut))
+
     output = open(filename, 'wb')
-    pickle.dump(freq, output)
+    pickle.dump(data, output)
     output.close()
-#    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
     
 def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
 
-    freq = {('STN','mvt'): np.zeros((len(inhibitory_series)*len(Glut))), ('STN','base'): np.zeros((len(inhibitory_series)*len(Glut))),
-            ('GPe','mvt'): np.zeros((len(inhibitory_series)*len(Glut))), ('GPe','base'): np.zeros((len(inhibitory_series)*len(Glut))),
+    data = {('STN','mvt_freq'): np.zeros((len(inhibitory_series)*len(Glut))), ('STN','base_freq'): np.zeros((len(inhibitory_series)*len(Glut))),
+            ('GPe','mvt_freq'): np.zeros((len(inhibitory_series)*len(Glut))), ('GPe','base_freq'): np.zeros((len(inhibitory_series)*len(Glut))),
+             ('STN','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))) ,('GPe','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))),
             'tau':np.zeros((len(inhibitory_series)*len(Glut)))}
     count = 0
 
@@ -598,27 +558,79 @@ def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glu
 
             nuclei_dict = {'GPe': GPe, 'STN' : STN}
             run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
-            freq['tau'][count,:] = [gaba, glut]
-            GPe_test = GPe[0] ; STN_test = STN[0]
-#                sig_STN = STN[0].pop_act[duration_mvt[0]:duration_mvt[1]] - np.average(STN[0].pop_act[duration_mvt[0]:duration_mvt[1]])
-#                STN_freq[count] = freq_from_fft(sig_STN[cut_plateau(sig_STN)],dt/1000)
-            
-            _, freq['STN','mvt'][count] = find_freq_of_pop_act_spec_window(STN_test,*duration_mvt)
-            _, freq['STN','base'][count] = find_freq_of_pop_act_spec_window(STN_test,*duration_base)
-            _, freq['GPe','base'] = find_freq_of_pop_act_spec_window(GPe_test,*duration_base)
-            _, freq['GPe','mvt'] = find_freq_of_pop_act_spec_window(GPe_test,*duration_mvt)
+            data['tau'][count,:] = [gaba, glut]
+
+            nucleus_list =[ GPe[0], STN[0]]
+#                plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+            for nucleus in nucleus_list:
+                data[(nucleus.name,'pop_act')][count,:] = nucleus.pop_act
+                _, data[nucleus.name,'mvt_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt)
+                _, data[nucleus.name,'base_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_base)
             count +=1
             print(count, "from ", len(inhibitory_series)*len(Glut))
 
     output = open(filename, 'wb')
-    pickle.dump(freq, output)
+    pickle.dump(data, output)
     output.close()
-#    np.savez(filename, tau_mat = tau_mat, GPe = GPe_freq, STN = STN_freq )
     
-
+def zero_crossing_freq_detect(sig,dt):
+    ''' detect frequency from zero crossing distances'''
+    zero_crossings = np.where(np.diff(np.sign(sig)))[0] # indices to elements before a crossing
+#    print(zero_crossings)
+    shifted = np.roll(zero_crossings,-1)
+    
+    half_lambda =  shifted[:-1] - zero_crossings[:-1]
+#    print(half_lambda)
+    frequency = 1/(np.average(half_lambda)*2*dt)
+    return frequency
+def trim_start_end_sig_rm_offset(sig,start, end):
+    ''' trim with max point at the start and the given end point'''
+    plateau_y = np.average(sig[max(cut_plateau(sig)):])
+    trimmed = (sig - plateau_y)[start:end] # remove the offset determined with plateau level
+#    max_point = np.argmax(trimmed)
+    max_value = np.max(trimmed)
+    min_value = np.min(trimmed)
+#    plt.figure()
+#    plt.plot(trimmed)
+    if abs(max_value) > abs(min_value):
+        max_point = np.max(np.where(trimmed == max_value))
+    else:
+        max_point = np.max(np.where(trimmed == min_value))
+    return(trimmed[max_point:] - np.average(trimmed[max_point:]))
+    
+def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,start,end):
+    def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
+        ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
+        fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
+        peaks,_ = signal.find_peaks(sig, height = peak_threshold)
+        troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
+        plt.figure()
+        plt.plot(sig)
+        plt.axvline(x_plateau)
+        plt.plot(fluctuations, label = "Gaus kern smoothed")
+        plt.plot(peaks,sig[peaks],"x", markersize = 10,markeredgewidth = 2)
+        plt.plot(troughs,sig[troughs],"x", markersize = 10, markeredgewidth = 2)
+        plt.legend()
+        if len(peaks)>0 and len(troughs)>0: # to have at least one maxima and one minima to count as oscillation
+            return True
+        else:
+            return False
+    
+    sig = trim_start_end_sig_rm_offset(sig_in,start,end)
+    cut_sig_ind = cut_plateau(sig)
+    if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
+        if if_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window): # then check if there's oscillations
+            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
+            freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
+#            freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
+            print("% = ", perc_oscil, "f = ",freq)
+        else:
+            print("all plateau")
+    else:
+        print("no oscillation")
 #%% STN-GPe network
 G = { ('STN', 'GPe'): -1 ,
-  ('GPe', 'STN'): 0.8, 
+  ('GPe', 'STN'): 0.5, 
   ('GPe', 'GPe'): 0} # synaptic weight
 G[('GPe', 'GPe')] = 0.5* G[('STN', 'GPe')]
 K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
@@ -633,12 +645,14 @@ receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')]
                     ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
-STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
-
+for k in range (len(GPe)):
+    GPe[k].tau = {'GABA-A' : 20, 'GABA-B' : 200}
+    STN[k].tau = {'Glut': 10} 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
@@ -648,7 +662,12 @@ run(mvt_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, th
 
 plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 
-print(find_freq_of_pop_act_spec_window(STN[0],*duration_mvt))
+#print(find_freq_of_pop_act_spec_window(STN[0],*duration_mvt))
+
+
+temp_oscil_check(STN[0].pop_act,oscil_peak_threshold['STN'], 3,*duration_mvt)
+temp_oscil_check(GPe[0].pop_act,oscil_peak_threshold['GPe'], 3,*duration_mvt)
+#plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 
 
 #%% GPe-FSI-D2 network
@@ -658,12 +677,12 @@ receiving_pop_list = {('FSI','1') : [('GPe', '1')], ('FSI','2') : [('GPe', '2')]
                     ('D2','1') : [('FSI','1')], ('D2','2') : [('FSI','2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
-D2 = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
-FSI = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+D2 = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+FSI = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'D2' : D2}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
@@ -691,10 +710,10 @@ receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')]
 #                    ('GPe','2') : [('STN', '1'), ('STN', '2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
-STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
@@ -730,15 +749,18 @@ K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
 K_real_STN_GPe_diverse = K_real.copy()
 K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
 
+#receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
+#                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
+#                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
 receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
-                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
-                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
+                    ('GPe','1') : [('GPe', '1'), ('STN', '1')],
+                    ('GPe','2') : [('GPe', '2'), ('STN', '2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
-STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
@@ -746,34 +768,46 @@ for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 
 #run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
-n = 8
+n = 5
 GABA_A = np.linspace(5,20,n)
 GABA_B = np.linspace(150,300,4)
 Glut = np.linspace(0.5,12,n)
 sweep_time_scales(GPe,STN, GABA_A, GABA_B, Glut, dt, 'data_GABA_A_B_Glut.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 
-#file = np.load('data_GABA_A_B_Glut.npz')
-#x = file['tau_mat'][:,0]
-#y = file['tau_mat'][:,1]
-#z = file['tau_mat'][:,2]
 pkl_file = open('data_GABA_A_B_Glut.pkl', 'rb')
-freq = pickle.load(pkl_file)
+data = pickle.load(pkl_file)
 pkl_file.close()
-x = freq['tau'][:,0]
-y = freq['tau'][:,1]
-z = freq['tau'][:,2]
-c = freq[('STN','mvt')]
-name = 'STN'
+x = data['tau'][:,0]
+y = data['tau'][:,1]
+z = data['tau'][:,2]
+name = 'STN' ; state = 'mvt_freq'
+c = data[(name,state)]
+ind = np.where(c>0)
 
-scatter_3d_plot(x,y,z,c, name, np.max(c), np.min(c),['GABA_A','GABA_B','Glut','freq'])
-scatter_3d_plot(x,y,z, c, name, 30, 20,['GABA_A','GABA_B','Glut','freq'])
-scatter_3d_plot(x,y,z, c, name, 31, 27,['GABA_A','GABA_B','Glut','freq'])
+scatter_3d_plot(x,y,z,c, name, np.max(c), np.min(c),['GABA_A','GABA_B','Glut','freq'],limits = {'x':(min(x),max(x)), 'y':(min(y),max(y)), 'z':(min(z),max(z))})
+scatter_3d_plot(x[ind],y[ind],z[ind],c[ind], name, np.max(c), np.min(c),['GABA_A','GABA_B','Glut','freq'],limits = {'x':(min(x),max(x)), 'y':(min(y),max(y)), 'z':(min(z),max(z))})
+scatter_3d_plot(x[ind],y[ind],z[ind],c[ind], name, 30, 20,['GABA_A','GABA_B','Glut','freq'],limits = {'x':(min(x),max(x)), 'y':(min(y),max(y)), 'z':(min(z),max(z))})
+#scatter_3d_plot(x[ind],y[ind],z[ind],c[ind], name, 31, 27,['GABA_A','GABA_B','Glut','freq'],limits = {'x':(min(x),max(x)), 'y':(min(y),max(y)), 'z':(min(z),max(z))})
 
+n_plot = 4; plot_start = 0; line_type = ['-','--']
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(t_list[plot_start:]*dt,data['GPe','pop_act'][n_plot,plot_start:], line_type[0], label = "GPe" , c = 'r',lw = 1.5)
+ax.plot(t_list[plot_start:]*dt,data['STN','pop_act'][n_plot,plot_start:], line_type[0],label = "STN", c = 'k',lw = 1.5)
+ax.set_title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
+plt.legend(fontsize = 5)
+
+temp_oscil_check(data['STN','pop_act'][n_plot,plot_start:],oscil_peak_threshold['STN'], 3,*duration_mvt)
+temp_oscil_check(data['GPe','pop_act'][n_plot,plot_start:],oscil_peak_threshold['STN'], 3,*duration_mvt)
+
+plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
+
+#%%
 ######################################3 only GABA-A
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list)]
-STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
@@ -789,13 +823,13 @@ y = freq['tau'][:,1]
 z = freq[('STN','mvt')]
 name = 'STN'
 scatter_3d_plot(x,y,z, z, name, np.max(z), np.min(z),['GABA_A','Glut','freq','freq'])
-
+#%%
 ################################### only GABA-B
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list)]
-STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list)]
+GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
+STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
 nuclei_dict = {'GPe': GPe, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
