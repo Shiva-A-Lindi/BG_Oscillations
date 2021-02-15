@@ -123,10 +123,10 @@ def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, th
         for nucleus in nuclei_list:
             nucleus.set_connections(K, N)
     
-    GPe[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'D2')],mvt_ext_input_dict[('GPe','1')], t_list*dt)
+    Proto[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('Proto', 'D2')],mvt_ext_input_dict[('Proto','1')], t_list*dt)
     STN[0].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict[('STN','1')], t_list*dt)
      
-    GPe[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('GPe', 'D2')],mvt_ext_input_dict[('GPe','2')], t_list*dt)
+    Proto[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('Proto', 'D2')],mvt_ext_input_dict[('Proto','2')], t_list*dt)
     STN[1].external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,T[('STN', 'Ctx')],mvt_ext_input_dict[('STN','2')], t_list*dt)
      
     start = timeit.default_timer()
@@ -145,7 +145,7 @@ def run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, th
     print("t = ", stop - start)
     return 
     
-def plot( GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1):    
+def plot( Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1):    
     plot_start =0# int(5/dt)
     if plot_ob == None:
         fig, ax = plt.subplots()
@@ -154,14 +154,14 @@ def plot( GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_s
      
     line_type = ['-', '--']
     
-    ax.plot(t_list[plot_start:]*dt,GPe[0].pop_act[plot_start:], line_type[0], label = "GPe" , c = 'r',lw = 1.5)
+    ax.plot(t_list[plot_start:]*dt,Proto[0].pop_act[plot_start:], line_type[0], label = "Proto" , c = 'r',lw = 1.5)
     ax.plot(t_list[plot_start:]*dt,STN[0].pop_act[plot_start:], line_type[0],label = "STN", c = 'k',lw = 1.5)
     
-    ax.plot(t_list[plot_start:]*dt,GPe[1].pop_act[plot_start:], line_type[1], c = 'r',lw = 1.5)
+    ax.plot(t_list[plot_start:]*dt,Proto[1].pop_act[plot_start:], line_type[1], c = 'r',lw = 1.5)
     ax.plot(t_list[plot_start:]*dt,STN[1].pop_act[plot_start:], line_type[1], c = 'k',lw = 1.5)
     
-    ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['GPe'], '-.', c = 'r',lw = 1, alpha=0.8 )
-    ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['GPe'], '-.', c = 'r', alpha=0.2,lw = 1 )
+    ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['Proto'], '-.', c = 'r',lw = 1, alpha=0.8 )
+    ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['Proto'], '-.', c = 'r', alpha=0.2,lw = 1 )
     ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A['STN'], '-.', c = 'k', alpha=0.8,lw = 1 )
     ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt['STN'], '-.', c = 'k', alpha=0.2,lw = 1 )
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
@@ -282,26 +282,26 @@ def rolling_window(a, window):
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
 
-def sweep_time_scales_one_GABA(GPe, STN, inhibitory_trans,inhibitory_series, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
+def sweep_time_scales_one_GABA(Proto, STN, inhibitory_trans,inhibitory_series, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
 
     data = {('STN','mvt_freq'): np.zeros((len(inhibitory_series)*len(Glut))), ('STN','base_freq'): np.zeros((len(inhibitory_series)*len(Glut))),
-            ('GPe','mvt_freq'): np.zeros((len(inhibitory_series)*len(Glut))), ('GPe','base_freq'): np.zeros((len(inhibitory_series)*len(Glut))),
-             ('STN','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))) ,('GPe','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))),
+            ('Proto','mvt_freq'): np.zeros((len(inhibitory_series)*len(Glut))), ('Proto','base_freq'): np.zeros((len(inhibitory_series)*len(Glut))),
+             ('STN','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))) ,('Proto','pop_act'): np.zeros((len(inhibitory_series)*len(Glut),len(t_list))),
             'tau':np.zeros((len(inhibitory_series)*len(Glut)))}
     count = 0
 
     for gaba in inhibitory_series:
         for glut in Glut:
-            for k in range (len(GPe)):
-                GPe[k].tau = {inhibitory_trans : gaba}
+            for k in range (len(Proto)):
+                Proto[k].tau = {inhibitory_trans : gaba}
                 STN[k].tau = {'Glut': glut} 
 
-            nuclei_dict = {'GPe': GPe, 'STN' : STN}
+            nuclei_dict = {'Proto': Proto, 'STN' : STN}
             run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
             data['tau'][count,:] = [gaba, glut]
 
-            nucleus_list =[ GPe[0], STN[0]]
-#                plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+            nucleus_list =[ Proto[0], STN[0]]
+#                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
             for nucleus in nucleus_list:
                 data[(nucleus.name,'pop_act')][count,:] = nucleus.pop_act
                 _, data[nucleus.name,'mvt_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt)
@@ -374,24 +374,24 @@ def find_freq_of_pop_act_spec_window(nucleus,start, end):
     else:
         return 0,0
     
-def sweep_time_scales(GPe,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
+def sweep_time_scales(Proto,STN,GABA_A, GABA_B, Glut, dt, filename,mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain):
 
     data = {('STN','mvt_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('STN','base_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
-            ('GPe','mvt_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('GPe','base_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
-            ('STN','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))), ('GPe','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))),
+            ('Proto','mvt_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))), ('Proto','base_freq'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut))),
+            ('STN','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))), ('Proto','pop_act'): np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),len(t_list))),
             'tau':np.zeros((len(GABA_A)*len(GABA_B)*len(Glut),3))}
     count = 0
     for gaba_b in GABA_B:
         for gaba_a in GABA_A:
             for glut in Glut:
-                for k in range (len(GPe)):
-                    GPe[k].tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
+                for k in range (len(Proto)):
+                    Proto[k].tau = {'GABA-A' : gaba_a, 'GABA-B' : gaba_b}
                     STN[k].tau = {'Glut': glut} 
-                nuclei_dict = {'GPe': GPe, 'STN' : STN}
+                nuclei_dict = {'Proto': Proto, 'STN' : STN}
                 run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
                 data['tau'][count,:] = [gaba_a, gaba_b, glut]
-                nucleus_list =[ GPe[0], STN[0]]
-#                plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+                nucleus_list =[ Proto[0], STN[0]]
+#                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
                 for nucleus in nucleus_list:
                     data[(nucleus.name,'pop_act')][count,:] = nucleus.pop_act
                     _, data[nucleus.name,'mvt_freq'][count] = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt)
@@ -461,38 +461,38 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,start,end):
     else:
         print("no oscillation")
         
-def synaptic_weight_space_exploration(g_1_list, g_2_list, GPe, STN, duration_mvt, duration_base):
+def synaptic_weight_space_exploration(g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base):
     
     n = len(g_1_list)
     m = len(g_2_list)
     g_mat = np.zeros((int(n*m),3))
     STN_prop = {'base_f' : np.zeros((int(m*n))), 'mvt_f' : np.zeros((int(m*n))),
                 'perc_t_oscil_base': np.zeros((int(m*n))), 'perc_t_oscil_mvt': np.zeros((int(m*n)))}
-    GPe_prop = {'base_f' : np.zeros((int(m*n))), 'mvt_f' : np.zeros((int(m*n))),
+    Proto_prop = {'base_f' : np.zeros((int(m*n))), 'mvt_f' : np.zeros((int(m*n))),
                 'perc_t_oscil_base': np.zeros((int(m*n))), 'perc_t_oscil_mvt': np.zeros((int(m*n)))}
 
     count  = 0
     fig = plt.figure()
     for g_1 in g_1_list:
         for g_2 in g_2_list:
-#            GPe.synaptic_weight[('GPe', 'STN')] = g_exit
-            for k in range (len(GPe)):
-                STN[k].synaptic_weight[('STN','GPe')] = g_1
-                GPe[k].synaptic_weight[('GPe','GPe')] = g_2
+#            Proto.synaptic_weight[('Proto', 'STN')] = g_exit
+            for k in range (len(Proto)):
+                STN[k].synaptic_weight[('STN','Proto')] = g_1
+                Proto[k].synaptic_weight[('Proto','Proto')] = g_2
             
-            nuclei_dict = {'GPe': GPe, 'STN' : STN}
+            nuclei_dict = {'Proto': Proto, 'STN' : STN}
             run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
-            GPe_test = GPe[0] ; STN_test = STN[0]
+            Proto_test = Proto[0] ; STN_test = STN[0]
             
-            g_mat[count,:] = [GPe_test.synaptic_weight[('GPe', 'STN')], g_1, g_2]
+            g_mat[count,:] = [Proto_test.synaptic_weight[('Proto', 'STN')], g_1, g_2]
             STN_prop[('perc_t_oscil_mvt')][count], STN_prop[('mvt_f')][count]= find_freq_of_pop_act_spec_window(STN_test,*duration_mvt)
             STN_prop[('perc_t_oscil_base')][count], STN_prop[('base_f')][count]= find_freq_of_pop_act_spec_window(STN_test,*duration_base)
-            GPe_prop[('perc_t_oscil_mvt')][count], GPe_prop[('mvt_f')][count]= find_freq_of_pop_act_spec_window(GPe_test,*duration_mvt)
-            GPe_prop[('perc_t_oscil_base')][count], GPe_prop[('base_f')][count]= find_freq_of_pop_act_spec_window(GPe_test,*duration_base)
+            Proto_prop[('perc_t_oscil_mvt')][count], Proto_prop[('mvt_f')][count]= find_freq_of_pop_act_spec_window(Proto_test,*duration_mvt)
+            Proto_prop[('perc_t_oscil_base')][count], Proto_prop[('base_f')][count]= find_freq_of_pop_act_spec_window(Proto_test,*duration_base)
 
             ax = fig.add_subplot(n,m,count+1)
-            plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-GPe}$ = "+ str(round(g_1,2))+r' $G_{GPe-GPe}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
-            plt.title( r"$G_{STN-GPe}$ = "+ str(round(g_1,2))+r' $G_{GPe-GPe}$ ='+str(round(g_2,2)), fontsize = 5)
+            plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
+            plt.title( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), fontsize = 5)
             plt.xlabel("time (ms)", fontsize = 5)
             plt.ylabel("firing rate (spk/s)", fontsize = 5)
             plt.legend(fontsize = 2)
@@ -502,103 +502,103 @@ def synaptic_weight_space_exploration(g_1_list, g_2_list, GPe, STN, duration_mvt
             
     fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
 
-    return g_mat, GPe_prop, STN_prop        
+    return g_mat, Proto_prop, STN_prop        
 #%%
 
 N_sim = 100
-population_list = ['STN', 'GPe']
+population_list = ['STN', 'Proto']
 N_sub_pop = 2
-N = { 'STN': N_sim , 'GPe': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim}
+N = { 'STN': N_sim , 'Proto': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim}
 # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
 N_Str = 2.79*10**6 # Oorschot 1998
-N_real = { 'STN': 13560 , 'GPe': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
-A = { 'STN': 15 , 'GPe': 30,
+N_real = { 'STN': 13560 , 'Proto': 34470, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
+A = { 'STN': 15 , 'Proto': 30,
      'FSI': 12.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
      'D1': 1.1, 'D2': 1.1, #Berke et al. 2010
      'GPi':26} # Benhamou & Cohen (201)
 # mean firing rate from experiments
-A_DD = { 'STN': 0 , 'GPe': 0,
+A_DD = { 'STN': 0 , 'Proto': 0,
      'FSI': 0, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
      'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011
      'GPi':0} 
-A_mvt = { 'STN': 50 , 'GPe': 22, 'FSI': 70} # mean firing rate during movement from experiments
-threshold = { 'STN': .1 ,'GPe': .1}
-neuron_type = {'STN': 'Glut', 'GPe': 'GABA'}
-gain = { 'STN': 1 ,'GPe': 1}
+A_mvt = { 'STN': 50 , 'Proto': 22, 'FSI': 70} # mean firing rate during movement from experiments
+threshold = { 'STN': .1 ,'Proto': .1}
+neuron_type = {'STN': 'Glut', 'Proto': 'GABA'}
+gain = { 'STN': 1 ,'Proto': 1}
 
-#K = { ('STN', 'GPe'): 475,
-#      ('GPe', 'STN'): 161,
-#      ('GPe', 'GPe'): 399}
-conductance = {('STN', 'GPe'): 0,
-               ('GPe', 'GPe'): 0}
-syn_per_ter = {('STN', 'GPe'): int(12/10.6), #number of synapses per bouton = 12/10.6, #Baufreton et al. (2009)
-               ('GPe', 'GPe'): 10, #Sadek et al. 2006 
-              ('FSI', 'GPe'): 1,
+#K = { ('STN', 'Proto'): 475,
+#      ('Proto', 'STN'): 161,
+#      ('Proto', 'Proto'): 399}
+conductance = {('STN', 'Proto'): 0,
+               ('Proto', 'Proto'): 0}
+syn_per_ter = {('STN', 'Proto'): int(12/10.6), #number of synapses per bouton = 12/10.6, #Baufreton et al. (2009)
+               ('Proto', 'Proto'): 10, #Sadek et al. 2006 
+              ('FSI', 'Proto'): 1,
             ('D1', 'FSI'): 1,
            ('D2', 'FSI'): 1,
            ('FSI','FSI'): 1,
-           ('GPe', 'D2'): 1,
+           ('Proto', 'D2'): 1,
            ('GPi', 'D1'): 1,
            ('GPi', 'STN'): 1,
-           ('GPi', 'GPe'): 1,
+           ('GPi', 'Proto'): 1,
            ('D1', 'D2'): 1,
            ('D2', 'D2'): 1,
  } 
 Str_connec = {('D1', 'D2'): .28,('D2', 'D2'):.36,  ('D1', 'D1'):.26,  ('D2', 'D1'):.05, ('MSN','MSN'): 1350} # Taverna et al 2008
-K_real = { ('STN', 'GPe'): int(243*N_real['GPe']/N_real['STN']),# 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).  
-           ('GPe', 'STN'): 135, # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
-           ('GPe', 'GPe'): int((264+581)/2),# Sadek et al. 2006 --> lateral 264, medial = 581 boutons mean 10 syn per bouton. 650 boutons Hegeman et al. (2017)
-#           ('FSI', 'GPe'): int(800*15*N_real['GPe']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per GPe Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
-           ('FSI', 'GPe'): 360, # averaging the FSI contacting of GPe boutons Bevan 1998
+K_real = { ('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),# 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).  
+           ('Proto', 'STN'): 135, # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
+           ('Proto', 'Proto'): int((264+581)/2),# Sadek et al. 2006 --> lateral 264, medial = 581 boutons mean 10 syn per bouton. 650 boutons Hegeman et al. (2017)
+#           ('FSI', 'Proto'): int(800*15*N_real['Proto']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per Proto Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
+           ('FSI', 'Proto'): 360, # averaging the FSI contacting of Proto boutons Bevan 1998
            ('D1', 'FSI'): int(36*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 36% (FSI-D1) Gittis et al.2010
            ('D2', 'FSI'): int(53*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
            ('FSI','FSI'): int(N_real['FSI']*0.58), # Gittis et al. (2010)
-#           ('GPe', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
-           ('GPe', 'D2'): int(N_real['D2']*226/N_real['GPe']), # each GPe 226 from iSPN Kawaguchi et al. (1990)
-           ('GPe', 'D1'): int(N_real['D1']*123/N_real['GPe']), # each GPe 123 from dSPN Kawaguchi et al. (1990)
+#           ('Proto', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
+           ('Proto', 'D2'): int(N_real['D2']*226/N_real['Proto']), # each Proto 226 from iSPN Kawaguchi et al. (1990)
+           ('Proto', 'D1'): int(N_real['D1']*123/N_real['Proto']), # each Proto 123 from dSPN Kawaguchi et al. (1990)
            ('GPi', 'D1'): 1, # find !!!!
            ('GPi', 'STN'): 457, # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
-           ('GPi', 'GPe'): 1, # find !!!
+           ('GPi', 'Proto'): 1, # find !!!
            ('D1', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])), #Guzman et al (2003) based on Taverna et al (2008)
            ('D2', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])),
            ('D2', 'Th'): 1, # find
            ('FSI', 'Th'): 1} # find
 #           ('D1', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]),  
 #           ('D2', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]), #Guzman et al (2003) based on Taverna et al (2008)
-#           ('D1', 'GPe'): int(N_real['GPe']*(1-np.power(64/81, 1/N_real['GPe'])))} # Klug et al 2018
+#           ('D1', 'Proto'): int(N_real['Proto']*(1-np.power(64/81, 1/N_real['Proto'])))} # Klug et al 2018
 
-K_real_DD = {('STN', 'GPe'):0, #883, # Baufreton et al. (2009)
-           ('GPe', 'STN'): 0,#190, # Kita, H., and Jaeger, D. (2016)
-           ('GPe', 'GPe'): 0,#650, # Hegeman et al. (2017)
-#           ('FSI', 'GPe'): int(800*15*N_real['GPe']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per GPe Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
-           ('FSI', 'GPe'): 0,#360, # averaging the FSI contacting of GPe boutons Bevan 1998
+K_real_DD = {('STN', 'Proto'):0, #883, # Baufreton et al. (2009)
+           ('Proto', 'STN'): 0,#190, # Kita, H., and Jaeger, D. (2016)
+           ('Proto', 'Proto'): 0,#650, # Hegeman et al. (2017)
+#           ('FSI', 'Proto'): int(800*15*N_real['Proto']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per Proto Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
+           ('FSI', 'Proto'): 0,#360, # averaging the FSI contacting of Proto boutons Bevan 1998
            ('D1', 'FSI'): int(36*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 36% (FSI-D1) Gittis et al.2010
            ('D2', 'FSI'): 2*K_real[('D2', 'FSI')],
            ('FSI','FSI'): int(N_real['FSI']*0.58), # Gittis et al. (2010)
-           ('GPe', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
+           ('Proto', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
            ('GPi', 'D1'): 0,
            ('GPi', 'STN'): 0,
-           ('GPi', 'GPe'): 0,
+           ('GPi', 'Proto'): 0,
            ('D1', 'D2'): 0.7*K_real[('D1', 'D2')], #Damodaran et al 2015 based on Taverna et al. 2008
            ('D2', 'D2'): 0.5*K_real[('D2', 'D2')]} #Damodaran et al 2015 based on Taverna et al. 2008
 
 
-K_real_STN_GPe_diverse = K_real.copy()
-K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
-T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
-      ('GPe', 'STN'): 2, # kita & Kitai (1991) - [firing rate]
-      ('GPe', 'GPe'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
-      ('GPe', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at GPe}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
+K_real_STN_Proto_diverse = K_real.copy()
+K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
+T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
+      ('Proto', 'STN'): 2, # kita & Kitai (1991) - [firing rate]
+      ('Proto', 'Proto'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
+      ('Proto', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at Proto}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
       ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
-#      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> GPe Kita & Kita (2011) - D2-GPe of Kita & Kitai (1991)
+#      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
       ('D1', 'Ctx'): 10.5,
       ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-      ('GPi', 'GPe'): 2.8, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-GPe-GPi circuit?
+      ('GPi', 'Proto'): 2.8, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
       ('Th', 'GPi'): 5, # estimate 
-      ('FSI', 'GPe'): 6, #estimate
+      ('FSI', 'Proto'): 6, #estimate
       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
       ('D2' , 'FSI'): 1, #0.93 ms mice Gittis et al 2010
       ('FSI' , 'FSI'): 1, # estimate based on proximity
@@ -610,51 +610,51 @@ T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993) - [firing rate]
 T_DD = {('D2', 'Ctx'): 5.5, # excitation of MC--> Str Kita & Kita (2011)  [firing rate]
         ('D1', 'Ctx'): 5.5,
         ('STN', 'Ctx'): 5.9} # kita & Kita (2011) [firing rate]
-G = {('STN', 'GPe'): -1 ,
-     ('GPe', 'STN'): .5 , 
-     ('GPe', 'GPe'): 0.5,
+G = {('STN', 'Proto'): -1 ,
+     ('Proto', 'STN'): .5 , 
+     ('Proto', 'Proto'): 0.5,
      ('D2', 'Ctx'): 0,
      ('D1', 'Ctx'): 0,
-     ('D2','GPe'): 0,
+     ('D2','Proto'): 0,
      ('D2', 'FSI'): 0, 
-     ('FSI', 'GPe'): 0,
+     ('FSI', 'Proto'): 0,
      ('FSI', 'FSI'): 0,
      ('D2','D2'): 0,
      ('D2','D1'): 0,
      ('D1','D2'): 0,
      ('D1', 'D1'): 0,
-     ('GPi', 'GPe'): 0,
+     ('GPi', 'Proto'): 0,
      ('Th', 'GPi') : 0
      } # synaptic weight
 
 G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
-G_DD = {('STN', 'GPe'): -3 ,
-      ('GPe', 'STN'): 0.8 , 
-      ('GPe', 'GPe'): 0, # become stronger (Bugaysen et al., 2013) 
+G_DD = {('STN', 'Proto'): -3 ,
+      ('Proto', 'STN'): 0.8 , 
+      ('Proto', 'Proto'): 0, # become stronger (Bugaysen et al., 2013) 
       ('Str', 'Ctx'): 0,
-      ('D2','GPe'): G[('D2','GPe')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
-G_DD[('GPe', 'GPe')] = 0.5* G_DD[('STN', 'GPe')]
+      ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
+G_DD[('Proto', 'Proto')] = 0.5* G_DD[('STN', 'Proto')]
 
 tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
-noise_variance = {'GPe' : 0.1, 'STN': 0.1}
-noise_amplitude = {'GPe' : 10, 'STN': 10}
-oscil_peak_threshold = {'GPe' : 0.1, 'STN': 0.1}
+noise_variance = {'Proto' : 0.1, 'STN': 0.1}
+noise_amplitude = {'Proto' : 10, 'STN': 10}
+oscil_peak_threshold = {'Proto' : 0.1, 'STN': 0.1}
 smooth_kern_window = {key: value * 30 for key, value in noise_variance.items()}
 #oscil_peak_threshold = {key: (gain[key]*noise_amplitude[key]*noise_variance[key]-threshold[key])/5 for key in noise_variance.keys()}
-#rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
-#                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN'] + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} #  <Single pop> external input coming from Ctx and Str
+#rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'Proto')]*A['Proto'] + threshold['STN'] ,
+#                   'Proto': A['Proto']/gain['Proto']-(G[('Proto', 'STN')]*A['STN'] + G[('Proto', 'Proto')]*A['Proto']) + threshold['Proto']} #  <Single pop> external input coming from Ctx and Str
 
-#mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] -rest_ext_input['STN'],
-#                   ('GPe', '1') : A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN'] + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # <single pop> external input coming from Ctx and Str
+#mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'Proto')]*A_mvt['Proto'] + threshold['STN'] -rest_ext_input['STN'],
+#                   ('Proto', '1') : A_mvt['Proto']/gain['Proto']-(G[('Proto', 'STN')]*A_mvt['STN'] + G[('Proto', 'Proto')]*A_mvt['Proto']) + threshold['Proto'] -rest_ext_input['Proto']} # <single pop> external input coming from Ctx and Str
 
-rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'GPe')]*A['GPe'] + threshold['STN'] ,
-                   'GPe': A['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A['STN']*2 + G[('GPe', 'GPe')]*A['GPe']) + threshold['GPe']} # <double pop> external input coming from Ctx and Str
+rest_ext_input = { 'STN': A['STN']/gain['STN']-G[('STN', 'Proto')]*A['Proto'] + threshold['STN'] ,
+                   'Proto': A['Proto']/gain['Proto']-(G[('Proto', 'STN')]*A['STN']*2 + G[('Proto', 'Proto')]*A['Proto']) + threshold['Proto']} # <double pop> external input coming from Ctx and Str
 
-mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'GPe')]*A_mvt['GPe'] + threshold['STN'] -rest_ext_input['STN'],
-                   ('GPe', '1') : A_mvt['GPe']/gain['GPe']-(G[('GPe', 'STN')]*A_mvt['STN']*2 + G[('GPe', 'GPe')]*A_mvt['GPe']) + threshold['GPe'] -rest_ext_input['GPe']} # external input coming from Ctx and Str
-mvt_ext_input_dict[('STN', '2')] = mvt_ext_input_dict[('STN', '1')] ; mvt_ext_input_dict[('GPe', '2')] = mvt_ext_input_dict[('GPe', '1')]  
+mvt_ext_input_dict = { ('STN', '1'): A_mvt['STN']/gain['STN']-G[('STN', 'Proto')]*A_mvt['Proto'] + threshold['STN'] -rest_ext_input['STN'],
+                   ('Proto', '1') : A_mvt['Proto']/gain['Proto']-(G[('Proto', 'STN')]*A_mvt['STN']*2 + G[('Proto', 'Proto')]*A_mvt['Proto']) + threshold['Proto'] -rest_ext_input['Proto']} # external input coming from Ctx and Str
+mvt_ext_input_dict[('STN', '2')] = mvt_ext_input_dict[('STN', '1')] ; mvt_ext_input_dict[('Proto', '2')] = mvt_ext_input_dict[('Proto', '1')]  
 pert_val = 10
-mvt_selective_ext_input_dict = {('GPe','1') : pert_val, ('GPe','2') : -pert_val,
+mvt_selective_ext_input_dict = {('Proto','1') : pert_val, ('Proto','2') : -pert_val,
                                 ('STN','1') : pert_val, ('STN','2') : -pert_val} # external input coming from Ctx and Str
 dopamine_percentage = 100
 t_sim = 400 # simulation time in ms
@@ -664,29 +664,29 @@ D_mvt = 200
 D_perturb = 250 # transient selective perturbation
 d_Str = 200 # duration of external input to Str
 t_list = np.arange(int(t_sim/dt))
-duration_mvt = [int((t_mvt+ max(T[('GPe', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
-duration_base = [int((max(T[('GPe', 'STN')],T[('STN', 'GPe')]))/dt), int(t_mvt/dt)]
+duration_mvt = [int((t_mvt+ max(T[('Proto', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
+duration_base = [int((max(T[('Proto', 'STN')],T[('STN', 'Proto')]))/dt), int(t_mvt/dt)]
 
-#%% STN-GPe network
-G = { ('STN', 'GPe'): -.15 ,
-  ('GPe', 'STN'): 0.5, 
-  ('GPe', 'GPe'): .29} # synaptic weight
+#%% STN-Proto network
+G = { ('STN', 'Proto'): -.15 ,
+  ('Proto', 'STN'): 0.5, 
+  ('Proto', 'Proto'): .29} # synaptic weight
 
-K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 
 #K = calculate_number_of_connections(N,N_real,K_real)
-receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
-                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
-                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
-K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
+                    ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
+                    ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
+K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'STN' : STN}
-#for k in range (len(GPe)):
-#    GPe[k].tau = {'GABA-A' : 12, 'GABA-B' : 200}
+nuclei_dict = {'Proto': Proto, 'STN' : STN}
+#for k in range (len(Proto)):
+#    Proto[k].tau = {'GABA-A' : 12, 'GABA-B' : 200}
 #    STN[k].tau = {'Glut': 6} 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
@@ -695,68 +695,68 @@ for key in receiving_class_dict.keys():
 #run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 run(mvt_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 
-plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 
 #print(find_freq_of_pop_act_spec_window(STN[0],*duration_mvt))
 
 
 temp_oscil_check(STN[0].pop_act,oscil_peak_threshold['STN'], 3,*duration_mvt)
-temp_oscil_check(GPe[0].pop_act,oscil_peak_threshold['GPe'], 3,*duration_mvt)
+temp_oscil_check(Proto[0].pop_act,oscil_peak_threshold['Proto'], 3,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 
 
-#%% GPe-FSI-D2 network
-receiving_pop_list = {('FSI','1') : [('GPe', '1')], ('FSI','2') : [('GPe', '2')],
-                    ('GPe','1') : [('GPe', '1'), ('D2', '1')],
-                    ('GPe','2') : [('GPe', '2'), ('D2', '1')],
+#%% Proto-FSI-D2 network
+receiving_pop_list = {('FSI','1') : [('Proto', '1')], ('FSI','2') : [('Proto', '2')],
+                    ('Proto','1') : [('Proto', '1'), ('D2', '1')],
+                    ('Proto','2') : [('Proto', '2'), ('D2', '1')],
                     ('D2','1') : [('FSI','1')], ('D2','2') : [('FSI','2')]}
-K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 D2 = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'D2', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 FSI = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'FSI', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'D2' : D2}
+nuclei_dict = {'Proto': Proto, 'D2' : D2}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 
 run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
-plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 #%% synaptic weight phase exploration
 n_1 = 8 ; n_2 = 8
 g_inh_1_list = np.linspace(-1, -0.01, n_1)
 g_inh_2_list = np.linspace(-1, -0.01, n_2)
-G[('GPe','STN')] = 0.5
+G[('Proto','STN')] = 0.5
 
-receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
-                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
-                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
-K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
+                    ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
+                    ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
+K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'STN' : STN}
+nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 
-g_mat, GPe_prop, STN_prop = synaptic_weight_space_exploration(g_inh_1_list, g_inh_2_list, GPe, STN, duration_mvt, duration_base)
+g_mat, Proto_prop, STN_prop = synaptic_weight_space_exploration(g_inh_1_list, g_inh_2_list, Proto, STN, duration_mvt, duration_base)
 param = 'perc_t_oscil_mvt' #mvt_f'
 freq = 'mvt_f'
-scatter_3d_plot(g_mat[:,1],g_mat[:,2],STN_prop[param],STN_prop[freq], 'STN', np.max(STN_prop[freq]), np.min(STN_prop[freq]), ['STN-GPe', 'GPe-GPe', param,  'frequency'])
-scatter_3d_plot(g_mat[:,1],g_mat[:,2],GPe_prop[param],GPe_prop[freq], 'GPe', np.max(GPe_prop[freq]), np.min(GPe_prop[freq]), ['STN-GPe', 'GPe-GPe', param, 'frequency'])
+scatter_3d_plot(g_mat[:,1],g_mat[:,2],STN_prop[param],STN_prop[freq], 'STN', np.max(STN_prop[freq]), np.min(STN_prop[freq]), ['STN-Proto', 'Proto-Proto', param,  'frequency'])
+scatter_3d_plot(g_mat[:,1],g_mat[:,2],Proto_prop[param],Proto_prop[freq], 'Proto', np.max(Proto_prop[freq]), np.min(Proto_prop[freq]), ['STN-Proto', 'Proto-Proto', param, 'frequency'])
 
 #fig = plt.figure()
 #img = plt.scatter(g_mat[:,1],-g_mat[:,2], c = STN_prop['perc_t_oscil_base'], cmap=plt.hot(),lw = 1,edgecolor = 'k')
-#plt.xlabel(r'$G_{STN-GPe}$')
-#plt.ylabel(r'$G_{GPe-GPe}$')
+#plt.xlabel(r'$G_{STN-Proto}$')
+#plt.ylabel(r'$G_{Proto-Proto}$')
 #plt.title('STN')
 #clb = fig.colorbar(img)
 #clb.set_label('% basal oscillation period', labelpad=-40, y=1.05, rotation=0)
@@ -764,27 +764,27 @@ scatter_3d_plot(g_mat[:,1],g_mat[:,2],GPe_prop[param],GPe_prop[freq], 'GPe', np.
 #
 #fig = plt.figure()
 #img = plt.scatter(g_mat[:,1],-g_mat[:,2], c = STN_prop['perc_t_oscil_mvt'], cmap=plt.hot(),lw = 1,edgecolor = 'k')
-#plt.xlabel(r'$G_{STN-GPe}$')
-#plt.ylabel(r'$G_{GPe-GPe}$')
+#plt.xlabel(r'$G_{STN-Proto}$')
+#plt.ylabel(r'$G_{Proto-Proto}$')
 #plt.title('STN')
 #clb = fig.colorbar(img)
 #clb.set_label('% mvt oscillation period', labelpad=-40, y=1.05, rotation=0)
 #plt.show()
 #%% # time scale parameter space with frequency of transient oscillations at steady state
 
-receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
-                    ('GPe','1') : [('GPe', '1'), ('STN', '1'), ('STN', '2')],
-                    ('GPe','2') : [('GPe', '2'), ('STN', '1'), ('STN', '2')]}
-#receiving_pop_list = {('STN','1') : [('GPe', '1')], ('STN','2') : [('GPe', '2')],
-#                    ('GPe','1') : [('GPe', '1'), ('STN', '1')],
- #                   ('GPe','2') : [('GPe', '2'), ('STN', '2')]}
-K = calculate_number_of_connections(N,N_real,K_real_STN_GPe_diverse)
+receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
+                    ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
+                    ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
+#receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
+#                    ('Proto','1') : [('Proto', '1'), ('STN', '1')],
+ #                   ('Proto','2') : [('Proto', '2'), ('STN', '2')]}
+K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A', 'GABA-B'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
 STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'STN' : STN}
+nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
@@ -795,7 +795,7 @@ n = 5
 GABA_A = np.linspace(5,20,n)
 GABA_B = np.linspace(150,300,3)
 Glut = np.linspace(0.5,12,n)
-sweep_time_scales(GPe,STN, GABA_A, GABA_B, Glut, dt, 'data_GABA_A_B_Glut.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
+sweep_time_scales(Proto,STN, GABA_A, GABA_B, Glut, dt, 'data_GABA_A_B_Glut.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 
 pkl_file = open('data_GABA_A_B_Glut.pkl', 'rb')
 data = pickle.load(pkl_file)
@@ -803,7 +803,7 @@ pkl_file.close()
 x = data['tau'][:,0]
 y = data['tau'][:,1]
 z = data['tau'][:,2]
-name = 'GPe' ; state = 'mvt_freq'
+name = 'Proto' ; state = 'mvt_freq'
 c = data[(name,state)]
 ind = np.where(c>0)
 
@@ -815,29 +815,29 @@ scatter_3d_plot(x[ind],y[ind],z[ind],c[ind], name, 30, 20,['GABA_A','GABA_B','Gl
 n_plot = 64; plot_start = 0; line_type = ['-','--']
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(t_list[plot_start:]*dt,data['GPe','pop_act'][n_plot,plot_start:], line_type[0], label = "GPe" , c = 'r',lw = 1.5)
+ax.plot(t_list[plot_start:]*dt,data['Proto','pop_act'][n_plot,plot_start:], line_type[0], label = "Proto" , c = 'r',lw = 1.5)
 ax.plot(t_list[plot_start:]*dt,data['STN','pop_act'][n_plot,plot_start:], line_type[0],label = "STN", c = 'k',lw = 1.5)
 ax.set_title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 plt.legend(fontsize = 5)
 
 temp_oscil_check(data['STN','pop_act'][n_plot,plot_start:],oscil_peak_threshold['STN'], 3,*duration_mvt)
-temp_oscil_check(data['GPe','pop_act'][n_plot,plot_start:],oscil_peak_threshold['GPe'], 3,*duration_mvt)
+temp_oscil_check(data['Proto','pop_act'][n_plot,plot_start:],oscil_peak_threshold['Proto'], 3,*duration_mvt)
 
 plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 
 #%%
 ######################################3 only GABA-A
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
 STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'STN' : STN}
+nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
     
-sweep_time_scales_one_GABA(GPe, STN, 'GABA_A', GABA_A, Glut, dt, 'data_GABA_A.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
+sweep_time_scales_one_GABA(Proto, STN, 'GABA_A', GABA_A, Glut, dt, 'data_GABA_A.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 pkl_file = open('data_GABA_A_B_Glut.pkl', 'rb')
 freq = pickle.load(pkl_file)
 pkl_file.close()
@@ -849,17 +849,17 @@ scatter_3d_plot(x,y,z, z, name, np.max(z), np.min(z),['GABA_A','Glut','freq','fr
 #%%
 ################################### only GABA-B
 
-GPe = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
-       Nucleus(2, noise_variance, noise_amplitude, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
+Proto = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
+       Nucleus(2, noise_variance, noise_amplitude, N, A, 'Proto', G, T, t_sim, dt, tau, ['GABA-B'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
 STN = [Nucleus(1, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold),
        Nucleus(2, noise_variance, noise_amplitude, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input, receiving_pop_list,oscil_peak_threshold)]
-nuclei_dict = {'GPe': GPe, 'STN' : STN}
+nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
 for key in receiving_class_dict.keys():
     receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
 GABA_B = np.linspace(150,300,8)
-sweep_time_scales_one_GABA(GPe, STN, 'GABA_B', GABA_B, Glut, dt, 'data_GABA_B_Glut.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
+sweep_time_scales_one_GABA(Proto, STN, 'GABA_B', GABA_B, Glut, dt, 'data_GABA_B_Glut.pkl',mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain)
 pkl_file = open('ddata_GABA_B_Glut.pkl', 'rb')
 freq = pickle.load(pkl_file)
 pkl_file.close()
