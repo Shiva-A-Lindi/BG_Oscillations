@@ -9,6 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 N_sim = 1000
 population_list = ['STN', 'GPe']
+N_sub_pop = 2
 N = { 'STN': N_sim , 'GPe': N_sim}
 N_real = { 'STN': 13560 , 'GPe': 34470}
 
@@ -24,6 +25,8 @@ gain = { 'STN': 1 ,'GPe': 1}
 K_real = { ('STN', 'GPe'): 883, # Baufreton et al. (2009)
            ('GPe', 'STN'): 190, # Kita, H., and Jaeger, D. (2016)
            ('GPe', 'GPe'): 650} # Hegeman et al. (2017)
+K_real_STN_GPe_diverse = K_real.copy()
+K_real_STN_GPe_diverse[('GPe', 'STN')] = K_real_STN_GPe_diverse[('GPe', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in GPe
 T = { ('STN', 'GPe'): 4, # Fujimoto & Kita (1993)
       ('GPe', 'STN'): 2, # kita & Kitai (1991)
       ('GPe', 'GPe'): 1.5, # estimate
@@ -435,7 +438,7 @@ K = calculate_number_of_connections(N,N_real,K_real)
 GPe = Nucleus(1, N, A, 'GPe', G, T, t_sim, dt, tau, ['GABA-A'], rest_ext_input)
 #GPe = Nucleus(N, A, 'GPe', T, t_sim, dt, tau, ['GABA-A','GABA-B'], rest_ext_input)
 STN = Nucleus(1, N, A, 'STN', G, T, t_sim, dt, tau, ['Glut'], rest_ext_input)
-receiving_class_dict = {'STN': [GPe], 'GPe': [ GPe, STN]} # points to the classes of nuclei each receive projections from
+receiving_class_dict = {('STN','1'): [GPe], ('GPe','1'): [ GPe, STN]} # points to the classes of nuclei each receive projections from
 #run(mvt_ext_input_dict, D_mvt,t_mvt,T, receiving_class_dict,t_list, J, K, threshold, gain)
 
 #plot(GPe, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
