@@ -286,7 +286,7 @@ def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None):
     ax.set_xlim(limits['x'])
     ax.set_ylim(limits['y'])
     ax.set_zlim(limits['z'])
-    clb = fig.colorbar(img)
+    clb = fig.colorbar(img,pad = 0.15)
     clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
 #build_connection_matrix(4,10,2)
@@ -532,7 +532,7 @@ def sweep_time_scales_one_GABA(g_list, Proto, STN, inhibitory_trans,inhibitory_s
     output = open(filename, 'wb')
     pickle.dump(data, output)
     output.close()
-def synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base, receiving_class_dict):
+def synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base, receiving_class_dict, if_plot = True):
     
     n = len(g_1_list)
     m = len(g_2_list)
@@ -543,16 +543,12 @@ def synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2
                 'perc_t_oscil_base': np.zeros((n,m)), 'perc_t_oscil_mvt': np.zeros((n,m))}
 
     count  = 0
-    fig = plt.figure()
-#    fig, axes = plt.subplots(nrows=n, ncols=m,sharex= True, sharey=True, figsize=(10, 10))
-
     i = 0 
+    if if_plot:
+        fig = plt.figure()
     for g_1 in g_1_list:
         j = 0
         for g_2 in g_2_list:
-#            Proto.synaptic_weight[('Proto', 'STN')] = g_exit
-#            G[('STN','Proto')] = g_1
-#            G[('Proto','Proto')] = g_2
             for k in range (len(Proto)):
                 STN[k].clear_history(); Proto[k].clear_history()
                 STN[k].synaptic_weight[('STN','Proto')] = g_1 
@@ -568,26 +564,21 @@ def synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2
             _,STN_prop[('perc_t_oscil_base')][i,j], STN_prop[('base_f')][i,j]= find_freq_of_pop_act_spec_window(STN_test,*duration_base)
             _,Proto_prop[('perc_t_oscil_mvt')][i,j], Proto_prop[('mvt_f')][i,j]= find_freq_of_pop_act_spec_window(Proto_test,*duration_mvt)
             _,Proto_prop[('perc_t_oscil_base')][i,j], Proto_prop[('base_f')][i,j]= find_freq_of_pop_act_spec_window(Proto_test,*duration_base)
-
-            ax = fig.add_subplot(n,m,count+1)
-#            ax.set_yticklabels([])
-            plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
-            plt.title( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), fontsize = 10)
-#            plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-
-            plt.xlabel("", fontsize = 10)
-            plt.ylabel("", fontsize = 5)
-            plt.legend(fontsize = 10)
+            if if_plot:
+                ax = fig.add_subplot(n,m,count+1)
+                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
+                plt.title( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), fontsize = 10)    
+                plt.xlabel("", fontsize = 10)
+                plt.ylabel("", fontsize = 5)
+                plt.legend(fontsize = 10)
             count +=1
             j+=1
             print(count, "from", int(m*n))
         i+=1
-#    axes.xaxis.set_tick_position('bottom')
-#    axes.yaxis.set_tick_position('left')
-#    axes.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
-    fig.text(0.5, 0.01, 'time (ms)', ha='center')
-    fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
-    fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
+    if if_plot:
+        fig.text(0.5, 0.01, 'time (ms)', ha='center')
+        fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
+        fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
 
     return g_mat, Proto_prop, STN_prop 
 
@@ -822,11 +813,10 @@ plot(nuclei_dict['Proto'], nuclei_dict['STN'], dt, t_list, A, A_mvt, t_mvt, D_mv
 #temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,*duration_base)
 #temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,*duration_base)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
-
+#%%
 
 #%% Proto-FSI-D2 network
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], ('FSI','2') : [('Proto', '2')],
-                    ('Proto','1') : [('Proto', '1'), ('D2', '1')],
                     ('Proto','2') : [('Proto', '2'), ('D2', '1')],
                     ('D2','1') : [('FSI','1')], ('D2','2') : [('FSI','2')]}
 K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
@@ -845,8 +835,11 @@ for key in receiving_class_dict.keys():
 
 run(mvt_selective_ext_input_dict, D_perturb,t_mvt,T, receiving_class_dict,t_list, K, N, threshold, gain, nuclei_dict)
 plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+
+#%%
+
 #%% synaptic weight phase exploration
-n_1 = 20 ; n_2 = 20
+n_1 = 20 ; n_2 = 20 ; if_plot = False
 g_1_list = np.linspace(-2, 0, n_1, endpoint = True)
 g_2_list = np.linspace(-2, 0, n_2, endpoint = True)
 G[('Proto','STN')] = 0.5
@@ -860,7 +853,7 @@ STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude,
 nuclei_dict = {'Proto': Proto, 'STN' : STN}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict)
 
-g_mat, Proto_prop, STN_prop = synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base, receiving_class_dict)
+g_mat, Proto_prop, STN_prop = synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_list, dt, g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base, receiving_class_dict, if_plot)
 
 param = 'perc_t_oscil_mvt' #mvt_f'
 freq = 'mvt_f'
