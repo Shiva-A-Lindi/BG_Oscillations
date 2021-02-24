@@ -621,7 +621,7 @@ def sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, f
                 if nucleus.name == 'Proto': nucleus.tau = {inhibitory_trans_1 : inhibitory_trans_1_val, inhibitory_trans_2 : inhibitory_trans_2_val}
                 if nucleus.name == 'STN': nucleus.tau = {'Glut': glut} 
         return nuclei_dict
-    data  = create_data_dict(nuclei_dict, [len(GABA_A), len(GABA_B), len(Glut)], 3 ,t_list)    
+    data  = create_data_dict(nuclei_dict, [len(GABA_A), len(GABA_B), len(Glut)], 3 ,len(t_list))    
     count = 0
     i = 0
     for gaba_a in GABA_A:
@@ -634,7 +634,7 @@ def sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, f
                 n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary_STN_GPe(g_list,g_ratio, nuclei_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
                 run(receiving_class_dict,t_list, dt, nuclei_dict)
                 data['tau'][i,j,m,:] = [gaba_a, gaba_b, glut]
-                nucleus_list =[ Proto[0], STN[0]]
+                nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
                 for nucleus in nucleus_list:
                     data[(nucleus.name, 'g_transient')][i,j] = g_transient
                     data[(nucleus.name, 'g_stable')][i,j] = g_stable
@@ -837,7 +837,8 @@ def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dic
 def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebins):
     '''build a data dictionary'''
     
-    data = {} ; dimensions = iter_param_length_list.copy() ; 
+    data = {} ; dimensions = iter_param_length_list.copy() ;
+    print(n_timebins, dimensions) 
     pop_act_size = tuple(dimensions + [n_timebins])
     for nucleus_list in nuclei_dict.values():
         nucleus = nucleus_list[0] # get only on class from each population
