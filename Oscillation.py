@@ -208,7 +208,7 @@ plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 # temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 #%%
-#%% synaptic weight phase exploration
+#%% synaptic weight phase exploration both STN-Proto circuits
 
 n_1 = 2 ; n_2 = 2 ; if_plot = False
 g_1_list = np.linspace(-2, 0, n_1, endpoint = True)
@@ -219,18 +219,49 @@ receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '
                     ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
                     ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
 pop_list = [1,2]  
+G_dict = {('STN', 'Proto') : g_1_list, ('Proto', 'Proto') : g_2_list}
 Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
 STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, tau, ['Glut'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
 nuclei_dict = {'Proto': Proto, 'STN' : STN}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list)
+filename = 'data_synaptic_weight.pkl'
+synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, if_plot)
 
-g_mat, Proto_prop, STN_prop = synaptic_weight_space_exploration(A, A_mvt, D_mvt, t_mvt, t_list, dt, g_1_list, g_2_list, Proto, STN, duration_mvt, duration_base, receiving_class_dict,color_dict, if_plot)
-
+pkl_file = open(filename, 'rb')
+data = pickle.load(pkl_file)
+pkl_file.close()
+name = 'STN'
 param = 'perc_t_oscil_mvt' #mvt_f'
-freq = 'mvt_f'
-scatter_3d_wireframe_plot(g_mat[:,:,1],g_mat[:,:,2],STN_prop[param],STN_prop[freq], 'STN', ['STN-Proto', 'Proto-Proto', param,  'frequency'])
-scatter_3d_wireframe_plot(g_mat[:,:,1],g_mat[:,:,2],Proto_prop[param],Proto_prop[freq], 'Proto', ['STN-Proto', 'Proto-Proto', param, 'frequency'])
+freq = 'mvt_freq'
+scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,freq)], name, ['STN-Proto', 'Proto-Proto', param,  'frequency'])
 
+#%%
+#%% synaptic weight phase exploration only GP
+
+n = 10 ; if_plot = False
+g_1_list = [-1] #np.linspace(-2, 0, n, endpoint = True)
+g_2_list = np.linspace(-2, 0, n, endpoint = True)
+G[('Proto','STN')] = 0.5
+
+lim_n_cycle = [6,10]
+receiving_pop_list = {('Proto','1') : [('Proto', '1')]}
+pop_list = [1]  
+G_dict = {('STN', 'Proto') : g_1_list, ('Proto', 'Proto') : g_2_list}
+Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
+# STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, tau, ['Glut'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
+nuclei_dict = {'Proto': Proto}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+filename = 'data_synaptic_weight.pkl'
+synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, if_plot)
+
+pkl_file = open(filename, 'rb')
+data = pickle.load(pkl_file)
+pkl_file.close()
+name = 'Proto'
+color = 'perc_t_oscil_mvt' #mvt_f'
+param = 'mvt_freq'
+# scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
+scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name,  ['G(Proto-Proto)', param, color] )
 #%%
 #%% time scale space (GABA-a, GABA-b)
 
@@ -254,7 +285,7 @@ GABA_A = np.linspace(5,32,n); GABA_B = np.linspace(150,310,n)
 g_list = np.linspace(-20,-0.01, 100); g_ratio = 1
 lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
 filename = 'data_GABA_A_GABA_B.pkl'
-sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, filename, A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
+sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, filename,G.copy(), A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
 
 pkl_file = open(filename, 'rb')
 data = pickle.load(pkl_file)
@@ -299,7 +330,7 @@ inhibitory_series = GABA_A
 g_list = np.linspace(-20,-0.01, 100); g_ratio = 1
 lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
 filename = 'data_'+inhibitory_trans+'_g_ratio_'+str(g_ratio)+'.pkl'
-sweep_time_scales_one_GABA_STN_GPe(g_list,g_ratio, nuclei_dict, inhibitory_trans,inhibitory_series, Glut, filename, A,A_mvt,D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base,duration_mvt, lim_n_cycle,find_stable_oscill)
+sweep_time_scales_one_GABA_STN_GPe(g_list,g_ratio, nuclei_dict, inhibitory_trans,inhibitory_series, Glut, filename, G.copy(),A,A_mvt,D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base,duration_mvt, lim_n_cycle,find_stable_oscill)
 
 pkl_file = open(filename, 'rb')
 data = pickle.load(pkl_file)
@@ -325,11 +356,11 @@ t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = int(t_sim/2); D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
 G[('Proto','STN')] = 1
-receiving_pop_list = {('STN',susussnnnnsub'1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
+receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
                     ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
                     ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
 
-pop_list = [1,2]  
+pop_list = [1,2]
 Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
 STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, tau, ['Glut'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
 nuclei_dict = {'Proto': Proto, 'STN' : STN}
@@ -343,7 +374,7 @@ inhibitory_series = GABA_B
 g_list = np.linspace(-80,-0.01, 80) ; g_ratio = 1
 lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
 filename = 'data_'+inhibitory_trans+'.pkl'
-sweep_time_scales_one_GABA_STN_GPe(g_list,g_ratio, nuclei_dict, inhibitory_trans,inhibitory_series, Glut, filename, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base,duration_mvt, lim_n_cycle,find_stable_oscill)
+sweep_time_scales_one_GABA_STN_GPe(g_list,g_ratio, nuclei_dict, inhibitory_trans,inhibitory_series, Glut, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base,duration_mvt, lim_n_cycle,find_stable_oscill)
 
 pkl_file = open(filename, 'rb')
 freq = pickle.load(pkl_file)
