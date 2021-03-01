@@ -1,5 +1,4 @@
 
-#%%
 #%% Constants 
 
 import numpy as np
@@ -142,7 +141,16 @@ G = {('STN', 'Proto'): -1 ,
      ('GPi', 'Proto'): 0,
      ('Th', 'GPi') : 0
      } # synaptic weight
-
+tau = {'GABA-A' : 10, 'GABA-B': 200, 'Glut': 5, 'AMPA': 1.8, 'NMDA':51} # Gerstner. synaptic time scale for excitation and inhibition
+synaptic_time_scale = {('STN', 'Proto'): [10] ,
+                        ('Proto', 'STN'): tau['GLut'], 
+                        ('Proto', 'Proto'): [6],
+                        ('STN', 'Proto'): [10],
+                        ('D2', 'FSI'): [30], 
+                        ('FSI', 'Proto'): [6],
+                        ('FSI', 'FSI'): [6],
+                        ('Proto','D2'): [10],
+                        ('D2', 'Arky'): [30]}
 G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
 G_DD = {('STN', 'Proto'): -3 ,
       ('Proto', 'STN'): 0.8 , 
@@ -150,8 +158,6 @@ G_DD = {('STN', 'Proto'): -3 ,
       ('Str', 'Ctx'): 0,
       ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
 G_DD[('Proto', 'Proto')] = 0.5* G_DD[('STN', 'Proto')]
-
-tau = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 3.5} # Gerstner. synaptic time scale for excitation and inhibition
 color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g'}
 noise_variance = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1}
 noise_amplitude = {'Proto' : 10, 'STN': 10, 'D2': 10, 'FSI': 10}
@@ -177,7 +183,7 @@ duration_base = [0, int(t_mvt/dt)]
 ext_inp_delay = 0
 
 #%%
-#%%  STN-Proto network
+#%% STN-Proto network
 G = { ('STN', 'Proto'): -2,
   ('Proto', 'STN'): 0.5, 
   ('Proto', 'Proto'): -2 } # synaptic weight
@@ -203,9 +209,9 @@ plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
 # n_half_cycle, G, nuclei_dict = find_oscillation_boundary_STN_GPe(g_list,nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base)
 
 #print(find_freq_of_pop_act_spec_window(STN[0],*duration_mvt))
-#temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,*duration_mvt)
-# temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,*duration_base)
-# temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,*duration_mvt)
+#temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_mvt)
+# temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_base)
+# temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,dt,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 #%%
 #%% synaptic weight phase exploration both STN-Proto circuits
@@ -237,10 +243,14 @@ scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],d
 
 #%%
 #%% synaptic weight phase exploration only GP
+# T[('Proto', 'Proto')]= 2
+# filename = 'data_synaptic_weight_GP_only_T_2.pkl'
 
-n = 10 ; if_plot = False
+T[('Proto', 'Proto')]= 5
+filename = 'data_synaptic_weight_GP_only_T_5.pkl'
+n = 50; if_plot = False
 g_1_list = [-1] #np.linspace(-2, 0, n, endpoint = True)
-g_2_list = np.linspace(-2, 0, n, endpoint = True)
+g_2_list = np.linspace(-6, 0, n, endpoint = True)
 G[('Proto','STN')] = 0.5
 
 lim_n_cycle = [6,10]
@@ -251,7 +261,6 @@ Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitu
 # STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, tau, ['Glut'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
 nuclei_dict = {'Proto': Proto}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-filename = 'data_synaptic_weight.pkl'
 synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, if_plot)
 
 pkl_file = open(filename, 'rb')
@@ -260,8 +269,44 @@ pkl_file.close()
 name = 'Proto'
 color = 'perc_t_oscil_mvt' #mvt_f'
 param = 'mvt_freq'
+g_transient = data[name,'g_transient_boundary'][0]
 # scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
-scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name,  ['G(Proto-Proto)', param, color] )
+scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), 'only '+name,  ['G(Proto-Proto)', param, color] )
+plt.axvline(g_transient[1], c = 'k')
+#%%
+#%% synaptic weight phase exploration only STN
+
+n = 50; if_plot = False
+g_1_list = [-1] #np.linspace(-2, 0, n, endpoint = True)
+g_2_list = np.linspace(-6, 0, n, endpoint = True)
+G[('Proto','STN')] = 0.5
+
+lim_n_cycle = [6,10]
+receiving_pop_list = {('STN','1') : [('Proto', '1')],('Proto', '1'):[('STN','1')] }
+pop_list = [1]  
+G_dict = {('Proto', 'Proto') : g_1_list, ('STN', 'Proto') : g_2_list}
+Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
+STN = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, tau, ['Glut'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
+nuclei_dict = {'Proto': Proto, 'STN':STN}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+filename = 'data_synaptic_weight_STN_GP.pkl'
+synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, if_plot)
+
+pkl_file = open(filename, 'rb')
+data = pickle.load(pkl_file)
+pkl_file.close()
+name = 'STN'
+color = 'perc_t_oscil_mvt' #mvt_f'
+param = 'mvt_freq'
+g_transient = data[(name,'g_transient_boundary')][0]
+# scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
+scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' / STN-GP circuit G(Proto-STN) =' +str(G[('Proto','STN')]),  ['G(Proto-Proto)', param, color] )
+plt.axvline(g_transient[1], c = 'k')
+#%% Critical g Combine different circuits
+
+synaptic_weight_transition_two_multiple_circuits(['data_synaptic_weight_STN_GP.pkl','data_synaptic_weight_GP_only_T_5.pkl'], 
+                                                 ['STN', 'Proto'], ['STN-GP', 'GP-GP (5ms)'], ['k','r'],[1,1],2*['mvt_freq'],2* ['perc_t_oscil_mvt'],'jet')
+
 #%%
 #%% time scale space (GABA-a, GABA-b)
 
@@ -390,9 +435,11 @@ scatter_3d_wireframe_plot_2_data_series(x,y,z,'b','lightskyblue', x,y,z_stable,'
 
 
 #%%
-#%% Pallidostriatal loop
+#%% Pallidostriatal loop without GP-GP
+g = -2
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.2
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
-                    ('Proto','1') : [('Proto', '1'), ('D2', '1')],
+                    ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('FSI','1')]}
 pop_list = [1]  
 Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, tau, ['GABA-A'], receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
@@ -404,6 +451,7 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 
 run(receiving_class_dict,t_list, dt, nuclei_dict)
 plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+temp_oscil_check(nuclei_dict['D2'][0].pop_act,oscil_peak_threshold['D2'], 3,dt,*duration_mvt)
 
 #%%
 #%% Pallidostriatal sweep
