@@ -10,9 +10,15 @@ from scipy.ndimage import gaussian_filter1d
 import pickle
 #from scipy.ndimage.filters import generic_filter
 
+def find_sending_pop_dict(receiving_pop_list):
+    sending_pop_list = {k: [] for k in receiving_pop_list.keys()}
+    for k,v_list in receiving_pop_list.items():
+        for v in v_list:
+            sending_pop_list[v].append(k)
+    return sending_pop_list
 class Nucleus:
 
-    def __init__(self, population_number,gain, threshold, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, tau, trans_types, receiving_from_dict,smooth_kern_window,oscil_peak_threshold):
+    def __init__(self, population_number,gain, threshold, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, trans_types, receiving_from_dict,smooth_kern_window,oscil_peak_threshold):
         
         self.n = N[name] # population size
         self.population_num = population_number
@@ -22,19 +28,20 @@ class Nucleus:
         self.threshold = threshold[name]
         self.gain = gain[name]
         self.trans_types =  trans_types
-        self.tau = dictfilt(tau, self.trans_types) # synaptic time scale based on neuron type
+        self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[0]==name} # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
         self.transmission_delay = {k: v for k, v in T.items() if k[0]==name} # filter based on the receiving nucleus
         self.ext_inp_delay = ext_inp_delay        
         self.synaptic_weight = {k: v for k, v in G.items() if k[0]==name} # filter based on the receiving nucleus
         self.K_connections = None
         self.history_duration = max(self.transmission_delay.values()) # stored history in ms derived from the longest transmission delay of the projections
-        self.output = np.zeros((self.n,int(self.history_duration/dt)))
+        self.receiving_from_dict = receiving_from_dict[(self.name, str(self.population_num))] 
+        sending_to_dict = find_sending_pop_dict(receiving_from_dict)
+        self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))] 
+        # self.output = np.zeros((self.n,int(self.history_duration/dt)))
+        self.output = {k: np.zeros((self.n,int(T[k,self.name]/dt))) for k in self.sending_to_dict} 
         self.input = np.zeros((self.n))
         self.neuron_act = np.zeros((self.n))
         self.pop_act = np.zeros((int(t_sim/dt))) # time series of population activity
-        self.receiving_from_dict = receiving_from_dict[(self.name, str(self.population_num))] 
-#        self.max_delay = 
-#        self.rest_ext_input = rest_ext_input[name]
         self.rest_ext_input = None
         self.mvt_ext_input = np.zeros((int(t_sim/dt))) # external input mimicing movement
         self.external_inp_t_series = np.zeros((int(t_sim/dt)))
@@ -47,25 +54,46 @@ class Nucleus:
         self.oscil_peak_threshold = oscil_peak_threshold[self.name]
         self.smooth_kern_window = smooth_kern_window[self.name]
         
+#     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):  
+        
+#         syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
+#         for projecting in receiving_from_class_list:
+# #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
+#             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
+#                            projecting.output[:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+        
+# #        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
+# #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
+#         self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
+#         self.neuron_act = transfer_func(self.threshold, self.gain, self.input)
+#         self.pop_act[t] = np.average(self.neuron_act)
+        
+    # def update_output(self,dt):
+    #     new_output = self.output[:,-1].reshape(-1,1)
+    #     for tau in self.tau.keys():
+    #         new_output += dt*(-self.output[:,-1].reshape(-1,1)+self.neuron_act)/self.tau[tau]
+    #     self.output = np.hstack((self.output[:,1:], new_output))
+
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):  
         
         syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
         for projecting in receiving_from_class_list:
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
-                           projecting.output[:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+                           projecting.output[self.name][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
         
 #        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
 #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
         self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         self.neuron_act = transfer_func(self.threshold, self.gain, self.input)
         self.pop_act[t] = np.average(self.neuron_act)
-        
+
     def update_output(self,dt):
-        new_output = self.output[:,-1].reshape(-1,1)
-        for tau in self.tau.keys():
-            new_output += dt*(-self.output[:,-1].reshape(-1,1)+self.neuron_act)/self.tau[tau]
-        self.output = np.hstack((self.output[:,1:], new_output))
+        new_output = {k: self.output[k][:,-1].reshape(-1,1) for k in self.output.keys()}
+        for key,sending in self.sending_to_dict.items():
+            for tau in self.synaptic_time_constant[(key[0],self.name)]:
+                new_output[key] += dt*(-self.output[key][:,-1].reshape(-1,1)+self.neuron_act)/tau
+            self.output[key] = np.hstack((self.output[key[:,1:], new_output[key]]))
         
     def set_connections(self, K, N):
         ''' creat Jij connection matrix
