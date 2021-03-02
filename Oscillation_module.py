@@ -38,7 +38,7 @@ class Nucleus:
         sending_to_dict = find_sending_pop_dict(receiving_from_dict)
         self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))] 
         # self.output = np.zeros((self.n,int(self.history_duration/dt)))
-        self.output = {k: np.zeros((self.n,int(T[k,self.name]/dt))) for k in self.sending_to_dict} 
+        self.output = {k: np.zeros((self.n,int(T[k[0],self.name]/dt))) for k in self.sending_to_dict} 
         self.input = np.zeros((self.n))
         self.neuron_act = np.zeros((self.n))
         self.pop_act = np.zeros((int(t_sim/dt))) # time series of population activity
@@ -80,7 +80,7 @@ class Nucleus:
         for projecting in receiving_from_class_list:
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
-                           projecting.output[self.name][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+                           projecting.output[(self.name,self.population_num)][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
         
 #        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
 #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
@@ -90,7 +90,7 @@ class Nucleus:
 
     def update_output(self,dt):
         new_output = {k: self.output[k][:,-1].reshape(-1,1) for k in self.output.keys()}
-        for key,sending in self.sending_to_dict.items():
+        for key in self.sending_to_dict:
             for tau in self.synaptic_time_constant[(key[0],self.name)]:
                 new_output[key] += dt*(-self.output[key][:,-1].reshape(-1,1)+self.neuron_act)/tau
             self.output[key] = np.hstack((self.output[key[:,1:], new_output[key]]))
