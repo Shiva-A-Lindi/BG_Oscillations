@@ -28,7 +28,7 @@ class Nucleus:
         self.threshold = threshold[name]
         self.gain = gain[name]
         self.trans_types =  trans_types
-        self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[0]==name} # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
+        self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==name} # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
         self.transmission_delay = {k: v for k, v in T.items() if k[0]==name} # filter based on the receiving nucleus
         self.ext_inp_delay = ext_inp_delay        
         self.synaptic_weight = {k: v for k, v in G.items() if k[0]==name} # filter based on the receiving nucleus
@@ -78,9 +78,10 @@ class Nucleus:
         
         syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
         for projecting in receiving_from_class_list:
+            # print(projecting.name, projecting.population_num,projecting.output.keys())
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
-                           projecting.output[(self.name,self.population_num)][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+                           projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
         
 #        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
 #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
@@ -93,7 +94,7 @@ class Nucleus:
         for key in self.sending_to_dict:
             for tau in self.synaptic_time_constant[(key[0],self.name)]:
                 new_output[key] += dt*(-self.output[key][:,-1].reshape(-1,1)+self.neuron_act)/tau
-            self.output[key] = np.hstack((self.output[key[:,1:], new_output[key]]))
+            self.output[key] = np.hstack((self.output[key][:,1:], new_output[key]))
         
     def set_connections(self, K, N):
         ''' creat Jij connection matrix
