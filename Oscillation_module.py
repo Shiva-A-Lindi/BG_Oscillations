@@ -18,7 +18,7 @@ def find_sending_pop_dict(receiving_pop_list):
     return sending_pop_list
 class Nucleus:
 
-    def __init__(self, population_number,gain, threshold, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, trans_types, receiving_from_dict,smooth_kern_window,oscil_peak_threshold):
+    def __init__(self, population_number,gain, threshold, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_from_dict,smooth_kern_window,oscil_peak_threshold):
         
         self.n = N[name] # population size
         self.population_num = population_number
@@ -27,7 +27,7 @@ class Nucleus:
         self.mvt_firing = A_mvt[name]
         self.threshold = threshold[name]
         self.gain = gain[name]
-        self.trans_types =  trans_types
+        # self.trans_types =  trans_types
         self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==name} # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
         self.transmission_delay = {k: v for k, v in T.items() if k[0]==name} # filter based on the receiving nucleus
         self.ext_inp_delay = ext_inp_delay        
@@ -80,6 +80,7 @@ class Nucleus:
         for projecting in receiving_from_class_list:
             # print(projecting.name, projecting.population_num,projecting.output.keys())
 #            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
+            # print(projecting.name,projecting.population_num)
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
                            projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
         
@@ -115,7 +116,8 @@ class Nucleus:
             self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[projecting[0]], n_connections)
 #            J[(self.name, projecting)] = build_connection_matrix(self.n, N[projecting], n_connections)
     def clear_history(self):
-        self.output = np.zeros_like(self.output)
+        # self.output = np.zeros_like(self.output)
+        self.output = {k: np.zeros_like(self.output[k]) for k in self.output.keys()}
         self.input = np.zeros_like(self.input)
         self.neuron_act = np.zeros_like(self.neuron_act)
         self.pop_act = np.zeros_like(self.pop_act) 
@@ -520,14 +522,13 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
         fig = plt.figure()
     if np.average(list_1) < 0: list_1 = reversed(list_1) # to approach the boundary form the steady state
     if np.average(list_2) < 0: list_2 = reversed(list_2)
-    print(G_dict.keys(),)
+
     for g_1 in list_1:
         j = 0
         found_g_transient = {k: False for k in nuclei_dict.keys()}
         for g_2 in list_2:
 
             G[(tuple(G_dict.keys())[0])] = g_1
-            print(tuple(G_dict.keys())[0], g_1)
             G[(tuple(G_dict.keys())[1])] = g_2
             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             run(receiving_class_dict,t_list, dt, nuclei_dict)
@@ -626,7 +627,10 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
     if len(sig) <= (x_plateau +2) and len(sig) >= (x_plateau-2) : # if the whole signal is oscillatory
         sig = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
+        plt.figure()
+        plt.plot(sig)
         peaks,properties = signal.find_peaks(sig, height = peak_threshold)
+        print(peaks)
         # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
         slope, intercept, r_value, p_value, std_err = stats.linregress(peaks,sig[peaks])
         if slope > amp_env_slope_thresh: 
