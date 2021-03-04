@@ -386,8 +386,18 @@ def cut_plateau(sig,epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
 #    return np.arange(plateau_start)
     ##
     rolling_var = np.var(rolling_window(sig, window), axis=-1)
-    ind = np.where(rolling_var > epsilon)
-    return ind[0]
+    low_var_ind = np.where(rolling_var > epsilon)[0]
+    if len(low_var_ind) == 0:
+        return []
+    else:
+        print(low_var_ind)
+        continous_run_starts = np.where(np.diff(low_var_ind) != 1)[0] # find the starts of runs of continuous chunks
+        if len(continous_run_starts) != 0:
+            # print(continous_run_starts)
+            cut_plateau_ind = np.arange(low_var_ind[np.max(continous_run_starts)+1]) # make a continuous array up to the last run
+            return cut_plateau_ind
+        else:
+            return continous_run_starts
 
 def moving_average_array(X, n):
 	'''Return the moving average over X with window n without changing dimesions of X'''
@@ -424,17 +434,16 @@ def find_mean_of_signal(sig):
     ''' find the value which when subtracted the signal oscillates around zero'''
     cut_plateau_ind = cut_plateau(sig)
     len_not_plateau = len(cut_plateau_ind)
-    plt.figure()
-    plt.plot(sig)
-    plt.plot(sig[:max(cut_plateau_ind)])
-    print(len_not_plateau,len(sig))
+    # plt.figure()
+    # plt.plot(sig)
+    # plt.plot(sig[:max(cut_plateau_ind)])
+    # plt.plot(sig[cut_plateau_ind])
+    # print(len_not_plateau,len(sig))
     if len_not_plateau > 0 and len_not_plateau < len(sig)*4/5: # if more than 1/5th of signal is plateau
-        print('h')
         plateau_y = np.average(sig[max(cut_plateau_ind):])  
     else: # if less than 1/5th is left better to average the whole signal for more confidence
         # peaks,properties = signal.find_peaks(sig)
         # troughs,properties = signal.find_peaks(-sig)
-        print('here')
         plateau_y = np.average(sig)
     return cut_plateau_ind, plateau_y
 
