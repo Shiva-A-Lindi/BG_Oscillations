@@ -390,7 +390,6 @@ def cut_plateau(sig,epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
     if len(low_var_ind) == 0:
         return []
     else:
-        print(low_var_ind)
         continous_run_starts = np.where(np.diff(low_var_ind) != 1)[0] # find the starts of runs of continuous chunks
         if len(continous_run_starts) != 0:
             # print(continous_run_starts)
@@ -452,7 +451,7 @@ def trim_start_end_sig_rm_offset(sig,start, end):
     trimmed = sig[start:end]
     _, plateau_y = find_mean_of_signal(trimmed)
     trimmed = trimmed - plateau_y # remove the offset determined with plateau level
-    print('trimmed = ',np.average(trimmed))
+    # print('trimmed = ',np.average(trimmed))
     max_value = np.max(trimmed)
     min_value = np.min(trimmed)
     # plt.figure()
@@ -478,7 +477,7 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
     if_stable = False
     if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
         sig = sig - plateau_y
-        print('trimmed plateau removed', np.average(sig))
+        # print('trimmed plateau removed', np.average(sig))
 #        if if_oscillatory(sig, max(cut_sig_ind),nucleus.oscil_peak_threshold, nucleus.smooth_kern_window): # then check if there's oscillations
 #            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
 ##            freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
@@ -577,11 +576,9 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             run(receiving_class_dict,t_list, dt, nuclei_dict)
             data['g'][i,j,:] = [g_1, g_2]
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
-            print('g = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', data[(nucleus.name,'mvt_freq')][i,j] )
             for nucleus in nucleus_list:
-                print(nucleus.name,'mvt')
+                print(nucleus.name, ' g = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
                 data[(nucleus.name, 'n_half_cycles_mvt')][i,j],data[(nucleus.name,'perc_t_oscil_mvt')][i,j], data[(nucleus.name,'mvt_freq')][i,j],if_stable_mvt= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
-                print('base')
                 data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base= find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
                 if not found_g_transient[nucleus.name]  and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
                     data[(nucleus.name,'g_transient_boundary')].append([g_1,g_2]) # save the the threshold g to get transient oscillations
