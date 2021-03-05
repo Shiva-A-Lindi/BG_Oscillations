@@ -288,7 +288,7 @@ def scatter_2d_plot(x,y,c, title, label, limits = None):
     # ax.set_xlim(limits['x'])
     # ax.set_ylim(limits['y'])
     clb = fig.colorbar(img)
-    clb.set_label(label[2], labelpad=-40, y=1.05, rotation=0)
+    clb.set_label(label[2], labelpad=10, y=0.5, rotation=-90)
     plt.show()
     
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits = None):
@@ -390,13 +390,15 @@ def cut_plateau(sig,epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
     if len(low_var_ind) == 0:
         return []
     else:
-        continous_run_starts = np.where(np.diff(low_var_ind) != 1)[0] # find the starts of runs of continuous chunks
-        if len(continous_run_starts) != 0:
-            # print(continous_run_starts)
-            cut_plateau_ind = np.arange(low_var_ind[np.max(continous_run_starts)+1]) # make a continuous array up to the last run
-            return cut_plateau_ind
-        else:
-            return continous_run_starts
+        return np.arange(np.max(low_var_ind))
+        ##### Overthinking
+        # continous_run_starts = np.where(np.diff(low_var_ind) != 1)[0] # find the starts of runs of continuous chunks
+        # if len(continous_run_starts) != 0:
+        #     # print(continous_run_starts)
+        #     cut_plateau_ind = np.arange(low_var_ind[np.max(continous_run_starts)+1]) # make a continuous array up to the last run
+        #     return cut_plateau_ind
+        # else:
+        #     return continous_run_starts
 
 def moving_average_array(X, n):
 	'''Return the moving average over X with window n without changing dimesions of X'''
@@ -423,6 +425,7 @@ def zero_crossing_freq_detect(sig,dt):
     half_lambda =  shifted[:-1] - zero_crossings[:-1]
     # print(half_lambda)
     n_half_cycles = len(half_lambda)
+    # print("half_lambda = ", half_lambda)
     if n_half_cycles > 1:
         frequency = 1/(np.average(half_lambda)*2*dt)
     else: 
@@ -497,9 +500,11 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
     else:
         return 0,0,0, False
         
-def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05):
+def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.1]):
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
-    if len(sig) <= (x_plateau +2) and len(sig) >= (x_plateau-2) : # if the whole signal is oscillatory
+    # if len(sig) <= (x_plateau +2) and len(sig) >= (x_plateau-2) : # if the whole signal is oscillatory
+    if  x_plateau > len(sig)*oscil_perc_as_stable : # if the whole signal is oscillatory
+
         sig = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
         peaks,properties = signal.find_peaks(sig, height = peak_threshold)
         # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
@@ -508,8 +513,16 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
             # plt.figure()
             # plt.plot(sig)
             # plt.axhline(np.average(sig))
-        slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
-        if slope > amp_env_slope_thresh: 
+        ################## amplitude envelope Slope thresholding method
+        # slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
+        # print('slope = ', slope)
+        # if slope > amp_env_slope_thresh: 
+        ################# relative first and last peak ratio thresholding
+        if len(peaks)>1 : 
+            last_first_peak_ratio = sig[peaks[-1]]/sig[peaks[1]]
+            print(last_first_peak_ratio)
+        else: return False
+        if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
             # plt.figure()
             # plt.plot(sig)
             # plt.axvline(x_plateau)
@@ -545,6 +558,7 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
 def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, color_dict, if_plot = False, G_ratio_dict = None):
     list_1  = list(G_dict.values())[0] ; list_2  = list(G_dict.values())[1]
     n = len(list_1) ;m = len(list_2)
+    print(n,m)
     data = {} 
     for nucleus_list in nuclei_dict.values():
         nucleus = nucleus_list[0] # get only on class from each population
@@ -555,18 +569,21 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
         data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
         data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n,m))
         data[(nucleus.name,'g_transient_boundary')] = []
+        data[(nucleus.name,'g_stable_boundary')] = []
     data['g'] = np.zeros((n,m,2))
     count  = 0
     i = 0 
+    if_stable_plotted = False
+    if_trans_plotted = False
     if if_plot:
         fig = plt.figure()
-    if np.average(list_1) < 0: list_1 = reversed(list_1) # to approach the boundary form the steady state
-    if np.average(list_2) < 0: list_2 = reversed(list_2)
+    # if np.average(list_1) < 0: list_1_copy = reversed(list_1) # to approach the boundary form the steady state
+    # if np.average(list_2) < 0: list_2_copy = reversed(list_2)
     for g_1 in list_1:
         j = 0
         found_g_transient = {k: False for k in nuclei_dict.keys()}
+        print([i for i in list_2])
         for g_2 in list_2:
-
             G[(tuple(G_dict.keys())[0])] = g_1 # returns keys as list, tuple is needed 
             G[(tuple(G_dict.keys())[1])] = g_2
             if G_ratio_dict != None: # if the circuit has more than 2 members
@@ -577,12 +594,24 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             data['g'][i,j,:] = [g_1, g_2]
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
             for nucleus in nucleus_list:
-                print(nucleus.name, ' g = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
                 data[(nucleus.name, 'n_half_cycles_mvt')][i,j],data[(nucleus.name,'perc_t_oscil_mvt')][i,j], data[(nucleus.name,'mvt_freq')][i,j],if_stable_mvt= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
                 data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base= find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
+                print(nucleus.name,' g1 = ', round(g_1,2), ' g2 = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
+
                 if not found_g_transient[nucleus.name]  and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
                     data[(nucleus.name,'g_transient_boundary')].append([g_1,g_2]) # save the the threshold g to get transient oscillations
                     found_g_transient[nucleus.name] = True
+
+                if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
+                    if_trans_plotted = True
+                    print("transient plotted")
+                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
+            
+                if not if_stable_plotted and if_stable_mvt:
+                    data[(nucleus.name,'g_stable_boundary')].append([g_1,g_2])
+                    if_stable_plotted = True
+                    print("stable plotted")
+                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
             if if_plot:
                 ax = fig.add_subplot(n,m,count+1)
                 plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
@@ -646,8 +675,9 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end):
     cut_sig_ind, plateau_y = find_mean_of_signal(sig)
     if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
         sig = sig - plateau_y
-        print("stable osillatory regime?", if_stable_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window))
         if_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window)
+        print("stable osillatory regime?", if_stable_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window))
+
 #        if if_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window): # then check if there's oscillations
 #            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
 #            _,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
@@ -656,10 +686,10 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end):
 #            print("all plateau")
 #        plt.figure()
 #        plt.plot(sig)
-        _,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
+        n_cycles,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
         if freq != 0: # then check if there's oscillations
             perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100            
-            print("% = ", perc_oscil, "f = ",freq)
+            print("n cycles = ",round(n_cycles/2,2),"% = ", round(perc_oscil,2), "f = ",round(freq,2))
         else:
             print("all plateau")
 
@@ -951,7 +981,7 @@ def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebin
     data['tau'] = np.zeros(tuple(iter_param_length_list+[n_time_scale]))
     return data
 
-def synaptic_weight_transition_two_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap):
+def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap,x_axis = 'multiply',title = "",x_label = "G"):
     maxs = [] ; mins = []
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -965,21 +995,25 @@ def synaptic_weight_transition_two_multiple_circuits(filename_list, name_list, l
     for i in range(len(filename_list)):
         pkl_file = open(filename_list[i], 'rb')
         data = pickle.load(pkl_file)
-        g_transient = data[name_list[i],'g_transient_boundary'][0] 
-        print(np.squeeze(data['g'][:,:,0]), np.squeeze(data['g'][:,:,1]))
-        g = np.squeeze(data['g'][:,:,0]*data['g'][:,:,1])
+        if x_axis == 'multiply':
+            g = np.squeeze(data['g'][:,:,0]*data['g'][:,:,1])
+            g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
+        else:
+            g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
+            g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
+
         # ax.plot(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
         # img = ax.scatter(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
         # plt.axvline(g_transient[g_ind[i]], c = color_list[i])
         ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
         img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
-        plt.axvline(g_transient[g_ch_ind[i]]*g_transient[g_cte_ind[i]], c = color_list[i])  # to get the circuit g which is the muptiplication
-    ax.set_xlabel('G')
+        plt.axvline(g_transient, c = color_list[i])  # to get the circuit g which is the muptiplication
+    ax.set_xlabel(x_label)
     ax.set_ylabel('frequency(Hz)')
-    # ax.set_title(title)
+    ax.set_title(title)
     # ax.set_xlim(limits['x'])
     # ax.set_ylim(limits['y'])
     clb = fig.colorbar(img)
-    clb.set_label('% Oscillation', labelpad=-40, y=1.05, rotation=0)
+    clb.set_label('% Oscillation', labelpad=10, y=.5, rotation=-90)
     plt.legend()
     plt.show()
