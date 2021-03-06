@@ -577,13 +577,12 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
     if_trans_plotted = False
     if if_plot:
         fig = plt.figure()
-    # if np.average(list_1) < 0: list_1_copy = reversed(list_1) # to approach the boundary form the steady state
-    # if np.average(list_2) < 0: list_2_copy = reversed(list_2)
+    if np.average(list_1) < 0: list_1_copy = reversed(list_1) # to approach the boundary form the steady state
     for g_1 in list_1:
         j = 0
         found_g_transient = {k: False for k in nuclei_dict.keys()}
-        print([i for i in list_2])
-        for g_2 in list_2:
+        if np.average(list_2) < 0: list_2_copy = reversed(list_2)
+        for g_2 in list_2_copy:
             G[(tuple(G_dict.keys())[0])] = g_1 # returns keys as list, tuple is needed 
             G[(tuple(G_dict.keys())[1])] = g_2
             if G_ratio_dict != None: # if the circuit has more than 2 members

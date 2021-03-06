@@ -192,11 +192,11 @@ if 1:
     ext_inp_delay = 0
 #%%
 #%% Arky-Proto-D2 loop without Proto-Proto
-g = -1.7
+g = -6
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 1000 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-G[('D2', 'Arky')], G[('Arky', 'Proto')], G[('Proto', 'D2')] = g*0.1, g, g*0.5
+G[('D2', 'Arky')], G[('Arky', 'Proto')], G[('Proto', 'D2')] = g*0.2, g, g*0.5
 receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('Arky','1')]}
@@ -211,7 +211,8 @@ nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 run(receiving_class_dict,t_list, dt, nuclei_dict)
-plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$G_{D2-Arky}="+str(G[('D2', 'Arky')])+"$")
+plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, 
+     title = r"$G_{D2-Arky}="+str(round(G[('D2', 'Arky')],2))+"$ "+" $G_{Arky-P}="+str(round(G[('Arky', 'Proto')],2))+"$"+" $G_{P-D2}="+str(round(G[('Proto', 'D2')],2))+"$")
 name = 'Arky'
 nucleus = nuclei_dict[name][0]
 # find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
@@ -224,14 +225,14 @@ t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 1000 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
 g_1_list = [1] #np.linspace(-2, 0, n, endpoint = True)
-g_2_list = np.linspace(-3.5, -1, n, endpoint = True)
+g_2_list = np.linspace(-6, -1, n, endpoint = True)
 receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('Arky','1')]}
 synaptic_time_constant[('D2', 'Arky')], synaptic_time_constant[('Arky', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [30],[6],[10]
 
 pop_list = [1]; lim_n_cycle = [6,10]
-G_ratio_dict = {('D2', 'Arky') : 0.1, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5}
+G_ratio_dict = {('D2', 'Arky') : 0.2, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5}
 G_dict = {('Proto','Proto'): g_1_list, ('D2', 'Arky') : g_2_list}
 Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
 D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
@@ -239,7 +240,7 @@ Arky = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude
 
 nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-filename = 'data_synaptic_weight_D2-P-A__tau_'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'.pkl'
+filename = 'data_synaptic_weight_D2-P-A_tau_'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'.pkl'
 synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, G_ratio_dict=G_ratio_dict,if_plot=if_plot)
 
 pkl_file = open(filename, 'rb')
@@ -251,7 +252,7 @@ color = 'n_half_cycles_mvt' #mvt_f'
 param = 'mvt_freq'
 g_transient = data[(name,'g_transient_boundary')][0] # 
 # scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color]) 
-scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
+scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Arky-D2-P',  [r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$' , param, color] )
 plt.axvline(g_transient[1], c = 'k')
 # find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False)
 #%%
@@ -260,8 +261,8 @@ g = -2
 t_sim = 800; t_list = np.arange(int(t_sim/dt))
 t_mvt = 200 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-G[('D2', 'Arky')], G[('Arky', 'Proto')], G[('Proto', 'D2')] = g*0.1, g, g*0.5
-G[('Proto', 'Proto')] = -4.57
+G[('D2', 'Arky')], G[('Arky', 'Proto')], G[('Proto', 'D2')] = g*0.2, g, g*0.5
+G[('Proto', 'Proto')] = G[('Arky', 'Proto')]
 receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1'),('Proto','1')],
                     ('D2','1') : [('Arky','1')]}
@@ -276,19 +277,19 @@ nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 run(receiving_class_dict,t_list, dt, nuclei_dict)
-plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$G_{Proto-Proto}="+str(G[('Proto', 'Proto')])+"$"+ r" $G_{D2-Arky}="+str(G[('D2', 'Arky')])+"$")
-name = 'D2'
+plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$G_{Proto-Proto}="+str(round(G[('Proto', 'Proto')],2))+"$"+r" $G_{Arky-P}="+str(round(G[('Arky', 'Proto')],2))+"$\n"+r" $=2\times G_{P-D2}=5\times G_{D2-Arky}$")
+name = 'Proto'
 nucleus = nuclei_dict[name][0]
 # find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
 temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_mvt)
 
 #%%
 #%% Arky-Proto-D2 loop with Proto-Proto sweep
-n = 8 ; if_plot = False
+n = 50 ; if_plot = False
 t_sim = 1500; t_list = np.arange(int(t_sim/dt))
 t_mvt = 700 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-g_1_list = np.linspace(-6, -1, n, endpoint = True)
+g_1_list = [-1]#np.linspace(-6, -1, n, endpoint = True)
 g_2_list = np.linspace(-6, -1, n, endpoint = True)
 receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1'),('Proto','1')],
@@ -296,15 +297,15 @@ receiving_pop_list = {('Arky','1') : [('Proto', '1')],
 synaptic_time_constant[('D2', 'Proto')], synaptic_time_constant[('Arky', 'Proto')],synaptic_time_constant[('Proto', 'D2')],synaptic_time_constant[('Proto', 'Proto')]  =  [30],[6],[10],[10]
 
 pop_list = [1]  
-G_ratio_dict = {('D2', 'Arky') : 1, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5}
+G_ratio_dict = {('D2', 'Arky') : .2, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5, ('Proto', 'Proto') : 1}
 G_dict = {('Proto','Proto'): g_1_list, ('D2', 'Arky') : g_2_list}
 Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
 D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
 Arky = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Arky', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
 lim_n_cycle = [6,10]
-nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
+nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-filename = 'data_synaptic_weight_D2-P-A_with_P_P_tau_'+str(g_1_list[0])+'_tau'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'_'+str(synaptic_time_constant[('Proto', 'Proto')][0])+'.pkl'
+filename = 'data_synaptic_weight_D2-P-A_with_P_P_tau_'+str(g_1_list[0])+'_'+str(synaptic_time_constant[('D2', 'Arky')][0])+'_'+str(synaptic_time_constant[('Arky', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'_'+str(synaptic_time_constant[('Proto', 'Proto')][0])+'.pkl'
 synaptic_weight_space_exploration(G.copy(),A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict,color_dict, G_ratio_dict=G_ratio_dict,if_plot=if_plot)
 
 pkl_file = open(filename, 'rb')
@@ -314,10 +315,28 @@ pkl_file.close()
 name = 'D2'
 color = 'n_half_cycles_mvt' #mvt_f'
 param = 'mvt_freq'
-# g_transient = data[(name,'g_transient_boundary')][0] # 
-scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, [r'$G_{Proto-Proto}$', r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$', param,  color]) 
-# scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
-# plt.axvline(g_transient[1], c = 'k')
+g_transient = data[(name,'g_transient_boundary')][0] # 
+# scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, [r'$G_{Proto-Proto}$', r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$', param,  color],x_axis = 'g_2') 
+scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
+plt.axvline(g_transient[1], c = 'k')
+#%%
+#%% Critical g Combine different circuits 3 nuclei
+g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
+nucleus_name_list = ['Arky', 'Proto','D2']
+####### with GP-GP
+filename_list = 3*['data_synaptic_weight_D2-P-A_with_P_P_tau_-1_30_6_10_10.pkl']
+# filename_list = 3*['data_synaptic_weight_D2-P-A_tau_30_6_10.pkl']
+title = r'$\tau_{D2-Arky}=30$ $\tau_{Arky-P}=6$ $\tau_{P-D2}=10$ $\tau_{P-P}=10$'
+####### without GP-GP
+# filename_list = 3*['data_synaptic_weight_Pallidostriatal_tau_30_6_10.pkl']
+# title = r'$\tau_{D2-FSI}=30$ $\tau_{FSI-P}=6$ $\tau_{P-D2}=10$'
+legend_list = nucleus_name_list
+color_list = ['darkorange','r','b']
+param_list = 3*['mvt_freq']
+color_param_list = 3* ['perc_t_oscil_mvt']
+x_label = r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$'
+synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
+                                             color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,'hot',x_axis = 'g_2',title = title,x_label = x_label)
 
 #%%
 #%% Pallidostriatal loop without GP-GP
