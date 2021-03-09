@@ -256,27 +256,33 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1):    
-    plot_start =0# int(5/dt)
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1,title_fontsize = 18,plot_start = 0,ylabelpad = 0):    
+
     if plot_ob == None:
-        fig, ax = plt.subplots()
+        fig = plt.figure(figsize = (6,5))
+        ax = fig.add_subplot(111)
     else:
         fig, ax = plot_ob
      
     line_type = ['-', '--']
     for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
+        for nucleus in [nuclei_list[0]]:
             
             ax.plot(t_list[plot_start:]*dt, nucleus.pop_act[plot_start:], line_type[nucleus.population_num-1], label = nucleus.name, c = color_dict[nucleus.name],lw = 1.5)
             ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
             ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha=0.2,lw = 1 )
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
-    plt.title(title, fontsize = 18)
-    plt.xlabel("time (ms)", fontsize = 10)
-    plt.ylabel("firing rate (spk/s)", fontsize = 10)
-    plt.legend(fontsize = 10)
-    ax.tick_params(axis='both', which='major', labelsize=10)
+    plt.title(title, fontsize = title_fontsize)
+    plt.xlabel("time (ms)", fontsize = 15)
+    plt.ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
+    plt.legend(fontsize = 15)
+    # ax.tick_params(axis='both', which='major', labelsize=10)
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
+    plt.rcParams['xtick.labelsize'] = 18
+    plt.rcParams['ytick.labelsize'] = 18
+    return fig
 
 def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15):
 
@@ -335,8 +341,8 @@ def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsiz
     
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.plot_wireframe(x, y, z, color = 'grey', lw = 0.5 )
-    img = ax.scatter(x.flatten(), y.flatten(), z.flatten(), c=c.flatten(), cmap=plt.hot(), s = 20, lw = 1,edgecolor = 'k')
+    ax.plot_wireframe(x, y, z, color = 'grey', lw = 0.5 ,zorder = 1)
+    img = ax.scatter(x.flatten(), y.flatten(), z.flatten(), c=c.flatten(), cmap=plt.hot(), s = 20, lw = 1,edgecolor = 'k',zorder=2)
 
     if limits == None:
         limits = {'x':(np.amin(x),np.amax(x)), 'y':(np.amin(y),np.amax(y)), 'z':(np.amin(z),np.max(z))}
@@ -358,7 +364,10 @@ def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsiz
     clb = fig.colorbar(img,pad = 0.15)
     clb.set_label(label[3], labelpad=10, y=.5, rotation=-90)
     clb.ax.locator_params(nbins=5)
-    # plt.rcParams['grid.linewidth'] = 0.1
+    plt.rcParams['grid.linewidth'] = 0.1
+    # plt.locator_params(axis='y', nbins=6)
+    # plt.locator_params(axis='x', nbins=6)
+    plt.locator_params(axis='z', nbins=5)
     plt.show()
     return fig,ax
     
@@ -741,8 +750,10 @@ def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict,
     for t_decay_1 in t_decay_series_1:
         j = 0
         for t_decay_2 in t_decay_series_2:
+
             for key,v in syn_decay_dict['tau_1']['tau_ratio'].items():    synaptic_time_constant[key] = [syn_decay_dict['tau_1']['tau_ratio'][key] * t_decay_1]
             for key,v in syn_decay_dict['tau_2']['tau_ratio'].items():    synaptic_time_constant[key] = [syn_decay_dict['tau_2']['tau_ratio'][key] * t_decay_2]
+            nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
 
@@ -838,7 +849,7 @@ def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebin
 
 def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap,x_axis = 'multiply',title = "",x_label = "G"):
     maxs = [] ; mins = []
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10,8))
     ax = fig.add_subplot(111)
     for i in range(len(filename_list)):
         pkl_file = open(filename_list[i], 'rb')
@@ -863,21 +874,27 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
         # ax.plot(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
         # img = ax.scatter(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
         # plt.axvline(g_transient[g_ind[i]], c = color_list[i])
-        ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
-        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
-        plt.axvline(g_transient, linestyle = '-.',c = color_list[i],alpha = 0.3)  # to get the circuit g which is the muptiplication
-        plt.axvline(g_stable, c = color_list[i])  # to get the circuit g which is the muptiplication
-    plt.text(g_stable-0.5, 0.6, 'Stable oscillations',fontsize=10, rotation = -90)
-    plt.text(g_transient, 0.6, 'Oscillation appears',fontsize=10, rotation = -90)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel('frequency(Hz)')
-    ax.set_title(title)
+        ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k',zorder=2,s=80)
+        plt.axvline(g_transient, linestyle = '-.',c = color_list[i],alpha = 0.3,lw=2)  # to get the circuit g which is the muptiplication
+        plt.axvline(g_stable, c = color_list[i],lw=2)  # to get the circuit g which is the muptiplication
+    plt.text(g_stable-0.5, 0.6, 'Stable oscillations',fontsize=18, rotation = -90)
+    plt.text(g_transient, 0.6, 'Oscillation appears',fontsize=18, rotation = -90)
+    ax.set_xlabel(x_label,fontsize = 20)
+    ax.set_ylabel('frequency(Hz)',fontsize=20)
+    ax.set_title(title,fontsize=20)
+    plt.rcParams['xtick.labelsize'] = 20
+    plt.rcParams['ytick.labelsize'] = 20
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
     # ax.set_xlim(limits['x'])
     # ax.set_ylim(limits['y'])
     clb = fig.colorbar(img)
-    clb.set_label('% Oscillation', labelpad=10, y=.5, rotation=-90)
-    plt.legend()
+    clb.ax.locator_params(nbins=4)
+    clb.set_label('% Oscillation', labelpad=15, y=.5, rotation=-90,fontsize=20)
+    plt.legend(fontsize=15)
     plt.show()
+    return fig
 
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
 #     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
