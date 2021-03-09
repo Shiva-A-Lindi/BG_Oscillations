@@ -1,6 +1,5 @@
 
 #%% Constants 
-
 if 1:
     import numpy as np
     import matplotlib.pyplot as plt
@@ -161,6 +160,9 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
+    tau = {('FSI','D2'):{'r':1,'d':14} , # Straub et al. 2016
+           ('D1','D2'):{'r':3,'d':35} # Straub et al. 2016
+           } #rise and decay times
     G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
     G_DD = {('STN', 'Proto'): -3 ,
           ('Proto', 'STN'): 0.8 , 
@@ -753,42 +755,18 @@ fig.savefig('STN_GPe_timescale_inh_excit_3d.png',dpi = 300)
 fig.savefig('STN_GPe_timescale_inh_excit_3d.pdf',dpi = 300)
 
 #%%
-#%% Plot different G ratios for timescale plot of STN-GPe
+#%% Plot different sets of parameters for timescale plot
+#################### All circuits
 # filename_list = ['data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_STN_GPe_syn_t_scale_g_ratio_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_1_0-5.pkl']
 # figname = 'All_circuits_timescale'
 # label_list = ['FSI-D2-Proto','Arky-D2-Proto','STN-Proto+Proto-Proto']
 
-# filename_list = ['data_FSI_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
-# label_list = [r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{3}$',r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{3}$',r'$\tau_{PF}=\tau_{DP}=\tau_{FD}$']
-# figname = 'FSI-D2-Proto_timescale_tau_g_stable'
-# x_label = r'$\tau_{FP/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label
+################### <<frequency>> multiple time scale ratios
 
-filename_list = ['data_Arky_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
-label_list = [r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\tau_{AD}$']
-figname = 'Arky-D2-Proto_timescale_g_stable'
-x_label = r'$\tau_{AP/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label
-
-# filename_list = ['data_FSI_D2_Proto_syn_t_scale_G_ratios_2_1_0-5.pkl','data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_FSI_D2_Proto_syn_t_scale_G_ratios_1_2_0-5.pkl']
-# label_list = [r'$G_{PF}=\dfrac{G_{DP}}{2}=\dfrac{G_{FD}}{4}$',r'$G_{PF}=G_{DP}=2\times G_{FD}$',r'$G_{PF}=2\times G_{DP}=\dfrac{G_{FD}}{2}$']
-# figname = 'FSI-D2-Proto_timescale'
-
-# filename_list = ['data_Arky_D2_Proto_syn_t_scale_G_ratios_0-1_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_1_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_2_1.pkl']
-# label_list = [r'$G_{PA}=G_{DP}=\dfrac{G_{AD}}{10}$',r'$G_{PA}=G_{DP}=G_{AD}$',r'$G_{PA}=2\times G_{DP}=\dfrac{G_{AD}}{10}$']
-# figname = 'Arky-D2-Proto_timescale'
-
-name_list = ['Proto']*3
-y_list  = ['g_stable']*3
-x_label = r'$\tau_{decay}^{inhibition}(ms)$' ; y_label = r'$G_{PA}$ at transition' ; c_label = y_label
 # y_list  = ['stable_mvt_freq']*3
 # x_label = r'$\tau_{decay}^{inhibition}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label
 
-title = ''
-g_tau_2_ind = 0
-g_ratio_list = [1,1,1]
-
 # filename_list = ['data_STN_GPe_syn_t_scale_g_ratio_2.pkl', 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl', 'data_STN_GPe_syn_t_scale_g_ratio_0-5.pkl']
-# name_list = ['STN']*3
-# y_list  = ['stable_mvt_freq']*3
 # figname = 'STN_GPe_timescale'
 # x_label = r'$\tau_{decay}^{inhibition}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label
 # label_list = [r'$G_{PS}=2\times G_{PP}$',r'$G_{PS}=G_{PP}$',r'$G_{PS}=\dfrac{G_{PP}}{2}$']
@@ -796,55 +774,44 @@ g_ratio_list = [1,1,1]
 # g_ratio_list = [1,1,1]
 # g_tau_2_ind = 3
 
+# filename_list = ['data_Arky_D2_Proto_syn_t_scale_G_ratios_0-1_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_1_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_2_1.pkl']
+# label_list = [r'$G_{PA}=G_{DP}=\dfrac{G_{AD}}{10}$',r'$G_{PA}=G_{DP}=G_{AD}$',r'$G_{PA}=2\times G_{DP}=\dfrac{G_{AD}}{10}$']
+# figname = 'Arky-D2-Proto_timescale'
+# g_tau_2_ind = 0; g_ratio_list = [1,1,1]
+
+
+# filename_list = ['data_FSI_D2_Proto_syn_t_scale_G_ratios_2_1_0-5.pkl','data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_FSI_D2_Proto_syn_t_scale_G_ratios_1_2_0-5.pkl']
+# label_list = [r'$G_{PF}=\dfrac{G_{DP}}{2}=\dfrac{G_{FD}}{4}$',r'$G_{PF}=G_{DP}=2\times G_{FD}$',r'$G_{PF}=2\times G_{DP}=\dfrac{G_{FD}}{2}$']
+# figname = 'FSI-D2-Proto_timescale'
+# g_tau_2_ind = 0; g_ratio_list = [1,1,1]
+################## <<g transition>> for multiple time scale or g ratios 
+y_list  = ['g_stable']*3
+
 # filename_list = ['data_STN_GPe_syn_t_scale_g_ratio_2.pkl', 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl', 'data_STN_GPe_syn_t_scale_g_ratio_0-5.pkl']
-# y_list  = ['g_stable']*3
 # figname = 'STN_GPe_g_stable'
 # x_label = r'$\tau_{decay}^{inhibition}(ms)$' ; y_label = r'$G_{PS}$ at transition' ; c_label = y_label
 # label_list = [r'$G_{PS}=2\times G_{PP}$',r'$G_{PS}=G_{PP}$',r'$G_{PS}=\dfrac{G_{PP}}{2}$']
 # title = r'$G_{SP}=0.5$'
 # g_ratio_list = [2,1,1]
-# g_tau_2_ind = 0
-# color_list = ['k','grey','lightgrey']
-# c_list = y_list
-# colormap = 'hot'
+# g_tau_2_ind = 0 
+
+# filename_list = ['data_FSI_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
+# label_list = [r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{3}$',r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{3}$',r'$\tau_{PF}=\tau_{DP}=\tau_{FD}$']
+# figname = 'FSI-D2-Proto_timescale_tau_g_stable'
+# x_label = r'$\tau_{FP/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label; title = ''
+
+filename_list = ['data_Arky_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
+label_list = [r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\tau_{AD}$']
+figname = 'Arky-D2-Proto_timescale_g_stable'
+x_label = r'$\tau_{AP/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label; title = ''
 
 
-maxs = [] ; mins = []
-fig = plt.figure(figsize = (10,8))
-ax = fig.add_subplot(111)
-for i in range(len(filename_list)):
-    pkl_file = open(filename_list[i], 'rb')
-    data = pickle.load(pkl_file)
-    pkl_file.close()
-    maxs.append(np.max(data[name_list[i],c_list[i]]))
-    mins.append(np.min(data[name_list[i],c_list[i]]))
-vmax = max(maxs) ; vmin = min(mins)
+name_list = ['Proto']*3
+color_list = ['k','grey','lightgrey']
+colormap = 'hot'
 
-for i in range(len(filename_list)):
-    pkl_file = open(filename_list[i], 'rb')
-    data = pickle.load(pkl_file)
-    x_spec =  data['tau'][:,:,0][:,0]
-    y_spec = data[(name_list[i], y_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
-    c_spec = data[(name_list[i], c_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
-    ax.plot(x_spec,y_spec,c = color_list[i], lw = 3, label= label_list[i],zorder = 1)
-    img = ax.scatter(x_spec,y_spec,vmin = vmin, vmax = vmax, c=c_spec, cmap=colormap,lw = 1,edgecolor = 'k',s =90,zorder = 2)
-    # plt.axvline(g_transient, c = color_list[i])  # to get the circuit g which is the muptiplication
-    ax.set_xlabel(x_label,fontsize = 20)
-    ax.set_ylabel(y_label,fontsize = 20,labelpad=-8)
-    ax.set_title(title,fontsize = 20)
-    # ax.set_xlim(limits['x'])
-    # ax.set_ylim(limits['y'])
-    plt.locator_params(axis='y', nbins=5)
-    plt.locator_params(axis='x', nbins=5)
-    plt.rcParams['xtick.labelsize'] = 20
-    plt.rcParams['ytick.labelsize'] = 20
 
-clb = fig.colorbar(img)
-clb.set_label(c_label, labelpad=20, y=.5, rotation=-90,fontsize = 20)
-clb.ax.locator_params(nbins=4)
-
-plt.legend(fontsize = 20)
-plt.show()
+fig = multi_plot_as_f_of_timescale_shared_colorbar(data, y_list, c_list, label_list,g_ratio_list,name_list,filename_list,x_label,y_label,ylabelpad = -5)
 fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
 
@@ -939,164 +906,4 @@ freq_from_fft((sig2-np.average(sig2))[[cut_plateau(sig2)]],dt/1000)
 ## Find the peak and interpolate to get a more accurate peak
 #np.argmax(abs(f1))
 #np.argmax(abs(f2))
-    
-#%%
-    
-
-    
-
-# n =10  ; if_plot = False
-# t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-# t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-# duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-# receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
-#                     ('Proto','1') : [('D2', '1')],
-#                     ('D2','1') : [('FSI','1')]}
-# # synaptic_time_constant[('D2', 'FSI')], synaptic_time_constant[('FSI', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [30],[6],[10]
-
-# pop_list = [1]  
-# G_ratio_dict = {('D2', 'FSI') : 2, ('FSI', 'Proto') : 1, ('Proto', 'D2'): 0.5}
-# Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-# D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# FSI = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'FSI', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# lim_n_cycle = [6,10]
-# nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-# syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'FSI') : 3, ('FSI', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-#                 'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-# g_list = np.linspace(-20,-0.01, 200); 
-# lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
-
-# filename = 'data_FSI_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'FSI')])+'_'+str(G_ratio_dict[('FSI', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-# sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-# n = 10 ; if_plot = False
-# t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-# t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-# duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-# receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
-#                     ('Proto','1') : [('D2', '1')],
-#                     ('D2','1') : [('FSI','1')]}
-# # synaptic_time_constant[('D2', 'FSI')], synaptic_time_constant[('FSI', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [30],[6],[10]
-
-# pop_list = [1]  
-# G_ratio_dict = {('D2', 'FSI') : 1, ('FSI', 'Proto') : 1, ('Proto', 'D2'): 0.5}
-# Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-# D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# FSI = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'FSI', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# lim_n_cycle = [6,10]
-# nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-# syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'FSI') : 3, ('FSI', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-#                 'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-# g_list = np.linspace(-20,-0.01, 150); 
-# lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
-
-# filename = 'data_FSI_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'FSI')])+'_'+str(G_ratio_dict[('FSI', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-# sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-# n = 10 ; if_plot = False
-# t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-# t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-# duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-# receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
-#                     ('Proto','1') : [('D2', '1')],
-#                     ('D2','1') : [('FSI','1')]}
-# # synaptic_time_constant[('D2', 'FSI')], synaptic_time_constant[('FSI', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [30],[6],[10]
-
-# pop_list = [1]  
-# G_ratio_dict = {('D2', 'FSI') : 1, ('FSI', 'Proto') : 2, ('Proto', 'D2'): 0.5}
-# Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-# D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# FSI = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'FSI', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# lim_n_cycle = [6,10]
-# nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-# syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'FSI') : 3, ('FSI', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-#                 'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-# g_list = np.linspace(-20,-1, 250); 
-# lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory regime
-
-# filename = 'data_FSI_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'FSI')])+'_'+str(G_ratio_dict[('FSI', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-# sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-    
-    
-    
-
-# n = 10 ; if_plot = False
-# t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-# t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-# duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-# receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
-#                     ('Proto','1') : [('D2', '1')],
-#                     ('D2','1') : [('Arky','1')]}
-
-# pop_list = [1]; lim_n_cycle = [6,10]
-# G_ratio_dict = {('D2', 'Arky') : 0.2, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5}
-# Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-# D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-# Arky = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Arky', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-
-# nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-# filename = 'data_synaptic_weight_D2-P-A_tau_'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'.pkl'
-# syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'Arky') : 3, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-#                 'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-# g_list = np.linspace(-20,-0.01, 150); 
-# find_stable_oscill = True # to find stable oscillatory regime
-
-# filename = 'data_Arky_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'Arky')])+'_'+str(G_ratio_dict[('Arky', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-# sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-n = 10 ; if_plot = False
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
-                    ('Proto','1') : [('D2', '1')],
-                    ('D2','1') : [('Arky','1')]}
-
-pop_list = [1]; lim_n_cycle = [6,10]
-G_ratio_dict = {('D2', 'Arky') : 0.5, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 0.5}
-Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-Arky = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Arky', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-
-nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-filename = 'data_synaptic_weight_D2-P-A_tau_'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'.pkl'
-syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'Arky') : 3, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-                'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-g_list = np.linspace(-20,-1, 200); 
-find_stable_oscill = True # to find stable oscillatory regime
-
-filename = 'data_Arkt_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'Arky')])+'_'+str(G_ratio_dict[('Arky', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-n = 10 ; if_plot = False
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-t_mvt = 1000 ; D_mvt = t_sim - t_mvt
-duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
-receiving_pop_list = {('Arky','1') : [('Proto', '1')], 
-                    ('Proto','1') : [('D2', '1')],
-                    ('D2','1') : [('Arky','1')]}
-
-pop_list = [1]; lim_n_cycle = [6,10]
-G_ratio_dict = {('D2', 'Arky') : 0.5, ('Arky', 'Proto') : 1.5, ('Proto', 'D2'): 0.5}
-Proto = [Nucleus(i, gain, threshold, ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-D2 = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-Arky = [Nucleus(i, gain, threshold,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Arky', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-
-nuclei_dict = {'Proto': Proto, 'D2' : D2, 'Arky':Arky}
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-filename = 'data_synaptic_weight_D2-P-A_tau_'+str(synaptic_time_constant[('D2', 'FSI')][0])+'_'+str(synaptic_time_constant[('FSI', 'Proto')][0])+'_'+str(synaptic_time_constant[('Proto', 'D2')][0])+'.pkl'
-syn_decay_dict = {'tau_1': {'tau_ratio':{('D2', 'Arky') : 3, ('Arky', 'Proto') : 1, ('Proto', 'D2'): 1},'tau_list':np.linspace(5,15,n)},
-                'tau_2':{'tau_ratio':{('Proto', 'Proto'): 1},'tau_list': [5]}}#np.linspace(5,15,n)}}
-g_list = np.linspace(-20,-1, 200); 
-find_stable_oscill = True # to find stable oscillatory regime
-
-filename = 'data_Arkt_D2_Proto_syn_t_scale_G_ratios_'+str(G_ratio_dict[('D2', 'Arky')])+'_'+str(G_ratio_dict[('Arky', 'Proto')])+'_'+str(G_ratio_dict[('Proto', 'D2')])+'.pkl'
-sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-    
     

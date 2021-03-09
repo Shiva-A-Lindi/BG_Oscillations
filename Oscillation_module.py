@@ -896,6 +896,43 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     plt.show()
     return fig
 
+def multi_plot_as_f_of_timescale_shared_colorbar(data, y_list, c_list, label_list,g_ratio_list,name_list,filename_list,x_label,y_label,ylabelpad = -5):
+    maxs = [] ; mins = []
+    fig = plt.figure(figsize = (10,8))
+    ax = fig.add_subplot(111)
+    for i in range(len(filename_list)):
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        pkl_file.close()
+        maxs.append(np.max(data[name_list[i],c_list[i]]))
+        mins.append(np.min(data[name_list[i],c_list[i]]))
+    vmax = max(maxs) ; vmin = min(mins)
+    
+    for i in range(len(filename_list)):
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        x_spec =  data['tau'][:,:,0][:,0]
+        y_spec = data[(name_list[i], y_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
+        c_spec = data[(name_list[i], c_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
+        ax.plot(x_spec,y_spec,c = color_list[i], lw = 3, label= label_list[i],zorder = 1)
+        img = ax.scatter(x_spec,y_spec,vmin = vmin, vmax = vmax, c=c_spec, cmap=colormap,lw = 1,edgecolor = 'k',s =90,zorder = 2)
+        # plt.axvline(g_transient, c = color_list[i])  # to get the circuit g which is the muptiplication
+        ax.set_xlabel(x_label,fontsize = 20)
+        ax.set_ylabel(y_label,fontsize = 20,labelpad=ylabelpad)
+        ax.set_title(title,fontsize = 20)
+        # ax.set_xlim(limits['x'])
+        # ax.set_ylim(limits['y'])
+        plt.locator_params(axis='y', nbins=5)
+        plt.locator_params(axis='x', nbins=5)
+        plt.rcParams['xtick.labelsize'] = 20
+        plt.rcParams['ytick.labelsize'] = 20
+    
+    clb = fig.colorbar(img)
+    clb.set_label(c_label, labelpad=20, y=.5, rotation=-90,fontsize = 20)
+    clb.ax.locator_params(nbins=4)
+    plt.legend(fontsize = 20)
+    plt.show()
+    return fig
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
 #     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
 #     got_it = False ;g_stable = None; g_transient = None
