@@ -117,14 +117,13 @@ if 1:
           ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
           ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
           ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-          ('GPi', 'Proto'): 2.8, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
-          ('Th', 'GPi'): 5, # estimate 
+          ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
+          ('Th', 'GPi'): 5, # Xu et al. (2008)
           ('FSI', 'Proto'): 6, #estimate
           ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
           ('D2' , 'FSI'): 1, #0.93 ms mice Gittis et al 2010
           ('FSI' , 'FSI'): 1, # estimate based on proximity
-    #      ('D2', 'D1'): 1,
-    #      ('D1', 'D1'): 1,
+          ('Ctx','Th'): 5.6, # Walker et al. (2012)
           ('D1', 'D2'): 1,
           ('D2', 'D2'): 1} 
         # transmission delay in ms
@@ -161,7 +160,8 @@ if 1:
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
     tau = {('FSI','D2'):{'r':1,'d':14} , # Straub et al. 2016
-           ('D1','D2'):{'r':3,'d':35} # Straub et al. 2016
+           ('D1','D2'):{'r':3,'d':35},
+            ('STN','Proto'): {'r':1.1,'d':7.8}} # Straub et al. 2016
            } #rise and decay times
     G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
     G_DD = {('STN', 'Proto'): -3 ,

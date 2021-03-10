@@ -82,19 +82,36 @@ class Nucleus:
         
         syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
         for projecting in receiving_from_class_list:
-            # print(projecting.name, projecting.population_num,projecting.output.keys())
-#            print(np.matmul(J[(self.name, projecting.name)], projecting.output[:,int(-T[(self.name,projecting.name)]*dt)].reshape(-1,1)).shape)
-            # print(projecting.name,projecting.population_num)
+
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
                            projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
         
-#        print((syn_inputs + self.rest_ext_input  + mvt_ext_inp)[0] )
-#        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
+        #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
         self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         self.neuron_act = transfer_func(self.threshold, self.gain, self.input)
         self.pop_act[t] = np.average(self.neuron_act)
 
     def update_output(self,dt):
+        new_output = {k: self.output[k][:,-1].reshape(-1,1) for k in self.output.keys()}
+        for key in self.sending_to_dict:
+            for tau in self.synaptic_time_constant[(key[0],self.name)]:
+                new_output[key] += dt*(-self.output[key][:,-1].reshape(-1,1)+self.neuron_act)/tau
+            self.output[key] = np.hstack((self.output[key][:,1:], new_output[key]))
+
+    def calculate_input_and_inst_act_LIF(self, t, dt, receiving_from_class_list, mvt_ext_inp):  
+        
+        syn_inputs = np.zeros((self.n,1)) # = Sum (G Jxm)
+        for projecting in receiving_from_class_list:
+
+            I_rise += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
+                           projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+        
+#        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
+        self.input = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
+        self.neuron_act = transfer_func(self.threshold, self.gain, self.input)
+        self.pop_act[t] = np.average(self.neuron_act)
+
+    def update_output_LIF(self,dt):
         new_output = {k: self.output[k][:,-1].reshape(-1,1) for k in self.output.keys()}
         for key in self.sending_to_dict:
             for tau in self.synaptic_time_constant[(key[0],self.name)]:
