@@ -220,7 +220,7 @@ nuclei_dict = {'Proto': Proto, 'STN' : STN}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 tuning_param = 'n'
-list_1=np.linspace(10,100,4)*N_sim
+list_1=np.arange(10*N_sim,100*N_sim,dtype=int)
 list_2 = list_1
 
 firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)

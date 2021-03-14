@@ -76,6 +76,7 @@ class Nucleus:
             self.n_ext_population = poisson_prop[self.name]['n'] # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
             self.tau_ext_pop = np.random.normal(poisson_prop[self.name]['tau']['mean'], poisson_prop[self.name]['tau']['var'],self.n)# synaptic decay time of the external pop inputs
+            print(self.tau_ext_pop)
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
@@ -102,8 +103,9 @@ class Nucleus:
     
     def cal_ext_inp(self,dt):
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
-        self.syn_inputs['ext_pop','1'] =  np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop
-        self.I_syn['ext_pop','1'] += (-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1'])*dt/self.tau_ext_pop
+        self.syn_inputs['ext_pop','1'] =  np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant.reshape(-1,1)*self.syn_weight_ext_pop
+        print(self.tau_ext_pop)
+        self.I_syn['ext_pop','1'] += (-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1'])*dt/self.tau_ext_pop.reshape(-1,1)
 
     def solve_EIF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
         # self.rest_ext_input = np.ones((self.n)) * 100
@@ -184,15 +186,15 @@ class Nucleus:
         self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] for proj in proj_list]) + self.threshold - self.rest_ext_input
         self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
 
-def find_ext_input_reproduce_nat_firing(g_series,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
+def find_ext_input_reproduce_nat_firing(tuning_param,list_1,list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
     ''' find the proper set of parameters for the external population of each nucleus that will give rise to the natural firing rates of all'''
 
     nucleus_name = list(nuclei_dict.keys())
-    firing_prop = {k: {'mean_firing': np.zeros((len(nuclei_dict[nucleus_name[0]][0]))),'firing_var':np.zeros((len(nuclei_dict[nucleus_name[0]][0])))} for k in nucleus_name}
-    for g_1 in g_1_list:
-        for g_2 in g_2_list:
-            poisson_prop[nucleus_name[0]]['g'] = g_1
-            poisson_prop[nucleus_name[1]]['g'] = g_2
+    firing_prop = {k: {'mean_firing': np.zeros((len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    for g_1 in list_1:
+        for g_2 in list_2:
+            poisson_prop[nucleus_name[0]][tuning_param] = g_1
+            poisson_prop[nucleus_name[1]][tuning_param] = g_2
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
                     nucleus.reset_ext_pop_properties(poisson_prop)
