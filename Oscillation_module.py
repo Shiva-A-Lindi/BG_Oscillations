@@ -64,22 +64,22 @@ class Nucleus:
             self.tau = {k: v for k, v in tau.items() if k[0]==name} # filter based on the receiving nucleus
             self.I_rise = {k: np.zeros((self.n,len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list} # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
             self.I_syn = {k: np.zeros((self.n,len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
-            self.I_syn['ext_pop','1'] = np.zeros((self.n))
-            self.mem_potential = np.zeros((self.n)) # membrane potential
+            self.I_syn['ext_pop','1'] = np.zeros(self.n,)
+            self.mem_potential = np.zeros(self.n) # membrane potential
             self.neuronal_consts = neuronal_consts
             self.spike_thresh = np.random.normal(self.neuronal_consts['spike_thresh']['mean'],self.neuronal_consts['spike_thresh']['var'],self.n)
             self.membrane_time_constant = np.random.normal(self.neuronal_consts['membrane_time_constant']['mean'],self.neuronal_consts['membrane_time_constant']['var'],self.n)
-            self.voltage_trace = np.zeros((int(t_sim/dt)))
-            self.syn_inputs = {k: np.zeros((self.n,1)) for k in self.receiving_from_list}
-            self.syn_inputs['ext_pop','1'] = np.zeros((self.n)) # synaptic inputs of the external population
+            self.voltage_trace = np.zeros(int(t_sim/dt))
+            self.syn_inputs = {k: np.zeros(self.n) for k in self.receiving_from_list}
+            self.syn_inputs['ext_pop','1'] = np.zeros(self.n) # synaptic inputs of the external population
             self.poisson_spikes = None # meant to store the poisson spike trains of the external population
             self.n_ext_population = poisson_prop[self.name]['n'] # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
             self.tau_ext_pop = np.random.normal(poisson_prop[self.name]['tau']['mean'], poisson_prop[self.name]['tau']['var'],self.n)# synaptic decay time of the external pop inputs
-            print(self.tau_ext_pop)
+            # print(self.tau_ext_pop.shape)
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
-            self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
+            self.representative_inp['ext_pop','1'] = np.zeros(int(t_sim/dt))
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):  
         
@@ -103,22 +103,23 @@ class Nucleus:
     
     def cal_ext_inp(self,dt):
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
-        self.syn_inputs['ext_pop','1'] =  np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant.reshape(-1,1)*self.syn_weight_ext_pop
-        print(self.tau_ext_pop)
-        self.I_syn['ext_pop','1'] += (-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1'])*dt/self.tau_ext_pop.reshape(-1,1)
+        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop).reshape(-1,)
+        print(self.I_syn['ext_pop','1'].reshape(-1,).shape,self.syn_inputs['ext_pop','1'].shape,self.tau_ext_pop.reshape(-1,).shape)
+        self.I_syn['ext_pop','1'] += ((-self.I_syn['ext_pop','1'].reshape(-1,) + self.syn_inputs['ext_pop','1'])*dt/self.tau_ext_pop.reshape(-1,)).reshape(-1,)
 
     def solve_EIF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
         # self.rest_ext_input = np.ones((self.n)) * 100
         self.cal_ext_inp(dt)
-        inputs = np.zeros((self.n))
+        inputs = np.zeros(self.n)
         for projecting in receiving_from_class_list:
             num = str(projecting.population_num)
-            self.syn_inputs[projecting.name,num] = self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,num)], 
-                           projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))*self.membrane_time_constant.reshape(-1,1)
+            self.syn_inputs[projecting.name,num] = (self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,num)], 
+                           projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])*self.membrane_time_constant).reshape(-1,1)
             i = 0
+            
             for i in range(len(self.tau[self.name,projecting.name]['rise'])):
-                self.I_rise[projecting.name,num][:,i] += (-self.I_rise[projecting.name,num][:,i] + self.syn_inputs[projecting.name,num])*dt/self.tau[(self.name,projecting.name)]['rise'][i]
-                self.I_syn[projecting.name,num][:,i] += (-self.I_syn[projecting.name,num][:,i] + self.I_rise[projecting.name,num][:,i])*dt/self.tau[(self.name,projecting.name)]['decay'][i]
+                self.I_rise[projecting.name,num][:,i] += ((-self.I_rise[projecting.name,num][:,i].reshape(-1,1) + self.syn_inputs[projecting.name,num])*dt/self.tau[(self.name,projecting.name)]['rise'][i]).reshape(-1,)
+                self.I_syn[projecting.name,num][:,i] += ((-self.I_syn[projecting.name,num][:,i].reshape(-1,1) + self.I_rise[projecting.name,num][:,i].reshape(-1,1))*dt/self.tau[(self.name,projecting.name)]['decay'][i]).reshape(-1,)
                 self.representative_inp[projecting.name,num][t,i] = self.I_syn[projecting.name,num][5,i]
                 inputs += self.I_syn[projecting.name,num][:,i]
                 i += 1
@@ -143,8 +144,9 @@ class Nucleus:
         '''reset the properties of the external poisson spiking population'''
         self.n_ext_population = poisson_prop[self.name]['n'] # external population size
         self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
-        self.tau_ext_pop = poisson_prop[self.name]['tau'] # synaptic decay time of the external pop inputs
+        self.tau_ext_pop = np.random.normal(poisson_prop[self.name]['tau']['mean'], poisson_prop[self.name]['tau']['var'],self.n)# synaptic decay time of the external pop inputs
         self.syn_weight_ext_pop = poisson_prop[self.name]['g']
+        # self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
 
     def set_connections(self, K, N):
         ''' creat Jij connection matrix
@@ -201,8 +203,8 @@ def find_ext_input_reproduce_nat_firing(tuning_param,list_1,list_2,poisson_prop,
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
-                    firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1] = np.average[nucleus.pop_act[int(len(t_list)/2):]]
-                    firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1] = np.std[nucleus.pop_act[int(len(t_list)/2):]]
+                    firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
+                    firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
                     print(nucleus.name,'FR=',firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1],'std=',firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1])
     return firing_prop
 
