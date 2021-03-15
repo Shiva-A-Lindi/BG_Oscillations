@@ -19,9 +19,7 @@ if 1:
     
     #from scipy.ndimage.filters import generic_filter
     
-    N_sim = 200
-    population_list = ['STN', 'Proto']
-    N_sub_pop = 2
+    N_sim = 1000
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
     N_Str = 2.79*10**6 # Oorschot 1998
@@ -159,7 +157,7 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
-    neuronal_consts = {'nonlin_thresh':-10, 'nonlin_sharpness': 1, 'u_rest': -65,
+    neuronal_consts = {'nonlin_thresh':-10, 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'mean':-65, 'var':20},
                        'membrane_time_constant':{'mean':5,'var':2},'spike_thresh': {'mean':-20,'var':10}}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
@@ -198,17 +196,18 @@ if 1:
     ext_inp_delay = 0
 #%%
 #%% find external input for QIF
-
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
-t_sim = 30; t_list = np.arange(int(t_sim/dt))
+t_sim = 50; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
-G = {('STN', 'Proto'): -1,
-     ('Proto', 'STN'): 2, 
-     ('Proto', 'Proto'): -1} # synaptic weight
+G = {('STN', 'Proto'): -.005,
+     ('Proto', 'STN'): .01, 
+     ('Proto', 'Proto'): -.005} # synaptic weight
 
-poisson_prop = {'STN':{'n':N_sim*100, 'firing':0.1,'tau':{'mean':5,'var':2}, 'g':1},
-                'Proto':{'n':N_sim*100, 'firing':0.1,'tau':{'mean':5,'var':2}, 'g':1}}
+poisson_prop = {'STN':{'n':N_sim, 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':0.001},
+                'Proto':{'n':N_sim, 'firing':0.005,'tau':{'mean':5,'var':1}, 'g':0.001}}
 receiving_pop_list = {('STN','1') : [('Proto', '1')],('Proto', '1'):[('STN','1'),('Proto','1')] }
 pop_list = [1]  
   
@@ -219,24 +218,37 @@ nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
-tuning_param = 'n'; start=1*N_sim; end=2*N_sim; n =2
+tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
 list_1=np.arange(start,end,int((end-start)/n),dtype=int)
-list_2 = list_1
 
-firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
+tuning_param = 'firing'; start=0.001; end=0.02; n =5
+list_1=np.linspace(start,end,n)
+start=0.02; end=0.2;
+list_2 =np.linspace(start,end,n)
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
 
-# run(receiving_class_dict,t_list, dt, nuclei_dict)
-# plt.figure()
-# plt.plot(t_list*dt, STN[0].voltage_trace,'k',label = 'STN')
-# plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
+# firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
 
-# plt.figure()
-# plt.plot(t_list*dt, Proto[0].representative_inp['ext_pop','1'],label = 'STN')
-# plt.plot(t_list*dt, Proto[0].representative_inp['STN','1'][:,0],label = 'STN')
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+plt.figure()
+plt.plot(t_list*dt, STN[0].voltage_trace,'k',label = 'STN')
+plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
 
-# plt.legend()
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,#plot_start = 100,
-      # title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+plt.figure()
+plt.plot(t_list*dt, Proto[0].representative_inp['ext_pop','1'],label = 'STN')
+plt.plot(t_list*dt, Proto[0].representative_inp['STN','1'][:,0],label = 'STN')
+
+plt.figure()
+plt.plot(t_list*dt, Proto[0].dumby_I_syn,label = 'Proto')
+plt.plot(t_list*dt, STN[0].dumby_I_syn,label = 'STN')
+plt.plot(t_list*dt, Proto[0].dumby_I_ext,label = 'Proto')
+plt.plot(t_list*dt, STN[0].dumby_I_ext,label = 'STN,I_ext')
+plt.legend()
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,#plot_start = 100,
+       title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 
 
 #%% Arky-Proto-D2 loop without Proto-Proto
