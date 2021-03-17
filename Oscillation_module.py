@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import timeit
@@ -10,6 +11,7 @@ from matplotlib import cm
 from scipy.ndimage import gaussian_filter1d
 import pickle
 from matplotlib.ticker import FormatStrFormatter
+
 # matplotlib.rcParams["text.usetex"] = True
 # matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
 #from scipy.ndimage.filters import generic_filter
@@ -69,6 +71,8 @@ class Nucleus:
             self.mem_potential = np.random.normal(self.neuronal_consts['u_initial']['mean'],neuronal_consts['u_initial']['var'],self.n) # membrane potential
             self.spike_thresh = np.random.normal(self.neuronal_consts['spike_thresh']['mean'],self.neuronal_consts['spike_thresh']['var'],self.n)
             self.membrane_time_constant = np.random.normal(self.neuronal_consts['membrane_time_constant']['mean'],self.neuronal_consts['membrane_time_constant']['var'],self.n)
+            # self.membrane_time_constant = self.neuronal_consts['membrane_time_constant']['mean']
+
             self.voltage_trace = np.zeros(int(t_sim/dt))
             self.syn_inputs = {k: np.zeros((self.n,1)) for k in self.receiving_from_list}
             self.syn_inputs['ext_pop','1'] = np.zeros(self.n) # synaptic inputs of the external population
@@ -135,6 +139,7 @@ class Nucleus:
         if not self.caught:
             ind = np.where(self.mem_potential < -10000)[0]
             if len(ind) >0:
+                print('Divergence')
                 self.ind = ind[0]
                 self.caught = True
         if self.caught:
@@ -150,10 +155,10 @@ class Nucleus:
         
 
 
-        # print(np.round(self.mem_potential,2))
-        d_mem_potential = np.true_divide(np.multiply(-self.mem_potential+ inputs,dt),self.membrane_time_constant)
-        self.mem_potential = self.mem_potential + d_mem_potential
+        d_mem_potential = np.multiply(inputs - self.mem_potential,dt)
 
+        # self.mem_potential = self.mem_potential + np.true_divide(d_mem_potential[:],self.membrane_time_constant[:]) ##########33 DIVERGES!!
+        self.mem_potential = self.mem_potential + d_mem_potential/self.neuronal_consts['membrane_time_constant']['mean'] 
         # self.mem_potential += np.true_divide(np.multiply(self.neuronal_consts['u_rest']-self.mem_potential+ inputs,dt),self.membrane_time_constant)
         
         # spiking_ind = np.where(self.mem_potential > self.neuronal_consts['spike_thresh']['mean']) # homogeneous spike thresholds
@@ -224,12 +229,13 @@ def find_ext_input_reproduce_nat_firing(tuning_param,list_1,list_2,poisson_prop,
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
                     nucleus.reset_ext_pop_properties(poisson_prop)
+                    print(nucleus.firing_of_ext_pop)
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
                     firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
                     firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
-                    print(tuning_param,nucleus_name[0],g_1,nucleus_name[1], g_2,nucleus.name,
+                    print(tuning_param,nucleus_name[0],np.round(g_1,3),nucleus_name[1], np.round(g_2,3),nucleus.name,
                         'FR=',firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1],'std=',round(firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1],2))
     return firing_prop
 
