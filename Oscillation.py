@@ -158,13 +158,15 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
-    neuronal_consts = {'nonlin_thresh':-10, 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'mean':-65, 'var':20},
-                       'membrane_time_constant':{'mean':5,'var':2},'spike_thresh': {'mean':-20,'var':10}}
+    neuronal_consts = {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
+                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Straub et al. 2016
            ('Proto','STN'): {'rise':[0.5,5],'decay':[2,70]},
-           ('Proto','Proto'): {'rise':[1.1],'decay':[7.8]}} #rise and decay times
+           ('Proto','Proto'): {'rise':[1.1],'decay':[7.8]}, #rise and decay times
+           ('Proto','D2'): {'rise':[2],'decay':[10]}, # Kita & Kitai 1991 ?
+           ('FSI','Proto'): {'rise':[1],'decay':[6]}}
     G[('D1', 'D1')] = 0.5* G[('D2', 'D2')]
     G_DD = {('STN', 'Proto'): -3 ,
           ('Proto', 'STN'): 0.8 , 
@@ -195,20 +197,61 @@ if 1:
     duration_base = [0, int(t_mvt/dt)]
     #ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
     ext_inp_delay = 0
-#%%
-#%% find external input for QIF
+#%% Pallidostriatal
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
 t_sim = 50; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
-G = {('STN', 'Proto'): -.005,
-     ('Proto', 'STN'): .01, 
-     ('Proto', 'Proto'): -.005} # synaptic weight
+g = -1
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
 
-poisson_prop = {'STN':{'n':int(N_sim/2), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':1},
-                'Proto':{'n':int(N_sim/2), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':1}}
+poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2},
+                'Proto':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2},
+                'D2':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2}}
+receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
+                    ('Proto','1') : [('D2', '1')],
+                    ('D2','1') : [('FSI','1')]}
+pop_list = [1]  
+  
+Proto = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop) for i in pop_list]
+FSI = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'FSI', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop)for i in pop_list]
+D2 = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop)for i in pop_list]
+
+nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
+nuclei_names = list(nuclei_dict.keys()) 
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+# tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
+# list_1=np.arange(start,end,int((end-start)/n),dtype=int)
+
+tuning_param = 'firing'; n =5 
+# start=0.01; end=0.1; list_1=np.linspace(start,end,n)
+# start=0.01; end=0.1; list_2 = np.linspace(start,end,n)
+# start=0.01; end=0.1; list_3 = np.linspace(start,end,n)
+
+start=0.002/10; end=0.02/10; 
+list_1 = np.linspace(start,end,n)
+
+loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+# ext_firing, firing_prop = find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1,list_2, list_3, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+
+
+#%%
+#%% find external input for QIF STN-GPe
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.1
+t_sim = 100; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+G = {('STN', 'Proto'): -2,
+     ('Proto', 'STN'): 3, 
+     ('Proto', 'Proto'): -2} # synaptic weight
+
+poisson_prop = {'STN':{'n':int(N_sim), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':4},
+                'Proto':{'n':int(N_sim), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':4}}
 receiving_pop_list = {('STN','1') : [('Proto', '1')],('Proto', '1'):[('STN','1'),('Proto','1')] }
 pop_list = [1]  
   
@@ -219,12 +262,14 @@ nuclei_dict = {'Proto': Proto, 'STN' : STN}
 
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
-tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
-list_1=np.arange(start,end,int((end-start)/n),dtype=int)
+# tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
+# list_1=np.arange(start,end,int((end-start)/n),dtype=int)
 
-tuning_param = 'firing'; start=0.02; end=0.2; n =5
+# firing Proto 0.065 STN 0.2 Proto FR= 20.492 std= 4.38
+# firing Proto 0.065 STN 0.2 STN FR= 11.116 std= 3.55
+tuning_param = 'firing'; start=0.02; end=0.1; n =5
 list_1=np.linspace(start,end,n)
-start=0.02; end=0.2;
+start=0.05; end=0.3;
 list_2 =np.linspace(start,end,n)
 
 # firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
@@ -236,17 +281,17 @@ for nuclei_list in nuclei_dict.values():
 plt.figure()
 plt.plot(t_list*dt, STN[0].voltage_trace,'k',label = 'STN')
 plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
-plt.legend()
-plt.figure()
-plt.plot(t_list*dt, Proto[0].representative_inp['ext_pop','1'],label = 'ext')
-plt.plot(t_list*dt, Proto[0].representative_inp['STN','1'][:,0],label = 'syn')
-plt.legend()
-plt.figure()
-plt.plot(t_list*dt, Proto[0].dumby_I_syn,label = 'Proto')
-plt.plot(t_list*dt, STN[0].dumby_I_syn,label = 'STN')
-plt.plot(t_list*dt, Proto[0].dumby_I_ext,label = 'Proto')
-plt.plot(t_list*dt, STN[0].dumby_I_ext,label = 'STN,I_ext')
-plt.legend()
+# plt.legend()
+# plt.figure()
+# plt.plot(t_list*dt, Proto[0].representative_inp['ext_pop','1'],label = 'ext')
+# plt.plot(t_list*dt, Proto[0].representative_inp['STN','1'][:,0],label = 'syn')
+# plt.legend()
+# plt.figure()
+# plt.plot(t_list*dt, Proto[0].dumby_I_syn,label = 'Proto')
+# plt.plot(t_list*dt, STN[0].dumby_I_syn,label = 'STN')
+# plt.plot(t_list*dt, Proto[0].dumby_I_ext,label = 'Proto')
+# plt.plot(t_list*dt, STN[0].dumby_I_ext,label = 'STN,I_ext')
+# plt.legend()
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,#plot_start = 100,
         title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 

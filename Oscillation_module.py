@@ -68,19 +68,22 @@ class Nucleus:
             self.I_syn = {k: np.zeros((self.n,len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.I_syn['ext_pop','1'] = np.zeros(self.n,)
             self.neuronal_consts = neuronal_consts
-            self.mem_potential = np.random.normal(self.neuronal_consts['u_initial']['mean'],neuronal_consts['u_initial']['var'],self.n) # membrane potential
+            self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = neuronal_consts['u_initial']['max'],size = self.n) # membrane potential
             self.spike_thresh = np.random.normal(self.neuronal_consts['spike_thresh']['mean'],self.neuronal_consts['spike_thresh']['var'],self.n)
-            self.membrane_time_constant = np.random.normal(self.neuronal_consts['membrane_time_constant']['mean'],self.neuronal_consts['membrane_time_constant']['var'],self.n)
-            # self.membrane_time_constant = self.neuronal_consts['membrane_time_constant']['mean']
+            mean = self.neuronal_consts['membrane_time_constant']['mean']; sigma = self.neuronal_consts['membrane_time_constant']['var'] 
+            lower_bound = 2; upper_bound = mean * 20
+            self.membrane_time_constant = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)
 
+            # self.membrane_time_constant = np.abs(np.random.normal(self.neuronal_consts['membrane_time_constant']['mean'],self.neuronal_consts['membrane_time_constant']['var'],self.n))
             self.voltage_trace = np.zeros(int(t_sim/dt))
             self.syn_inputs = {k: np.zeros((self.n,1)) for k in self.receiving_from_list}
             self.syn_inputs['ext_pop','1'] = np.zeros(self.n) # synaptic inputs of the external population
             self.poisson_spikes = None # meant to store the poisson spike trains of the external population
             self.n_ext_population = poisson_prop[self.name]['n'] # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
-            self.tau_ext_pop = np.random.normal(poisson_prop[self.name]['tau']['mean'], poisson_prop[self.name]['tau']['var'],self.n)# synaptic decay time of the external pop inputs
-            # print(self.tau_ext_pop.shape)
+            mean =poisson_prop[self.name]['tau']['mean']; sigma = poisson_prop[self.name]['tau']['var']
+            lower_bound = 2; upper_bound = mean *20
+            self.tau_ext_pop = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)# synaptic decay time of the external pop inputs
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.representative_inp['ext_pop','1'] = np.zeros(int(t_sim/dt))
@@ -111,7 +114,9 @@ class Nucleus:
     
     def cal_ext_inp(self,dt):
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
+        # print(np.sum(poisson_spikes,axis = 1))
         self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop).reshape(-1,)
+        print(self.syn_inputs['ext_pop','1'])
         self.I_syn['ext_pop','1'] += (np.true_divide(np.multiply(-self.I_syn['ext_pop','1'].reshape(-1,) + self.syn_inputs['ext_pop','1'],dt),self.tau_ext_pop.reshape(-1,))).reshape(-1,)
 
     def solve_EIF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
@@ -148,17 +153,12 @@ class Nucleus:
             self.dumby_V[t] = self.mem_potential[self.ind]
         inputs +=  self.I_syn['ext_pop','1']  #+ mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
         ###### EIF
-        # self.mem_potential += (self.neuronal_consts['u_rest'] - self.mem_potential+ inputs+ self.neuronal_consts['nonlin_sharpness'] *np.exp((self.mem_potential-
-        #                         self.neuronal_consts['nonlin_thresh'])/self.neuronal_consts['nonlin_sharpness']))*dt/self.neuronal_consts['membrane_time_constant']
-        ##### LIF
-        # print(self.name,self.mem_potential[np.argmax(np.abs(self.mem_potential))])
-        
+        self.mem_potential += (-self.mem_potential+ inputs+ self.neuronal_consts['nonlin_sharpness'] *np.exp((self.mem_potential-
+                                self.neuronal_consts['nonlin_thresh'])/self.neuronal_consts['nonlin_sharpness']))*dt/self.membrane_time_constant
+        ###### LIF
+        # self.mem_potential = self.mem_potential + np.true_divide((inputs - self.mem_potential)*dt,self.membrane_time_constant)
 
 
-        d_mem_potential = np.multiply(inputs - self.mem_potential,dt)
-
-        # self.mem_potential = self.mem_potential + np.true_divide(d_mem_potential[:],self.membrane_time_constant[:]) ##########33 DIVERGES!!
-        self.mem_potential = self.mem_potential + d_mem_potential/self.neuronal_consts['membrane_time_constant']['mean'] 
         # self.mem_potential += np.true_divide(np.multiply(self.neuronal_consts['u_rest']-self.mem_potential+ inputs,dt),self.membrane_time_constant)
         
         # spiking_ind = np.where(self.mem_potential > self.neuronal_consts['spike_thresh']['mean']) # homogeneous spike thresholds
@@ -166,7 +166,8 @@ class Nucleus:
 
         self.spikes[spiking_ind, t] = 1
         self.mem_potential[spiking_ind] = self.neuronal_consts['u_rest']
-        self.pop_act[t] = np.sum(self.spikes[spiking_ind, t])
+        self.pop_act[t] = np.average(self.spikes[:, t]/dt/1000)
+        # print(self.pop_act[t])
         self.voltage_trace[t] = self.mem_potential[1]
 
     def reset_ext_pop_properties(self,poisson_prop):
@@ -179,15 +180,6 @@ class Nucleus:
 
     def set_connections(self, K, N):
         ''' creat Jij connection matrix
-        
-        Parameters
-        ----------
-        
-        connected_nuclei_list : list
-            list of class instances that are connected to this nucleus
-        
-        Returns
-        -------
         '''
         self.K_connections = {k: v for k, v in K.items() if k[0]==self.name}
         for projecting in self.receiving_from_list:
@@ -211,6 +203,7 @@ class Nucleus:
         self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==self.name}
 
     def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt):
+
         proj_list = [k[0] for k in list(self.receiving_from_list)]
 
         self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] for proj in proj_list]) + self.threshold
@@ -220,25 +213,98 @@ class Nucleus:
 def find_ext_input_reproduce_nat_firing(tuning_param,list_1,list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
     ''' find the proper set of parameters for the external population of each nucleus that will give rise to the natural firing rates of all'''
 
-    nucleus_name = list(nuclei_dict.keys())
-    firing_prop = {k: {'mean_firing': np.zeros((len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    nucleus_name = list(nuclei_dict.keys()); m = len(list_1); n = len(list_2)
+    firing_prop = {k: {'firing_loss': np.zeros((m,n,len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((m,n,len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    ext_firing = np.zeros((m,n,2))
+    loss =  np.zeros((m,n))
+    i = 0
     for g_1 in list_1:
+        j = 0
         for g_2 in list_2:
+
+
+            ext_firing[i,j] = [g_1,g_2]
             poisson_prop[nucleus_name[0]][tuning_param] = g_1
             poisson_prop[nucleus_name[1]][tuning_param] = g_2
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
                     nucleus.reset_ext_pop_properties(poisson_prop)
-                    print(nucleus.firing_of_ext_pop)
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
-                    firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
-                    firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
-                    print(tuning_param,nucleus_name[0],np.round(g_1,3),nucleus_name[1], np.round(g_2,3),nucleus.name,
-                        'FR=',firing_prop[nucleus.name]['mean_firing'][nucleus.population_num-1],'std=',round(firing_prop[nucleus.name]['firing_var'][nucleus.population_num-1],2))
-    return firing_prop
+                    firing_prop[nucleus.name]['firing_mean'][i,j,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
+                    loss[i,j] += (firing_prop[nucleus.name]['firing_loss'][i,j,nucleus.population_num-1]- nucleus.basal_firing)**2
+                    firing_prop[nucleus.name]['firing_var'][i,j,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                    print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop),
+                        'FR=',firing_prop[nucleus.name]['firing_mean'][i,j,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,j,nucleus.population_num-1],2))
 
+            j+=1
+        i+=1
+    return loss,ext_firing, firing_prop
+
+def find_ext_input_reproduce_nat_firing_3_pop(tuning_param,list_1,list_2,list_3,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
+    ''' find the proper set of parameters for the external population of each nucleus that will give rise to the natural firing rates of all'''
+
+    nucleus_name = list(nuclei_dict.keys()); m = len(list_1); n = len(list_2); k = len(list_3)
+    firing_prop = {k: {'firing_loss': np.zeros((m,n,k,len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((m,n,k,len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    ext_firing = np.zeros((m,n,k,3))
+    loss =  np.zeros((m,n,k))
+    i = 0
+    for g_1 in list_1:
+        j = 0
+        for g_2 in list_2:
+            l =0
+            for g_3 in list_3:
+
+                ext_firing[i,j,l] = [g_1,g_2,g_3]
+                poisson_prop[nucleus_name[0]][tuning_param] = g_1
+                poisson_prop[nucleus_name[1]][tuning_param] = g_2
+                poisson_prop[nucleus_name[2]][tuning_param] = g_3
+                for nuclei_list in nuclei_dict.values():
+                    for nucleus in nuclei_list:
+                        nucleus.reset_ext_pop_properties(poisson_prop)
+                nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
+                for nuclei_list in nuclei_dict.values():
+                    for nucleus in nuclei_list:
+                        firing_prop[nucleus.name]['firing_mean'][i,j,l,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
+                        loss[i,j,l] += (firing_prop[nucleus.name]['firing_loss'][i,j,l,nucleus.population_num-1]- nucleus.basal_firing)**2
+                        firing_prop[nucleus.name]['firing_var'][i,j,l,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                        print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop),
+                            'FR=',firing_prop[nucleus.name]['firing_mean'][i,j,l,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,j,l,nucleus.population_num-1],2))
+                print('loss =',loss[i,j,l])
+                l+=1
+            j+=1
+        i+=1
+    return loss,ext_firing, firing_prop
+
+def find_ext_input_reproduce_nat_firing_relative(tuning_param,list_1, poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
+    ''' find the proper set of parameters for the external population of each nucleus that will give rise to the natural firing rates of all'''
+
+    nucleus_name = list(nuclei_dict.keys()); m = len(list_1)
+    firing_prop = {k: {'firing_loss': np.zeros((m,len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((m,len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    ext_firing = np.zeros((m,3))
+    loss = np.zeros(m)
+    i =0
+    for g in list_1:
+
+        poisson_prop[nucleus_name[0]][tuning_param] = g * nuclei_dict[nucleus_name[0]][0].rest_ext_input
+        poisson_prop[nucleus_name[1]][tuning_param] = g * nuclei_dict[nucleus_name[1]][0].rest_ext_input
+        poisson_prop[nucleus_name[2]][tuning_param] = g * nuclei_dict[nucleus_name[2]][0].rest_ext_input
+        ext_firing[i,:] = [poisson_prop[nucleus_name[0]][tuning_param],poisson_prop[nucleus_name[1]][tuning_param],poisson_prop[nucleus_name[2]][tuning_param]]
+        for nuclei_list in nuclei_dict.values():
+            for nucleus in nuclei_list:
+                nucleus.reset_ext_pop_properties(poisson_prop)
+        nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
+        for nuclei_list in nuclei_dict.values():
+            for nucleus in nuclei_list:
+                firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
+                loss[i] += (firing_prop[nucleus.name]['firing_loss'][i,nucleus.population_num-1]- nucleus.basal_firing)**2
+                firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop),
+                    'FR=',firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1],2))
+        print('loss = ',loss[i])
+        i+=1
+    return loss, ext_firing, firing_prop
 def dopamine_effect(threshold, G, dopamine_percentage):
     ''' Change the threshold and synaptic weight depending on dopamine levels'''
     threshold['Str'] = -0.02 + 0.03*(1-(1.1/(1+0.1*np.exp(-0.03*(dopamine_percentage - 100)))))
@@ -292,8 +358,7 @@ def run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'rate'):
     
     start = timeit.default_timer()
     
-    # for t in t_list:
-    for t in t_list[10:]:
+    for t in t_list:
 
         for nuclei_list in nuclei_dict.values():
             k = 0
@@ -308,7 +373,7 @@ def run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'rate'):
                     nucleus.solve_EIF(t,dt,receiving_class_dict[(nucleus.name,str(k))],mvt_ext_inp)
 
     stop = timeit.default_timer()
-#    print("t = ", stop - start)
+    print("t = ", stop - start)
     return nuclei_dict
        
 
