@@ -201,15 +201,15 @@ if 1:
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
-t_sim = 50; t_list = np.arange(int(t_sim/dt))
+t_sim = 100; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
 g = -1
 G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
 
-poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2},
-                'Proto':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2},
-                'D2':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':2}}
+poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1},
+                'Proto':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1},
+                'D2':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1}}
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('FSI','1')]}
@@ -233,8 +233,16 @@ tuning_param = 'firing'; n =5
 
 start=0.002/10; end=0.02/10; 
 list_1 = np.linspace(start,end,n)
-
-loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0] for i in range(nucleus.n)]
+        plt.figure()
+        plt.eventplot(spikes_sparse, colors='k',
+                    linelengths=1,orientation='horizontal')
+        plt.title(nucleus.name)
+#loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
 # ext_firing, firing_prop = find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1,list_2, list_3, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
 
 
@@ -246,12 +254,13 @@ dt = 0.1
 t_sim = 100; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
-G = {('STN', 'Proto'): -2,
-     ('Proto', 'STN'): 3, 
-     ('Proto', 'Proto'): -2} # synaptic weight
+G = {('STN', 'Proto'): -1/N_sim*1000,
+     ('Proto', 'STN'): .5/N_sim*1000, 
+     ('Proto', 'Proto'): -1/N_sim*1000} # synaptic weight
+# self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} for k, v in tau.items() if k[0]==name} # filter based on the receiving nucleus
 
-poisson_prop = {'STN':{'n':int(N_sim), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':4},
-                'Proto':{'n':int(N_sim), 'firing':0.1,'tau':{'mean':5,'var':1}, 'g':4}}
+poisson_prop = {'STN':{'n':int(N_sim), 'firing':0.05,'tau':{'mean':5,'var':1}, 'g':1/N_sim*1000},
+                'Proto':{'n':int(N_sim), 'firing':0.055,'tau':{'mean':5,'var':1}, 'g':1/N_sim*1000}}
 receiving_pop_list = {('STN','1') : [('Proto', '1')],('Proto', '1'):[('STN','1'),('Proto','1')] }
 pop_list = [1]  
   
@@ -265,22 +274,29 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_
 # tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
 # list_1=np.arange(start,end,int((end-start)/n),dtype=int)
 
-# firing Proto 0.065 STN 0.2 Proto FR= 20.492 std= 4.38
-# firing Proto 0.065 STN 0.2 STN FR= 11.116 std= 3.55
-tuning_param = 'firing'; start=0.02; end=0.1; n =5
+# firing Proto 0.055 FR= 42.9 std= 21.87
+# firing STN 0.05 FR= 16.54 std= 13.32
+# loss = 6.781600000000004
+tuning_param = 'firing'; start=0.05; end=0.07; n =5
 list_1=np.linspace(start,end,n)
-start=0.05; end=0.3;
+start=0.04; end=0.06 ;
 list_2 =np.linspace(start,end,n)
 
-# firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
-
+# loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing(tuning_param,list_1, list_2,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
+# list_1=np.linspace(start,end,n)/STN[0].rest_ext_input
+# loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param,list_1, poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
 nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
 for nuclei_list in nuclei_dict.values():
     for nucleus in nuclei_list:
         print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
-plt.figure()
-plt.plot(t_list*dt, STN[0].voltage_trace,'k',label = 'STN')
-plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0] for i in range(nucleus.n)]
+        plt.figure()
+        plt.eventplot(spikes_sparse, colors='k',
+                    linelengths=1,orientation='horizontal')
+        plt.title(nucleus.name)
+# plt.figure()
+# plt.plot(t_list*dt, STN[0].voltage_trace,'k',label = 'STN')
+# plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
 # plt.legend()
 # plt.figure()
 # plt.plot(t_list*dt, Proto[0].representative_inp['ext_pop','1'],label = 'ext')
@@ -292,8 +308,8 @@ plt.plot(t_list*dt,Proto[0].voltage_trace,'r',label = 'Proto')
 # plt.plot(t_list*dt, Proto[0].dumby_I_ext,label = 'Proto')
 # plt.plot(t_list*dt, STN[0].dumby_I_ext,label = 'STN,I_ext')
 # plt.legend()
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,#plot_start = 100,
-        title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
+#         title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 
 
 #%% Arky-Proto-D2 loop without Proto-Proto
