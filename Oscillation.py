@@ -133,9 +133,9 @@ if 1:
          ('Proto', 'STN'): .5 , 
          ('Proto', 'Proto'): -1,
          ('Arky', 'Proto'): -1,
-         ('D2', 'Arky'): 0.1,
-         ('D2', 'Ctx'): 0,
-         ('D1', 'Ctx'): 0,
+         # ('D2', 'Arky'): 0.1,
+         # ('D2', 'Ctx'): 0,
+         # ('D1', 'Ctx'): 0,
          ('D2','Proto'): 0,
          ('D2', 'FSI'): -1, 
          ('FSI', 'Proto'): -1,
@@ -158,8 +158,12 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
-    neuronal_consts = {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}}
+    neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
+                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}},
+                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
+                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}},
+                       'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
+                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}}}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Straub et al. 2016
@@ -174,7 +178,8 @@ if 1:
           ('Str', 'Ctx'): 0,
           ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
     G_DD[('Proto', 'Proto')] = 0.5* G_DD[('STN', 'Proto')]
-    color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g','Arky':'darkorange'}
+    # color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g','Arky':'darkorange'}
+    color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'k'}
     noise_variance = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky':0.1}
     noise_amplitude = {'Proto' : 10, 'STN': 10, 'D2': 10, 'FSI': 10, 'Arky': 10}
     oscil_peak_threshold = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky': 0.1}
@@ -197,19 +202,24 @@ if 1:
     duration_base = [0, int(t_mvt/dt)]
     #ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
     ext_inp_delay = 0
-#%% Pallidostriatal
+#%% Pallidostriatal spiking
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+K_mil = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
-t_sim = 100; t_list = np.arange(int(t_sim/dt))
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
-g = -1
-G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
+g = -10
+G = {}
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g*K_mil[('D2', 'FSI')], g*K_mil[('FSI', 'Proto')], g*K_mil[('Proto', 'D2')]*0.5
 
-poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1},
-                'Proto':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1},
-                'D2':{'n':int(N_sim), 'firing':0.01,'tau':{'mean':5,'var':.5}, 'g':1}}
+
+poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000},
+                'Proto':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000},
+                'D2':{'n':int(N_sim), 'firing':0.0295,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000}}
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('FSI','1')]}
@@ -219,35 +229,64 @@ Proto = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_var
 FSI = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'FSI', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop)for i in pop_list]
 D2 = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'D2', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop)for i in pop_list]
 
-nuclei_dict = {'Proto': Proto, 'D2' : D2, 'FSI':FSI}
+nuclei_dict = { 'FSI':FSI, 'D2' : D2,'Proto': Proto}
 nuclei_names = list(nuclei_dict.keys()) 
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 
 # tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
 # list_1=np.arange(start,end,int((end-start)/n),dtype=int)
-
-tuning_param = 'firing'; n =5 
-# start=0.01; end=0.1; list_1=np.linspace(start,end,n)
-# start=0.01; end=0.1; list_2 = np.linspace(start,end,n)
-# start=0.01; end=0.1; list_3 = np.linspace(start,end,n)
-
-start=0.002/10; end=0.02/10; 
-list_1 = np.linspace(start,end,n)
-nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
 for nuclei_list in nuclei_dict.values():
     for nucleus in nuclei_list:
+        nucleus.synaptic_weight = {k: v/nucleus.K_connections[k] for k, v in nucleus.synaptic_weight.items() if k[0]==nucleus.name} # filter based on the receiving nucleus
+tuning_param = 'firing'; n =5
+start=0.01; end=0.07; list_1=np.linspace(start,end,n)
+start=0.005; end=0.03; list_2 = np.linspace(start,end,n)
+start=0.01; end=0.07; list_3 = np.linspace(start,end,n)
+
+
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
+        title = '')#r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+
+fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+count = 0
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        count +=1
         print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
-        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0] for i in range(nucleus.n)]
-        plt.figure()
-        plt.eventplot(spikes_sparse, colors='k',
-                    linelengths=1,orientation='horizontal')
-        plt.title(nucleus.name)
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+
+        axs[count-1].eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        axs[count-1].tick_params(axis='both', labelsize=10)
+        axs[count-1].set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+
+fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+
+
+# start=0.002/10; end=0.02/10; 
+# list_1 = np.linspace(start,end,n)
 #loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
-# ext_firing, firing_prop = find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1,list_2, list_3, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+# loss, ext_firing, firing_prop = find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1,list_2, list_3, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+# best = np.where(loss == np.min(loss))
+# print(ext_firing[best],loss[best],firing_prop['Proto']['firing_mean'][best],firing_prop['D2']['firing_mean'][best],firing_prop['FSI']['firing_mean'][best])
+# data_temp = {  'D2' : D2,'Proto': Proto,'FSI':FSI}
+# data ={'Proto': Proto[0].pop_act, 'FSI':FSI[0].pop_act, 'D2':D2[0].pop_act, 'G_P_D': Proto[0].synaptic_weight['Proto','D2'],'G_D_F': D2[0].synaptic_weight['D2','FSI'],
+#        'G_F_P': FSI[0].synaptic_weight['FSI','Proto']}
+# filename = 'FSI_D2_Proto_spiking_N10000_nuclei_dict.pkl'
+# output = open(filename, 'wb')
+# pickle.dump(data, output)
+# output.close()
 
-
+# pkl_file = open(filename, 'rb')
+# data = pickle.load(pkl_file)
+# pkl_file.close()
 #%%
-#%% find external input for QIF STN-GPe
+#%% STN-GPe spiking
+
+
+np.random.seed(1996)
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
@@ -257,7 +296,6 @@ t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {('STN', 'Proto'): -1/N_sim*1000,
      ('Proto', 'STN'): .5/N_sim*1000, 
      ('Proto', 'Proto'): -1/N_sim*1000} # synaptic weight
-# self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} for k, v in tau.items() if k[0]==name} # filter based on the receiving nucleus
 
 poisson_prop = {'STN':{'n':int(N_sim), 'firing':0.05,'tau':{'mean':5,'var':1}, 'g':1/N_sim*1000},
                 'Proto':{'n':int(N_sim), 'firing':0.055,'tau':{'mean':5,'var':1}, 'g':1/N_sim*1000}}
@@ -311,7 +349,7 @@ for nuclei_list in nuclei_dict.values():
 # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
 #         title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 
-
+#%%
 #%% Arky-Proto-D2 loop without Proto-Proto
 g = -2.7
 t_sim = 1700; t_list = np.arange(int(t_sim/dt))
@@ -500,8 +538,8 @@ G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('FSI','1')]}
-synaptic_time_constant[('D2', 'FSI')], synaptic_time_constant[('FSI', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [30],[10],[10]
-color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'k'}
+synaptic_time_constant[('D2', 'FSI')], synaptic_time_constant[('FSI', 'Proto')],synaptic_time_constant[('Proto', 'D2')]  =  [14],[6],[10]
+
 
 pop_list = [1]  
 Proto = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A,A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
@@ -588,6 +626,7 @@ filename = 'data_FSI_D2_Proto_syn_t_scale_tau_1_1_1'
 filename= filename.replace('.','-')+'.pkl'
 sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
 
+#%%
 #%% Pallidostriatal loop with GP-GP
 g = -2
 t_sim = 800; t_list = np.arange(int(t_sim/dt))
@@ -717,7 +756,6 @@ temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt
 # temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,dt,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
 #%%
-
 #%% synaptic weight phase exploration only GP
 # T[('Proto', 'Proto')]= 2
 T[('Proto', 'Proto')]= 5
