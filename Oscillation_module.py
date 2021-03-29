@@ -121,7 +121,7 @@ class Nucleus:
         # poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.rest_ext_input,dt)
 
-        #print(np.sum(poisson_spikes,axis = 1))
+        # print(np.sum(poisson_spikes,axis = 1))
         self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop).reshape(-1,)
         self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop)
         # print(self.I_syn['ext_pop','1'])
@@ -241,12 +241,15 @@ class Nucleus:
 
         else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
             
-            exp = np.exp(-self.membrane_time_constant/self.basal_firing)
-            self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) + 
-                np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list]))/self.syn_weight_ext_pop/self.n_ext_population/1000
-            exp = np.exp(-self.membrane_time_constant/self.mvt_firing)
-            self.mvt_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) + 
-                np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list]))/self.syn_weight_ext_pop/self.n_ext_population/1000
+            exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
+            # print(exp)
+            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
+            
+            self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn-self.u_rest)/self.syn_weight_ext_pop/self.n_ext_population/1000/self.membrane_time_constant
+            print(self.name,'syn=',np.average(I_syn),'rest=',np.average((self.spike_thresh- self.u_rest*exp)/(1-exp)), 'ext_inp=',np.average((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn-self.u_rest)/1000)
+            # exp = np.exp(-self.membrane_time_constant*(self.mvt_firing/1000))
+            # self.mvt_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - 
+            #     np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list]))/self.syn_weight_ext_pop/self.n_ext_population/1000
         
         # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
 

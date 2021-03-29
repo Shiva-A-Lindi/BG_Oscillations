@@ -158,12 +158,14 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
-    neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-20,'var':5}},
-                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -80, 'u_initial':{'min':-100, 'max':-50},
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-50,'var':5}},
-                       'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-20,'var':5}}}
+    neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':25,'var':2}},
+                       'Arky': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -70, 'u_initial':{'min':-70, 'max':30},# Bogacz et al. 2016
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':30,'var':2}},
+                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -85, 'u_initial':{'min':-85, 'max':-55}, # Willet et al. 2019
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-55,'var':2}},
+                       'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -75, 'u_initial':{'min':-75, 'max':-45}, # Taverna et al. 2013
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-45,'var':2}}}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Straub et al. 2016
@@ -209,17 +211,17 @@ K_mil = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
-t_sim = 100; t_list = np.arange(int(t_sim/dt))
+t_sim = 200; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
 g = -1
 G = {}
-G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g*K_mil[('D2', 'FSI')], g*K_mil[('FSI', 'Proto')], g*K_mil[('Proto', 'D2')]*0.5
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g*K_mil[('D2', 'FSI')], g*K_mil[('FSI', 'Proto')], g*K_mil[('Proto', 'D2')]
 
-
-poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000},
-                'Proto':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000},
-                'D2':{'n':int(N_sim), 'firing':0.0295,'tau':{'mean':5,'var':.5}, 'g':1/N_sim*1000}}
+g_ext = -g
+poisson_prop = {'FSI':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':g_ext/N_sim*1000},
+                'Proto':{'n':int(N_sim), 'firing':0.0475,'tau':{'mean':5,'var':.5}, 'g':g_ext/N_sim*1000},
+                'D2':{'n':int(N_sim), 'firing':0.0295,'tau':{'mean':5,'var':.5}, 'g':g_ext/N_sim*1000}}
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
                     ('Proto','1') : [('D2', '1')],
                     ('D2','1') : [('FSI','1')]}
@@ -234,9 +236,6 @@ nuclei_names = list(nuclei_dict.keys())
 
 # tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
 # list_1=np.arange(start,end,int((end-start)/n),dtype=int)
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         nucleus.synaptic_weight = {k: v/nucleus.K_connections[k] for k, v in nucleus.synaptic_weight.items() if k[0]==nucleus.name} # filter based on the receiving nucleus
 
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 tuning_param = 'firing'; n =5
@@ -265,6 +264,10 @@ for nuclei_list in nuclei_dict.values():
 fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
 fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
 
+plt.figure()
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        plt.plot(t_list,nucleus.voltage_trace,c = color_dict[nucleus.name])
 
 # start=0.002/10; end=0.02/10; 
 # list_1 = np.linspace(start,end,n)
@@ -283,6 +286,7 @@ fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',font
 # pkl_file = open(filename, 'rb')
 # data = pickle.load(pkl_file)
 # pkl_file.close()
+
 #%%
 #%% STN-GPe spiking
 
