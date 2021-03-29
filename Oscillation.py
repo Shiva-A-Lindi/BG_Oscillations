@@ -159,11 +159,11 @@ if 1:
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
     neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}},
-                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}},
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-20,'var':5}},
+                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -80, 'u_initial':{'min':-100, 'max':-50},
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-50,'var':5}},
                        'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-80, 'max':20},
-                       'membrane_time_constant':{'mean':5,'var':0.5},'spike_thresh': {'mean':20,'var':5}}}
+                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-20,'var':5}}}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Straub et al. 2016
@@ -209,10 +209,10 @@ K_mil = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1
-t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_sim = 100; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
-g = -10
+g = -1
 G = {}
 G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g*K_mil[('D2', 'FSI')], g*K_mil[('FSI', 'Proto')], g*K_mil[('Proto', 'D2')]*0.5
 
@@ -231,13 +231,14 @@ D2 = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_varianc
 
 nuclei_dict = { 'FSI':FSI, 'D2' : D2,'Proto': Proto}
 nuclei_names = list(nuclei_dict.keys()) 
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 
 # tuning_param = 'n'; start=10*N_sim; end=100*N_sim; n =5
 # list_1=np.arange(start,end,int((end-start)/n),dtype=int)
-for nuclei_list in nuclei_dict.values():
-    for nucleus in nuclei_list:
-        nucleus.synaptic_weight = {k: v/nucleus.K_connections[k] for k, v in nucleus.synaptic_weight.items() if k[0]==nucleus.name} # filter based on the receiving nucleus
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         nucleus.synaptic_weight = {k: v/nucleus.K_connections[k] for k, v in nucleus.synaptic_weight.items() if k[0]==nucleus.name} # filter based on the receiving nucleus
+
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 tuning_param = 'firing'; n =5
 start=0.01; end=0.07; list_1=np.linspace(start,end,n)
 start=0.005; end=0.03; list_2 = np.linspace(start,end,n)
