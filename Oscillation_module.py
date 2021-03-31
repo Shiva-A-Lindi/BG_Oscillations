@@ -69,6 +69,7 @@ class Nucleus:
             self.I_rise = {k: np.zeros((self.n,len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list} # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
             self.I_syn = {k: np.zeros((self.n,len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.I_syn['ext_pop','1'] = np.zeros(self.n,)
+            self.I_rise['ext_pop','1'] = np.zeros(self.n,)
             self.neuronal_consts = neuronal_consts[self.name]
             self.u_rest = self.neuronal_consts['u_rest']
             self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = self.neuronal_consts['u_initial']['max'],size = self.n) # membrane potential
@@ -84,10 +85,15 @@ class Nucleus:
             self.n_ext_population = poisson_prop[self.name]['n'] # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
 
-            mean =poisson_prop[self.name]['tau']['mean']; sigma = poisson_prop[self.name]['tau']['var']
-            lower_bound = 2; upper_bound = mean *20
+
+            lower_bound_decay = 2; lower_bound_rise = 0.2;
+            mean_rise =poisson_prop[self.name]['tau']['rise']['mean']; sigma_rise = poisson_prop[self.name]['tau']['rise']['var']
+            mean_decay =poisson_prop[self.name]['tau']['decay']['mean']; sigma_decay = poisson_prop[self.name]['tau']['decay']['var']
+            upper_bound_rise = mean_rise *20; upper_bound_decay = mean_decay *20
+
             ## dt incorporated in tau for efficiency
-            self.tau_ext_pop = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)/dt# synaptic decay time of the external pop inputs
+            self.tau_ext_pop = {'rise':stats.truncnorm.rvs((lower_bound_rise-mean_rise)/sigma_rise,(upper_bound_rise-mean_rise)/sigma_rise, loc = mean_rise, scale = sigma_rise, size = self.n)/dt,# synaptic decay time of the external pop inputs
+                                'decay':stats.truncnorm.rvs((lower_bound_decay-mean_decay)/sigma_decay,(upper_bound_decay-mean_decay)/sigma_decay, loc = mean_decay, scale = sigma_decay, size = self.n)/dt}
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.representative_inp['ext_pop','1'] = np.zeros(int(t_sim/dt))
@@ -120,10 +126,14 @@ class Nucleus:
     def cal_ext_inp(self,dt):
         # poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.rest_ext_input,dt)
+        # print(self.name,'ext',np.sum(poisson_spikes,axis = 1)[5])
+        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop/10).reshape(-1,)
+        # print(self.name,self.syn_inputs['ext_pop','1'])
+        # self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop) # without rise
 
-        # print(np.sum(poisson_spikes,axis = 1))
-        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop).reshape(-1,)
-        self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop)
+        self.I_rise['ext_pop','1'] += ((-self.I_rise['ext_pop','1'] + self.syn_inputs['ext_pop','1'])/self.tau_ext_pop['rise'])
+        self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.I_rise['ext_pop','1']),self.tau_ext_pop['decay'])
+
         # print(self.I_syn['ext_pop','1'])
     def solve_EIF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
         # self.rest_ext_input = np.ones((self.n)) * 100
@@ -136,6 +146,8 @@ class Nucleus:
                            projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])*self.membrane_time_constant).reshape(-1,)
             # print((self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,num)], 
             #                projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])).shape)
+            # print(projecting.name,np.matmul(self.connectivity_matrix[(projecting.name,num)], 
+                           # projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])[5])
             i = 0
             
             for i in range(len(self.tau[self.name,projecting.name]['rise'])):
@@ -159,12 +171,14 @@ class Nucleus:
         #     self.dumby_I_ext[t] = self.I_syn['ext_pop','1'] [self.ind]
         #     self.dumby_I_syn[t] = inputs[self.ind]
         #     self.dumby_V[t] = self.mem_potential[self.ind]
+        # print(self.name,np.average( self.I_syn['ext_pop','1']))
         inputs +=  self.I_syn['ext_pop','1']  #+ mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
+        inputs /=10 # normalize AUC of I 
         ###### EIF
         #self.mem_potential += (-self.mem_potential+ inputs+ self.neuronal_consts['nonlin_sharpness'] *np.exp((self.mem_potential-
          #                       self.neuronal_consts['nonlin_thresh'])/self.neuronal_consts['nonlin_sharpness']))*dt/self.membrane_time_constant
         ###### LIF
-        self.mem_potential = self.mem_potential + np.true_divide((inputs - self.mem_potential)*dt,self.membrane_time_constant)
+        self.mem_potential = self.mem_potential + np.true_divide((inputs - self.mem_potential+self.u_rest)*dt,self.membrane_time_constant)
 
 
         # self.mem_potential += np.true_divide(np.multiply(self.neuronal_consts['u_rest']-self.mem_potential+ inputs,dt),self.membrane_time_constant)
@@ -175,14 +189,22 @@ class Nucleus:
         self.spikes[spiking_ind, t] = 1
         self.mem_potential[spiking_ind] = self.neuronal_consts['u_rest']
         self.pop_act[t] = np.average(self.spikes[:, t],axis = 0)/(dt/1000)
-        #print(np.sum(self.spikes[:, t]))
-        self.voltage_trace[t] = self.mem_potential[1]
+        # print(self.name,np.sum(self.spikes[:, t]))
+        self.voltage_trace[t] = self.mem_potential[5]
+
 
     def reset_ext_pop_properties(self,poisson_prop,dt):
         '''reset the properties of the external poisson spiking population'''
         self.n_ext_population = poisson_prop[self.name]['n'] # external population size
         self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
-        self.tau_ext_pop = np.random.normal(poisson_prop[self.name]['tau']['mean'], poisson_prop[self.name]['tau']['var'],self.n)/dt# synaptic decay time of the external pop inputs
+        lower_bound_decay = 2; lower_bound_rise = 0.2;
+        mean_rise =poisson_prop[self.name]['tau']['rise']['mean']; sigma_rise = poisson_prop[self.name]['tau']['rise']['var']
+        mean_decay =poisson_prop[self.name]['tau']['decay']['mean']; sigma_decay = poisson_prop[self.name]['tau']['decay']['var']
+        upper_bound_rise = mean_rise *20; upper_bound_decay = mean_decay *20
+
+        ## dt incorporated in tau for efficiency
+        self.tau_ext_pop = {'rise':stats.truncnorm.rvs((lower_bound_rise-mean_rise)/sigma_rise,(upper_bound_rise-mean_rise)/sigma_rise, loc = mean_rise, scale = sigma_rise, size = self.n)/dt,# synaptic decay time of the external pop inputs
+                            'decay':stats.truncnorm.rvs((lower_bound_decay-mean_decay)/sigma_decay,(upper_bound_decay-mean_decay)/sigma_decay, loc = mean_decay, scale = sigma_decay, size = self.n)/dt}        
         self.syn_weight_ext_pop = poisson_prop[self.name]['g']
         # self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
 
@@ -243,10 +265,13 @@ class Nucleus:
             
             exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
             # print(exp)
-            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
-            
-            self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn-self.u_rest)/self.syn_weight_ext_pop/self.n_ext_population/1000/self.membrane_time_constant
-            print(self.name,'syn=',np.average(I_syn),'rest=',np.average((self.spike_thresh- self.u_rest*exp)/(1-exp)), 'ext_inp=',np.average((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn-self.u_rest)/1000)
+            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant/10
+            ### without u_rest
+            # self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/1000/self.membrane_time_constant
+            ### with u_rest in LIF
+            self.rest_ext_input = ((self.spike_thresh - self.u_rest)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant*10
+
+            print(self.name,'syn=',np.average(I_syn),'rest=',np.average((self.spike_thresh- self.u_rest)/(1-exp)), 'ext_inp=',np.average(self.rest_ext_input))
             # exp = np.exp(-self.membrane_time_constant*(self.mvt_firing/1000))
             # self.mvt_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - 
             #     np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list]))/self.syn_weight_ext_pop/self.n_ext_population/1000
