@@ -77,7 +77,7 @@ class Nucleus:
             mean = self.neuronal_consts['membrane_time_constant']['mean']; sigma = self.neuronal_consts['membrane_time_constant']['var'] 
             lower_bound = 2; upper_bound = mean * 20
             self.membrane_time_constant = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)
-            # self.membrane_time_constant = np.abs(np.random.normal(self.neuronal_consts['membrane_time_constant']['mean'],self.neuronal_consts['membrane_time_constant']['var'],self.n))
+            # self.membrane_time_constant = np.ones(self.n)
 
             self.syn_inputs = {k: np.zeros((self.n,1)) for k in self.receiving_from_list}
             self.syn_inputs['ext_pop','1'] = np.zeros(self.n) # synaptic inputs of the external population
@@ -97,6 +97,8 @@ class Nucleus:
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.representative_inp['ext_pop','1'] = np.zeros(int(t_sim/dt))
+            self.input_all = np.zeros((self.n,int(t_sim/dt)))
+
             self.voltage_trace = np.zeros(int(t_sim/dt))
             self.dumby_V = np.zeros(int(t_sim/dt))
             self.dumby_I_syn = np.zeros(int(t_sim/dt))
@@ -123,27 +125,23 @@ class Nucleus:
             for tau in self.synaptic_time_constant[(key[0],self.name)]:
                 new_output[key] += dt*(-self.output[key][:,-1].reshape(-1,1)+self.neuron_act)/tau
             self.output[key] = np.hstack((self.output[key][:,1:], new_output[key]))
-    def cal_ext_inp(self,dt):
+    def cal_ext_inp(self,dt,t):
         # poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.rest_ext_input,dt)
-        # print(self.name,'ext',np.sum(poisson_spikes,axis = 1)[5])
-        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop/10).reshape(-1,)
-        # print(self.name,self.syn_inputs['ext_pop','1'])
-        # self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop) # without rise
-
-        self.I_rise['ext_pop','1'] += ((-self.I_rise['ext_pop','1'] + self.syn_inputs['ext_pop','1'])/self.tau_ext_pop['rise'])
-        self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.I_rise['ext_pop','1']),self.tau_ext_pop['decay'])
-
-        # print(self.I_syn['ext_pop','1'])
+        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop/.1).reshape(-1,)
+        self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop['decay']) # without rise
+        ## with rise 
+        # self.I_rise['ext_pop','1'] += ((-self.I_rise['ext_pop','1'] + self.syn_inputs['ext_pop','1'])/self.tau_ext_pop['rise'])
+        # self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.I_rise['ext_pop','1']),self.tau_ext_pop['decay'])
     def solve_EIF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
         # self.rest_ext_input = np.ones((self.n)) * 100
-        self.cal_ext_inp(dt)
+        self.cal_ext_inp(dt,t)
         inputs = np.zeros(self.n)
         for projecting in receiving_from_class_list:
             num = str(projecting.population_num)
 
             self.syn_inputs[projecting.name,num] = (self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,num)], 
-                           projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])*self.membrane_time_constant).reshape(-1,)
+                           projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])*self.membrane_time_constant/.1).reshape(-1,)
             # print((self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,num)], 
             #                projecting.spikes[:,int(t-self.transmission_delay[(self.name,projecting.name)]/dt)])).shape)
             # print(projecting.name,np.matmul(self.connectivity_matrix[(projecting.name,num)], 
@@ -161,6 +159,8 @@ class Nucleus:
         # print(self.name,np.max(np.abs(self.I_syn['ext_pop','1'])),np.max(np.abs(inputs)))
 
         self.representative_inp['ext_pop','1'][t] = self.I_syn['ext_pop','1'][5]
+        self.input_all[:,t] = self.I_syn['ext_pop','1']
+
         # if not self.caught: ##### to check for voltage divergence
         #     ind = np.where(self.mem_potential < -10000)[0]
         #     if len(ind) >0:
@@ -173,7 +173,7 @@ class Nucleus:
         #     self.dumby_V[t] = self.mem_potential[self.ind]
         # print(self.name,np.average( self.I_syn['ext_pop','1']))
         inputs +=  self.I_syn['ext_pop','1']  #+ mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
-        inputs /=10 # normalize AUC of I 
+        # inputs /=10 # normalize AUC of I 
         ###### EIF
         #self.mem_potential += (-self.mem_potential+ inputs+ self.neuronal_consts['nonlin_sharpness'] *np.exp((self.mem_potential-
          #                       self.neuronal_consts['nonlin_thresh'])/self.neuronal_consts['nonlin_sharpness']))*dt/self.membrane_time_constant
@@ -265,11 +265,11 @@ class Nucleus:
             
             exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
             # print(exp)
-            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant/10
+            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
             ### without u_rest
             # self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/1000/self.membrane_time_constant
             ### with u_rest in LIF
-            self.rest_ext_input = ((self.spike_thresh - self.u_rest)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant*10
+            self.rest_ext_input = ((self.spike_thresh - self.u_rest)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant
 
             print(self.name,'syn=',np.average(I_syn),'rest=',np.average((self.spike_thresh- self.u_rest)/(1-exp)), 'ext_inp=',np.average(self.rest_ext_input))
             # exp = np.exp(-self.membrane_time_constant*(self.mvt_firing/1000))
