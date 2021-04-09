@@ -210,7 +210,7 @@ if 1:
 
 #%% FR vs FR_ext 
 
-N_sim = 1
+N_sim = 20
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1 
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -236,16 +236,33 @@ nuclei_dict = {name: nuc}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 
 tuning_param = 'firing'; n =10
-start=0.05; end=0.1; FR_list=np.linspace(start,end,n)
+start=0.001; end=0.1; FR_list=np.linspace(start,end,n)
 
 
-firing_prop = find_FR_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict)
+firing_prop = find_FR_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 
+# x1= np.concatenate((x.reshape(-1,),FR_list),axis = 0)
+# y1 = np.concatenate((y.reshape(-1,),firing_prop[name]['firing_mean'][:,0]),axis = 0)
+# std1 = np.concatenate((std,firing_prop[name]['firing_var'][:,0]),axis = 0)
+# plt.figure()
+# plt.plot(x1,y1,'-o',label = 'simulation')
+# plt.fill_between(x1,y1-std1,y1+std1,alpha = 0.2)
+
+# plt.plot(x1,x1t,label = 'y=x')
+# plt.xlabel(r'$FR_{expected}$',fontsize = 10)
+# plt.ylabel(r'$FR_{simulation}$',fontsize = 10)
+# plt.legend()
 plt.figure()
 plt.plot(FR_list*1000,firing_prop[name]['firing_mean'][:,0],'-o',label = 'simulation')
 plt.fill_between(FR_list*1000,firing_prop[name]['firing_mean'][:,0]-firing_prop[name]['firing_var'][:,0],
                   firing_prop[name]['firing_mean'][:,0]+firing_prop[name]['firing_var'][:,0],alpha = 0.2)
 
+# plt.plot(FR_list,FR_list,label = 'y=x')
+# plt.xlabel(r'$FR_{expected}$',fontsize = 10)
+# plt.ylabel(r'$FR_{simulation}$',fontsize = 10)
+plt.legend()
+# plt.xlim(-10,200)
+# plt.ylim(-10,200)
 model = LinearRegression(fit_intercept=True) ; 
 temp = firing_prop[name]['firing_mean'][:,0]
 y = temp[np.where(temp>0)].reshape(-1,1)
@@ -256,14 +273,17 @@ print('slope=',reg.coef_,'intercept=',reg.intercept_)
 # plt.plot(x,reg.coef_[0]*x)
 
 
-model_theory = LinearRegression(fit_intercept=True) 
+start=0.07; end=0.1; x1=np.linspace(start,end,n).reshape(-1,1)
 
-y_theory =  -1/np.log(1-(neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])/(x*g_ext*poisson_prop[name]['n']*5))*np.log(np.exp(1))/neuronal_consts[name]['membrane_time_constant']['mean']
 # plt.figure()
-plt.plot(x,y_theory,'-o',label='theory')
-reg = model_theory.fit(x,y_theory)
+model_theory = LinearRegression(fit_intercept=True) 
+temp = (neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])/(x1*g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])
+y_theory =  -1/np.log(1-temp)/neuronal_consts[name]['membrane_time_constant']['mean']
+# plt.figure()
+plt.plot(x1*1000,y_theory*1000,'-o',label='theory')
+reg = model_theory.fit(x1,y_theory)
 print('slope=',reg.coef_,'intercept=',reg.intercept_)
-plt.plot(x,model_theory.predict(x),label = 'fit to theory')
+# plt.plot(x1,model_theory.predict(x1),label = 'fit to theory')
 # plt.plot(x,reg.coef_[0]*x)
 plt.legend()
 plt.xlabel(r'$FR_{ext}$',fontsize=15)
@@ -308,14 +328,13 @@ plt.ylabel(r'$FR$',fontsize=15)
 
 #%% Check single population firing with external poisson spikes
 
-N_sim = 1000
+N_sim = 50
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.1 
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-
 G = {}
-name = 'FSI'
+name = 'D2'
 # neuronal_consts['D2']= {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
                         # 'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':25,'var':2}}
 g = -.01; g_ext = -g
@@ -333,42 +352,42 @@ nuclei_dict = {name: nuc}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 # nuc[0].rest_ext_input = 0.005
 nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
-        title = '')#r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
+#         title = '')#r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 
-fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+# fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
 count = 0
 for nuclei_list in nuclei_dict.values():
     for nucleus in nuclei_list:
         count +=1
         nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
         print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
-        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+        # spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
 
-        axs.eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
-        axs.tick_params(axis='both', labelsize=10)
-        axs.set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        # axs.eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        # axs.tick_params(axis='both', labelsize=10)
+        # axs.set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
         # find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
 
-# fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
-# fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
-fig, ax1 = plt.subplots(1, 1, sharex=True, sharey=True)
-fig2, ax2 = plt.subplots(1, 1, sharex=True, sharey=True)
-# fig3, ax3 = plt.subplots(1, 1, sharex=True, sharey=True)
+# # fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+# # fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+# fig, ax1 = plt.subplots(1, 1, sharex=True, sharey=True)
+# fig2, ax2 = plt.subplots(1, 1, sharex=True, sharey=True)
+# # fig3, ax3 = plt.subplots(1, 1, sharex=True, sharey=True)
 
-for nuclei_list in nuclei_dict.values():
-    for nucleus in nuclei_list:
-        ax1.plot(t_list*dt,nucleus.voltage_trace,c = color_dict[nucleus.name],label = nucleus.name)
-        # ax2.plot(t_list*dt,nucleus.representative_inp['ext_pop','1'],c = color_dict[nucleus.name],label = nucleus.name)
-        plt.plot(t_list*dt,np.average(nucleus.input_all,axis = 0),c = color_dict[nucleus.name],label = nucleus.name)
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         ax1.plot(t_list*dt,nucleus.voltage_trace,c = color_dict[nucleus.name],label = nucleus.name)
+#         # ax2.plot(t_list*dt,nucleus.representative_inp['ext_pop','1'],c = color_dict[nucleus.name],label = nucleus.name)
+#         plt.plot(t_list*dt,np.average(nucleus.input_all,axis = 0),c = color_dict[nucleus.name],label = nucleus.name)
         
-        # ax3.plot(t_list*dt,np.sum([nucleus.representative_inp[key].reshape(-1,) for key in nucleus.representative_inp.keys()],axis =0)-nucleus.representative_inp['ext_pop','1'],
-                 # c = color_dict[nucleus.name],label = nucleus.name)
-ax1.set_title('membrane potential',fontsize = 15)
-ax2.set_title('external input',fontsize = 15)
-# ax3.set_title('synaptic input',fontsize = 15)
-ax1.legend();ax2.legend()
-plt.legend()
+#         # ax3.plot(t_list*dt,np.sum([nucleus.representative_inp[key].reshape(-1,) for key in nucleus.representative_inp.keys()],axis =0)-nucleus.representative_inp['ext_pop','1'],
+#                   # c = color_dict[nucleus.name],label = nucleus.name)
+# ax1.set_title('membrane potential',fontsize = 15)
+# ax2.set_title('external input',fontsize = 15)
+# # ax3.set_title('synaptic input',fontsize = 15)
+# ax1.legend();ax2.legend()
+# plt.legend()
 
 # plt.figure()
 # plt.plot(t_list,np.exp(-t_list)-1)

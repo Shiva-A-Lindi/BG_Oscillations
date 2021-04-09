@@ -72,7 +72,9 @@ class Nucleus:
             self.I_rise['ext_pop','1'] = np.zeros(self.n,)
             self.neuronal_consts = neuronal_consts[self.name]
             self.u_rest = self.neuronal_consts['u_rest']
-            self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = self.neuronal_consts['u_initial']['max'],size = self.n) # membrane potential
+            # self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = self.neuronal_consts['u_initial']['max'],size = self.n) # membrane potential
+            self.mem_potential = np.ones(self.n)*self.neuronal_consts['u_rest'] # membrane potential
+
             self.spike_thresh = np.random.normal(self.neuronal_consts['spike_thresh']['mean'],self.neuronal_consts['spike_thresh']['var'],self.n)
             mean = self.neuronal_consts['membrane_time_constant']['mean']; sigma = self.neuronal_consts['membrane_time_constant']['var'] 
             lower_bound = 2; upper_bound = mean * 20
@@ -130,8 +132,12 @@ class Nucleus:
         # poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.firing_of_ext_pop,dt)
         poisson_spikes = possion_spike_generator(self.n,self.n_ext_population,self.rest_ext_input,dt)
         # self.syn_inputs['ext_pop','1'] +=  (np.sum(poisson_spikes,axis = 1)*self.membrane_time_constant*self.syn_weight_ext_pop/self.AUC_of_input).reshape(-1,)
-        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)/dt*self.membrane_time_constant*self.syn_weight_ext_pop).reshape(-1,)
-        self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop['decay']) # without rise
+        self.syn_inputs['ext_pop','1'] =  (np.sum(poisson_spikes,axis = 1)/dt*self.syn_weight_ext_pop*self.membrane_time_constant).reshape(-1,)
+        # if t < 3:
+            # print('n_spikes=',np.average(np.sum(poisson_spikes,axis = 1)), 'I =',np.average(self.syn_inputs['ext_pop','1'] ))
+        # print(self.syn_inputs['ext_pop','1'])
+        self.I_syn['ext_pop','1'] = self.syn_inputs['ext_pop','1'] 
+        # self.I_syn['ext_pop','1'] += np.true_divide((-self.I_syn['ext_pop','1'] + self.syn_inputs['ext_pop','1']),self.tau_ext_pop['decay']) # without rise
         # instantaneous inputs
         # print(np.average(np.sum(poisson_spikes,axis = 1)))
         # self.I_syn['ext_pop','1'] = self.syn_inputs['ext_pop','1']#self.rest_ext_input
@@ -178,16 +184,13 @@ class Nucleus:
         #     self.dumby_V[t] = self.mem_potential[self.ind]
         # print(self.name,np.average( self.I_syn['ext_pop','1']))
         inputs +=  self.I_syn['ext_pop','1']  #+ mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
-        # inputs /=10 # normalize AUC of I 
         ###### EIF
         #self.mem_potential += (-self.mem_potential+ inputs+ self.neuronal_consts['nonlin_sharpness'] *np.exp((self.mem_potential-
          #                       self.neuronal_consts['nonlin_thresh'])/self.neuronal_consts['nonlin_sharpness']))*dt/self.membrane_time_constant
         ###### LIF
         self.mem_potential += np.true_divide((inputs - self.mem_potential+self.u_rest)*dt,self.membrane_time_constant)
-
-
-        # self.mem_potential += np.true_divide(np.multiply(self.neuronal_consts['u_rest']-self.mem_potential+ inputs,dt),self.membrane_time_constant)
-        
+        # if t< 3:
+            # print('dV=',np.average(np.true_divide((inputs - self.mem_potential+self.u_rest)*dt,self.membrane_time_constant)))
         # spiking_ind = np.where(self.mem_potential > self.neuronal_consts['spike_thresh']['mean']) # homogeneous spike thresholds
         spiking_ind = np.where(self.mem_potential > self.spike_thresh) # gaussian distributed spike thresholds
 
@@ -258,6 +261,8 @@ class Nucleus:
         self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==self.name}
 
     def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt, neuronal_model = 'rate'):
+    # def set_ext_input(self, dt, neuronal_model = 'rate'):
+
         proj_list = [k[0] for k in list(self.receiving_from_list)]
 
         if neuronal_model == 'rate':
@@ -268,27 +273,30 @@ class Nucleus:
 
         else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
             
-            exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
+            # exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
             # print(exp)
-            I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
+            # I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
             ### without u_rest
             # self.rest_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/1000/self.membrane_time_constant
             ### with u_rest in LIF
 
             #self.rest_ext_input = ((self.spike_thresh - self.u_rest)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant
             
-            exp = np.exp(-1/(self.neuronal_consts['membrane_time_constant']['mean']*self.basal_firing/1000))
-            print(exp)
-            self.rest_ext_input = ((self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest'])/ (1-exp))/self.syn_weight_ext_pop/self.n_ext_population/self.neuronal_consts['membrane_time_constant']['mean']
-
-            print(self.name,'syn=',np.average(I_syn),'rest=',np.average((self.spike_thresh- self.u_rest)/(1-exp)), 'ext_inp=',np.average(self.rest_ext_input))
+            # exp = np.exp(-dt/self.neuronal_consts['membrane_time_constant']['mean'])
+            # I_ext_stable = self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']
+            # self.rest_ext_input = I_ext_stable/self.n_ext_population/self.syn_weight_ext_pop*(1-exp)/(1-exp**(1/(self.basal_firing/1000*dt)+1))#*self.neuronal_consts['membrane_time_constant']['mean']
+            # print('ext_inp=',np.average(self.rest_ext_input))
             # exp = np.exp(-self.membrane_time_constant*(self.mvt_firing/1000))
             # self.mvt_ext_input = ((self.spike_thresh - self.u_rest*exp)/ (1-exp) - 
             #     np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj]/dt/1000*self.K_connections[self.name,proj] for proj in proj_list]))/self.syn_weight_ext_pop/self.n_ext_population/1000
-        
+            ## non array
+            exp = np.exp(-1/(self.neuronal_consts['membrane_time_constant']['mean']*self.basal_firing/1000))
+            self.rest_ext_input = ((self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest'])/ (1-exp))/(self.syn_weight_ext_pop*self.n_ext_population*self.neuronal_consts['membrane_time_constant']['mean'])
+            print(self.name,'rest=',np.average((self.spike_thresh- self.u_rest)/(1-exp)), 'ext_inp=',self.rest_ext_input)
+
         # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
 
-def find_FR_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict):
+def find_FR_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
     ''' find the proper set of parameters for the external population of each nucleus that will give rise to the natural firing rates of all'''
 
     nucleus_name = list(nuclei_dict.keys()); m = len(FR_list)
@@ -297,11 +305,14 @@ def find_FR_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nucle
     for FR in FR_list:
 
         poisson_prop[nucleus_name[0]]['firing'] = FR
+
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
                 nucleus.clear_history(neuronal_model = 'spiking')
-                nucleus.reset_ext_pop_properties(poisson_prop,dt)
+                # nucleus.reset_ext_pop_properties(poisson_prop,dt)
                 nucleus.rest_ext_input = FR
+                # nucleus.basal_firing = FR
+                # nucleus.set_ext_input( A, A_mvt, D_mvt,t_mvt, t_list, dt, neuronal_model = 'spiking')
         nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
