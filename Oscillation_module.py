@@ -12,6 +12,7 @@ from scipy.ndimage import gaussian_filter1d
 import pickle
 from matplotlib.ticker import FormatStrFormatter
 import decimal
+from decimal import *
 # matplotlib.rcParams["text.usetex"] = True
 # matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
 #from scipy.ndimage.filters import generic_filter
@@ -592,6 +593,7 @@ def find_ext_input_reproduce_nat_firing_relative(tuning_param,list_1, poisson_pr
         print('loss = ',loss[i])
         i+=1
     return loss, ext_firing, firing_prop
+
 def dopamine_effect(threshold, G, dopamine_percentage):
     ''' Change the threshold and synaptic weight depending on dopamine levels'''
     threshold['Str'] = -0.02 + 0.03*(1-(1.1/(1+0.1*np.exp(-0.03*(dopamine_percentage - 100)))))
@@ -611,6 +613,18 @@ def possion_spike_generator(n_pop,n_sending,r,dt):
     x[spikes] = 1 # spike with probability of rdt
     # x[~spikes] = 0
     return x.astype(int)
+
+def spacing_with_high_resolution_in_the_middle(n_points, start, end):
+    '''return a series with lower spacing and high resolution in the middle'''
+    
+    R = (start -end) / 2 
+    x = R * np.linspace(-1, 1, n_points)
+    y = np.sqrt(R ** 2 - x ** 2) 
+    half_y = y [ : len(y) // 2 ]
+    diff = - np.diff ( np.flip ( half_y ) )
+    series = np.concatenate( (half_y, np.cumsum(diff) +  y [ len(y) // 2]) ) + start
+    print(series[ len(series) // 2])
+    return series
 
 def noise_generator(amplitude, variance, n):
 

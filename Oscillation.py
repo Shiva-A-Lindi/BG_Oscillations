@@ -1,4 +1,3 @@
-
 #%% Constants 
 
 if 1:
@@ -213,7 +212,7 @@ if 1:
     ext_inp_delay = 0
 #%% FR simulation vs FR_expected (I = cte + Gaussian noise)
 
-def run_FR_sim_vs_FR_expected_with_I_cte_and_noise( FR_list, variance, amplitude):
+def run_FR_sim_vs_FR_expected_with_I_cte_and_noise(name, FR_list, variance, amplitude):
     N_sim = 20
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     dt = 0.1
@@ -221,7 +220,6 @@ def run_FR_sim_vs_FR_expected_with_I_cte_and_noise( FR_list, variance, amplitude
     t_mvt = t_sim ; D_mvt = t_sim - t_mvt
     
     G = {}
-    name = 'D2'
     g = -0.01; g_ext = -g
     poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
     noise_variance = {name : variance}
@@ -236,24 +234,24 @@ def run_FR_sim_vs_FR_expected_with_I_cte_and_noise( FR_list, variance, amplitude
     nuclei_dict = {name: nuc}
     receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
     
-    # firing_prop_hetero = find_FR_sim_vs_FR_expected(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
-    firing_prop_hetero = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+    firing_prop_hetero = find_FR_sim_vs_FR_expected(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+    # firing_prop_hetero = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 
     return firing_prop_hetero
-
+name = 'D2'
 n = 10
 start = 1 ; end = 10; FR_list=np.linspace(start,end,n)
 start = .04 ; end = .08; FR_list=np.linspace(start,end,n)
 
-n = 1
+n_samples = 1
 colormap = plt.cm.viridis# LinearSegmentedColormap
-Ncolors = min(colormap.N,n)
+Ncolors = min(colormap.N,n_samples)
 mapcolors = [colormap(int(x*colormap.N/Ncolors)) for x in range(Ncolors)]
-amplitude_list = np.full(n, 1)
-variance_list = np.logspace(start = -11.8, stop = 1.5, num = n , base = 10)
+amplitude_list = np.full(n_samples, 1)
+variance_list = np.logspace(start = -11.8, stop = 1.5, num = n_samples , base = 10)
 plt.figure()
-for i in range (n):
-    firing_prop_hetero = run_FR_sim_vs_FR_expected_with_I_cte_and_noise( FR_list, variance_list[i], amplitude_list[i])
+for i in range (n_samples):
+    firing_prop_hetero = run_FR_sim_vs_FR_expected_with_I_cte_and_noise(name, FR_list, variance_list[i], amplitude_list[i])
     plt.plot(FR_list,firing_prop_hetero[name]['firing_mean'][:,0],'-o',label = r'$\sigma=$'+"{:e}".format(variance_list[i]), c = mapcolors[i])
     plt.fill_between(FR_list,firing_prop_hetero[name]['firing_mean'][:,0]-firing_prop_hetero[name]['firing_var'][:,0],
                   firing_prop_hetero[name]['firing_mean'][:,0]+firing_prop_hetero[name]['firing_var'][:,0],alpha = 0.1, color = mapcolors[i])
@@ -264,15 +262,68 @@ plt.legend()
 
 
 
-start = ((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
-        / (g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + 10**(-17)
-end=0.1; x1=np.linspace(start,end,100).reshape(-1,1)
+#%% FR simulation vs FR_ext (I = cte + Gaussian noise) theory vs. simulation
+def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance, amplitude):
+
+    N_sim = 20
+    N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+    dt = 0.25
+    t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+    t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+    G = {}
+    receiving_pop_list = {(name,'1') : []}
+    
+    pop_list = [1]  
+      
+    noise_variance = {name : 0.001}
+    noise_amplitude = {name : 1}
+    nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop) for i in pop_list]
+    nuclei_dict = {name: nuc}
+    receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+    firing_prop = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+    return firing_prop
+
+name = 'D2'
+n = 40
+start=0.045; end=0.075; FR_list=np.linspace(start,end,n)
+FR_list = spacing_with_high_resolution_in_the_middle(n, start, end)
+
+g = -0.01; g_ext = -g
+poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+n_samples = 3
+colormap = plt.cm.viridis# LinearSegmentedColormap
+Ncolors = min(colormap.N,n_samples)
+mapcolors = [colormap(int(x*colormap.N/Ncolors)) for x in range(Ncolors)]
+amplitude_list = np.full(n_samples, 1)
+variance_list = np.logspace(start = -11.8, stop = 1.5, num = n_samples , base = 10)
+plt.figure()
+firing_prop  = firing_prop_hetero
+for i in range (n_samples):
+    firing_prop_hetero = run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance_list[i], amplitude_list[i])
+    plt.plot(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0],'-o',label = r'$\sigma=$'+"{:e}".format(variance_list[i]), c = mapcolors[i])
+    plt.fill_between(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0]-firing_prop_hetero[name]['firing_var'][:,0],
+                  firing_prop_hetero[name]['firing_mean'][:,0]+firing_prop_hetero[name]['firing_var'][:,0],alpha = 0.1, color = mapcolors[i])
+
+start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
+         / (g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + 10**(-10))
+# x = np.geomspace(start_theory, end, num = 10)
+x1 = np.linspace( start_theory, start_theory + 0.005, 100).reshape(-1,1)
+x = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
 y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
                          neuronal_consts[name]['u_rest'], 
-                         neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x1, poisson_prop[name]['n'])
-plt.plot(x1,y_theory*1000,'-o',label='theory', c= 'lightcoral', markersize = 6, markeredgecolor = 'grey')
+                         neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x, poisson_prop[name]['n'])
+plt.plot(x*1000,y_theory*1000,label='theory', c= 'lightcoral', lw = 2 )#, markersize = 6, markeredgecolor = 'grey')
 plt.xlabel(r'$FR_{ext}$',fontsize=15)
 plt.ylabel(r'$FR$',fontsize=15)
+
+plt.legend()
+
+
+
+
+
 
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
@@ -333,7 +384,7 @@ plt.legend()
 
 N_sim = 20
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
-dt = 0.25
+dt = 0.1
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
@@ -347,6 +398,8 @@ receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
   
+noise_variance = {name : 0.001}
+noise_amplitude = {name : 1}
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop) for i in pop_list]
 nuclei_dict = {name: nuc}
