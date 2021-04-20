@@ -188,8 +188,9 @@ if 1:
     G_DD[('Proto', 'Proto')] = 0.5* G_DD[('STN', 'Proto')]
     # color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g','Arky':'darkorange'}
     color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'k'}
-    noise_variance = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky':0.1}
-    noise_amplitude = {'Proto' : 10, 'STN': 10, 'D2': 10, 'FSI': 10, 'Arky': 10}
+    noise_variance = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
+    noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
+    I_ext_range = {'Proto' : [0.175*100, 0.22*100], 'STN': [], 'D2': [0.0595*100, 0.0605*100], 'FSI': [0.05948*100, 0.0605*100], 'Arky': []}
     oscil_peak_threshold = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky': 0.1}
     smooth_kern_window = {key: value * 30 for key, value in noise_variance.items()}
     #oscil_peak_threshold = {key: (gain[key]*noise_amplitude[key]*noise_variance[key]-threshold[key])/5 for key in noise_variance.keys()}
@@ -210,6 +211,98 @@ if 1:
     duration_base = [0, int(t_mvt/dt)]
     #ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
     ext_inp_delay = 0
+#%% D2-FSI- Proto with derived external inputs
+
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+
+g = -0.01
+G = {}
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
+noise_variance = { 'FSI': 0.025003981672404058, 'D2' : 0.0018347080766611102, 'Proto': 10**-10}
+g_ext = -g
+name1 = 'D2'
+name2 = 'Proto'
+name3 = 'FSI'
+
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name3:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') : [(name3, '1')],
+                      (name2, '1'): [(name1, '1')],
+                      (name3, '1'): [(name2, '1')]}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name3, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
+        title = '')#r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+
+fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+count = 0
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        count +=1
+        nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+
+        axs[count-1].eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        axs[count-1].tick_params(axis='both', labelsize=10)
+        axs[count-1].set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+
+fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+
+fig, ax1 = plt.subplots(1, 1, sharex=True, sharey=True)
+fig2, ax2 = plt.subplots(1, 1, sharex=True, sharey=True)
+fig3, ax3 = plt.subplots(1, 1, sharex=True, sharey=True)
+
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        ax1.plot(t_list*dt,nucleus.voltage_trace,c = color_dict[nucleus.name],label = nucleus.name)
+        ax2.plot(t_list*dt,nucleus.representative_inp['ext_pop','1'],c = color_dict[nucleus.name],label = nucleus.name)
+        ax3.plot(t_list*dt,np.sum([nucleus.representative_inp[key].reshape(-1,) for key in nucleus.representative_inp.keys()],axis =0)-nucleus.representative_inp['ext_pop','1'],
+                 c = color_dict[nucleus.name],label = nucleus.name)
+ax1.set_title('membrane potential',fontsize = 15)
+ax2.set_title('external input',fontsize = 15)
+ax3.set_title('synaptic input',fontsize = 15)
+ax1.legend(); ax2.legend();ax3.legend();
+
+# start=0.002/10; end=0.02/10; 
+# list_1 = np.linspace(start,end,n)
+#loss,ext_firing,firing_prop = find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+# loss, ext_firing, firing_prop = find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1,list_2, list_3, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict)
+# best = np.where(loss == np.min(loss))
+# print(ext_firing[best],loss[best],firing_prop['Proto']['firing_mean'][best],firing_prop['D2']['firing_mean'][best],firing_prop['FSI']['firing_mean'][best])
+# data_temp = {  'D2' : D2,'Proto': Proto,'FSI':FSI}
+# data ={'Proto': Proto[0].pop_act, 'FSI':FSI[0].pop_act, 'D2':D2[0].pop_act, 'G_P_D': Proto[0].synaptic_weight['Proto','D2'],'G_D_F': D2[0].synaptic_weight['D2','FSI'],
+#        'G_F_P': FSI[0].synaptic_weight['FSI','Proto']}
+# filename = 'FSI_D2_Proto_spiking_N10000_nuclei_dict.pkl'
+# output = open(filename, 'wb')
+# pickle.dump(data, output)
+# output.close()
+
+# pkl_file = open(filename, 'rb')
+# data = pickle.load(pkl_file)
+# pkl_file.close()
+
 #%% FR simulation vs FR_expected (I = cte + Gaussian noise)
 
 def run_FR_sim_vs_FR_expected_with_I_cte_and_noise(name, FR_list, variance, amplitude):
@@ -265,7 +358,7 @@ plt.legend()
 #%% FR simulation vs FR_ext (I = cte + Gaussian noise) theory vs. simulation
 def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance, amplitude):
 
-    N_sim = 20
+    N_sim = 1
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     dt = 0.25
     t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -274,33 +367,36 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
     receiving_pop_list = {(name,'1') : []}
     
     pop_list = [1]  
-      
-    noise_variance = {name : 0.001}
-    noise_amplitude = {name : 1}
+    # init_method = 'heterogeneous'
+    init_method = 'homogeneous'
+    noise_variance = {name : variance}
+    noise_amplitude = {name : amplitude}
     nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop) for i in pop_list]
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
     nuclei_dict = {name: nuc}
     receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
     firing_prop = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
     return firing_prop
 
-name = 'D2'
+name = 'FSI'
 n = 40
-start=0.045; end=0.075; FR_list=np.linspace(start,end,n)
-FR_list = spacing_with_high_resolution_in_the_middle(n, start, end)
+# start=0.150; end=0.25;  # for Proto
+start=0.0595; end=0.0605;  # for FSI & D2
 
 g = -0.01; g_ext = -g
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]) / poisson_prop[name]['g'] / poisson_prop [name ]['n']
 
-n_samples = 3
+n_samples = 1
 colormap = plt.cm.viridis# LinearSegmentedColormap
 Ncolors = min(colormap.N,n_samples)
 mapcolors = [colormap(int(x*colormap.N/Ncolors)) for x in range(Ncolors)]
 amplitude_list = np.full(n_samples, 1)
-variance_list = np.logspace(start = -11.8, stop = 1.5, num = n_samples , base = 10)
+variance_list = np.logspace(start = -11.8, stop = -1, num = n_samples , base = 10)
+variance_list = [0.1]
 plt.figure()
-firing_prop  = firing_prop_hetero
 for i in range (n_samples):
+    print(i, 'from', n_samples)
     firing_prop_hetero = run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance_list[i], amplitude_list[i])
     plt.plot(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0],'-o',label = r'$\sigma=$'+"{:e}".format(variance_list[i]), c = mapcolors[i])
     plt.fill_between(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0]-firing_prop_hetero[name]['firing_var'][:,0],
@@ -309,22 +405,84 @@ for i in range (n_samples):
 start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
          / (g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + 10**(-10))
 # x = np.geomspace(start_theory, end, num = 10)
-x1 = np.linspace( start_theory, start_theory + 0.005, 100).reshape(-1,1)
+x1 = np.linspace( start_theory, start_theory + 0.0001, 1000).reshape(-1,1)
 x = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
 y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
                          neuronal_consts[name]['u_rest'], 
                          neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x, poisson_prop[name]['n'])
-plt.plot(x*1000,y_theory*1000,label='theory', c= 'lightcoral', lw = 2 )#, markersize = 6, markeredgecolor = 'grey')
+plt.plot(x*1000,y_theory*1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
 plt.xlabel(r'$FR_{ext}$',fontsize=15)
 plt.ylabel(r'$FR$',fontsize=15)
-
+plt.xlim(start*1000, end*1000)
 plt.legend()
+from scipy.optimize import curve_fit
+
+def find_x_mid_point_sigmoid( y, x):
+    y_relative = y - np.max(y)/2
+    signs = np.sign(y_relative)
+    y_before = np.max(np.where ( signs < 0)[0])
+    y_after = np.min( np.where (signs > 0)[0])
+    return  ( x[y_before] + x[y_after] ) / 2
+
+def expon(x, a, b, c):
+    return a * np.exp(-b * x) + c
+
+def sigmoid(x, x0, k):
+    return 1 / (1 + np.exp(-k*(x-x0)))
+    
+def inverse_sigmoid( y, x0, k):
+    return -1/k * np.log ( (1 - y) / y) + x0
+
+def fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func):
+    popt, pcov = curve_fit(estimating_func, FR_ext, FR, method='dogbox')
+    return popt
+
+def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, estimating_func, inverse_estimating_func , FR_normalizing_factor , x_shift):
+    
+    coefs = fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func)
+    return inverse_estimating_func( desired_FR / FR_normalizing_factor, *coefs) + x_shift
+
+def find_y_normalizing_factor (y):
+    return np.max (y)
+ind = np.where(firing_prop_hetero[name]['firing_mean'][:,0] < 25)[0]
+
+ydata_ = firing_prop_hetero[name]['firing_mean'][:,0][ind]
+xdata_ = FR_list[ind]*1000
+
+ydata = ydata_ / find_y_normalizing_factor(ydata_)
+x_shift = find_x_mid_point_sigmoid( ydata_, xdata_)
+xdata = xdata_ - x_shift
+plt.figure()
+plt.plot(xdata_, ydata_ ,'-o', label = 'data')
+popt = fit_FR_ext_as_a_func_of_FR ( xdata, ydata, sigmoid)
+y = sigmoid(xdata ,*popt)
+plt.plot(xdata + x_shift, y * np.max(ydata_), label = 'fitted curve')
+plt.legend()
+I_ext = extrapolated_FR_ext_from_fitted_curve (xdata, ydata, 12, sigmoid, inverse_sigmoid, 
+                                                find_y_normalizing_factor(ydata_), 
+                                                find_x_mid_point_sigmoid( ydata_, xdata_))
+print( I_ext )
 
 
+# N_sim = 1000
+# N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+# dt = 0.25
+# t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+# t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+# G = {}
+# receiving_pop_list = {(name,'1') : []}
 
-
-
-
+# pop_list = [1]  
+# init_method = 'heterogeneous'
+# # init_method = 'homogeneous'
+# noise_variance = {name : 0.1}
+# noise_amplitude = {name : 1}
+# nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+#             synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
+# nuclei_dict = {name: nuc}
+# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+# firing_prop = find_FR_sim_vs_FR_ext([I_ext/1000],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+   
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20
@@ -428,30 +586,276 @@ plt.fill_between(FR_list*1000,firing_prop[name]['firing_mean'][:,0]-firing_prop[
                   firing_prop[name]['firing_mean'][:,0]+firing_prop[name]['firing_var'][:,0],alpha = 0.2)
 plt.legend()
 
+
+#%% two nuclei with given I_ext + noise
+
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+name1 = 'D2'
+name2 = 'Proto'
+g = -0.01; g_ext = -g
+G[('Proto', 'D2')] = g
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') : [],
+                      (name2, '1'): [(name1,'1')]}
+
+pop_list = [1]  
+intit_method = 'heterogeneous'
+noise_variance = {name1 : D2_noise, name2: D2_noise}
+noise_amplitude = {name1 : 1, name2: 1}
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+
+noise_std_min = 10**-17
+noise_std_max = 10**-1 # interval of search for noise variance
+
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None,title_fontsize=15,plot_start = 100,
+        title = '')#r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
+
+fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+count = 0
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        count +=1
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+
+        axs[count-1].eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        axs[count-1].tick_params(axis='both', labelsize=10)
+        axs[count-1].set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+
+fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+
+#%% Proto and FSI binary search
+def find_D2_I_ext_in_D2_FSI(x):
+    print(x)
+    noise_variance = {name1 : x, name2: 10**-10}
+    noise_amplitude = {name1 : 1, name2: 1}
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.clear_history(neuronal_model = 'spiking')
+            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            # nucleus.reset_ext_pop_properties(poisson_prop,dt)
+    print('I_ext', np.average(nuc1[0].rest_ext_input))
+    nuclei_dict_p = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+    for nuclei_list in nuclei_dict_p.values():
+        for nucleus in nuclei_list:
+            nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+            print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+    return np.average(nuc1[0].pop_act[int(len(t_list)/2):])- A[name1]
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+name1 = 'FSI'
+name2 = 'Proto'
+G = {}
+g = -0.01; g_ext = -g
+G[('FSI', 'Proto')] = g
+
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') : [(name2, '1')],
+                      (name2, '1'): []}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+noise_variance = {name1 : 0, name2: 0}
+noise_amplitude = {name1 : 1, name2: 1}
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+ratio_list = np.linspace(0.9, 1.5, 1)
+noise_std_min = 10**-17
+noise_std_max = 10**-1 # interval of search for noise variance
+for ratio in ratio_list:
+    try: 
+        # nuc1[0].rest_ext_input = nuc1[0].rest_ext_input * ratio
+        noise = optimize.bisect(find_D2_I_ext_in_D2_FSI, noise_std_min, noise_std_max, xtol = 10**-10)
+        print('noise = ',noise)
+        break
+    except ValueError as err:
+        print(err)
+# find_D2_I_ext( 0.025003981672404058)
+
+noise_std_min = 10**-17
+noise_std_max = 10**-10 # interval of search for noise variance
+from scipy import optimize
+# D2_noise = optimize.bisect(find_D2_I_ext, noise_std_min, noise_std_max, xtol = 10**-20)
+# print('D2 noise = ',D2_noise)
+#%% D2 and FSI binary search
+def find_D2_I_ext_in_D2_FSI(x):
+    print(x)
+    noise_variance = {name1 : x, name2: 10**-10}
+    noise_amplitude = {name1 : 1, name2: 1}
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.clear_history(neuronal_model = 'spiking')
+            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            # nucleus.reset_ext_pop_properties(poisson_prop,dt)
+    print('I_ext', np.average(nuc1[0].rest_ext_input))
+    nuclei_dict_p = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+    for nuclei_list in nuclei_dict_p.values():
+        for nucleus in nuclei_list:
+            nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+            print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+    return np.average(nuc1[0].pop_act[int(len(t_list)/2):])- A[name1]
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+name1 = 'D2'
+# name1 = 'Proto'
+name2 = 'FSI'
+G = {}
+g = -0.01; g_ext = -g
+G[('D2', 'FSI')] = g
+# G[('FSI', 'Proto')] = g
+
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') : [],#[(name2, '1')],
+                      (name2, '1'): []}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+noise_variance = {name1 : 0, name2: 0}
+noise_amplitude = {name1 : 1, name2: 1}
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+ratio_list = np.linspace(1, 1.5, 1)
+noise_std_min = 10**-17
+noise_std_max = 10**-1 # interval of search for noise variance
+for ratio in ratio_list:
+    try: 
+        # nuc1[0].rest_ext_input = nuc1[0].rest_ext_input * ratio
+        D2_noise = optimize.bisect(find_D2_I_ext_in_D2_FSI, noise_std_min, noise_std_max, xtol = 10**-10)
+        print('D2 noise = ',D2_noise)
+        break
+    except ValueError as err:
+        print(err)
+# find_D2_I_ext( 3.0766320304347586e-13)
+
+# D2_noise = optimize.bisect(find_D2_I_ext, noise_std_min, noise_std_max, xtol = 10**-20)
+# print('D2 noise = ',D2_noise)
+#%% D2- FSI - Proto binary search
+def find_D2_I_ext_in_D2_FSI_Proto(x):
+    print('x = ', x)
+    noise_variance = {name1 : x, name2: 10**-10, name3 : 0.025003981672404058}
+    noise_amplitude = {name1 : 1, name2: 1, name3: 1}
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.clear_history(neuronal_model = 'spiking')
+            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            # nucleus.reset_ext_pop_properties(poisson_prop,dt)
+    nuclei_dict_p = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
+    for nuclei_list in nuclei_dict_p.values():
+        for nucleus in nuclei_list:
+            nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+            print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+    return np.average(nuc1[0].pop_act[int(len(t_list)/2):])- A[name1]
+N_sim = 100
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+
+name1 = 'D2'
+name2 = 'Proto'
+name3 = 'FSI'
+G = {}
+g = -0.1; g_ext = -g
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name3:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') : [(name3, '1')],
+                      (name2, '1'): [(name1, '1')],
+                      (name3, '1'): [(name2, '1')]}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+noise_variance = {name1 : 0, name2: 0, name3: 0}
+noise_amplitude = {name1 : 1, name2: 1, name3: 1}
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name3, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method = init_method) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+I_ext_list = np.linspace(0.055, 0.06, 10)
+noise_std_min = 10**-9
+noise_std_max = 10**-2 # interval of search for noise variance
+for I_ext in I_ext_list:
+    try: 
+        # nuc3[0].rest_ext_input = nuc3[0].rest_ext_input * 0.9
+        D2_noise = optimize.bisect(find_D2_I_ext_in_D2_FSI_Proto, noise_std_min, noise_std_max, xtol = 10**-10)
+        print('D2 noise = ',D2_noise)
+        break
+    except ValueError as err:
+        print(err)
+
+
 #%% Check single population firing with external poisson spikes
 
 N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
-dt = 0.1 
-t_sim = 500; t_list = np.arange(int(t_sim/dt))
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {}
-name = 'D2'
-g = -.01; g_ext = -g
-poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':1,'var':0.005}}, 'g':g_ext}}
-# AUC_of_input,_ = find_AUC_of_input(name,poisson_prop,gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt,
-                                  # D_mvt,t_mvt, N_real, K_real,t_list,color_dict, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)
-
 receiving_pop_list = {(name,'1') : []}
+g = -0.01; g_ext = -g
+poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
 pop_list = [1]  
-init_method = 'heterogeneous'
+# init_method = 'heterogeneous'
 init_method = 'homogeneous'
+noise_variance = {name : 0.1}
+noise_amplitude = {name : 1}
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop,init_method= init_method) for i in pop_list]
+            synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
 nuclei_dict = {name: nuc}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+nuc[0].rest_ext_input = I_ext/ 1000
 nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model='spiking')
-
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, plot_start = 100, title = '')
 
 fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
@@ -470,24 +874,24 @@ for nuclei_list in nuclei_dict.values():
 
 fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
 fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
-fig, ax1 = plt.subplots(1, 1, sharex=True, sharey=True)
-fig2, ax2 = plt.subplots(1, 1, sharex=True, sharey=True)
-fig3, ax3 = plt.subplots(1, 1, sharex=True, sharey=True)
+# fig, ax1 = plt.subplots(1, 1, sharex=True, sharey=True)
+# fig2, ax2 = plt.subplots(1, 1, sharex=True, sharey=True)
+# fig3, ax3 = plt.subplots(1, 1, sharex=True, sharey=True)
 
-for nuclei_list in nuclei_dict.values():
-    for nucleus in nuclei_list:
-        ax1.plot(t_list*dt,nucleus.voltage_trace,c = color_dict[nucleus.name],label = nucleus.name)
-        ax2.plot(t_list*dt,nucleus.representative_inp['ext_pop','1'],c = color_dict[nucleus.name],label = nucleus.name)
-        ax3.plot(t_list*dt,np.average(nucleus.ext_input_all,axis = 0),c = color_dict[nucleus.name],label = nucleus.name)
-        ax3.fill_between(t_list*dt, np.average(nucleus.ext_input_all,axis = 0) - np.std(nucleus.ext_input_all,axis = 0),
-                         np.average(nucleus.ext_input_all,axis = 0) + np.std(nucleus.ext_input_all,axis = 0), alpha = 0.3)
-        # ax3.plot(t_list*dt,np.sum([nucleus.representative_inp[key].reshape(-1,) for key in nucleus.representative_inp.keys()],axis =0)-nucleus.representative_inp['ext_pop','1'],
-                  # c = color_dict[nucleus.name],label = nucleus.name)
-ax1.set_title('membrane potential',fontsize = 15)
-ax2.set_title('external input one neuron',fontsize = 15)
-ax3.set_title('Mean external input',fontsize = 15)
-ax1.legend();ax2.legend() ; ax3.legend()
-plt.legend()
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         ax1.plot(t_list*dt,nucleus.voltage_trace,c = color_dict[nucleus.name],label = nucleus.name)
+#         ax2.plot(t_list*dt,nucleus.representative_inp['ext_pop','1'],c = color_dict[nucleus.name],label = nucleus.name)
+#         ax3.plot(t_list*dt,np.average(nucleus.ext_input_all,axis = 0),c = color_dict[nucleus.name],label = nucleus.name)
+#         ax3.fill_between(t_list*dt, np.average(nucleus.ext_input_all,axis = 0) - np.std(nucleus.ext_input_all,axis = 0),
+#                          np.average(nucleus.ext_input_all,axis = 0) + np.std(nucleus.ext_input_all,axis = 0), alpha = 0.3)
+#         # ax3.plot(t_list*dt,np.sum([nucleus.representative_inp[key].reshape(-1,) for key in nucleus.representative_inp.keys()],axis =0)-nucleus.representative_inp['ext_pop','1'],
+#                   # c = color_dict[nucleus.name],label = nucleus.name)
+# ax1.set_title('membrane potential',fontsize = 15)
+# ax2.set_title('external input one neuron',fontsize = 15)
+# ax3.set_title('Mean external input',fontsize = 15)
+# ax1.legend();ax2.legend() ; ax3.legend()
+# plt.legend()
 
 #%% what constant external input reproduces the same firing with poisson spike inputs (AUC of the input of one spike )
 np.random.seed(19090)
