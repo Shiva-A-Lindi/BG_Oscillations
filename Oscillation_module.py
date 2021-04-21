@@ -99,11 +99,12 @@ class Nucleus:
         self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = self.neuronal_consts['u_initial']['max'],size = self.n) # membrane potential
         self.spike_thresh = np.random.normal(self.neuronal_consts['spike_thresh']['mean'],self.neuronal_consts['spike_thresh']['var'],self.n)
 
-        mean = self.neuronal_consts['membrane_time_constant']['mean']; sigma = self.neuronal_consts['membrane_time_constant']['var'] 
-        lower_bound = 2; upper_bound = mean * 20
+        # mean = self.neuronal_consts['membrane_time_constant']['mean']; sigma = self.neuronal_consts['membrane_time_constant']['var'] 
+        # lower_bound = 2; upper_bound = mean * 20
         
-        self.membrane_time_constant = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)
-
+        # self.membrane_time_constant = stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = self.n)
+        self.membrane_time_constant = np.full(self.n ,  
+                                             self.neuronal_consts['membrane_time_constant']['mean'])
         ## dt incorporated in tau for efficiency
         lower_bound_decay = 2; lower_bound_rise = 0.2;
         mean_rise = poisson_prop[self.name]['tau']['rise']['mean']; sigma_rise = poisson_prop[self.name]['tau']['rise']['var']
@@ -117,6 +118,7 @@ class Nucleus:
         ''' cell properties and boundary conditions are constant for all cells'''
 
         self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest']) # membrane potential
+
         self.spike_thresh = np.full(self.n, self.neuronal_consts['spike_thresh']['mean'])
         self.membrane_time_constant = np.full(self.n ,  
                                              self.neuronal_consts['membrane_time_constant']['mean'])
@@ -263,7 +265,7 @@ class Nucleus:
             i += 1
         return sum_components
 
-    def solve_IF(self,t,dt,receiving_from_class_list,mvt_ext_inp):
+    def solve_IF(self,t,dt,receiving_from_class_list,mvt_ext_inp = None):
 
         self.cal_ext_inp(dt,t)
         synaptic_inputs = self.sum_synaptic_input(receiving_from_class_list,dt,t)
@@ -273,7 +275,7 @@ class Nucleus:
         self.reset_potential_with_interpolation(spiking_ind,dt)
         self.cal_population_activity(dt,t)
         self.update_representative_measures(t)
-
+        # print(self.mem_potential)
     def update_representative_measures(self,t):
 
         self.voltage_trace[t] = self.mem_potential[0]
@@ -397,8 +399,9 @@ class Nucleus:
             I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
             if self.basal_firing < 40 : I_syn = I_syn * 0
             self.rest_ext_input = ((self.spike_thresh - self.u_rest)/ (1-exp) - I_syn)/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant
-            print('mean rest_ext_input', np.average(self.rest_ext_input))
+            # print('mean rest_ext_input', np.average(self.rest_ext_input))
             self.rest_ext_input_of_mean = (self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest'])/ (1-exp)/(self.syn_weight_ext_pop*self.n_ext_population*self.neuronal_consts['membrane_time_constant']['mean'])
+
             # print('I_ext', np.average(self.rest_ext_input), 'without iput', np.average(
                 # ((self.spike_thresh - self.u_rest)/ (1-exp) )/self.syn_weight_ext_pop/self.n_ext_population/self.membrane_time_constant), 'I_syn', np.average(I_syn))
             # print(self.name, np.average(I_syn), np.average(self.rest_ext_input))
@@ -421,6 +424,59 @@ class Nucleus:
             # print(decimal.Decimal.from_float(temp[0]))#, 'ext_inp=',self.rest_ext_input)
 
         # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
+
+    def estimate_needed_external_input(self, FR_list, dt, t_list, receiving_class_dict, if_plot = False, end_of_nonlinearity = 25):
+        FR_sim = np.zeros((self.n, len(FR_list)))
+        i = 0
+        for FR in FR_list:
+            
+            self.clear_history(neuronal_model = 'spiking')
+            self.rest_ext_input = FR
+            self. run(dt, t_list, receiving_class_dict)
+            # nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
+            FR_sim[:,i] =  np.average(self.spikes , axis = 1)/(dt/1000)
+            # print(moving_average_array(self.pop_act,50))
+            print('FR = ', FR, FR_sim[:,i][0])
+            i = i + 1
+            
+        self. set_ext_inp_each_neuron( FR_list, FR_sim, dt,  if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity)
+        print(self.rest_ext_input)
+
+    def run(self, dt, t_list, receiving_class_dict):
+        for t in t_list: # run temporal dynamics
+            self.solve_IF(t,dt,receiving_class_dict[(self.name,str(self.population_num))])
+            # print(self.mem_potential)
+    def set_ext_inp_each_neuron(self, FR_list, FR_sim, dt,  if_plot = False, end_of_nonlinearity = 25):
+        self.rest_ext_input = np.zeros((self.n))
+        for i in range(self.n):
+            self.rest_ext_input[i], _ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list * 1000, FR_sim[i,:] , self.basal_firing, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity)
+
+
+def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
+    ''' find the simulated firing of population given different externalfiring rates'''
+
+    nucleus_name = list(nuclei_dict.keys()); m = len(FR_list)
+    firing_prop = {k: {'firing_mean': np.zeros((m,len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((m,len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
+    i = 0
+    for FR in FR_list:
+
+        poisson_prop[nucleus_name[0]]['firing'] = FR
+        for nuclei_list in nuclei_dict.values():
+            for nucleus in nuclei_list:
+                nucleus.clear_history(neuronal_model = 'spiking')
+                nucleus.rest_ext_input = FR
+        nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
+        for nuclei_list in nuclei_dict.values():
+            for nucleus in nuclei_list:
+                nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+                # nucleus.estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = False) 
+                # print( I_ext )
+                firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):]) 
+                firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                print(nucleus.name, np.round(np.average(nucleus.rest_ext_input), 3),
+                    'FR=',firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1],2))
+        i+=1
+    return firing_prop
 
 def instantaneus_rise_expon_decay(I_ext, tau_decay):
 
@@ -459,35 +515,69 @@ def FR_ext_theory(V_thresh, V_rest, tau, g_ext, FR_list, N_ext):
     frac = (V_thresh - V_rest ) / ( FR_list * g_ext * N_ext * tau)
     return -1 / np.log ( 1 - frac ) / tau
 
-def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
-    ''' find the simulated firing of population given different externalfiring rates'''
+def find_x_mid_point_sigmoid( y, x):
+    ''' extrapolate the x of half max of y from the two nearest data points'''
+    y_relative = y - np.max(y)/2
+    signs = np.sign(y_relative)
+    y_before = np.max(np.where ( signs < 0)[0])
+    y_after = np.min( np.where (signs > 0)[0])
+    return  ( x[y_before] + x[y_after] ) / 2
 
-    nucleus_name = list(nuclei_dict.keys()); m = len(FR_list)
-    firing_prop = {k: {'firing_mean': np.zeros((m,len(nuclei_dict[nucleus_name[0]]))),'firing_var':np.zeros((m,len(nuclei_dict[nucleus_name[0]])))} for k in nucleus_name}
-    i = 0
-    for FR in FR_list:
+def expon(x, a, b, c):
+    return a * np.exp(-b * x) + c
 
-        poisson_prop[nucleus_name[0]]['firing'] = FR
-        for nuclei_list in nuclei_dict.values():
-            for nucleus in nuclei_list:
-                nucleus.clear_history(neuronal_model = 'spiking')
-                # plt.figure()
-                # plt.hist(nucleus.rest_ext_input/ np.mean(nucleus.rest_ext_input) * FR, bins = 20)
-                # print(np.mean(nucleus.rest_ext_input), )
-                # print(nucleus.rest_ext_input/ np.mean(nucleus.rest_ext_input))
-                nucleus.rest_ext_input = FR
-                # print(FR)
-                nucleus.rest_ext_input = nucleus.rest_ext_input/ nucleus.rest_ext_input_of_mean * FR
-        nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
-        for nuclei_list in nuclei_dict.values():
-            for nucleus in nuclei_list:
-                nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
-                firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
-                firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
-                print(nucleus.name, np.round(np.average(nucleus.rest_ext_input), 3),
-                    'FR=',firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1],2))
-        i+=1
-    return firing_prop
+def sigmoid(x, x0, k):
+    return 1 / (1 + np.exp(-k*(x-x0)))
+    
+def inverse_sigmoid( y, x0, k):
+    return -1/k * np.log ( (1 - y) / y) + x0
+
+def fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func):
+    popt, pcov = curve_fit(estimating_func, FR_ext, FR, method='dogbox')
+    return popt
+
+def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, coefs, estimating_func, inverse_estimating_func , FR_normalizing_factor , x_shift):
+    
+    return inverse_estimating_func( desired_FR / FR_normalizing_factor, *coefs) + x_shift
+
+def find_y_normalizing_factor (y):
+    return np.max (y)
+
+def get_non_linear_part( x, y, end_of_nonlinearity = 25):
+    ind =  np.where(y < end_of_nonlinearity)[0]
+    return x[ind], y[ind]
+
+def rescale_x_and_y ( x, y ):
+    ydata = y / find_y_normalizing_factor(y)
+    x_shift = find_x_mid_point_sigmoid( y, x)
+    xdata = x - x_shift
+    return xdata, ydata
+
+def plot_fitted_curve(xdata, ydata, x_scaled, coefs):
+    plt.figure()
+    plt.plot(xdata, ydata,'-o', label = 'data')
+    y = sigmoid(x_scaled ,*coefs)
+    plt.plot(x_scaled + find_x_mid_point_sigmoid( ydata, xdata), y * find_y_normalizing_factor(ydata), label = 'fitted curve')
+    plt.legend()
+    
+def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = 25):
+    ''' All firing rates in Hz'''
+    xdata, ydata = get_non_linear_part( FR_ext, FR_sim, end_of_nonlinearity =  end_of_nonlinearity)
+    x, y = rescale_x_and_y ( xdata, ydata )
+    coefs = fit_FR_as_a_func_of_FR_ext ( x, y, sigmoid)
+    I_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
+                                                find_y_normalizing_factor(ydata), 
+                                                find_x_mid_point_sigmoid( ydata, xdata))
+    if if_plot: plot_fitted_curve(xdata, ydata, x, coefs)
+
+    return I_ext, coefs
+
+def create_color_map(n_samples, colormap = plt.cm.viridis):
+    colormap = colormap# LinearSegmentedColormap
+    Ncolors = min(colormap.N,n_samples)
+    mapcolors = [colormap(int(x*colormap.N/Ncolors)) for x in range(Ncolors)]
+    return mapcolors
+
 
 # def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
 #     ''' find the simulated firing of population given different externalfiring rates'''

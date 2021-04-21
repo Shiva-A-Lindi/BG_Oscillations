@@ -163,15 +163,15 @@ if 1:
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
     neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':25,'var':2}},
+                       'membrane_time_constant':{'mean':5,'var':.1},'spike_thresh': {'mean':25,'var':2}},
                        'Arky': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -70, 'u_initial':{'min':-70, 'max':30},# Bogacz et al. 2016
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':30,'var':2}},
+                       'membrane_time_constant':{'mean':5,'var':.1},'spike_thresh': {'mean':30,'var':2}},
                        'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -85, 'u_initial':{'min':-85, 'max':-55}, # Willet et al. 2019
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-55,'var':2}},
+                       'membrane_time_constant':{'mean':5,'var':.1},'spike_thresh': {'mean':-55,'var':2}},
                        'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -75, 'u_initial':{'min':-75, 'max':-45}, # Taverna et al. 2013
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':-45,'var':2}},
+                       'membrane_time_constant':{'mean':5,'var':.1},'spike_thresh': {'mean':-45,'var':2}},
                        'STN': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
-                       'membrane_time_constant':{'mean':5,'var':1},'spike_thresh': {'mean':25,'var':2}},}
+                       'membrane_time_constant':{'mean':5,'var':.1},'spike_thresh': {'mean':25,'var':2}},}
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Straub et al. 2016
@@ -375,22 +375,24 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
     nuclei_dict = {name: nuc}
     receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+    # nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = False) 
+    print('I_ext',nuc[0].rest_ext_input)
     firing_prop = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+
     return firing_prop
 
-name = 'FSI'
+def find_FR_ext_range_for_each_neuron():
+    return 0
+name = 'D2'
 n = 40
-# start=0.150; end=0.25;  # for Proto
-start=0.0595; end=0.0605;  # for FSI & D2
+start=59.5; end=60.5;  # for FSI & D2
 
 g = -0.01; g_ext = -g
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
-FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]) / poisson_prop[name]['g'] / poisson_prop [name ]['n']
+FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]) / poisson_prop[name]['g'] / poisson_prop [name ]['n'] 
 
 n_samples = 1
-colormap = plt.cm.viridis# LinearSegmentedColormap
-Ncolors = min(colormap.N,n_samples)
-mapcolors = [colormap(int(x*colormap.N/Ncolors)) for x in range(Ncolors)]
+mapcolors = create_color_map(n_samples, colormap = plt.cm.viridis)
 amplitude_list = np.full(n_samples, 1)
 variance_list = np.logspace(start = -11.8, stop = -1, num = n_samples , base = 10)
 variance_list = [0.1]
@@ -398,91 +400,59 @@ plt.figure()
 for i in range (n_samples):
     print(i, 'from', n_samples)
     firing_prop_hetero = run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance_list[i], amplitude_list[i])
-    plt.plot(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0],'-o',label = r'$\sigma=$'+"{:e}".format(variance_list[i]), c = mapcolors[i])
-    plt.fill_between(FR_list*1000,firing_prop_hetero[name]['firing_mean'][:,0]-firing_prop_hetero[name]['firing_var'][:,0],
-                  firing_prop_hetero[name]['firing_mean'][:,0]+firing_prop_hetero[name]['firing_var'][:,0],alpha = 0.1, color = mapcolors[i])
+    plt.plot(FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,'-o',label = r'$\sigma=$'+"{:e}".format(variance_list[i]), c = mapcolors[i])
+    plt.fill_between(FR_list * 1000,
+                     (firing_prop_hetero[name]['firing_mean'][:,0] - firing_prop_hetero[name]['firing_var'][:,0]) ,
+                     (firing_prop_hetero[name]['firing_mean'][:,0]+firing_prop_hetero[name]['firing_var'][:,0])  ,
+                  alpha = 0.1, color = mapcolors[i])
 
-start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
-         / (g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + 10**(-10))
-# x = np.geomspace(start_theory, end, num = 10)
-x1 = np.linspace( start_theory, start_theory + 0.0001, 1000).reshape(-1,1)
-x = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
-y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
-                         neuronal_consts[name]['u_rest'], 
-                         neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x, poisson_prop[name]['n'])
-plt.plot(x*1000,y_theory*1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
-plt.xlabel(r'$FR_{ext}$',fontsize=15)
-plt.ylabel(r'$FR$',fontsize=15)
-plt.xlim(start*1000, end*1000)
-plt.legend()
-from scipy.optimize import curve_fit
-
-def find_x_mid_point_sigmoid( y, x):
-    y_relative = y - np.max(y)/2
-    signs = np.sign(y_relative)
-    y_before = np.max(np.where ( signs < 0)[0])
-    y_after = np.min( np.where (signs > 0)[0])
-    return  ( x[y_before] + x[y_after] ) / 2
-
-def expon(x, a, b, c):
-    return a * np.exp(-b * x) + c
-
-def sigmoid(x, x0, k):
-    return 1 / (1 + np.exp(-k*(x-x0)))
+def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts):
     
-def inverse_sigmoid( y, x0, k):
-    return -1/k * np.log ( (1 - y) / y) + x0
-
-def fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func):
-    popt, pcov = curve_fit(estimating_func, FR_ext, FR, method='dogbox')
-    return popt
-
-def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, estimating_func, inverse_estimating_func , FR_normalizing_factor , x_shift):
+    start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
+              / (g_ext*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + 10**(-10))
+    x1 = np.linspace( start_theory, start_theory + 0.0001, 1000).reshape(-1,1)
+    end = I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n']
+    x_theory = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
+    y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
+                              neuronal_consts[name]['u_rest'], 
+                              neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x_theory, poisson_prop[name]['n'])
+    plt.plot(x_theory * 1000, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
+    plt.xlabel(r'$FR_{ext}$',fontsize=15)
+    plt.ylabel(r'$FR$',fontsize=15)
+    plt.xlim(I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000)
+    plt.legend()
     
-    coefs = fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func)
-    return inverse_estimating_func( desired_FR / FR_normalizing_factor, *coefs) + x_shift
+# plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
+### extrapolate with the average firing rate ofthe  population
+# I_ext,_ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list, firing_prop_hetero[name]['firing_mean'][:,0] , 12,
+                                                            # if_plot = True, end_of_nonlinearity = 25)
+# print( I_ext )
 
-def find_y_normalizing_factor (y):
-    return np.max (y)
-ind = np.where(firing_prop_hetero[name]['firing_mean'][:,0] < 25)[0]
+#%%
+name = 'D2'
+N_sim = 2
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+g = -0.01; g_ext = -g
+poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+G = {}
+receiving_pop_list = {(name,'1') : []}
 
-ydata_ = firing_prop_hetero[name]['firing_mean'][:,0][ind]
-xdata_ = FR_list[ind]*1000
-
-ydata = ydata_ / find_y_normalizing_factor(ydata_)
-x_shift = find_x_mid_point_sigmoid( ydata_, xdata_)
-xdata = xdata_ - x_shift
-plt.figure()
-plt.plot(xdata_, ydata_ ,'-o', label = 'data')
-popt = fit_FR_ext_as_a_func_of_FR ( xdata, ydata, sigmoid)
-y = sigmoid(xdata ,*popt)
-plt.plot(xdata + x_shift, y * np.max(ydata_), label = 'fitted curve')
-plt.legend()
-I_ext = extrapolated_FR_ext_from_fitted_curve (xdata, ydata, 12, sigmoid, inverse_sigmoid, 
-                                                find_y_normalizing_factor(ydata_), 
-                                                find_x_mid_point_sigmoid( ydata_, xdata_))
-print( I_ext )
-
-
-# N_sim = 1000
-# N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
-# dt = 0.25
-# t_sim = 1000; t_list = np.arange(int(t_sim/dt))
-# t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-# G = {}
-# receiving_pop_list = {(name,'1') : []}
-
-# pop_list = [1]  
-# init_method = 'heterogeneous'
-# # init_method = 'homogeneous'
-# noise_variance = {name : 0.1}
-# noise_amplitude = {name : 1}
-# nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-#             synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
-# nuclei_dict = {name: nuc}
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+noise_variance = {name : 0.1}
+noise_amplitude = {name : 1}
+nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+            synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
+nuclei_dict = {name: nuc}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 # firing_prop = find_FR_sim_vs_FR_ext([I_ext/1000],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
-   
+  
+nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = True) 
+
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20
