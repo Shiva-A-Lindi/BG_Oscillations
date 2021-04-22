@@ -381,8 +381,7 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
 
     return firing_prop
 
-def find_FR_ext_range_for_each_neuron():
-    return 0
+
 name = 'D2'
 n = 40
 start=59.5; end=60.5;  # for FSI & D2
@@ -430,7 +429,7 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_const
 
 #%%
 name = 'D2'
-N_sim = 2
+N_sim = 5
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.25
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -448,10 +447,23 @@ noise_amplitude = {name : 1}
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
             synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
 nuclei_dict = {name: nuc}
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+
+
+n = 50
+pad = [0.001, 0.001]
+all_FR_list = np.linspace ( 0.05, 0.07 , 200).reshape(-1,1)
+
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking', 
+                                         all_FR_list = all_FR_list , n_FR =n, if_plot = False, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
+nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
 # firing_prop = find_FR_sim_vs_FR_ext([I_ext/1000],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
-  
-nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = True) 
+
+# FR_sim = nuc[0].run_for_all_FR_ext( all_FR_list, t_list, dt, receiving_class_dict )
+# start_act = [ all_FR_list[np.min( np.where( FR_sim[i,:] > 1 )[0])] for i in range( FR_sim.shape[ 0 ]) ]
+
+# 
+# FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, n, *pad)
+# a = nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = True) 
 
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
