@@ -358,7 +358,7 @@ plt.legend()
 #%% FR simulation vs FR_ext (I = cte + Gaussian noise) theory vs. simulation
 def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance, amplitude):
 
-    N_sim = 1
+    N_sim = 1000
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     dt = 0.25
     t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -375,20 +375,18 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
     nuclei_dict = {name: nuc}
     receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
-    # nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = False) 
-    print('I_ext',nuc[0].rest_ext_input)
     firing_prop = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 
     return firing_prop
 
 
-name = 'D2'
-n = 40
+name = 'FSI'
+n = 50
 start=59.5; end=60.5;  # for FSI & D2
 
 g = -0.01; g_ext = -g
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
-FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]) / poisson_prop[name]['g'] / poisson_prop [name ]['n'] 
+FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]).reshape(-1,) / poisson_prop[name]['g'] / poisson_prop [name ]['n'] 
 
 n_samples = 1
 mapcolors = create_color_map(n_samples, colormap = plt.cm.viridis)
@@ -421,49 +419,107 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_const
     plt.xlim(I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000)
     plt.legend()
     
-# plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
+plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
 ### extrapolate with the average firing rate ofthe  population
-# I_ext,_ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list, firing_prop_hetero[name]['firing_mean'][:,0] , 12,
-                                                            # if_plot = True, end_of_nonlinearity = 25)
-# print( I_ext )
+FR_ext,_ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,A[name],
+                                                            if_plot = True, end_of_nonlinearity = 25)
 
-#%%
-name = 'D2'
-N_sim = 5
+N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.25
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-g = -0.01; g_ext = -g
-poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+G = {}
+receiving_pop_list = {(name,'1') : []}
+
+pop_list = [1]  
+# init_method = 'heterogeneous'
+init_method = 'homogeneous'
+noise_variance = {name : .1}
+noise_amplitude = {name : 1}
+nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+           synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
+nuclei_dict = {name: nuc}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+nuc[0].clear_history(neuronal_model = 'spiking')
+nuc[0].rest_ext_input = FR_ext * nuc[0].syn_weight_ext_pop * nuc[0].n_ext_population * nuc[0].membrane_time_constant
+
+nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc},neuronal_model = 'spiking')
+nuc[0].pop_act = moving_average_array(nuc[0].pop_act,50)
+print(np.average(nuc[0].pop_act[int(len(t_list)/2):]) )
+
+
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, plot_start = 100, title = '')
+
+fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+count = 0
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        count +=1
+        nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+
+        axs.eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        axs.tick_params(axis='both', labelsize=10)
+        axs.set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+
+
+firing_prop = find_FR_sim_vs_FR_ext([FR_ext],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+
+#%% Deriving F_ext from the response curve
+#%%
+name = 'FSI'
+N_sim = 1000
+N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {}
 receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
 init_method = 'heterogeneous'
 # init_method = 'homogeneous'
-noise_variance = {name : 0.1}
+noise_variance = {name : .1}
 noise_amplitude = {name : 1}
+g = -0.01; g_ext = -g
+poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-            synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
+           synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
 nuclei_dict = {name: nuc}
-
-
 n = 50
 pad = [0.001, 0.001]
-all_FR_list = np.linspace ( 0.05, 0.07 , 200).reshape(-1,1)
-
+all_FR_list = np.linspace ( 0.04, 0.075 , 200).reshape(-1,1)
+if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking', 
-                                         all_FR_list = all_FR_list , n_FR =n, if_plot = False, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
-nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
-# firing_prop = find_FR_sim_vs_FR_ext([I_ext/1000],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
+                                         all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
 
-# FR_sim = nuc[0].run_for_all_FR_ext( all_FR_list, t_list, dt, receiving_class_dict )
-# start_act = [ all_FR_list[np.min( np.where( FR_sim[i,:] > 1 )[0])] for i in range( FR_sim.shape[ 0 ]) ]
+nuc[0].clear_history(neuronal_model = 'spiking')
+nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc},neuronal_model = 'spiking')
+nuc[0].pop_act = moving_average_array(nuc[0].pop_act,50)
+print(np.average(nuc[0].pop_act[int(len(t_list)/2):]) , np.average((nuc[0].rest_ext_input)))
 
-# 
-# FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, n, *pad)
-# a = nuc[0].estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = True) 
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, plot_start = 100, title = '')
+
+fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+count = 0
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        count +=1
+        nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
+        print(nucleus.name,np.average(nucleus.pop_act[int(len(t_list)/2):]), round(np.std(nucleus.pop_act[int(len(t_list)/2):]),2))
+        spikes_sparse = [np.where(nucleus.spikes[i,:]==1)[0]*dt for i in range(nucleus.n)]
+
+        axs.eventplot(spikes_sparse, colors='k',linelengths=2,lw = 2,orientation='horizontal')
+        axs.tick_params(axis='both', labelsize=10)
+        axs.set_title(nucleus.name, c = color_dict[nucleus.name],fontsize = 15)
+        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+
+fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+
 
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
@@ -524,12 +580,12 @@ plt.legend()
 
 N_sim = 20
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
-dt = 0.1
+dt = 0.25
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
 G = {}
-name = 'D2'
+name = 'FSI'
 
 g = -0.01; g_ext = -g
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
@@ -538,14 +594,14 @@ receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
   
-noise_variance = {name : 0.001}
+noise_variance = {name : 0.1}
 noise_amplitude = {name : 1}
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop) for i in pop_list]
 nuclei_dict = {name: nuc}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
 
-tuning_param = 'firing'; n =10
+tuning_param = 'firing'; n =20
 start=0.04; end=0.1; FR_list=np.linspace(start,end,n)
 
 
@@ -559,7 +615,7 @@ end=0.1; x1=np.linspace(start,end,100).reshape(-1,1)
 y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
                          neuronal_consts[name]['u_rest'], 
                          neuronal_consts[name]['membrane_time_constant']['mean'], g_ext, x1, poisson_prop[name]['n'])
-plt.plot(x1*1000,y_theory*1000,'-o',label='theory', c= 'lightcoral', markersize = 6, markeredgecolor = 'grey')
+plt.plot(x1*1000,y_theory*1000,label='theory', c= 'lightcoral')#, markersize = 6, markeredgecolor = 'grey')
 plt.xlabel(r'$FR_{ext}$',fontsize=15)
 plt.ylabel(r'$FR$',fontsize=15)
 
@@ -1202,7 +1258,6 @@ find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucl
 figname = 'Arky-Proto-D2 loop without Proto-Proto'
 fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
-#%%
 #%% Arky-Proto-D2 loop without Proto-Proto sweep
 n = 50 ; if_plot = False
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -1239,7 +1294,6 @@ g_transient = data[(name,'g_transient_boundary')][0] #
 scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Arky-D2-P',  [r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$' , param, color] )
 plt.axvline(g_transient[1], c = 'k')
 # find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False)
-#%%  
 #%% Arky-D2-Proto time scale space
 
 n = 10 ; if_plot = False
@@ -1267,8 +1321,6 @@ g_list = np.linspace(-20,-1, 250);
 find_stable_oscill = True # to find stable oscillatory regime
 
 sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G.copy(),A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-#%%
 #%% Arky-Proto-D2 loop with Proto-Proto
 g = -2
 t_sim = 800; t_list = np.arange(int(t_sim/dt))
@@ -1295,8 +1347,6 @@ name = 'Proto'
 nucleus = nuclei_dict[name][0]
 # find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
 temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_mvt)
-
-#%%
 #%% Arky-Proto-D2 loop with Proto-Proto sweep
 n = 50 ; if_plot = False
 t_sim = 1500; t_list = np.arange(int(t_sim/dt))
@@ -1332,7 +1382,6 @@ g_transient = data[(name,'g_transient_boundary')][0] #
 # scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, [r'$G_{Proto-Proto}$', r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$', param,  color],x_axis = 'g_2') 
 scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
 plt.axvline(g_transient[1], c = 'k')
-#%%
 #%% Critical g Combine different circuits 3 nuclei
 g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
 nucleus_name_list = ['Arky', 'Proto','D2']
@@ -1350,8 +1399,6 @@ color_param_list = 3* ['perc_t_oscil_mvt']
 x_label = r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$'
 synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
                                              color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,'hot',x_axis = 'g_2',title = title,x_label = x_label)
-
-#%%
 #%% Pallidostriatal loop without GP-GP
 g = -1.7
 t_sim = 1700; t_list = np.arange(int(t_sim/dt))
@@ -1382,8 +1429,6 @@ fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
 # find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
 temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_base)
-
-#%%
 #%% Pallidostriatal without GP-GP sweep
 n = 50 ; if_plot = False
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -1420,8 +1465,6 @@ g_transient = data[(name,'g_transient_boundary')][0] #
 scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
 plt.axvline(g_transient[1], c = 'k')
 # find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False)
-
-#%%  
 #%% FSI-D2-Proto time scale space
 
 n = 10 ; if_plot = False
@@ -1448,8 +1491,6 @@ lim_n_cycle = [6,10] ; find_stable_oscill = True # to find stable oscillatory re
 filename = 'data_FSI_D2_Proto_syn_t_scale_tau_1_1_1'
 filename= filename.replace('.','-')+'.pkl'
 sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill)
-
-#%%
 #%% Pallidostriatal loop with GP-GP
 g = -2
 t_sim = 800; t_list = np.arange(int(t_sim/dt))
@@ -1476,8 +1517,6 @@ name = 'D2'
 nucleus = nuclei_dict[name][0]
 # find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
 temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_mvt)
-
-#%%
 #%% Pallidostriatal with GP-GP sweep
 n = 8 ; if_plot = False
 t_sim = 1500; t_list = np.arange(int(t_sim/dt))
@@ -1513,8 +1552,6 @@ param = 'mvt_freq'
 scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, [r'$G_{Proto-Proto}$', r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$', param,  color]) 
 # scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in Pallidostriatal',  [r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' , param, color] )
 # plt.axvline(g_transient[1], c = 'k')
-
-#%%
 #%% Critical g Combine different circuits 3 sets of syn time constants
 g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
 filename_list = ['data_synaptic_weight_Pallidostriatal.pkl','data_synaptic_weight_Pallidostriatal_30_10_10.pkl', 'data_synaptic_weight_Pallidostriatal_30_6_6.pkl']
@@ -1526,8 +1563,6 @@ color_param_list = 3* ['perc_t_oscil_mvt']
 x_label = r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$'
 synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
                                              color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,'jet',x_axis = 'g_2',x_label = x_label)
-
-#%%
 #%% Critical g Combine different circuits 3 nuclei
 g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
 nucleus_name_list = ['FSI', 'Proto','D2']
@@ -1544,8 +1579,6 @@ color_param_list = 3* ['perc_t_oscil_mvt']
 x_label = r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$'
 synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
                                              color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,'hot',x_axis = 'g_2',title = title,x_label = x_label)
-
-#%%
 #%% STN-Proto network
 G = { ('STN', 'Proto'): -1.78,
   ('Proto', 'STN'): 1, 
@@ -1578,7 +1611,6 @@ temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt
 # temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_base)
 # temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,dt,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
-#%%
 #%% synaptic weight phase exploration only GP
 # T[('Proto', 'Proto')]= 2
 T[('Proto', 'Proto')]= 5
@@ -1607,7 +1639,6 @@ g_transient = data[name,'g_transient_boundary'][0]
 # scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
 scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), 'only '+name,  ['G(Proto-Proto)', param, color] )
 plt.axvline(g_transient[1], c = 'k')
-#%%
 #%% synaptic weight phase exploration only STN
 
 n = 50; if_plot = False
@@ -1637,7 +1668,6 @@ g_transient = data[(name,'g_transient_boundary')][0]
 # scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
 scatter_2d_plot(np.squeeze(data['g'][:,:,1]),np.squeeze(data[(name,param)]),np.squeeze(data[(name,color)]), name +' in STN-GP circuit G(Proto-STN) =' +str(G[('Proto','STN')]),  ['G(Proto-Proto)', param, color] )
 plt.axvline(g_transient[1], c = 'k')
-#%%
 #%% Critical g Combine different circuits
 g_cte_ind = [0,0]; g_ch_ind = [1,1]
 fig = synaptic_weight_transition_multiple_circuits(['data_synaptic_weight_STN_GP_only_STN.pkl','data_synaptic_weight_GP_only_T_5.pkl'], 
@@ -1646,7 +1676,6 @@ fig = synaptic_weight_transition_multiple_circuits(['data_synaptic_weight_STN_GP
 #                                                  ['Proto', 'Proto'], ['GP-GP (2ms)', 'GP-GP (5ms)'], ['k','r'],g_cte_ind,g_ch_ind,2*['mvt_freq'],2* ['perc_t_oscil_mvt'],'jet',x_axis='g_2')
 fig.savefig('STN_GPe_synaptic_weight.png',dpi = 300)
 fig.savefig('STN_GPe_synaptic_weight.pdf',dpi = 300)
-#%%
 #%% time scale space (GABA-a, GABA-b)
 
 receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
@@ -1683,7 +1712,6 @@ c_trans = data[(name,'trans_mvt_freq')].flatten()
 c_stable = data[(name, 'stable_mvt_freq')].flatten()
 c = c_trans
 scatter_3d_plot(x,y,z,c,name, np.max(c), np.min(c),['GABA-A','GABA-B','Glut','transient oscillation f'], limits = None)
-#%%
 #%% STN-GPe time scale space GABA and glut
 
 receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
@@ -1732,8 +1760,6 @@ ax.scatter(x_spec,np.ones_like(x_spec)*y[0,3],y_spec, c = ['k']*len(y_spec),s = 
 # plt.axvline(g_transient[1], c = 'k')
 fig.savefig('STN_GPe_timescale_inh_excit_3d.png',dpi = 300)
 fig.savefig('STN_GPe_timescale_inh_excit_3d.pdf',dpi = 300)
-
-#%%
 #%% Plot different sets of parameters for timescale plot
 #################### All circuits
 # filename_list = ['data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_STN_GPe_syn_t_scale_g_ratio_1.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_1_0-5.pkl']
@@ -1793,8 +1819,6 @@ colormap = 'hot'
 fig = multi_plot_as_f_of_timescale_shared_colorbar(data, y_list, c_list, label_list,g_ratio_list,name_list,filename_list,x_label,y_label,ylabelpad = -5)
 fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
-
-#%%
 #%% time scale space GABA-B
 
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -1834,8 +1858,6 @@ z_stable = freq[(name, 'stable_mvt_freq')]
 c = freq[(name, 'trans_n_half_cycle')]
 # scatter_3d_wireframe_plot(x,y,z, c, name,[inhibitory_trans,'Glut','freq',color])
 scatter_3d_wireframe_plot_2_data_series(x,y,z,'b','lightskyblue', x,y,z_stable,'g', 'darkgreen',name, ['transient', 'stable'],[inhibitory_trans,'Glut','freq'] )
-
-#%% 
 #%% Scribble
 
 
