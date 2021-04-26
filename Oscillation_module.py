@@ -15,10 +15,13 @@ import decimal
 from decimal import *
 from scipy import optimize
 from scipy.optimize import curve_fit
-
+import matplotlib.ticker as mticker
 # matplotlib.rcParams["text.usetex"] = True
 # matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
 #from scipy.ndimage.filters import generic_filter
+f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
+g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
+fmt = mticker.FuncFormatter(g)
 
 def find_sending_pop_dict(receiving_pop_list):
     sending_pop_list = {k: [] for k in receiving_pop_list.keys()}
@@ -82,7 +85,7 @@ class Nucleus:
             self.n_ext_population = poisson_prop[self.name]['n'] # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing'] 
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
-            self.FR_ext = None
+            self.FR_ext = 0
             self.representative_inp = {k: np.zeros((int(t_sim/dt),len(self.tau[self.name,k[0]]['decay']))) for k in self.receiving_from_list}
             self.representative_inp['ext_pop','1'] = np.zeros(int(t_sim/dt))
             self.ext_input_all = np.zeros((self.n,int(t_sim/dt)))
@@ -96,6 +99,7 @@ class Nucleus:
             elif init_method == 'heterogeneous':
                 self.initialize_heterogeneously( poisson_prop, dt)
 
+            self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp, 'const+noise' : self.constant_ext_input_with_noise, 'constant' : self.constant_ext_input}
 
     def initialize_heterogeneously(self, poisson_prop, dt, lower_bound_perc = 0.8, upper_bound_perc = 1.2):
         ''' cell properties and boundary conditions come from distributions'''
@@ -153,9 +157,7 @@ class Nucleus:
 
     def cal_ext_inp(self,dt,t,method = 'delta-function'):
 
-        # I_ext = self.poissonian_ext_inp( dt )
-        # I_ext = self.rest_ext_input
-        I_ext = self.constant_ext_input_with_noise( dt )
+        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) # choose method of exerting external input from dictionary of methods
 
         self.I_syn['ext_pop','1'],self.I_rise['ext_pop','1'] = self.cal_I_t( self.I_syn['ext_pop','1'], 
                                                                             I_ext, I_rise = self.I_rise['ext_pop','1'], 
@@ -172,6 +174,10 @@ class Nucleus:
     def constant_ext_input_with_noise(self, dt ):
 
         return self.rest_ext_input + noise_generator(self.noise_amplitude, self.noise_variance, self.n).reshape(-1,)
+
+    def constant_ext_input(self, dt ):
+
+        return self.rest_ext_input 
 
     def cal_I_t(self, I, inputs, I_rise = None, method = 'delta-function', tau_rise = None, tau_decay = None):
         
@@ -590,7 +596,6 @@ def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,n
     i = 0
     for FR in FR_list:
 
-        # poisson_prop[nucleus_name[0]]['firing'] = FR
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
                 nucleus.clear_history(neuronal_model = 'spiking')
@@ -599,11 +604,12 @@ def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,n
         nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict,neuronal_model = 'spiking')
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
-                nucleus.pop_act = moving_average_array(nucleus.pop_act,50)
-                firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] = np.average(nucleus.pop_act[int(len(t_list)/2):]) 
-                firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                nucleus.smooth_pop_activity(dt, window_ms = 5)
+                FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
+                firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] = FR_mean
+                firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1] = FR_std
                 print(nucleus.name, np.round(np.average(nucleus.FR_ext), 3),
-                    'FR=',firing_prop[nucleus.name]['firing_mean'][i,nucleus.population_num-1] ,'std=',round(firing_prop[nucleus.name]['firing_var'][i,nucleus.population_num-1],2))
+                    'FR=',FR_mean ,'std=',round(FR_std,2))
         i+=1
     return firing_prop
 
@@ -1690,6 +1696,25 @@ def find_AUC_of_input(name,poisson_prop,gain, threshold, neuronal_consts,tau,ext
     AUC_std = np.std([np.trapz(nucleus[0].ext_input_all[i,:],x=t_list*dt) for i in range(N[name])],axis = 0)
     print("AUC of one spike =",round(AUC,3),'+/-',round(AUC_std,3),"mV")
     return AUC,AUC_std
+
+
+
+def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts, start_epsilon = 10**(-10)):
+    
+    start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
+              / (poisson_prop[name]['g']*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + start_epsilon)
+    x1 = np.linspace( start_theory, start_theory + 0.0001, 1000).reshape(-1,1)
+    end = I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n']
+    x_theory = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
+    y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
+                              neuronal_consts[name]['u_rest'], 
+                              neuronal_consts[name]['membrane_time_constant']['mean'], poisson_prop[name]['g'], x_theory, poisson_prop[name]['n'])
+    plt.plot(x_theory * 1000, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
+    plt.xlabel(r'$FR_{ext}$',fontsize=15)
+    plt.ylabel(r'$FR$',fontsize=15)
+    plt.xlim(I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000)
+    plt.legend()
+
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
 #     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
 #     got_it = False ;g_stable = None; g_transient = None
