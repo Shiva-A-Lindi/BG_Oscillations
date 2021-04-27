@@ -94,6 +94,7 @@ class Nucleus:
             self.rest_ext_input = np.zeros(self.n)
             self.ext_inp_method = ext_inp_method
             self.der_ext_I_from_curve = der_ext_I_from_curve # if derive external input value from response curve
+            self.sum_syn_inp_at_rest = None
             if init_method == 'homogeneous':
                 self.initialize_homogeneously( poisson_prop, dt)
             elif init_method == 'heterogeneous':
@@ -411,7 +412,7 @@ class Nucleus:
             
             I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
             print('I_syn', np.average(I_syn))
-
+            self.sum_syn_inp_at_rest = I_syn
             if self.ext_inp_method == 'Poisson':
                 self._set_ext_inp_poisson( I_syn)
 
@@ -457,11 +458,15 @@ class Nucleus:
         else:
             self.rest_ext_input =  self.FR_ext * self.syn_weight_ext_pop * self.n_ext_population * self.membrane_time_constant - I_syn
 
-    def estimate_needed_external_input(self, FR_list, dt, t_list, receiving_class_dict, if_plot = False, end_of_nonlinearity = 25, maxfev = 5000):
+    def estimate_needed_external_input(self, all_FR_list, dt, t_list, receiving_class_dict, if_plot = False, end_of_nonlinearity = 25,
+                                        n_FR = 50, left_pad = 0.001, right_pad =0.001, maxfev = 5000):
 
-
+        all_FR_list_2D = np.repeat(all_FR_list.reshape(-1,1), self.n, axis = 1) # provide the array for all neurons
+        FR_sim = self.Find_threshold_of_firing( all_FR_list_2D, t_list, dt, receiving_class_dict )
+        FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, self.init_method, n_FR = n_FR, left_pad = left_pad, right_pad = right_pad)
         FR_sim = self.run_for_all_FR_ext( FR_list, t_list, dt, receiving_class_dict )
-        self. set_ext_inp_each_neuron( FR_list, FR_sim, dt,  if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+        self. set_FR_ext_each_neuron( FR_list, FR_sim, dt,  if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+        self.clear_history(neuronal_model = self.neuronal_model)
 
     def run_for_all_FR_ext(self, FR_list, t_list, dt, receiving_class_dict ):
 
@@ -496,7 +501,7 @@ class Nucleus:
         for t in t_list: # run temporal dynamics
             self.solve_IF_without_syn_input(t,dt,receiving_class_dict[(self.name,str(self.population_num))])
 
-    def set_ext_inp_each_neuron(self, FR_list, FR_sim, dt,  if_plot = False, end_of_nonlinearity = 25, maxfev = 5000):
+    def set_FR_ext_each_neuron(self, FR_list, FR_sim, dt,  if_plot = False, end_of_nonlinearity = 25, maxfev = 5000):
 
         self.FR_ext = np.zeros((self.n))
 
@@ -509,6 +514,8 @@ class Nucleus:
             for i in range(self.n):
                 self.FR_ext[i], _ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list[:,i] * 1000, FR_sim[i,:] , self.basal_firing, 
                                                                                 if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+    def scale_synaptic_weight(self):
+        self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
 def find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, init_method,  n_FR = 50 , left_pad = 0.005, right_pad = 0.005):
     ''' put log spaced points in the nonlinear regime of each neuron'''
@@ -550,21 +557,24 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_di
     #K = calculate_number_of_connections(N,N_real,K_real)
     K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
     receiving_class_dict= create_receiving_class_dict(receiving_pop_list, nuclei_dict)
+
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+
             nucleus.set_connections(K, N)
 
             if neuronal_model == 'rate':
-                nucleus.synaptic_weight = {k: v/nucleus.K_connections[k] for k, v in nucleus.synaptic_weight.items() if k[0]==nucleus.name} # filter based on the receiving nucleus
+                nucleus.scale_synaptic_weight() # filter based on the receiving nucleus
 
             elif nucleus. der_ext_I_from_curve :
-                all_FR_list_2D = np.repeat(all_FR_list.reshape(-1,1), nucleus.n, axis = 1) # provide the array for all neurons
-                FR_sim = nucleus.Find_threshold_of_firing( all_FR_list_2D, t_list, dt, receiving_class_dict )
-                FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, nucleus.init_method, n_FR = n_FR, left_pad = left_pad, right_pad = right_pad)
-                nucleus.estimate_needed_external_input(FR_list, dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
-                
-                nucleus.clear_history(neuronal_model = 'spiking')
+                # all_FR_list_2D = np.repeat(all_FR_list.reshape(-1,1), nucleus.n, axis = 1) # provide the array for all neurons
+                # FR_sim = nucleus.Find_threshold_of_firing( all_FR_list_2D, t_list, dt, receiving_class_dict )
+                # FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, nucleus.init_method, n_FR = n_FR, left_pad = left_pad, right_pad = right_pad)
+                nucleus.estimate_needed_external_input(all_FR_list, dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
+                                                        n_FR = n_FR , left_pad = left_pad, right_pad = right_pad)
+            
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt,neuronal_model)
+
     return receiving_class_dict
 def plot_fitted_curve(xdata, ydata, x_scaled, coefs = []):
     plt.figure()
@@ -978,18 +988,24 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, 
         fig, ax = plot_ob
      
     line_type = ['-', '--']
+    count = 0
     for nuclei_list in nuclei_dict.values():
         for nucleus in [nuclei_list[0]]:
             
             ax.plot(t_list[plot_start:]*dt, nucleus.pop_act[plot_start:], line_type[nucleus.population_num-1], label = nucleus.name, c = color_dict[nucleus.name],lw = 1.5)
             ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
             ax.plot(t_list[plot_start:]*dt, np.ones_like(t_list[plot_start:])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha=0.2,lw = 1 )
+            FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
+            txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,2), round(FR_std,2) )
+
+            fig.text(0.3, 0.8 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name])
+            count = count + 1
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
     plt.title(title, fontsize = title_fontsize)
     plt.xlabel("time (ms)", fontsize = 15)
     plt.ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    plt.legend(fontsize = 15)
+    plt.legend(fontsize = 15, loc = 'upper right')
     # ax.tick_params(axis='both', which='major', labelsize=10)
     plt.locator_params(axis='y', nbins=5)
     plt.locator_params(axis='x', nbins=5)

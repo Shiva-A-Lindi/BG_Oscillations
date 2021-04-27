@@ -597,7 +597,7 @@ plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 
 #%% three connected nuclei with derived I_ext from response curve
 
-N_sim = 30
+N_sim = 100
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.25
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -606,7 +606,7 @@ t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 name1 = 'FSI' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
-g = -0.01; g_ext = -g
+g = -0.01; g_ext =  0.01
 G = {}
 G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = g ,0.5 * g, g
 
@@ -622,7 +622,8 @@ pop_list = [1]
 # intit_method = 'heterogeneous'
 init_method = 'homogeneous'
 
-noise_variance = {name1 : 0.1, name2: 0.1, name3 :4}
+ext_inp_method = 'const+noise'
+noise_variance = {name1 : 0.1, name2: 0.1, name3 :10}
 noise_amplitude = {name1 : 1, name2: 1, name3: 1}
 
 nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
@@ -642,10 +643,19 @@ if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking', 
                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
 
+g = -0.005;
+G = {}
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = g ,0.5 * g, g
+noise_variance = {name1 : 0.1, name2: 0.1, name3 :3}
+noise_amplitude = {name1 : 1, name2: 1, name3: 1}
+for nuclei_list in nuclei_dict.values():
+    for nucleus in nuclei_list:
+        nucleus.clear_history(neuronal_model = 'spiking')
+        nucleus.set_noise_param(noise_variance, noise_amplitude)
+        nucleus.set_synaptic_weights(G)
+        nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt, neuronal_model = 'spiking')
 #### Check behavior
 nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict, neuronal_model = 'spiking')
-
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, plot_start = 100, title = '')
 
 fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
 count = 0
@@ -657,11 +667,28 @@ for nuclei_list in nuclei_dict.values():
         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
         spikes_sparse = create_sparse_matrix (nucleus.spikes) * dt
         raster_plot(axs[count - 1], spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
-        # find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
-
 
 fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
 fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+
+filename = ( 'Raster_plot_' +  name1 + '_' + name2 + '_'+  name3 + '_g=' + str(g) + '_' + init_method + '_' + ext_inp_method + '_noise=' + 
+            str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_' + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
+            + '_N=' + str(N_sim)  + '.png' ) 
+
+plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', 
+        transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, plot_start = 100, title = init_method)
+
+filename = ( 'Smoothed_average_FR_' +  name1 + '_' + name2 + '_'+  name3 + '_g=' + str(g) + '_' + init_method + '_' + ext_inp_method + '_noise=' + 
+            str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_'  + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
+            + '_N=' + str(N_sim)  + '.png' ) 
+
+plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', 
+        transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20
