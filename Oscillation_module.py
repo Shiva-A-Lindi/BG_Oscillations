@@ -17,6 +17,7 @@ from scipy import optimize
 from scipy.optimize import curve_fit
 import matplotlib.ticker as mticker
 from scipy.stats import truncexpon
+from scipy.signal import butter, sosfilt, sosfreqz
 
 # matplotlib.rcParams["text.usetex"] = True
 # matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
@@ -426,12 +427,12 @@ class Nucleus:
             
             self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] for proj in proj_list]) + self.threshold
             self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] for proj in proj_list]) + self.threshold - self.rest_ext_input
-            self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
+            self.external_inp_t_series =  mvt_step_ext_input(D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
         else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
             
             I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
-            print('I_syn', np.average(I_syn))
+            # print('I_syn', np.average(I_syn))
             self.sum_syn_inp_at_rest = I_syn
             if self.ext_inp_method == 'Poisson':
                 self._set_ext_inp_poisson( I_syn)
@@ -575,6 +576,103 @@ class Nucleus:
         else:
             return 0,0,0, False
 
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt):
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.clear_history()
+            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            nucleus.set_synaptic_weights(G)
+            nucleus.normalize_synaptic_weight()
+            nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+    return nuclei_dict
+
+def get_max_len_dict(dictionary):
+    ''' return maximum length between items of a dictionary'''
+    return max(len(v) for k,v in dictionary.items())
+
+def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, 
+    noise_amplitude, noise_variance,lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5):
+
+    n_iter = get_max_len_dict(G_dict)
+    m = len( G_dict.keys() )
+    data = {} 
+    for nucleus_list in nuclei_dict.values():
+        nucleus = nucleus_list[0] # get only on class from each population
+        # data[(nucleus.name, 'mvt_freq')] = np.zeros((n,m))
+        data[(nucleus.name, 'base_freq')] = np.zeros(n_iter)
+        # data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros((n,m))
+        data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros(n_iter)
+        # data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
+        data[(nucleus.name, 'n_half_cycles_base')] = np.zeros(n_iter)
+        data[(nucleus.name,'g_transient_boundary')] = []
+        data[(nucleus.name,'g_stable_boundary')] = []
+    data['g'] = G_dict
+    count  = 0
+    G = dict.fromkeys(G_dict.keys(), None)
+    if_stable_plotted = False
+    if_trans_plotted = False
+    if if_plot:
+        fig = plt.figure()
+    for i in range( n_iter):
+
+        found_g_transient = {k: False for k in nuclei_dict.keys()}
+        found_g_stable = {k: False for k in nuclei_dict.keys()}
+
+        for k,values in G_dict.items():
+            G[k] = values[ i ]
+            print(k, values[i])
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+        run(receiving_class_dict,t_list, dt, nuclei_dict)
+        for nucleus_list in nuclei_dict.values():
+            for nucleus in nucleus_list:
+                # data[(nucleus.name, 'n_half_cycles_mvt')][i,j],data[(nucleus.name,'perc_t_oscil_mvt')][i,j], data[(nucleus.name,'mvt_freq')][i,j],if_stable_mvt= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
+            
+                nucleus.smooth_pop_activity(dt, window_ms = smooth_window_ms)
+                data[(nucleus.name, 'n_half_cycles_base')][i],data[(nucleus.name,'perc_t_oscil_base')][i], data[(nucleus.name,'base_freq')][i],if_stable_base = nucleus.find_freq_of_pop_act_spec_window(*duration_base,
+                        dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, method = 'fft', if_plot = False)
+                print(nucleus.name, 'n_cycles =', round(data[(nucleus.name, 'perc_t_oscil_base')][i],2),'%',  'f = ', round(data[(nucleus.name,'base_freq')][i],2) )
+
+                if not found_g_transient[nucleus.name] and data[(nucleus.name,  'perc_t_oscil_base')][i] > lim_oscil_perc:
+                    data[(nucleus.name,'g_transient_boundary')] = G # save the the threshold g to get transient oscillations
+                    found_g_transient[nucleus.name] = True
+
+                # if not if_trans_plotted and data[(nucleus.name,  'perc_t_oscil_base')][i] > lim_oscil_perc:
+                #     if_trans_plotted = True 
+                #     print("transient plotted")
+                #     plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = '', plot_ob = None, figsize= (12,5))#r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
+                
+                if not found_g_stable[nucleus.name] and if_stable_base: 
+                    found_g_stable[nucleus.name] = True
+                    data[(nucleus.name,'g_stable_boundary')] = G
+
+                # if not if_stable_plotted and if_stable_base:
+                #     if_stable_plotted = True
+                #     print("stable plotted")
+                #     plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = '', plot_ob = None, figsize= (12,5))#r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
+        if if_plot:
+            ax = fig.add_subplot(n_iter,1,count+1)
+            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], 
+                title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
+                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i],2)),
+                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i],2)),), 
+                n_subplots = int(n_iter))
+            # plt.title( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), fontsize = 10)    )
+            plt.xlabel("", fontsize = 10)
+            plt.ylabel("", fontsize = 5)
+            plt.legend(fontsize = 10)
+        count +=1
+    
+        print(count, "from", int(n_iter))
+    if if_plot:
+        fig.text(0.5, 0.01, 'time (ms)', ha='center')
+        fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
+        fig.tight_layout(pad = 0.01) # Or equivalently,  "plt.tight_layout()"
+
+    # output = open(filename, 'wb')
+    # pickle.dump(data, output)
+    # output.close()
+    return data
+
 def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
     if if_plot:
         plt.figure()
@@ -582,6 +680,7 @@ def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
         plt.plot(t,sig - plateau_y)
         plt.axhline(plateau_y)
         plt.plot( t[cut_sig_ind], sig[cut_sig_ind] )
+
 def find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, init_method,  n_FR = 50 , left_pad = 0.005, right_pad = 0.005):
     ''' put log spaced points in the nonlinear regime of each neuron'''
     n_pop = FR_sim.shape[ 0 ]
@@ -632,9 +731,6 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_di
                 nucleus.scale_synaptic_weight() # filter based on the receiving nucleus
 
             elif nucleus. der_ext_I_from_curve :
-                # all_FR_list_2D = np.repeat(all_FR_list.reshape(-1,1), nucleus.n, axis = 1) # provide the array for all neurons
-                # FR_sim = nucleus.Find_threshold_of_firing( all_FR_list_2D, t_list, dt, receiving_class_dict )
-                # FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, nucleus.init_method, n_FR = n_FR, left_pad = left_pad, right_pad = right_pad)
                 nucleus.estimate_needed_external_input(all_FR_list, dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
                                                         n_FR = n_FR , left_pad = left_pad, right_pad = right_pad)
             
@@ -1018,8 +1114,9 @@ def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
     H[ind] = 0
     return H
-def mvt_step_ext_input(D_mvt,t_mvt,delay, H0, t_series):
-    ''' step function as movement signal input '''
+
+def mvt_step_ext_input(D_mvt, t_mvt, delay, H0, t_series):
+    ''' step function returning external input during movment duration '''
     
     H = H0*np.ones_like(t_series)
     ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
@@ -1074,7 +1171,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, 
             FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
             txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,2), round(FR_std,2) )
 
-            fig.text(0.3, 0.8 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name])
+            ax.text(0.3, 0.8 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
             count = count + 1
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
@@ -1264,9 +1361,9 @@ def zero_crossing_freq_detect(sig,dt):
         frequency = 0
     return n_half_cycles, frequency
 
-def find_mean_of_signal(sig, cut_sig_ind, non_plateau_perc = 4/5):
+def find_mean_of_signal(sig, cut_plateau_ind, non_plateau_perc = 4/5):
     ''' find the value which when subtracted the signal oscillates around zero'''
-    len_varying = len(cut_sig_ind)
+    len_varying = len(cut_plateau_ind)
     # plt.figure()
     # plt.plot(sig)
     # plt.plot(sig[:max(cut_plateau_ind)])
@@ -1279,6 +1376,18 @@ def find_mean_of_signal(sig, cut_sig_ind, non_plateau_perc = 4/5):
         # troughs,properties = signal.find_peaks(-sig)
         plateau_y = np.average(sig)
     return plateau_y
+
+def butter_bandpass(lowcut, highcut, fs, order=5):
+        nyq = 0.5 * fs
+        low = lowcut / nyq
+        high = highcut / nyq
+        sos = butter(order, [low, high], analog=False, btype='band', output='sos')
+        return sos
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+        sos = butter_bandpass(lowcut, highcut, fs, order=order)
+        y = sosfilt(sos, data)
+        return y
 
 def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, method = 'neat'):
     ''' trim with max point at the start and the given end point'''
