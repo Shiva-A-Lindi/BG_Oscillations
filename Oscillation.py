@@ -450,10 +450,11 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
 
 # firing_prop = find_FR_sim_vs_FR_ext([FR_ext],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 #%% Deriving F_ext from the response curve
+# np.random.seed(1006)
 name = 'Proto'
 N_sim = 100
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
-dt = 0.25
+dt = 0.1
 t_sim = 100; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {}
@@ -462,12 +463,12 @@ receiving_pop_list = {(name,'1') : []}
 pop_list = [1]  
 init_method = 'heterogeneous'
 # init_method = 'homogeneous'
-noise_variance = {name : 10}
+noise_variance = {name : 0}
 noise_amplitude = {name : 1}
 g = -0.01; g_ext = -g
 ext_inp_method = 'const+noise'
-# input_integ_method = 'dirac_delta_input'
-input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+syn_input_integ_method = 'exp_rise_and_decay'
 bound_to_mean_ratio = [0.5, 20]
 spike_thresh_bound_ratio = [1/5, 1/5]
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
@@ -475,7 +476,7 @@ poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
            synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',
            poisson_prop =poisson_prop, init_method = init_method, der_ext_I_from_curve= False, ext_inp_method = ext_inp_method,
-           input_integ_method = input_integ_method) for i in pop_list]
+           syn_input_integ_method = syn_input_integ_method, ext_input_integ_method= ext_input_integ_method) for i in pop_list]
 nuclei_dict = {name: nuc}
 n = 50
 pad = [0.001, 0.001]
@@ -488,22 +489,22 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_
 nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc})
 
 
-fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
-count = 0
-for nuclei_list in nuclei_dict.values():
-    for nucleus in nuclei_list:
-        count +=1
-        nucleus.smooth_pop_activity(dt, window_ms = 5)
-        FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
-        print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
-        spikes_sparse = create_sparse_matrix (nucleus.spikes) * dt
-        raster_plot(axs, spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
-        find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
+# fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
+# count = 0
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         count +=1
+#         nucleus.smooth_pop_activity(dt, window_ms = 5)
+#         FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
+#         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
+#         spikes_sparse = create_sparse_matrix (nucleus.spikes) * dt
+#         raster_plot(axs, spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
+#         find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
 
-fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
-fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+# fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+# fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
 
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, title = init_method)
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, title = init_method)
 
 # filename = ( 'Smoothed_average_FR_' +  name + '_g=' + str(g) + '_' + init_method + '_' + ext_inp_method + '_noise=' + 
 #             str(noise_variance[name])  #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
@@ -531,12 +532,18 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob =
 # ax1.legend();ax2.legend() ; ax3.legend()
 # plt.legend()
 
-# nucleus = nuc[0]
-# plt.figure()
-# for i in range(nucleus.n):
-#     plt.plot(t_list * dt, nucleus. all_mem_pot[i,:])
-# nucleus.smooth_pop_activity(dt, window_ms = 5)
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, title = init_method)
+### see the individual spikes and firing rates with instantenous and exponential input methods.
+nucleus = nuc[0]
+plt.figure()
+for i in range(nucleus.n):
+    plt.plot(t_list * dt, nucleus.all_mem_pot[i,:])
+
+# # nucleus.smooth_pop_activity(dt, window_ms = 10)
+# # plt.plot(t_list * dt, nucleus.pop_act,  label = 'instanteneous')
+# plt.xlabel("time (ms)", fontsize = 15)
+# plt.ylabel(r"$V_{m}$", fontsize = 15)
+# plt.legend()
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, title = init_method)
 
 #%% two connected nuclei with derived I_ext from response curve
 
@@ -619,7 +626,7 @@ plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
         transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 #%% three connected nuclei with derived I_ext from response curve
-
+np.random.seed(10006)
 N_sim = 100
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 dt = 0.25
@@ -643,34 +650,40 @@ receiving_pop_list = {(name1,'1') :  [(name3,'1')],
                       (name3, '1'): [(name2,'1')]}
 
 pop_list = [1]  
-intit_method = 'heterogeneous'
+init_method = 'heterogeneous'
 # init_method = 'homogeneous'
-
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
-noise_variance = {name1 : 0.1, name2: 0.1, name3 :15}
+noise_variance = {name1 : 0.1, name2: 0.1, name3 : 20}
 noise_amplitude = {name1 : 1, name2: 1, name3: 1}
 
 nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = True) for i in pop_list]
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = True,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method ) for i in pop_list]
 nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = True) for i in pop_list]
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = True,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method ) for i in pop_list]
 nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name3, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False) for i in pop_list]
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, 
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method ) for i in pop_list]
+
 nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
+# nuclei_dict1 = nuclei_dict.copy()
 n = 50
 pad = [0.001, 0.001]
-all_FR_list = np.linspace ( 0.05, 0.07 , 200).reshape(-1,1)
+all_FR_list = np.linspace ( 0.045, 0.08 , 250).reshape(-1,1)
 if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
 #%% run on initialized network of 3
-g = -0.5;
-G = {}; g_ratio = 1
+np.random.seed(10006)
+G = {}
 G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = -0.008 , -0.5 , -0.005
-noise_variance = {name1 : 0.1, name2: 0.1, name3 :7}
+noise_variance = {name1 : 0.1, name2: 0.1, name3 :20}
 noise_amplitude = {name1 : 1, name2: 1, name3: 1}
 for nuclei_list in nuclei_dict.values():
     for nucleus in nuclei_list:
@@ -680,7 +693,9 @@ for nuclei_list in nuclei_dict.values():
         nucleus.set_synaptic_weights(G)
         nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
 #### Check behavior
-title = init_method +' \n' + r"$G_{FD}="+str(round(G[('D2', 'FSI')],3))+"$ "+", $G_{DP}="+str(round(G[('Proto', 'D2')],2))+"$"+", $G_{PF}="+str(round(G[('FSI', 'Proto')],3))+"$"
+title =( init_method + r' ($I_{ext}$:' + nucleus.ext_input_integ_method.replace('_', ' ') +  r' $I_{syn}$:' + nucleus.syn_input_integ_method.replace('_', ' ') + 
+        ') \n' + r"$G_{FD}="+str(round(G[('D2', 'FSI')],3))+"$ "+", $G_{DP}="+str(round(G[('Proto', 'D2')],2))+
+        "$"+", $G_{PF}="+str(round(G[('FSI', 'Proto')],3))+"$")
 
 nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
@@ -695,29 +710,31 @@ for nuclei_list in nuclei_dict.values():
         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
         spikes_sparse = create_sparse_matrix (nucleus.spikes, end = (plot_end / dt), start = (plot_start / dt)) * dt
         raster_plot(axs[count - 1], spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
-
+        _, perc_t_oscil, f, _ = nucleus.find_freq_of_pop_act_spec_window( 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1,
+                                                                 smooth_kern_window= 3 , check_stability = False, method = 'fft')
+        print(f)
 fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
 fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
 fig.text(0.5, .98, title, ha='center', va='center',fontsize= 15)
 
-filename = ( 'Raster_plot_' +  name1 + '_' + name2 + '_'+  name3 + '_g=' + str(g)+ '_g_ratio'+ str(g_ratio) + '_' + init_method + '_' + ext_inp_method + '_noise=' + 
+gs = [str(round(G[('D2', 'FSI')],3)), str(round(G[('Proto', 'D2')],3)), str(round(G[('FSI', 'Proto')],3))]
+gs = [gs[i].replace('.','-') for i in range( len (gs))]
+
+filename = ( 'Raster_plot_' +  name1 + '_' + name2 + '_'+  name3 + '_gFD=' + gs[0]+ '_gDP=' +gs[1] + '_gPF = '  + gs[2] + 
+             '_' + init_method + '_' + ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + '_syn_' + nucleus.syn_input_integ_method+ '_' +
             str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_' + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
             + '_N=' + str(N_sim)  + '.png' ) 
 
-plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
-        orientation='portrait', 
-        transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+plt.savefig(os.path.join(path, 'Raster_plot_' + filename), dpi = 300, facecolor='w', edgecolor='w', 
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, 
            plot_start = plot_start, plot_end = plot_end, title = title, figsize= (12,5))
 
-filename = ( 'Smoothed_average_FR_' +  name1 + '_' + name2 + '_'+  name3 + '_g=' + str(g) + '_g_ratio'+ str(g_ratio) +'_' + init_method + '_' + ext_inp_method + '_noise=' + 
-            str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_'  + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
-            + '_N=' + str(N_sim)  + '.png' ) 
+plt.savefig(os.path.join(path, 'Smoothed_average_FR_' + filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
-        orientation='portrait', 
-        transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
+nucleus.find_freq_of_pop_act_spec_window(0, t_list[-1], dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, method = 'fft', if_plot = True)
 
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
@@ -853,7 +870,7 @@ receiving_pop_list = {(name1,'1') : [],
                       (name2, '1'): [(name1,'1')]}
 
 pop_list = [1]  
-intit_method = 'heterogeneous'
+init_method = 'heterogeneous'
 noise_variance = {name1 : D2_noise, name2: D2_noise}
 noise_amplitude = {name1 : 1, name2: 1}
 nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,

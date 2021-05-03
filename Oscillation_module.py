@@ -16,6 +16,8 @@ from decimal import *
 from scipy import optimize
 from scipy.optimize import curve_fit
 import matplotlib.ticker as mticker
+from scipy.stats import truncexpon
+
 # matplotlib.rcParams["text.usetex"] = True
 # matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
 #from scipy.ndimage.filters import generic_filter
@@ -32,9 +34,9 @@ def find_sending_pop_dict(receiving_pop_list):
 class Nucleus:
 
     def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, 
-        N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, input_integ_method = 'exp_rise_and_decay',
+        N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',
         neuronal_model = 'rate',poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve =False,
-        bound_to_mean_ratio = [0.8 , 1.2], spike_thresh_bound_ratio = [1/20, 1/20]):
+        bound_to_mean_ratio = [0.8 , 1.2], spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input'):
         n_timebins = int(t_sim/dt)
         self.n = N[name] # population size
         self.population_num = population_number
@@ -70,6 +72,9 @@ class Nucleus:
         self.set_noise_param(noise_variance, noise_amplitude)
         self.init_method = init_method
         self.neuronal_model = neuronal_model
+        self.frequency = None
+        self.perc_oscil = None
+        self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
         if neuronal_model == 'spiking':
             self.spikes = np.zeros((self.n,int(t_sim/dt)),dtype = int)
             ## dt incorporated in tau for efficiency
@@ -97,7 +102,7 @@ class Nucleus:
             self.der_ext_I_from_curve = der_ext_I_from_curve # if derive external input value from response curve
             self.sum_syn_inp_at_rest = None
             self.all_mem_pot = np.zeros((self.n, n_timebins ))
-
+            self.ext_input_integ_method = ext_input_integ_method
             if init_method == 'homogeneous':
                 self.initialize_homogeneously( poisson_prop, dt)
             elif init_method == 'heterogeneous':
@@ -105,21 +110,31 @@ class Nucleus:
 
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp, 'const+noise' : self.constant_ext_input_with_noise, 'constant' : self.constant_ext_input}
             self.input_integ_method_dict = {'exp_rise_and_decay' : exp_rise_and_decay, 'instantaneus_rise_expon_decay' : instantaneus_rise_expon_decay , 'dirac_delta_input': _dirac_delta_input}
-            self.input_integ_method = input_integ_method
+            self.syn_input_integ_method = syn_input_integ_method
             self.normalize_synaptic_weight()
+
 
     def initialize_heterogeneously(self, poisson_prop, dt, spike_thresh_bound_ratio, lower_bound_perc = 0.8, upper_bound_perc = 1.2):
         ''' cell properties and boundary conditions come from distributions'''
 
-        self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
-        self.all_mem_pot[:,0] = self.mem_potential
+        # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
+
 
         self.spike_thresh = truncated_normal_distributed ( self.neuronal_consts['spike_thresh']['mean'],
                                                             self.neuronal_consts['spike_thresh']['var'] , self.n,
                                                             scale_bound = scale_bound_with_arbitrary_value, scale = (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest),
                                                             lower_bound_perc = spike_thresh_bound_ratio[0], upper_bound_perc = spike_thresh_bound_ratio[1] )
-                                                            # *spike_thresh_bound_ratio)
-        
+        self.mem_potential = np.random.uniform(low = self.u_rest, high = self.spike_thresh , size = self.n) # membrane potential
+        # lower, upper, scale = 0 , self.neuronal_consts['spike_thresh']['mean'] - self.u_rest , 30 ### Doesn't work with linear interpolation of IF
+        # X = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
+        # self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(self.n) 
+
+        # plt.figure()
+        # plt.hist(self.mem_potential, bins = 50)
+        # plt.title(self.name, fontsize = 15)
+        # plt.xlabel(r'initial $V_{m}$', fontsize = 15)
+        # plt.ylabel( 'Pr', fontsize = 15)
+        self.all_mem_pot[:,0] = self.mem_potential.copy()
         self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
                                                              self.neuronal_consts['membrane_time_constant']['var'] , self.n,
                                                              lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc)
@@ -135,10 +150,11 @@ class Nucleus:
     def initialize_homogeneously(self, poisson_prop, dt):
         ''' cell properties and boundary conditions are constant for all cells'''
 
-        # self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest']) # membrane potential
-        self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
-        self.all_mem_pot[:,0] = self.mem_potential
+        # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
         self.spike_thresh = np.full(self.n, self.neuronal_consts['spike_thresh']['mean'])
+        self.mem_potential = np.random.uniform(low = self.u_rest, high = self.spike_thresh, size = self.n) # membrane potential
+        self.all_mem_pot[:,0] = self.mem_potential
+
         self.membrane_time_constant = np.full(self.n ,  
                                              self.neuronal_consts['membrane_time_constant']['mean'])
         self.tau_ext_pop = {'rise': np.full(self.n,poisson_prop[self.name]['tau']['rise']['mean'])/dt,# synaptic decay time of the external pop inputs
@@ -172,7 +188,7 @@ class Nucleus:
 
         I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) # choose method of exerting external input from dictionary of methods
 
-        self.I_syn['ext_pop','1'],self.I_rise['ext_pop','1'] = self.input_integ_method_dict[ self. input_integ_method ] ( I_ext, 
+        self.I_syn['ext_pop','1'],self.I_rise['ext_pop','1'] = self.input_integ_method_dict[ self. ext_input_integ_method ] ( I_ext, 
                                                                             I_rise = self.I_rise['ext_pop','1'], 
                                                                             I = self.I_syn['ext_pop','1'],
                                                                             tau_rise = self.tau_ext_pop['rise'], 
@@ -242,7 +258,7 @@ class Nucleus:
         i = 0 
         sum_components = np.zeros(self.n)
         for i in range(pre_n_components):
-            self.I_syn[pre_name,pre_num][:,i], self.I_rise[pre_name,pre_num][:,i] = self.input_integ_method_dict [self.input_integ_method](self.syn_inputs[pre_name,pre_num], 
+            self.I_syn[pre_name,pre_num][:,i], self.I_rise[pre_name,pre_num][:,i] = self.input_integ_method_dict [self.syn_input_integ_method](self.syn_inputs[pre_name,pre_num], 
                                                                                                         I_rise = self.I_rise[pre_name,pre_num][:,i], 
                                                                                                         I = self.I_syn[pre_name,pre_num][:,i], 
                                                                                                         tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
@@ -259,7 +275,7 @@ class Nucleus:
         sum_components = np.zeros(self.n)
         for i in range(pre_n_components):
 
-            I_syn_next_dt,_ = self.input_integ_method_dict [self.input_integ_method]( 0   , 
+            I_syn_next_dt,_ = self.input_integ_method_dict [self.syn_input_integ_method]( 0   , 
                                                 I_rise = self.I_rise[pre_name,pre_num][:,i], 
                                                 I = self.I_syn[pre_name,pre_num][:,i], 
                                                 tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
@@ -285,8 +301,8 @@ class Nucleus:
         synaptic_inputs = self.sum_synaptic_input(receiving_from_class_list,dt,t)
         self.update_potential(synaptic_inputs, dt, receiving_from_class_list)
         spiking_ind = self.find_spikes(t)
-        # self.reset_potential(spiking_ind)
-        self.reset_potential_with_interpolation(spiking_ind,dt)
+        self.reset_potential(spiking_ind)
+        # self.reset_potential_with_interpolation(spiking_ind,dt)
         self.cal_population_activity(dt,t)
         self.update_representative_measures(t)
         self.all_mem_pot[:,t] = self.mem_potential
@@ -521,6 +537,51 @@ class Nucleus:
     def scale_synaptic_weight(self):
         self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
+    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, method = 'zero_crossing', if_plot = False):
+        ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
+            the plateau and in case it is oscillation determine the frequency '''
+        if method not in ["fft", "zero_crossing"]:
+            raise ValueError("mode must be either 'fft', or 'zero_crossing'")
+
+        sig = trim_start_end_sig_rm_offset(self.pop_act,start, end, method = self.trim_sig_method_dict[ self.neuronal_model ]  )
+        cut_sig_ind = cut_plateau ( sig,  epsilon= cut_plateau_epsilon)
+        plateau_y = find_mean_of_signal(sig, cut_sig_ind)
+        _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind)
+        if_stable = False
+        if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
+
+            sig = sig - plateau_y
+
+            if method == 'zero_crossing':
+
+                n_half_cycles, freq = zero_crossing_freq_detect(sig[cut_sig_ind] , dt / 1000)
+
+            elif method == 'fft' : 
+
+                freq = freq_from_fft (sig [ cut_sig_ind ] , dt / 1000 )
+                n_half_cycles = None
+
+            if freq != 0: # then check if there's oscillations
+
+                perc_oscil = max_non_empty_array(cut_sig_ind) / len( sig ) * 100
+
+                if check_stability:
+                    if_stable = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05)
+
+                return n_half_cycles, perc_oscil, freq, if_stable
+            else:
+                return 0,0,0, False
+
+        else:
+            return 0,0,0, False
+
+def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
+    if if_plot:
+        plt.figure()
+        t = np.arange(start,end) * dt
+        plt.plot(t,sig - plateau_y)
+        plt.axhline(plateau_y)
+        plt.plot( t[cut_sig_ind], sig[cut_sig_ind] )
 def find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, init_method,  n_FR = 50 , left_pad = 0.005, right_pad = 0.005):
     ''' put log spaced points in the nonlinear regime of each neuron'''
     n_pop = FR_sim.shape[ 0 ]
@@ -1147,7 +1208,7 @@ def max_non_empty_array(array):
     else:
         return np.max(array)
     
-def cut_plateau(sig,epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
+def cut_plateau(sig, epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
     ''' return indices before a plateau '''
     ## filtering based on data variance from mean value
 #    variation = (sig-np.average(sig))**2
@@ -1194,64 +1255,61 @@ def rolling_window(a, window):
 def zero_crossing_freq_detect(sig,dt):
     ''' detect frequency from zero crossing distances'''
     zero_crossings = np.where(np.diff(np.sign(sig)))[0] # indices to elements before a crossing
-#    print(zero_crossings)
     shifted = np.roll(zero_crossings,-1)
-    
     half_lambda =  shifted[:-1] - zero_crossings[:-1]
-    # print(half_lambda)
     n_half_cycles = len(half_lambda)
-    # print("half_lambda = ", half_lambda)
     if n_half_cycles > 1:
-        frequency = 1/(np.average(half_lambda)*2*dt)
+        frequency = 1 / (np.average (half_lambda ) * 2 * dt)
     else: 
         frequency = 0
     return n_half_cycles, frequency
 
-def find_mean_of_signal(sig,cut_plateau_epsilon = None):
+def find_mean_of_signal(sig, cut_sig_ind, non_plateau_perc = 4/5):
     ''' find the value which when subtracted the signal oscillates around zero'''
-    if cut_plateau_epsilon == None:
-        cut_plateau_ind = cut_plateau(sig)
-    else:
-        cut_plateau_ind = cut_plateau(sig, epsilon = cut_plateau_epsilon)
-    len_not_plateau = len(cut_plateau_ind)
+    len_varying = len(cut_sig_ind)
     # plt.figure()
     # plt.plot(sig)
     # plt.plot(sig[:max(cut_plateau_ind)])
     # plt.plot(sig[cut_plateau_ind])
     # print(len_not_plateau,len(sig))
-    if len_not_plateau > 0 and len_not_plateau < len(sig)*4/5: # if more than 1/5th of signal is plateau
-        plateau_y = np.average(sig[max(cut_plateau_ind):])  
+    if len_varying > 0 and len_varying < len(sig) * non_plateau_perc: # if more than 1/5th of signal is plateau
+        plateau_y = np.average( sig[ max( cut_plateau_ind ) : ] )  
     else: # if less than 1/5th is left better to average the whole signal for more confidence
         # peaks,properties = signal.find_peaks(sig)
         # troughs,properties = signal.find_peaks(-sig)
         plateau_y = np.average(sig)
-    return cut_plateau_ind, plateau_y
+    return plateau_y
 
-def trim_start_end_sig_rm_offset(sig,start, end):
+def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, method = 'neat'):
     ''' trim with max point at the start and the given end point'''
-    trimmed = sig[start:end]
-    _, plateau_y = find_mean_of_signal(trimmed)
-    trimmed = trimmed - plateau_y # remove the offset determined with plateau level
-    # print('trimmed = ',np.average(trimmed))
-    max_value = np.max(trimmed)
-    min_value = np.min(trimmed)
-    # plt.figure()
-    # plt.plot(trimmed)
-    if abs(max_value) > abs(min_value): # find exterma, whether it's a minimum or maximum
-        max_point = np.max(np.where(trimmed == max_value))
-    else:
-        max_point = np.max(np.where(trimmed == min_value))
+    if method not in ["simple", "neat"]:
+        raise ValueError("mode must be either 'simple', or 'neat'")
 
-    if max_point>len(trimmed)/2: # in case the amplitude increases over time take the whole signal #############################3 to do --> check for increasing amplitude in oscillations instead of naive implementation here
-        return trimmed- np.average(trimmed)
-    else:
-        return(trimmed[max_point:] - np.average(trimmed[max_point:]))
-    
-def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False):
+    trimmed = sig[start:end]
+    if method == 'simple' : 
+        return trimmed
+    elif method == 'complex':
+        cut_sig_ind = cut_plateau(sig, epsilon= cut_plateau_epsilon)
+        plateau_y = find_mean_of_signal(trimmed, cut_sig_ind)
+        trimmed = trimmed - plateau_y # remove the offset determined with plateau level
+        max_value = np.max(trimmed)
+        min_value = np.min(trimmed)
+        if abs(max_value) > abs(min_value): # find exterma, whether it's a minimum or maximum
+            max_point = np.max(np.where(trimmed == max_value))
+        else:
+            max_point = np.max(np.where(trimmed == min_value))
+
+        if max_point>len(trimmed)/2: # in case the amplitude increases over time take the whole signal #############################3 to do --> check for increasing amplitude in oscillations instead of naive implementation here
+            return trimmed- np.average(trimmed)
+        else:
+            return(trimmed[max_point:] - np.average(trimmed[max_point:]))
+        
+def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False, cut_plateau_epsilon = 0.1):
     ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
     the plateau and in case it is oscillation determine the frequency '''
     sig = trim_start_end_sig_rm_offset(nucleus.pop_act,start, end)
-    cut_sig_ind, plateau_y = find_mean_of_signal(sig)
+    cut_sig_ind = cut_plateau( sig, epsilon= cut_plateau_epsilon)
+    plateau_y = find_mean_of_signal(sig, cut_sig_ind)
     # plt.plot(sig - plateau_y)
     # plt.axhline(plateau_y)
     # plt.plot(sig[cut_sig_ind])
@@ -1277,24 +1335,6 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
             return 0,0,0, False
     else:
         return 0,0,0, False
-def find_freq_of_pop_act_spec_window_spiking(nucleus, start, end, dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False):
-    ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
-    the plateau and in case it is oscillation determine the frequency '''
-    sig = nucleus.pop_act[start: end]
-    cut_sig_ind, plateau_y = find_mean_of_signal(sig,cut_plateau_epsilon = cut_plateau_epsilon)
-    # plt.figure()
-    # t = np.arange(start,end)*dt
-    # plt.plot(t,sig - plateau_y)
-    # plt.axhline(plateau_y)
-    # plt.plot(t[cut_sig_ind],sig[cut_sig_ind])
-    if_stable = False
-    if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
-        sig = sig - plateau_y
-        perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
-        freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
-        return None,perc_oscil, freq,None
-    else:
-        return None,0,0,None
 
 def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.1]):
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
@@ -1333,6 +1373,7 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
             return False
     else: # it's transient
         return False
+
 def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
     ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
 #    fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
@@ -1385,7 +1426,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             if G_ratio_dict != None: # if the circuit has more than 2 members
                 for k,g_ratio in G_ratio_dict.items():
                     G[k] = g_2*g_ratio
-            nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             run(receiving_class_dict,t_list, dt, nuclei_dict)
             data['g'][i,j,:] = [g_1, g_2]
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
@@ -1441,7 +1482,7 @@ def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
     return receiving_class_dict
 
 
-def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end):
+def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end, cut_plateau_epsilon = 0.1):
     def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
         ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
         fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
@@ -1461,7 +1502,8 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end):
             return False
     
     sig = trim_start_end_sig_rm_offset(sig_in,start,end)
-    cut_sig_ind, plateau_y = find_mean_of_signal(sig)
+    cut_sig_ind = cut_plateau ( sig, epsilon= cut_plateau_epsilon)
+    plateau_y = find_mean_of_signal(sig, cut_sig_ind)
     if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
         sig = sig - plateau_y
         if_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window)
