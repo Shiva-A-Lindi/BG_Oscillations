@@ -679,74 +679,6 @@ all_FR_list = np.linspace ( 0.045, 0.08 , 250).reshape(-1,1)
 if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
-#%%
-
-from scipy.signal import butter, lfilter
-
-
-# def butter_bandpass(lowcut, highcut, fs, order=5):
-#     nyq = 0.5 * fs
-#     low = lowcut / nyq
-#     high = highcut / nyq
-#     b, a = butter(order, [low, high], btype='band')
-#     return b, a
-
-
-# def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-#     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
-#     y = lfilter(b, a, data)
-#     return y
-
-
-
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.signal import freqz
-
-    # Sample rate and desired cutoff frequencies (in Hz).
-    fs = 5000.0
-    lowcut = 500.0
-    highcut = 1250.0
-
-    # Plot the frequency response for a few different orders.
-    plt.figure(1)
-    plt.clf()
-    for order in [3, 6, 9]:
-        sos = butter_bandpass(lowcut, highcut, fs, order=order)
-        w, h = sosfreqz(sos, worN=2000)
-        plt.plot((fs * 0.5 / np.pi) * w, abs(h), label="order = %d" % order)
-
-    plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
-             '--', label='sqrt(0.5)')
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Gain')
-    plt.grid(True)
-    plt.legend(loc='best')
-
-    # Filter a noisy signal.
-    T = 0.05
-    nsamples = int ( T * fs)
-    t = np.linspace(0, T, nsamples, endpoint=False)
-    a = 0.02
-    f0 = 600.0
-    x = 0.1 * np.sin(2 * np.pi * 1.2 * np.sqrt(t))
-    x += 0.01 * np.cos(2 * np.pi * 312 * t + 0.1)
-    x += a * np.cos(2 * np.pi * f0 * t + .11)
-    x += 0.03 * np.cos(2 * np.pi * 2000 * t)
-    plt.figure(2)
-    plt.clf()
-    plt.plot(t, x, label='Noisy signal')
-
-    y = butter_bandpass_filter(x, lowcut, highcut, fs, order=6)
-    plt.plot(t, y, label='Filtered signal (%g Hz)' % f0)
-    plt.xlabel('time (seconds)')
-    plt.hlines([-a, a], 0, T, linestyles='--')
-    plt.grid(True)
-    plt.axis('tight')
-    plt.legend(loc='upper left')
-
-    plt.show()
 #%% run on initialized network of 3
 np.random.seed(10006)
 G = {}
@@ -799,21 +731,27 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob =
 
 plt.savefig(os.path.join(path, 'Smoothed_average_FR_' + filename), dpi = 300, facecolor='w', edgecolor='w',
         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-lowcut = 5
-highcut = 40
-plt.figure()
-plt.plot(t_list * dt, nuc3[0].pop_act)
-y = butter_bandpass_filter(nuc3[0].pop_act, lowcut, highcut, 1 / (dt / 1000), order=6)
-plt.plot(t_list * dt, y, label='Filtered signal (%g Hz)' % f0)
-nuc3[0].pop_act = butter_bandpass_filter(nuc3[0].pop_act, lowcut, highcut, 1 / (dt / 1000), order=6)
-_, perc_t_oscil, f, _  = nuc3[0].find_freq_of_pop_act_spec_window( 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1,
-                                                                 smooth_kern_window= 3 , check_stability = False, method = 'fft')
-print(f)
-n = 5
-G_dict = {(name2, name1) :[-.15] * n, (name3, name2): np.flip(np.linspace(-40,-0.1, n)) , (name1, name3) : [-0.24] * n}
-data = synaptic_weight_exploration_SNN(nuclei_dict,duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
-                                        lim_oscil_perc = 10, if_plot = True)
 
+n = 20 ; n_run = 20; if_plot = False
+x = np.flip(np.geomspace(-40, -0.1, n))
+# x = np.linspace(-40, -0.1, n)
+G_dict = {(name2, name1) :[-.15] * n, (name3, name2): x , (name1, name3) : [-0.24] * n}
+title, data = synaptic_weight_exploration_SNN(nuclei_dict,duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+                                        lim_oscil_perc = 10, if_plot = if_plot, low_pass_filter= False, lower_freq_cut= 8, upper_freq_cut = 40,
+                                        set_seed = False, plt_ylim = [-10,100], n_run = n_run)
+title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][0],2)) +
+        r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][0],2)))
+       
+manager = plt.get_current_fig_manager()
+manager.window.showMaximized()
+xlabel = r"$ G_{ "+ name3 + '-' + name2 + "}$"
+fig = plot_multi_run_SNN( data, nuclei_dict, color_dict, x, dt, t_list,  xlabel = xlabel, title = title , title_fontsize = 18, figsize = (6,5))
+
+
+
+
+# plt.savefig(os.path.join(path, 'Synaptic_weight_exploration_' + filename), dpi = 300, facecolor='w', edgecolor='w',
+#         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20
