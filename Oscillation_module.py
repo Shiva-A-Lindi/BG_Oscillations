@@ -16,28 +16,22 @@ from decimal import *
 from scipy import optimize
 from scipy.optimize import curve_fit
 import matplotlib.ticker as mticker
-from scipy.stats import truncexpon
+from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz
+import os
 
-# matplotlib.rcParams["text.usetex"] = True
-# matplotlib.rcParams["text.latex.preamble"].append(r'\usepackage{xfrac}')
-#from scipy.ndimage.filters import generic_filter
+
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
 g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
 fmt = mticker.FuncFormatter(g)
 
-def find_sending_pop_dict(receiving_pop_list):
-    sending_pop_list = {k: [] for k in receiving_pop_list.keys()}
-    for k,v_list in receiving_pop_list.items():
-        for v in v_list:
-            sending_pop_list[v].append(k)
-    return sending_pop_list
+
 class Nucleus:
 
     def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, 
         N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',
         neuronal_model = 'rate',poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve =False,
-        bound_to_mean_ratio = [0.8 , 1.2], spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input'):
+        bound_to_mean_ratio = [0.8 , 1.2], spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False):
         n_timebins = int(t_sim/dt)
         self.n = N[name] # population size
         self.population_num = population_number
@@ -76,6 +70,7 @@ class Nucleus:
         self.frequency_basal = None
         self.perc_oscil_basal = None
         self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
+        self.path = path
         if neuronal_model == 'spiking':
             self.spikes = np.zeros((self.n,int(t_sim/dt)),dtype = int)
             ## dt incorporated in tau for efficiency
@@ -104,38 +99,30 @@ class Nucleus:
             self.sum_syn_inp_at_rest = None
             self.all_mem_pot = np.zeros((self.n, n_timebins ))
             self.ext_input_integ_method = ext_input_integ_method
+            self.mem_pot_init_method = mem_pot_init_method
             if init_method == 'homogeneous':
                 self.initialize_homogeneously( poisson_prop, dt)
             elif init_method == 'heterogeneous':
-                self.initialize_heterogeneously( poisson_prop, dt, spike_thresh_bound_ratio, * bound_to_mean_ratio )
+                self.initialize_heterogeneously( poisson_prop, dt, spike_thresh_bound_ratio, * bound_to_mean_ratio, plot_initial_V_m_dist = plot_initial_V_m_dist)
 
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp, 'const+noise' : self.constant_ext_input_with_noise, 'constant' : self.constant_ext_input}
             self.input_integ_method_dict = {'exp_rise_and_decay' : exp_rise_and_decay, 'instantaneus_rise_expon_decay' : instantaneus_rise_expon_decay , 'dirac_delta_input': _dirac_delta_input}
             self.syn_input_integ_method = syn_input_integ_method
             self.normalize_synaptic_weight()
+            
 
-
-    def initialize_heterogeneously(self, poisson_prop, dt, spike_thresh_bound_ratio, lower_bound_perc = 0.8, upper_bound_perc = 1.2):
+    def initialize_heterogeneously(self, poisson_prop, dt, spike_thresh_bound_ratio, lower_bound_perc = 0.8, upper_bound_perc = 1.2, plot_initial_V_m_dist = False):
         ''' cell properties and boundary conditions come from distributions'''
-
-        # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
-
 
         self.spike_thresh = truncated_normal_distributed ( self.neuronal_consts['spike_thresh']['mean'],
                                                             self.neuronal_consts['spike_thresh']['var'] , self.n,
                                                             scale_bound = scale_bound_with_arbitrary_value, scale = (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest),
                                                             lower_bound_perc = spike_thresh_bound_ratio[0], upper_bound_perc = spike_thresh_bound_ratio[1] )
-        self.mem_potential = np.random.uniform(low = self.u_rest, high = self.spike_thresh , size = self.n) # membrane potential
-        # lower, upper, scale = 0 , self.neuronal_consts['spike_thresh']['mean'] - self.u_rest , 30 ### Doesn't work with linear interpolation of IF
-        # X = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-        # self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(self.n) 
 
-        # plt.figure()
-        # plt.hist(self.mem_potential, bins = 50)
-        # plt.title(self.name, fontsize = 15)
-        # plt.xlabel(r'initial $V_{m}$', fontsize = 15)
-        # plt.ylabel( 'Pr', fontsize = 15)
+        self.initialize_mem_potential(method = self.mem_pot_init_method)
         self.all_mem_pot[:,0] = self.mem_potential.copy()
+        if plot_initial_V_m_dist :
+            self.plot_mem_potential_distribution_of_one_t( 0, bins = 50)
         self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
                                                              self.neuronal_consts['membrane_time_constant']['var'] , self.n,
                                                              lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc)
@@ -154,12 +141,13 @@ class Nucleus:
         # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
         self.spike_thresh = np.full(self.n, self.neuronal_consts['spike_thresh']['mean'])
         self.mem_potential = np.random.uniform(low = self.u_rest, high = self.spike_thresh, size = self.n) # membrane potential
-        self.all_mem_pot[:,0] = self.mem_potential
+        self.all_mem_pot[:,0] = self.mem_potential.copy()
 
         self.membrane_time_constant = np.full(self.n ,  
                                              self.neuronal_consts['membrane_time_constant']['mean'])
         self.tau_ext_pop = {'rise': np.full(self.n,poisson_prop[self.name]['tau']['rise']['mean'])/dt,# synaptic decay time of the external pop inputs
                             'decay':np.full(self.n, poisson_prop[self.name]['tau']['decay']['mean'])/dt}
+
 
     def normalize_synaptic_weight(self):
         self.synaptic_weight = {k: v / (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest) for k, v in self.synaptic_weight.items() if k[0]==self.name}
@@ -179,6 +167,7 @@ class Nucleus:
         self.pop_act[t] = np.average(self.neuron_act)
 
     def update_output(self,dt):
+
         new_output = {k: self.output[k][:,-1].reshape(-1,1) for k in self.output.keys()}
         for key in self.sending_to_dict:
             for tau in self.synaptic_time_constant[(key[0],self.name)]:
@@ -374,7 +363,32 @@ class Nucleus:
             n_connections = self.K_connections[(self.name, projecting[0])]
             self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[projecting[0]], n_connections)
 
-    def clear_history(self):
+    def initialize_mem_potential(self, method = 'uniform'):
+
+        if method not in [ 'uniform', 'constant', 'exponential', 'draw_from_data']:
+            raise ValueError(" method must be either 'uniform', 'constant', 'exponential', or 'draw_from_data' ")
+
+        if method == 'uniform':
+
+            self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n)
+
+        elif method == 'draw_from_data':
+
+            data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '.npy'))
+            y_dist = data.reshape( int( data.shape [0] * data.shape [1] ), 1)
+            self.mem_potential = draw_random_from_data_pdf( y_dist, self.n, bins = 20)
+
+        elif method == 'constant':
+              self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest'])
+
+        elif method == 'exponential': ### Doesn't work with linear interpolation of IF, diverges
+            lower, upper, scale = 0 , self.neuronal_consts['spike_thresh']['mean'] - self.u_rest , 30 
+            X = stats.truncexpon(b = (upper-lower) / scale, loc = lower, scale = scale)
+            self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(self.n) 
+           
+        
+
+    def clear_history(self, mem_pot_init_method = None):
 
         self.pop_act = np.zeros_like(self.pop_act) 
         if self.neuronal_model == 'rate':
@@ -400,7 +414,11 @@ class Nucleus:
             self.I_syn['ext_pop','1'][:] = 0
             self.voltage_trace[:] = 0
             self.representative_inp['ext_pop','1'][:] = 0
-            self.mem_potential = np.random.uniform(low= self.neuronal_consts['u_initial']['min'],high = self.neuronal_consts['u_initial']['max'],size = self.n)
+
+            if mem_pot_init_method == None: # if not specified initialize as before
+                mem_pot_init_method = self.mem_pot_init_method
+
+            self.initialize_mem_potential( method = mem_pot_init_method)
             self.spikes[:,:] = 0
 
     def smooth_pop_activity(self, dt, window_ms = 5):
@@ -503,6 +521,19 @@ class Nucleus:
 
         return FR_sim
 
+    def plot_mem_potential_distribution_of_one_t(self, t, bins = 50):
+        plt.figure(figsize = (6,5))
+        plt.hist(self.all_mem_pot[:,t], bins = bins)
+        plt.xlabel('membrane potential', fontsize = 15)
+        plt.ylabel(r'$N_{neuron}$', fontsize = 15)
+
+    def plot_mem_potential_distribution_of_all_t(self, bins = 50):
+        a = self.all_mem_pot.copy()
+        plt.figure()
+        plt.hist(a.reshape(int(a.shape[0]* a.shape[1]), 1), bins = bins)
+        plt.xlabel('membrane potential', fontsize = 15)
+        plt.ylabel(r'$N_{neuron}$',fontsize = 15)
+
     def Find_threshold_of_firing(self, FR_list, t_list, dt, receiving_class_dict ):
         FR_sim = np.zeros((self.n, len(FR_list)))
 
@@ -542,7 +573,7 @@ class Nucleus:
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
         if method not in ["fft", "zero_crossing"]:
-            raise ValueError("mode must be either 'fft', or 'zero_crossing'")
+            raise ValueError("method must be either 'fft', or 'zero_crossing'")
 
         sig = trim_start_end_sig_rm_offset(self.pop_act,start, end, method = self.trim_sig_method_dict[ self.neuronal_model ]  )
         cut_sig_ind = cut_plateau ( sig,  epsilon= cut_plateau_epsilon)
@@ -575,18 +606,28 @@ class Nucleus:
 
         else:
             return 0,0,0, False
+
     def low_pass_filter(self, dt, low, high, order = 6):
         self.pop_act = butter_bandpass_filter(self.pop_act, low, high, 1 / (dt / 1000), order = order )
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt):
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None):
+
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            nucleus.clear_history()
+            nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
             nucleus.set_noise_param(noise_variance, noise_amplitude)
             nucleus.set_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return nuclei_dict
+
+def find_sending_pop_dict(receiving_pop_list):
+
+    sending_pop_list = {k: [] for k in receiving_pop_list.keys()}
+    for k,v_list in receiving_pop_list.items():
+        for v in v_list:
+            sending_pop_list[v].append(k)
+    return sending_pop_list
 
 def get_max_len_dict(dictionary):
     ''' return maximum length between items of a dictionary'''
@@ -668,8 +709,8 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
         
             nucleus.smooth_pop_activity(dt, window_ms = smooth_window_ms)
             if low_pass_filter:
-                # nucleus.low_pass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order = 6)
-                nucleus.pop_act = butter_bandpass_filter ( nucleus.pop_act, lower_freq_cut, upper_freq_cut, 1/ (dt/1000))
+                nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order = 6)
+                # nucleus.pop_act = butter_bandpass_filter ( nucleus.pop_act, lower_freq_cut, upper_freq_cut, 1/ (dt/1000))
             data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base = nucleus.find_freq_of_pop_act_spec_window(*duration_base,
                     dt, peak_threshold = peak_threshold, smooth_kern_window = smooth_kern_window , cut_plateau_epsilon =cut_plateau_epsilon, check_stability = check_stability, method = freq_method, if_plot = if_plot_freq)
             nucleus.frequency_basal =  data[(nucleus.name,'base_freq')][i,j]
@@ -829,6 +870,33 @@ def f_LIF(tau, V, V_rest, I_ext, I_syn):
     ''' return dV/dt value for Leaky-integrate and fire neurons'''
 
     return ( -(V - V_rest) + I_ext + I_syn ) / tau
+
+def save_all_mem_potential(nuclei_dict, path):
+    for nucleus_list in nuclei_dict.values():
+        for nucleus in nucleus_list:
+            print(nucleus.name)
+            np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name), nucleus.all_mem_pot)
+
+def draw_random_from_data_pdf(data, n, bins= 50, if_plot = False):
+    
+    hist, bins = np.histogram(data, bins = bins)
+    
+    bin_midpoints = bins[:-1] + np.diff(bins)/2
+    cdf = np.cumsum(hist)
+    cdf = cdf / cdf[-1]
+    values = np.random.rand(n)
+    value_bins = np.searchsorted(cdf, values)
+    random_from_cdf = bin_midpoints[value_bins]
+    if if_plot:
+        plt.figure()
+        plt.subplot(121)
+        plt.hist(data, bins)
+        plt.title('data pdf', fontsize = 15)
+        plt.subplot(122)
+        plt.hist(random_from_cdf, bins)
+        plt.title('drawn random variable pdf', fontsize = 15)
+        plt.show()
+    return random_from_cdf
 
 def Runge_Kutta_second_order_LIF(dt, V_t, f_t, tau, I_syn_next_dt, V_rest, I_ext):
     ''' Solve second order Runge-Kutta for a LIF at time t+dt (Mascagni & Sherman, 1997)'''
@@ -1065,45 +1133,51 @@ def noise_generator(amplitude, variance, n):
 
     return amplitude * np.random.normal(0,variance, n).reshape(-1,1)
 
-def freq_from_fft(sig,dt):
+def plot_fft_spectrum ( f, freq):
+
+    plt.figure()
+    # plt.semilogy(freq[:N//2], f[:N//2])
+    plt.plot( freq[:N//2], np.abs( f[:N//2] ) ** 2 )
+    plt.xlabel('frequency (Hz)')
+    plt.ylabel('FFT power') 
+
+def freq_from_fft( sig, dt, plot_spectrum = False):
     """
     Estimate frequency from peak of FFT
     """
     # Compute Fourier transform of windowed signal
 #    windowed = sig * signal.blackmanharris(len(sig))
-#    f = rfft(windowed)
+
     N = len(sig)
+
     if N == 0:
         return 0
-    else:
-        # sig = np.sin(50*np.arange(len(sig))*dt*2*np.pi)
-        f = rfft(sig)
-        freq = fftfreq(N, dt)#[:N//2]
-        # plt.figure()
-        # plt.semilogy(freq[:len(f)], f)
-        # plt.semilogy(freq[:N//2], f[:N//2])
 
-        # ind  = np.where(freq >= 0)
-        # plt.plot(freq[:N//2], f[:N//2])
-        # plt.xlabel('frequency (Hz)')
-        # plt.ylabel('FFT power')      
+    else:
+
+        f = rfft(sig)
+        freq = fftfreq(N, dt)
+
+        if plot_spectrum:
+            plot_fft_spectrum( f, freq)
+
         # Find the peak and interpolate to get a more accurate peak
-        peak_freq = freq[np.argmax(abs(f[:N//2]))]  # Just use this for less-accurate, naive version
-        # print(peak_freq)
+        peak_freq = freq[np.argmax( abs( f[ : N // 2] ) ) ]  # Just use this for less-accurate, naive version
+
     #    true_i = parabolic(log(abs(f)), i)[0]
         # Convert to equivalent frequency
     #    return fs * true_i / len(windowed)
 
         return peak_freq
 
-def freq_from_welch(sig,dt):
+def freq_from_welch(sig, dt ):
     """
     Estimate frequency with Welch method
     """
-    fs = 1/(dt)
-    [ff,pxx] = signal.welch(sig,axis=0,fs=fs,nperseg=int(fs))
+    fs = 1 / (dt / 1000)
+    [freq, f] = signal.welch( sig, axis = 0 , fs = fs , nperseg = int(fs) )
 #    plt.semilogy(ff,pxx)
-    return ff[np.argmax(pxx)]
+    return freq[ np.argmax( f ) ]
 
 def run(receiving_class_dict,t_list, dt, nuclei_dict):
     
@@ -1200,7 +1274,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, 
                 ax.text(0.1 + count * 0.15, 0.8 , txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
 
             elif plt_txt == 'vertical':
-                ax.text(0.3, 0.8 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
+                ax.text(0.2, 0.9 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
             count = count + 1
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
@@ -1448,7 +1522,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, method = 'neat'):
     ''' trim with max point at the start and the given end point'''
     if method not in ["simple", "neat"]:
-        raise ValueError("mode must be either 'simple', or 'neat'")
+        raise ValueError("method must be either 'simple', or 'neat'")
 
     trimmed = sig[start:end]
     if method == 'simple' : 
