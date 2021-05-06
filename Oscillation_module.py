@@ -1,24 +1,25 @@
 from __future__ import division
-import numpy as np
-import matplotlib.pyplot as plt
+import os
 import timeit
+import numpy as np
 import matplotlib
-from numpy.fft import rfft,fft, fftfreq
-from scipy import signal,stats
-from tempfile import TemporaryFile
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-from scipy.ndimage import gaussian_filter1d
-import pickle
-from matplotlib.ticker import FormatStrFormatter
-import decimal
-from decimal import *
-from scipy import optimize
-from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib.ticker import FormatStrFormatter
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
+from numpy.fft import rfft,fft, fftfreq
+from tempfile import TemporaryFile
+import pickle
+import jsonpickle
+# import decimal
+# from decimal import *
+# from scipy import optimize
+from scipy.ndimage import gaussian_filter1d
+from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz
-import os
+from scipy import signal,stats
 
 
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
@@ -28,10 +29,17 @@ fmt = mticker.FuncFormatter(g)
 
 class Nucleus:
 
-    def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, 
-        N, A,A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',
-        neuronal_model = 'rate',poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve =False,
-        bound_to_mean_ratio = [0.8 , 1.2], spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False):
+    def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, 
+        synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',neuronal_model = 'rate',
+        poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve = False, bound_to_mean_ratio = [0.8 , 1.2],
+        spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, set_random_seed = False):
+        
+        if set_random_seed :
+            self.random_seed = 1996
+            np.random.seed( self.random_seed )
+        else: 
+            np.random.seed()
+
         n_timebins = int(t_sim/dt)
         self.n = N[name] # population size
         self.population_num = population_number
@@ -414,7 +422,6 @@ class Nucleus:
             self.I_syn['ext_pop','1'][:] = 0
             self.voltage_trace[:] = 0
             self.representative_inp['ext_pop','1'][:] = 0
-
             if mem_pot_init_method == None: # if not specified initialize as before
                 mem_pot_init_method = self.mem_pot_init_method
 
@@ -569,7 +576,8 @@ class Nucleus:
     def scale_synaptic_weight(self):
         self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
-    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, method = 'zero_crossing', if_plot = False):
+    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, 
+        method = 'zero_crossing', plot_sig = False, plot_spectrum = False, plot_obj = None, c_spec = 'navy', fft_label = 'fft', spec_figsize = (6,5)):
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
         if method not in ["fft", "zero_crossing"]:
@@ -578,7 +586,7 @@ class Nucleus:
         sig = trim_start_end_sig_rm_offset(self.pop_act,start, end, method = self.trim_sig_method_dict[ self.neuronal_model ]  )
         cut_sig_ind = cut_plateau ( sig,  epsilon= cut_plateau_epsilon)
         plateau_y = find_mean_of_signal(sig, cut_sig_ind)
-        _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind)
+        _plot_signal(plot_sig, start, end, dt, sig, plateau_y, cut_sig_ind)
         if_stable = False
         if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
 
@@ -590,7 +598,7 @@ class Nucleus:
 
             elif method == 'fft' : 
 
-                freq = freq_from_fft (sig [ cut_sig_ind ] , dt / 1000 )
+                freq = freq_from_fft (sig [ cut_sig_ind ] , dt / 1000 , plot_spectrum = plot_spectrum, plot_obj = plot_obj, c = c_spec, label = fft_label, figsize = spec_figsize)
                 n_half_cycles = None
 
             if freq != 0: # then check if there's oscillations
@@ -606,6 +614,8 @@ class Nucleus:
 
         else:
             return 0,0,0, False
+
+
 
     def low_pass_filter(self, dt, low, high, order = 6):
         self.pop_act = butter_bandpass_filter(self.pop_act, low, high, 1 / (dt / 1000), order = order )
@@ -634,8 +644,9 @@ def get_max_len_dict(dictionary):
     return max(len(v) for k,v in dictionary.items())
 
 def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
-    peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', if_plot_freq = False,n_run = 1,
-    lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, plt_ylim = [0,80]):
+    peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
+    lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, plt_ylim = [0,80],
+    plot_spectrum = False, spec_figsize = (6,5)):
 
     if set_seed:
         np.random.seed(1956)
@@ -660,34 +671,51 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
     if_stable_plotted = False
     if_trans_plotted = False
     if if_plot:
-        fig = plt.figure()
+        fig = plt.figure(1)
+    if n_run > 1 : # don't plot all the runs
+        plot_spectrum = False
+    if plot_spectrum:
+        fig_spec = plt.figure(2)
     for i in range( n_iter):
-        # found_g_transient = {k: False for k in nuclei_dict.keys()}
-        # found_g_stable = {k: False for k in nuclei_dict.keys()}
 
         for k,values in G_dict.items():
             G[k] = values[ i ]
             print(k, values[i])
+        if plot_spectrum:
+            ax_spec = fig_spec.add_subplot(n_iter,1,count+1)
         for j in range(n_run):
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)#, mem_pot_init_method = 'uniform')
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
             data = find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , 
-                smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , if_plot_freq, low_pass_filter, lower_freq_cut, upper_freq_cut)
+                smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut,
+                plot_spectrum =plot_spectrum, plot_obj = [fig_spec, ax_spec], c_spec = color_dict, spec_figsize = spec_figsize)
         
         title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i],2)) +
                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i],2)))
            
+        if plot_spectrum:
+            ax_spec.axhline(10**9, ls = '--', c = 'grey')
+            ax_spec.set_title(title, fontsize = 18)
+            ax_spec.set_xlabel("", fontsize = 10)
+            ax_spec.set_ylabel("", fontsize = 5)
+            ax_spec.legend(fontsize = 11, loc = 'upper center')
+            ax_spec.set_xlim(5,55)
+            # ax_spec.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
+            if count < n_iter-1:
+                ax_spec.axes.xaxis.set_ticklabels([])
         if if_plot:
             ax = fig.add_subplot(n_iter,1,count+1)
             plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title,
                 n_subplots = int(n_iter), plt_txt = 'horizontal', plt_mvt = False, plt_freq = True ,plot_start = int(duration_base[0]*dt), plot_end = int(duration_base[1] * dt))
-            plt.xlabel("", fontsize = 10)
-            plt.ylabel("", fontsize = 5)
-            plt.legend(fontsize = 13, loc = 'upper right')
-            plt.ylim(*plt_ylim)
+            ax.set_xlabel("", fontsize = 10)
+            ax.set_ylabel("", fontsize = 5)
+            ax.legend(fontsize = 13, loc = 'upper right')
+            ax.set_ylim(*plt_ylim)
             if count < n_iter-1:
                 ax.axes.xaxis.set_ticklabels([])
+
         count +=1
     
         print(count, "from", int(n_iter))
@@ -695,44 +723,34 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
         fig.set_size_inches((20, 15), forward=False)
         fig.text(0.5, 0.05, 'time (ms)', ha='center',fontsize = 18)
         fig.text(0.05, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical', fontsize = 18)
-
+    if plot_spectrum:
+        fig_spec.set_size_inches((11, 15), forward=False)
+        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center',fontsize = 18)
+        fig_spec.text(0.03, 0.5, 'fft Power', va='center', rotation='vertical', fontsize = 18)
     # output = open(filename, 'wb')
     # pickle.dump(data, output)
     # output.close()
-    return title, data
+    return fig, fig_spec,title, data
 
-def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , if_plot_freq , 
-    low_pass_filter, lower_freq_cut, upper_freq_cut):
+def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig , 
+    low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, plot_obj = None, c_spec = 'navy', spec_figsize = (6,5)):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
         
             nucleus.smooth_pop_activity(dt, window_ms = smooth_window_ms)
+
             if low_pass_filter:
                 nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order = 6)
-                # nucleus.pop_act = butter_bandpass_filter ( nucleus.pop_act, lower_freq_cut, upper_freq_cut, 1/ (dt/1000))
+
             data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base = nucleus.find_freq_of_pop_act_spec_window(*duration_base,
-                    dt, peak_threshold = peak_threshold, smooth_kern_window = smooth_kern_window , cut_plateau_epsilon =cut_plateau_epsilon, check_stability = check_stability, method = freq_method, if_plot = if_plot_freq)
+                    dt, peak_threshold = peak_threshold, smooth_kern_window = smooth_kern_window , cut_plateau_epsilon =cut_plateau_epsilon, check_stability = check_stability, method = freq_method, plot_sig = plot_sig,
+                    plot_spectrum =plot_spectrum, plot_obj = plot_obj, c_spec = c_spec[nucleus.name], fft_label = nucleus.name, spec_figsize = spec_figsize)
+
             nucleus.frequency_basal =  data[(nucleus.name,'base_freq')][i,j]
+
             print(nucleus.name, 'n_cycles =', round(data[(nucleus.name, 'perc_t_oscil_base')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'base_freq')][i,j],2) )
 
-            # if not found_g_transient[nucleus.name] and data[(nucleus.name,  'perc_t_oscil_base')][i] > lim_oscil_perc:
-            #     data[(nucleus.name,'g_transient_boundary')] = G # save the the threshold g to get transient oscillations
-            #     found_g_transient[nucleus.name] = True
-
-            # if not if_trans_plotted and data[(nucleus.name,  'perc_t_oscil_base')][i] > lim_oscil_perc:
-            #     if_trans_plotted = True 
-            #     print("transient plotted")
-            #     plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = '', plot_ob = None, figsize= (12,5))#r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
-            
-            # if not found_g_stable[nucleus.name] and if_stable_base: 
-            #     found_g_stable[nucleus.name] = True
-            #     data[(nucleus.name,'g_stable_boundary')] = G
-
-            # if not if_stable_plotted and if_stable_base:
-            #     if_stable_plotted = True
-            #     print("stable plotted")
-            #     plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = '', plot_ob = None, figsize= (12,5))#r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
     return data
 
 def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
@@ -799,6 +817,26 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_di
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
 
     return receiving_class_dict
+
+def pickle_nuclei( nuclei_dict, filepath):
+    
+    with open( os.path.join( path, filepath ), "wb") as file_:
+        pickle.dump(nuclei_dict, file_, -1)
+        
+def load_pickeled_nuclei(filenpath):
+    
+    return pickle.load(open(filepath), "rb", -1))
+
+def write_obj_to_json(obj, filepath):
+    
+    frozen = jsonpickle.encode(obj)
+    with open(filepath, "w") as fh:
+        fh.write(frozen)
+        
+def load_json_file_as_obj(filepath):
+    o = open(filepathe, 'r')
+    file_ = o.read()
+    return jsonpickle.decode(file_)
 
 def plot_fitted_curve(xdata, ydata, x_scaled, coefs = []):
     plt.figure()
@@ -1133,15 +1171,25 @@ def noise_generator(amplitude, variance, n):
 
     return amplitude * np.random.normal(0,variance, n).reshape(-1,1)
 
-def plot_fft_spectrum ( f, freq):
+def plot_fft_spectrum ( peak_freq, f, freq, N, plot_obj = None, c = 'navy', label = 'fft', figsize = (6,5)):
 
-    plt.figure()
+    if plot_obj == None:
+        fig = plt.figure(figsize = figsize)
+        ax = fig.add_subplot(111)
+    else:
+        fig, ax = plot_obj
     # plt.semilogy(freq[:N//2], f[:N//2])
-    plt.plot( freq[:N//2], np.abs( f[:N//2] ) ** 2 )
-    plt.xlabel('frequency (Hz)')
-    plt.ylabel('FFT power') 
+    plt.plot( freq[:N//2], np.abs( f[:N//2] ) ** 2 , c = c, label = label + ' f =' +  str( round(peak_freq, 0) ), lw = 1.5)
+    plt.xlabel('frequency (Hz)', fontsize = 15)
+    plt.ylabel('FFT power', fontsize = 15) 
+    plt.legend(fontsize = 15, loc = 'upper right')
+    # ax.tick_params(axis='both', which='major', labelsize=10)
+    plt.locator_params(axis='y', nbins=5)
+    plt.locator_params(axis='x', nbins=5)
+    plt.rcParams['xtick.labelsize'] = 18
+    plt.rcParams['ytick.labelsize'] = 18
 
-def freq_from_fft( sig, dt, plot_spectrum = False):
+def freq_from_fft( sig, dt, plot_spectrum = False, plot_obj = None, c = 'navy', label = 'fft', figsize = (6,5)):
     """
     Estimate frequency from peak of FFT
     """
@@ -1158,17 +1206,16 @@ def freq_from_fft( sig, dt, plot_spectrum = False):
         f = rfft(sig)
         freq = fftfreq(N, dt)
 
-        if plot_spectrum:
-            plot_fft_spectrum( f, freq)
-
         # Find the peak and interpolate to get a more accurate peak
         peak_freq = freq[np.argmax( abs( f[ : N // 2] ) ) ]  # Just use this for less-accurate, naive version
 
+        if plot_spectrum:
+            plot_fft_spectrum( peak_freq, f, freq, N, plot_obj = plot_obj, c = c, label = label, figsize = figsize)
     #    true_i = parabolic(log(abs(f)), i)[0]
         # Convert to equivalent frequency
     #    return fs * true_i / len(windowed)
 
-        return peak_freq
+        return peak_freq#, {'f': np.abs( f[:N//2] ) ** 2 , 'freq': freq[:N//2]}
 
 def freq_from_welch(sig, dt ):
     """
@@ -1278,16 +1325,16 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, 
             count = count + 1
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
-    plt.title(title, fontsize = title_fontsize)
-    plt.xlabel("time (ms)", fontsize = 15)
-    plt.ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    plt.legend(fontsize = 15, loc = 'upper right')
+    ax.set_title(title, fontsize = title_fontsize)
+    ax.set_xlabel("time (ms)", fontsize = 15)
+    ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
+    ax.legend(fontsize = 15, loc = 'upper right')
     # ax.tick_params(axis='both', which='major', labelsize=10)
-    plt.locator_params(axis='y', nbins=5)
-    plt.locator_params(axis='x', nbins=5)
+    ax.locator_params(axis='y', nbins=5)
+    ax.locator_params(axis='x', nbins=5)
     plt.rcParams['xtick.labelsize'] = 18
     plt.rcParams['ytick.labelsize'] = 18
-    plt.xlim(plot_start * dt - 20, plot_end * dt + 20) 
+    ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
     return fig
 
 def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = 'G', title = "",title_fontsize = 18, figsize = (6,5)):    
