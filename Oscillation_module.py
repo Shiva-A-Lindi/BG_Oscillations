@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.ticker import FormatStrFormatter
+import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 from numpy.fft import rfft,fft, fftfreq
@@ -32,7 +33,8 @@ class Nucleus:
     def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, 
         synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',neuronal_model = 'rate',
         poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve = False, bound_to_mean_ratio = [0.8 , 1.2],
-        spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, set_random_seed = False):
+        spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, set_random_seed = False,
+        keep_mem_pot_all_t = False):
         
         if set_random_seed :
             self.random_seed = 1996
@@ -48,7 +50,6 @@ class Nucleus:
         self.mvt_firing = A_mvt[name]
         self.threshold = threshold[name]
         self.gain = gain[name]
-        # self.trans_types =  trans_types
         self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==name} # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
         self.transmission_delay = {k: v for k, v in T.items() if k[0]==name} # filter based on the receiving nucleus
         self.ext_inp_delay = ext_inp_delay        
@@ -58,19 +59,10 @@ class Nucleus:
         self.receiving_from_list = receiving_from_list[(self.name, str(self.population_num))] 
         sending_to_dict = find_sending_pop_dict(receiving_from_list)
         self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))] 
-        # self.output = np.zeros((self.n,int(self.history_duration/dt)))
-        self.output = {k: np.zeros((self.n,int(T[k[0],self.name]/dt))) for k in self.sending_to_dict} 
-        self.input = np.zeros((self.n))
-        self.neuron_act = np.zeros((self.n))
-        self.pop_act = np.zeros(( n_timebins )) # time series of population activity
         self.rest_ext_input = None
-        self.mvt_ext_input = np.zeros(( n_timebins )) # external input mimicing movement
-        self.external_inp_t_series = np.zeros(( n_timebins ))
         self.avg_pop_act_mvt = None
         self.avg_pop_act_base = None
         self.connectivity_matrix = {}
-        self.noise_induced_basal_firing = None # the basal firing as a result of noise at steady state
-        self.oscil_peak_threshold = oscil_peak_threshold[self.name]
         self.smooth_kern_window = smooth_kern_window[self.name]
         self.set_noise_param(noise_variance, noise_amplitude)
         self.init_method = init_method
@@ -79,6 +71,17 @@ class Nucleus:
         self.perc_oscil_basal = None
         self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
         self.path = path
+        self.pop_act = np.zeros(( n_timebins )) # time series of population activity
+        self.external_inp_t_series = np.zeros(( n_timebins ))
+
+        if neuronal_model =='rate':
+            self.output = {k: np.zeros((self.n,int(T[k[0],self.name]/dt))) for k in self.sending_to_dict} 
+            self.input = np.zeros((self.n))
+            self.neuron_act = np.zeros((self.n))
+            self.mvt_ext_input = np.zeros(( n_timebins )) # external input mimicing movement
+            self.noise_induced_basal_firing = None # the basal firing as a result of noise at steady state
+            self.oscil_peak_threshold = oscil_peak_threshold[self.name]
+
         if neuronal_model == 'spiking':
             self.spikes = np.zeros((self.n,int(t_sim/dt)),dtype = int)
             ## dt incorporated in tau for efficiency
@@ -105,13 +108,16 @@ class Nucleus:
             self.ext_inp_method = ext_inp_method
             self.der_ext_I_from_curve = der_ext_I_from_curve # if derive external input value from response curve
             self.sum_syn_inp_at_rest = None
-            self.all_mem_pot = np.zeros((self.n, n_timebins ))
+            self.keep_mem_pot_all_t = keep_mem_pot_all_t
+            if self.keep_mem_pot_all_t:
+                self.all_mem_pot = np.zeros((self.n, n_timebins ))
             self.ext_input_integ_method = ext_input_integ_method
             self.mem_pot_init_method = mem_pot_init_method
+            print(bound_to_mean_ratio)
             if init_method == 'homogeneous':
                 self.initialize_homogeneously( poisson_prop, dt)
             elif init_method == 'heterogeneous':
-                self.initialize_heterogeneously( poisson_prop, dt, spike_thresh_bound_ratio, * bound_to_mean_ratio, plot_initial_V_m_dist = plot_initial_V_m_dist)
+                self.initialize_heterogeneously( poisson_prop, dt, spike_thresh_bound_ratio, *bound_to_mean_ratio,  plot_initial_V_m_dist = plot_initial_V_m_dist)
 
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp, 'const+noise' : self.constant_ext_input_with_noise, 'constant' : self.constant_ext_input}
             self.input_integ_method_dict = {'exp_rise_and_decay' : exp_rise_and_decay, 'instantaneus_rise_expon_decay' : instantaneus_rise_expon_decay , 'dirac_delta_input': _dirac_delta_input}
@@ -119,18 +125,20 @@ class Nucleus:
             self.normalize_synaptic_weight()
             
 
-    def initialize_heterogeneously(self, poisson_prop, dt, spike_thresh_bound_ratio, lower_bound_perc = 0.8, upper_bound_perc = 1.2, plot_initial_V_m_dist = False):
+    def initialize_heterogeneously(self, poisson_prop, dt, spike_thresh_bound_ratio, lower_bound_perc= 0.8  , upper_bound_perc = 1.2, plot_initial_V_m_dist = False):
         ''' cell properties and boundary conditions come from distributions'''
-
+        print( lower_bound_perc, upper_bound_perc)
         self.spike_thresh = truncated_normal_distributed ( self.neuronal_consts['spike_thresh']['mean'],
                                                             self.neuronal_consts['spike_thresh']['var'] , self.n,
                                                             scale_bound = scale_bound_with_arbitrary_value, scale = (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest),
                                                             lower_bound_perc = spike_thresh_bound_ratio[0], upper_bound_perc = spike_thresh_bound_ratio[1] )
 
         self.initialize_mem_potential(method = self.mem_pot_init_method)
-        self.all_mem_pot[:,0] = self.mem_potential.copy()
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:,0] = self.mem_potential.copy()
         if plot_initial_V_m_dist :
             self.plot_mem_potential_distribution_of_one_t( 0, bins = 50)
+        
         self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
                                                              self.neuronal_consts['membrane_time_constant']['var'] , self.n,
                                                              lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc)
@@ -143,13 +151,14 @@ class Nucleus:
                                                                 poisson_prop[self.name]['tau']['decay']['var'] , self.n, 
                                                                 lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc) / dt}
             
-    def initialize_homogeneously(self, poisson_prop, dt):
+    def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t = False):
         ''' cell properties and boundary conditions are constant for all cells'''
 
         # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
         self.spike_thresh = np.full(self.n, self.neuronal_consts['spike_thresh']['mean'])
         self.mem_potential = np.random.uniform(low = self.u_rest, high = self.spike_thresh, size = self.n) # membrane potential
-        self.all_mem_pot[:,0] = self.mem_potential.copy()
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:,0] = self.mem_potential.copy()
 
         self.membrane_time_constant = np.full(self.n ,  
                                              self.neuronal_consts['membrane_time_constant']['mean'])
@@ -303,7 +312,8 @@ class Nucleus:
         # self.reset_potential_with_interpolation(spiking_ind,dt)
         self.cal_population_activity(dt,t)
         self.update_representative_measures(t)
-        self.all_mem_pot[:,t] = self.mem_potential
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:,t] = self.mem_potential
 
     def update_representative_measures(self,t):
 
@@ -372,7 +382,7 @@ class Nucleus:
             self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[projecting[0]], n_connections)
 
     def initialize_mem_potential(self, method = 'uniform'):
-
+        np.random.seed()
         if method not in [ 'uniform', 'constant', 'exponential', 'draw_from_data']:
             raise ValueError(" method must be either 'uniform', 'constant', 'exponential', or 'draw_from_data' ")
 
@@ -398,8 +408,9 @@ class Nucleus:
 
     def clear_history(self, mem_pot_init_method = None):
 
-        self.pop_act = np.zeros_like(self.pop_act) 
+        self.pop_act[:] = 0
         if self.neuronal_model == 'rate':
+
             # self.output = {k: np.zeros_like(self.output[k]) for k in self.output.keys()}
             # self.input = np.zeros_like(self.input)
             # self.neuron_act = np.zeros_like(self.neuron_act)
@@ -413,15 +424,27 @@ class Nucleus:
             self.external_inp_t_series[:] = 0
 
         if self.neuronal_model == 'spiking':
+
             for k in self.receiving_from_list:
+
+                print(self.name, self.I_rise.keys())
+                print( list(self.I_rise.keys())[0],  k )                
+                print( type(list(self.I_rise.keys())[0]),  type(k) )
+
+                print( list(self.I_rise.keys())[0] == k )
+                print(self.I_rise [list(self.I_rise.keys())[0] ].shape )
+                print(self.I_rise[k])
+
                 self.I_rise[k][:] = 0
                 self.I_syn[k][:] = 0
                 self.representative_inp[k][:] = 0
                 self.syn_inputs[k][:] = 0
+
             self.pop_act[:] = 0
             self.I_syn['ext_pop','1'][:] = 0
             self.voltage_trace[:] = 0
             self.representative_inp['ext_pop','1'][:] = 0
+
             if mem_pot_init_method == None: # if not specified initialize as before
                 mem_pot_init_method = self.mem_pot_init_method
 
@@ -528,18 +551,22 @@ class Nucleus:
 
         return FR_sim
 
-    def plot_mem_potential_distribution_of_one_t(self, t, bins = 50):
-        plt.figure(figsize = (6,5))
-        plt.hist(self.all_mem_pot[:,t], bins = bins)
-        plt.xlabel('membrane potential', fontsize = 15)
-        plt.ylabel(r'$N_{neuron}$', fontsize = 15)
+    def plot_mem_potential_distribution_of_one_t(self, t,  ax = None, bins = 50, color = 'gray'):
+        fig, ax = get_axes (axj)
+        ax.hist(self.all_mem_pot[:,t] / self.n, bins = bins, color = color, label = self.name, density = True, stacked = True)
+        ax.set_xlabel('Membrane potential (mV)', fontsize = 15)
+        ax.set_ylabel(r'$Probability\ density$',fontsize = 15)
+        # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+        ax.legen(fontsize = 15)
 
-    def plot_mem_potential_distribution_of_all_t(self, bins = 50):
+    def plot_mem_potential_distribution_of_all_t(self, ax = None, bins = 50, color = 'grey'):
         a = self.all_mem_pot.copy()
-        plt.figure()
-        plt.hist(a.reshape(int(a.shape[0]* a.shape[1]), 1), bins = bins)
-        plt.xlabel('membrane potential', fontsize = 15)
-        plt.ylabel(r'$N_{neuron}$',fontsize = 15)
+        fig, ax = get_axes (ax)
+        ax.hist( a.reshape( int(a.shape[0]* a.shape[1]), 1) , bins = bins,  color = color, label = self.name, density = True, stacked = True)
+        ax.set_xlabel('Membrane potential (mV)', fontsize = 15)
+        ax.set_ylabel(r'$Probability\ density$',fontsize = 15)
+        # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+        ax.legend(fontsize = 15)
 
     def Find_threshold_of_firing(self, FR_list, t_list, dt, receiving_class_dict ):
         FR_sim = np.zeros((self.n, len(FR_list)))
@@ -577,7 +604,7 @@ class Nucleus:
         self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, 
-        method = 'zero_crossing', plot_sig = False, plot_spectrum = False, plot_obj = None, c_spec = 'navy', fft_label = 'fft', spec_figsize = (6,5)):
+        method = 'zero_crossing', plot_sig = False, plot_spectrum = False, ax = None, c_spec = 'navy', fft_label = 'fft', spec_figsize = (6,5)):
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
         if method not in ["fft", "zero_crossing"]:
@@ -598,7 +625,7 @@ class Nucleus:
 
             elif method == 'fft' : 
 
-                freq = freq_from_fft (sig [ cut_sig_ind ] , dt / 1000 , plot_spectrum = plot_spectrum, plot_obj = plot_obj, c = c_spec, label = fft_label, figsize = spec_figsize)
+                freq = freq_from_fft (sig [ cut_sig_ind ] , dt / 1000 , plot_spectrum = plot_spectrum, ax = ax, c = c_spec, label = fft_label, figsize = spec_figsize)
                 n_half_cycles = None
 
             if freq != 0: # then check if there's oscillations
@@ -646,7 +673,7 @@ def get_max_len_dict(dictionary):
 def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
     lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, plt_ylim = [0,80],
-    plot_spectrum = False, spec_figsize = (6,5)):
+    plot_spectrum = False, spec_figsize = (6,5), plot_raster = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -668,72 +695,97 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
     data['g'] = G_dict
     count  = 0
     G = dict.fromkeys(G_dict.keys(), None)
-    if_stable_plotted = False
-    if_trans_plotted = False
+
     if if_plot:
-        fig = plt.figure(1)
+        fig = plt.figure()
+
     if n_run > 1 : # don't plot all the runs
         plot_spectrum = False
     if plot_spectrum:
-        fig_spec = plt.figure(2)
+        fig_spec = plt.figure()
+
+    if plot_raster :
+        fig_raster = plt.figure()
+        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2) 
     for i in range( n_iter):
 
         for k,values in G_dict.items():
             G[k] = values[ i ]
             print(k, values[i])
+
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter,1,count+1)
+
+        else: ax_spec = None
+
+        title = _get_title(G_dict, i)
+
         for j in range(n_run):
+
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)#, mem_pot_init_method = 'uniform')
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
+
+            if plot_raster:
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = outer[i], title = title, fig = fig_raster, plot_start = 0, plot_end = None, labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1)
+            
             data = find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , 
-                smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut,
-                plot_spectrum =plot_spectrum, plot_obj = [fig_spec, ax_spec], c_spec = color_dict, spec_figsize = spec_figsize)
+                                smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut,
+                                plot_spectrum =plot_spectrum, ax = ax_spec, c_spec = color_dict, spec_figsize = spec_figsize)
         
-        title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
-                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i],2)) +
-                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i],2)))
-           
+
         if plot_spectrum:
             ax_spec.axhline(10**9, ls = '--', c = 'grey')
             ax_spec.set_title(title, fontsize = 18)
-            ax_spec.set_xlabel("", fontsize = 10)
-            ax_spec.set_ylabel("", fontsize = 5)
             ax_spec.legend(fontsize = 11, loc = 'upper center')
             ax_spec.set_xlim(5,55)
-            # ax_spec.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax_spec)
 
-            if count < n_iter-1:
-                ax_spec.axes.xaxis.set_ticklabels([])
         if if_plot:
             ax = fig.add_subplot(n_iter,1,count+1)
-            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title,
+            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title,
                 n_subplots = int(n_iter), plt_txt = 'horizontal', plt_mvt = False, plt_freq = True ,plot_start = int(duration_base[0]*dt), plot_end = int(duration_base[1] * dt))
-            ax.set_xlabel("", fontsize = 10)
-            ax.set_ylabel("", fontsize = 5)
             ax.legend(fontsize = 13, loc = 'upper right')
             ax.set_ylim(*plt_ylim)
-            if count < n_iter-1:
-                ax.axes.xaxis.set_ticklabels([])
+            rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax)
 
         count +=1
     
         print(count, "from", int(n_iter))
+
+    figs = []
     if if_plot:
         fig.set_size_inches((20, 15), forward=False)
         fig.text(0.5, 0.05, 'time (ms)', ha='center',fontsize = 18)
         fig.text(0.05, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical', fontsize = 18)
+        figs.append(fig)
     if plot_spectrum:
         fig_spec.set_size_inches((11, 15), forward=False)
         fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center',fontsize = 18)
         fig_spec.text(0.03, 0.5, 'fft Power', va='center', rotation='vertical', fontsize = 18)
+        figs.append(fig_spec)
+    if plot_raster:
+        fig_raster.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
+        fig_raster.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
+        figs.append(fig_raster)
+        fig_raster.show()
     # output = open(filename, 'wb')
     # pickle.dump(data, output)
     # output.close()
-    return fig, fig_spec,title, data
+    return figs, title, data
+def rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax):
+    ax.set_xlabel("", fontsize = 10)
+    ax.set_ylabel("", fontsize = 5)
+    if count < n_iter-1:
+        ax.axes.xaxis.set_ticklabels([])
 
+def _get_title(G_dict, i):
+
+    title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
+                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i],2)) +
+                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i],2)))
+    return title
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig , 
-    low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, plot_obj = None, c_spec = 'navy', spec_figsize = (6,5)):
+                low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, ax = None, c_spec = 'navy', spec_figsize = (6,5)):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -743,9 +795,17 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
             if low_pass_filter:
                 nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order = 6)
 
-            data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base = nucleus.find_freq_of_pop_act_spec_window(*duration_base,
-                    dt, peak_threshold = peak_threshold, smooth_kern_window = smooth_kern_window , cut_plateau_epsilon =cut_plateau_epsilon, check_stability = check_stability, method = freq_method, plot_sig = plot_sig,
-                    plot_spectrum =plot_spectrum, plot_obj = plot_obj, c_spec = c_spec[nucleus.name], fft_label = nucleus.name, spec_figsize = spec_figsize)
+            data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+                                                                                                                                                                                                            peak_threshold = peak_threshold, 
+                                                                                                                                                                                                            smooth_kern_window = smooth_kern_window , 
+                                                                                                                                                                                                            cut_plateau_epsilon =cut_plateau_epsilon, 
+                                                                                                                                                                                                            check_stability = check_stability, 
+                                                                                                                                                                                                            method = freq_method, 
+                                                                                                                                                                                                            plot_sig = plot_sig,
+                                                                                                                                                                                                            plot_spectrum =plot_spectrum, 
+                                                                                                                                                                                                            ax = ax, c_spec = c_spec[nucleus.name], 
+                                                                                                                                                                                                            fft_label = nucleus.name, 
+                                                                                                                                                                                                            spec_figsize = spec_figsize)
 
             nucleus.frequency_basal =  data[(nucleus.name,'base_freq')][i,j]
 
@@ -753,13 +813,26 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
 
     return data
 
+def remove_frame(ax):
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+def plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict):
+    fig, ax = plt.subplots()
+    for nucleus_list in nuclei_dict.values():
+        for nucleus in nucleus_list:
+            nucleus.plot_mem_potential_distribution_of_all_t(ax = ax, color = color_dict[nucleus.name], bins = 100)
+    remove_frame(ax)
+    return ax
+
 def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
     if if_plot:
-        plt.figure()
+        ax = plt.figure()
         t = np.arange(start,end) * dt
-        plt.plot(t,sig - plateau_y)
-        plt.axhline(plateau_y)
-        plt.plot( t[cut_sig_ind], sig[cut_sig_ind] )
+        ax.plot(t,sig - plateau_y)
+        ax.axhline(plateau_y)
+        ax.plot( t[cut_sig_ind], sig[cut_sig_ind] )
+        return ax
 
 def find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, init_method,  n_FR = 50 , left_pad = 0.005, right_pad = 0.005):
     ''' put log spaced points in the nonlinear regime of each neuron'''
@@ -825,7 +898,7 @@ def pickle_nuclei( nuclei_dict, filepath):
         
 def load_pickeled_nuclei(filenpath):
     
-    return pickle.load(open(filepath), "rb", -1))
+    return pickle.load(open(filepath), "rb", -1)
 
 def write_obj_to_json(obj, filepath):
     
@@ -834,17 +907,17 @@ def write_obj_to_json(obj, filepath):
         fh.write(frozen)
         
 def load_json_file_as_obj(filepath):
-    o = open(filepathe, 'r')
+    o = open(filepath, 'r')
     file_ = o.read()
     return jsonpickle.decode(file_)
 
 def plot_fitted_curve(xdata, ydata, x_scaled, coefs = []):
-    plt.figure()
-    plt.plot(xdata, ydata,'-o', label = 'data')
+    ax = plt.figure()
+    ax.plot(xdata, ydata,'-o', label = 'data')
     if coefs != []:
         y = sigmoid(x_scaled ,*coefs)
-        plt.plot(x_scaled + find_x_mid_point_sigmoid( ydata, xdata), y * find_y_normalizing_factor(ydata), label = 'fitted curve')
-    plt.legend()
+        ax.plot(x_scaled + find_x_mid_point_sigmoid( ydata, xdata), y * find_y_normalizing_factor(ydata), label = 'fitted curve')
+    ax.legend()
 
 def scale_bound_with_mean(mean, lower_bound_perc , upper_bound_perc, scale = None):
     lower_bound = mean * lower_bound_perc 
@@ -1005,12 +1078,41 @@ def create_sparse_matrix (matrix , end = None, start = 0):
         end = n_cols
     return  np.array( [ np.where( matrix[i,int(start):int(end)] == 1 ) [0]  for i in range( n_rows )] ,dtype = object)
 
-def raster_plot(ax, spikes_sparse, name, color_dict, labelsize=10, title_fontsize = 15):
+def get_axes (ax, figsize = (6,5)):
+    if ax == None :
+        fig, ax = plt.subplots(1,1, figsize = figsize)
+    return plt.gcf(), ax
 
-    ax.eventplot(spikes_sparse, colors='k', linelengths=2, lw = 2, orientation='horizontal')
+def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labelsize = 10, title_fontsize = 15, linelengths = 2, lw = 2):
+    fig, ax = get_axes (ax)
+    ax.eventplot(spikes_sparse, colors = color, linelengths = linelengths, lw = lw, orientation='horizontal')
     ax.tick_params(axis = 'both', labelsize = labelsize)
     ax.set_title( name, c = color_dict[name], fontsize = title_fontsize)
-    
+    return ax
+
+def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1):
+    if outer == None:
+        fig = plt.figure(figsize=(10, 8))
+        outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2) [ 0 ]
+
+    inner = gridspec.GridSpecFromSubplotSpec( len(nuclei_dict), 1,
+                    subplot_spec= outer, wspace=0.1, hspace=0.1)
+    j = 0
+    # ax = plt.Subplot(fig, outer)
+    # ax.set_title(title, fontsize = 15)
+    # ax.axis('off')
+    # fig.add_subplot(ax)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+
+            if plot_end == None:
+                plot_end = len(nucleus.pop_act)
+            ax = plt.Subplot(fig, inner[j])
+            spikes_sparse = create_sparse_matrix (nucleus.spikes, end = (plot_end / dt), start = (plot_start / dt)) * dt
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw)
+            fig.add_subplot(ax)
+            j += 1
+    return fig
 def find_FR_sim_vs_FR_expected(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
     ''' simulated FR vs. what we input as the desired firing rate'''
 
@@ -1171,25 +1273,21 @@ def noise_generator(amplitude, variance, n):
 
     return amplitude * np.random.normal(0,variance, n).reshape(-1,1)
 
-def plot_fft_spectrum ( peak_freq, f, freq, N, plot_obj = None, c = 'navy', label = 'fft', figsize = (6,5)):
+def plot_fft_spectrum ( peak_freq, f, freq, N, ax = None, c = 'navy', label = 'fft', figsize = (6,5)):
 
-    if plot_obj == None:
-        fig = plt.figure(figsize = figsize)
-        ax = fig.add_subplot(111)
-    else:
-        fig, ax = plot_obj
+    fig, ax = get_axes (ax, figsize = figsize)
     # plt.semilogy(freq[:N//2], f[:N//2])
-    plt.plot( freq[:N//2], np.abs( f[:N//2] ) ** 2 , c = c, label = label + ' f =' +  str( round(peak_freq, 0) ), lw = 1.5)
-    plt.xlabel('frequency (Hz)', fontsize = 15)
-    plt.ylabel('FFT power', fontsize = 15) 
-    plt.legend(fontsize = 15, loc = 'upper right')
+    ax.plot( freq[:N//2], np.abs( f[:N//2] ) ** 2 , c = c, label = label + ' f =' +  str( round(peak_freq, 0) ), lw = 1.5)
+    ax.set_xlabel('frequency (Hz)', fontsize = 15)
+    ax.set_ylabel('FFT power', fontsize = 15) 
+    ax.legend(fontsize = 15, loc = 'upper right')
     # ax.tick_params(axis='both', which='major', labelsize=10)
-    plt.locator_params(axis='y', nbins=5)
-    plt.locator_params(axis='x', nbins=5)
+    ax.locator_params(axis='y', nbins=5)
+    ax.locator_params(axis='x', nbins=5)
     plt.rcParams['xtick.labelsize'] = 18
     plt.rcParams['ytick.labelsize'] = 18
 
-def freq_from_fft( sig, dt, plot_spectrum = False, plot_obj = None, c = 'navy', label = 'fft', figsize = (6,5)):
+def freq_from_fft( sig, dt, plot_spectrum = False, ax = None, c = 'navy', label = 'fft', figsize = (6,5)):
     """
     Estimate frequency from peak of FFT
     """
@@ -1210,7 +1308,7 @@ def freq_from_fft( sig, dt, plot_spectrum = False, plot_obj = None, c = 'navy', 
         peak_freq = freq[np.argmax( abs( f[ : N // 2] ) ) ]  # Just use this for less-accurate, naive version
 
         if plot_spectrum:
-            plot_fft_spectrum( peak_freq, f, freq, N, plot_obj = plot_obj, c = c, label = label, figsize = figsize)
+            plot_fft_spectrum( peak_freq, f, freq, N, ax = ax, c = c, label = label, figsize = figsize)
     #    true_i = parabolic(log(abs(f)), i)[0]
         # Convert to equivalent frequency
     #    return fs * true_i / len(windowed)
@@ -1291,14 +1389,10 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, title = "", n_subplots = 1,title_fontsize = 18,plot_start = 0,ylabelpad = 0,
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 18,plot_start = 0,ylabelpad = 0,
          plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False):    
 
-    if plot_ob == None:
-        fig = plt.figure(figsize = figsize)
-        ax = fig.add_subplot(111)
-    else:
-        fig, ax = plot_ob
+    fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
     else:
         plot_end = int(plot_end / dt)
@@ -1335,6 +1429,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob, 
     plt.rcParams['xtick.labelsize'] = 18
     plt.rcParams['ytick.labelsize'] = 18
     ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
+    remove_frame(ax)
     return fig
 
 def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = 'G', title = "",title_fontsize = 18, figsize = (6,5)):    
@@ -1728,7 +1823,8 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
                     if_trans_plotted = True
                     print("transient plotted")
-                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
+                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),
+                        ax = None)
                 
                 if not found_g_stable[nucleus.name] and if_stable_mvt: 
                     found_g_stable[nucleus.name] = True
@@ -1737,7 +1833,8 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_stable_plotted and if_stable_mvt:
                     if_stable_plotted = True
                     print("stable plotted")
-                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),plot_ob = None)
+                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)), 
+                        ax = None)
             if if_plot:
                 ax = fig.add_subplot(n,m,count+1)
                 plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))

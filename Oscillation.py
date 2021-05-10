@@ -453,7 +453,7 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
 # np.random.seed(1006)
 name = 'Proto'
 N_sim = 100
-N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 100; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
@@ -498,7 +498,7 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc})
 #         FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
 #         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
 #         spikes_sparse = create_sparse_matrix (nucleus.spikes) * dt
-#         raster_plot(axs, spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
+#         raster_plot(spikes_sparse, nucleus.name, color_dict, plot_obj = [fig, axs[count -1]], labelsize=10, title_fontsize = 15)
 #         find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
 
 # fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
@@ -548,7 +548,7 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob =
 #%% two connected nuclei with derived I_ext from response curve
 
 N_sim = 100
-N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
@@ -601,7 +601,7 @@ for nuclei_list in nuclei_dict.values():
         FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
         spikes_sparse = create_sparse_matrix (nucleus.spikes) * dt
-        raster_plot(axs[count - 1], spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
+        raster_plot(spikes_sparse, nucleus.name, color_dict, plot_obj = [fig, axs[count - 1]], labelsize=10, title_fontsize = 15)
         # find_freq_of_pop_act_spec_window_spiking(nucleus, 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False)
 
 
@@ -628,7 +628,7 @@ plt.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 
 #%% three connected nuclei with derived I_ext from response curve
 N_sim = 1000
-N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
+N = dict.fromkeys(N, N_sim)
 dt = 0.25
 A['D2'] = 3
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -679,28 +679,22 @@ all_FR_list = np.linspace ( 0.045, 0.08 , 250).reshape(-1,1)
 if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
-# pickle_name = 'FSI_D2_Proto_N_' + str( N_sim) +'_T'+ str(t_sim) +  '_ms.pickle'
-# pickle_nuclei(nuc2, path, pickle_name)
 
-json_name = os.path.join(path, 'FSI_D2_Proto_N_' + str( N_sim) +'_T'+ str(t_sim) +  '_ms.json')
-
-
-
-write_obj_to_json(nuclei_dict, json_name)
-nuclei = load_json_file_as_obj(json_name)
-
-
+# json_name = os.path.join(path, 'FSI_D2_Proto_N_' + str( N_sim) +'_T_'+ str(t_sim) +  '_ms.json')
+# write_obj_to_json(nuclei_dict, json_name)
+# save_all_mem_potential(nuclei_dict, path)
+# plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 
 #%% run on initialized network of 3
 
-pickle_name = 'FSI_D2_Proto_N_' + str( N_sim_) +'_T'+ str(t_sim) +  '_ms.pickle'
-nuclei_dict = load_pickeled_nuclei( pickle_name, path)
 
+np.random.seed()
 G = {}
 duration_base = [0, int(t_mvt/dt)]
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = -.15, -40, -.24
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = -0.15 , -40, - 0.24
+G = {k: v / K_mil[k] * K_cent[k] for k,v in G.items()}
 
-noise_variance = {name1 : 0.1, name2: 0.1, name3 :20}
+noise_variance = {name1 : 0.1, name2: 0.1, name3 :10}
 noise_amplitude = {name1 : 1, name2: 1, name3: 1}
 
 nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)
@@ -718,9 +712,9 @@ for nuclei_list in nuclei_dict.values():
         FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
         print(nucleus.name, 'average ={}, std = {}'.format(FR_mean, FR_std  ) )
         # spikes_sparse = create_sparse_matrix (nucleus.spikes, end = (plot_end / dt), start = (plot_start / dt)) * dt
-        # raster_plot(axs[count - 1], spikes_sparse, nucleus.name, color_dict, labelsize=10, title_fontsize = 15)
+        # raster_plot(spikes_sparse, nucleus.name, color_dict, plot_obj = [fig, axs[count - 1]], labelsize=10, title_fontsize = 15)
         _, perc_t_oscil, f, _ = nucleus.find_freq_of_pop_act_spec_window( 0,t_list[-1], dt, cut_plateau_epsilon =0.1, peak_threshold = 0.1,
-                                                                 smooth_kern_window= 3 , check_stability = False, method = 'fft')
+                                                         smooth_kern_window= 3 , check_stability = False, method = 'fft')
         print(f)
 # fig.text(0.5, 0.02, 'time (ms)', ha='center', va='center',fontsize= 15)
 # fig.text(0.02, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 15)
@@ -748,25 +742,39 @@ plt.savefig(os.path.join(path, 'Smoothed_average_FR_' + filename), dpi = 300, fa
         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #%% Synaptic weight explortation SNN
 
-pickle_name = 'FSI_D2_Proto_N_' + str( N_sim_) +'_T'+ str(t_sim) +  '_ms.pickle'
-nuclei_dict = load_pickeled_nuclei( pickle_name, path)
-
 plt.close('all')
-filename = (    name1 + '_' + name2 + '_'+  name3 + '_gFD=' + gs[0]+ '_gDP=' +gs[1] + '_gPF = '  + gs[2] + 
-             '_' + init_method + '_' + ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + '_syn_' + nucleus.syn_input_integ_method+ '_' +
-            str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_' + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
-            + '_N=' + str(N_sim)  + '.png' ) 
+nuclei_dict = load_json_file_as_obj(os.path.join(path, 'FSI_D2_Proto_N_1000_T2000_ms.json'))
 
-n = 5 ; n_run = 1; if_plot = True; low_pass_filter= False
+name1 = 'FSI' # projecting
+name2 = 'D2' # recieving
+name3 = 'Proto'
+
+receiving_pop_list = {(name1,'1') :  [(name3,'1')],
+                      (name2, '1'): [(name1,'1')],
+                      (name3, '1'): [(name2,'1')]}
+N_100 = dict.fromkeys(N, 100)
+K_cent = calculate_number_of_connections(N_100, N_real, K_real_STN_Proto_diverse)
+
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K_mil = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
+receiving_class_dict= create_receiving_class_dict(receiving_pop_list, nuclei_dict)
+# filename = (    name1 + '_' + name2 + '_'+  name3 + '_gFD=' + gs[0]+ '_gDP=' +gs[1] + '_gPF = '  + gs[2] + 
+#              '_' + init_method + '_' + ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + '_syn_' + nucleus.syn_input_integ_method+ '_' +
+#             str(noise_variance[name1]) + '_' + str(noise_variance[name2]) + '_' + str(noise_variance[name3]) #+ 'N_ext_Proto='  + str(poisson_prop[name]['n'])
+#             + '_N=' + str(N_sim)  + '.png' ) 
+
+n = 5 ; n_run = 1; if_plot = True; plot_spectrum= True; plot_raster = True; low_pass_filter= False
 # n = 5 ; n_run = 1; if_plot = True; low_pass_filter= False
 
 # x = np.flip(np.geomspace(-40, -0.1, n))
 x = np.flip(np.linspace(-40, -0.1, n))
-G_dict = {(name2, name1) :[-.15]*n, (name3, name2): x , (name1, name3) : [-.24] * n}
+G_dict = {(name2, name1) :np.array([-.15 ]*n) , (name3, name2): x , (name1, name3) : np.array([-.24] * n)}
+G_dict = {k: v / K_mil[k] * K_cent[k] for k,v in G_dict.items()}
 
-fig, fig_spec, title, data = synaptic_weight_exploration_SNN(nuclei_dict,duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict,duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
                                         lim_oscil_perc = 10, if_plot = if_plot, low_pass_filter= low_pass_filter, lower_freq_cut= 8, upper_freq_cut = 40,
-                                        set_seed = True, plt_ylim = [-10,100], n_run = n_run, plot_spectrum= True)
+                                        set_seed = True, plt_ylim = [-10,100], n_run = n_run, plot_spectrum= plot_spectrum, plot_raster = plot_raster)
 
 title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][0],2)) +
         r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][0],2)))
@@ -774,11 +782,11 @@ title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "
 # manager = plt.get_current_fig_manager()
 # manager.window.showMaximized()
 
-fig.savefig(os.path.join(path, 'Synapric_weight_exploration_Proto_FSI_changing_' + filename), dpi = 300, facecolor='w', edgecolor='w',
-        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# fig.savefig(os.path.join(path, 'Synapric_weight_exploration_Proto_FSI_changing_' + filename), dpi = 300, facecolor='w', edgecolor='w',
+#         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-fig_spec.savefig(os.path.join(path, 'Synapric_weight_exploration_fft_Spec_Proto_FSI_changing_' + filename), dpi = 300, facecolor='w', edgecolor='w',
-        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# fig_spec.savefig(os.path.join(path, 'Synapric_weight_exploration_fft_Spec_Proto_FSI_changing_' + filename), dpi = 300, facecolor='w', edgecolor='w',
+#         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 # xlabel = r"$ G_{ "+ name3 + '-' + name2 + "}$"
 # fig = plot_multi_run_SNN( data, nuclei_dict, color_dict, x, dt, t_list,  xlabel = xlabel, title = title , title_fontsize = 18, figsize = (6,5))
@@ -1320,7 +1328,7 @@ plt.legend()
 plt.ylabel('FR(Hz)')
 plt.xlabel(r'$G\times FR (Spk/ms)$')
 #%% Pallidostriatal spiking
-N_sim = 1000
+N_sim = 100
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 K_mil = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
 N_sim = 1000
