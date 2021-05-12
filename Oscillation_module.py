@@ -1011,6 +1011,11 @@ def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,n
                     'FR=',FR_mean ,'std=',round(FR_std,2))
         i+=1
     return firing_prop
+    
+def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5):
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.smooth_pop_activity(dt, window_ms = window_ms)
 
 def instantaneus_rise_expon_decay( inputs, I = 0, I_rise = None, tau_decay = 5, tau_rise = None):
 
@@ -1144,7 +1149,8 @@ def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labels
     remove_frame(ax)
     return ax
 
-def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1):
+def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, 
+                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2) [ 0 ]
@@ -1161,7 +1167,10 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
             if plot_end == None:
                 plot_end = len(nucleus.pop_act)
             ax = plt.Subplot(fig, inner[j])
-            spikes_sparse = create_sparse_matrix (nucleus.spikes, end = (plot_end / dt), start = (plot_start / dt)) * dt
+            if n_neurons == None : 
+                n_neurons = nucleus.n
+            neurons = np.random.choice(nucleus.n, n_neurons, replace = False)
+            spikes_sparse = create_sparse_matrix (nucleus.spikes[neurons,:], end = (plot_end / dt), start = (plot_start / dt)) * dt
             ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw)
             fig.add_subplot(ax)
             rm_ax_unnecessary_labels_in_subplots(j+1 ,len(nuclei_dict), ax)

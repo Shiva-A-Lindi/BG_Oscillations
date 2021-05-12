@@ -356,7 +356,7 @@ plt.legend()
 #%% FR simulation vs FR_ext (I = cte + Gaussian noise) 
 def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance, amplitude):
 
-    N_sim = 1000
+    N_sim = 1
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     dt = 0.25
     t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -371,7 +371,7 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
     nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',poisson_prop =poisson_prop, init_method = init_method) for i in pop_list]
     nuclei_dict = {name: nuc}
-    receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list,neuronal_model='spiking')
+    receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
     firing_prop = find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 
     return firing_prop
@@ -390,14 +390,17 @@ n_samples = 4
 mapcolors = create_color_map(n_samples, colormap = plt.cm.gnuplot)
 amplitude_list = np.full(n_samples, 1)
 variance_list = np.logspace(start = -11.8, stop = -1, num = n_samples , base = 10)
-variance_list = [10**-10, 10**-2, 0.1, 3]
+variance_list = [5, 10, 15, 20]
 plt.figure()
 
 
 for i in range (n_samples):
     print(i+1, 'from', n_samples)
+    # label_str = fmt(variance_list[i])
+    label_str = (variance_list[i])
+
     firing_prop_hetero = run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance_list[i], amplitude_list[i])
-    plt.plot(FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,'-o',label = r'$\sigma=$'+"{}".format(fmt(variance_list[i])), c = mapcolors[i], markersize = 4)
+    plt.plot(FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,'-o',label = r'$\sigma=$'+"{}".format(label_str), c = mapcolors[i], markersize = 4)
     plt.fill_between(FR_list * 1000,
                      (firing_prop_hetero[name]['firing_mean'][:,0] - firing_prop_hetero[name]['firing_var'][:,0]) ,
                      (firing_prop_hetero[name]['firing_mean'][:,0] + firing_prop_hetero[name]['firing_var'][:,0])  ,
@@ -405,6 +408,7 @@ for i in range (n_samples):
 plt.xlabel(r'$FR_{external}$',fontsize = 15)
 plt.ylabel(r'$FR_{simulation}$',fontsize = 15)
 plt.title(name + ' ' + init_method, fontsize = 20)
+# plt.ylim(min(FR_list * 1000), max(FR_list * 1000))
 plt.legend()    
 plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
 ### extrapolate with the average firing rate ofthe  population
@@ -686,7 +690,7 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_
 # save_all_mem_potential(nuclei_dict, path)
 # plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 #%% Load from saved init
-N_sim = 100
+N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
 A['D2'] = 3
@@ -699,6 +703,7 @@ name3 = 'Proto'
 g = -0.5; g_ext =  0.01
 G = {}
 G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = g ,0.5 * g, g
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = -0.05 , -2.17 , - 0.07
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
                 name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
@@ -716,7 +721,7 @@ ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
 save_init = False
-noise_variance = {name1 : 0.1, name2: 0.1, name3 : 15}
+noise_variance = {name1 : 0.1, name2: 0.1, name3 : 5}
 noise_amplitude = {name1 : 1, name2: 1, name3: 1}
 
 nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
@@ -735,7 +740,11 @@ nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 set_init_all_nuclei(nuclei_dict)
+reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, mem_pot_init_method='uniform')
 
+nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = 100, title = init_method)
 
 #%% Synaptic weight explortation SNN
 #%% synaptic weight exploration SNN
@@ -753,7 +762,7 @@ n = 5 ; n_run = 1; if_plot = True; plot_spectrum= True; plot_raster = True; low_
 # x = np.flip(np.geomspace(-40, -0.1, n))
 x = np.flip(np.linspace(-20, -10, n))
 G_dict = {(name2, name1) :np.array([-.15 ]*n) , (name3, name2): x , (name1, name3) : np.array([-.24] * n)}
-# G_dict = {k: v / K_mil[k] * K_cent[k] for k,v in G_dict.items()}
+G_dict = {k: v / K_mil[k] * K_cent[k] for k,v in G_dict.items()}
 fft_method = 'Welch'
 figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict,duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, 
                                                     noise_amplitude, noise_variance, lim_oscil_perc = 10, if_plot = if_plot, low_pass_filter= low_pass_filter,
