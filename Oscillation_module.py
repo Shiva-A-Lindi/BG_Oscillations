@@ -27,7 +27,33 @@ from scipy import signal,stats
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
 g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
 fmt = mticker.FuncFormatter(g)
+def extrapolate_FR_ext_from_neuronal_response_curve_high_act ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = None, maxfev = None, g_ext = 0, N_ext = 0, tau = 0, ax = None, noise_var = 0, c= 'grey'):
+    ''' All firing rates in Hz'''
+    # plt.figure()
+    # plt.plot( FR_ext, FR_sim, '-o')
+    slope, intercept = linear_regresstion ( FR_ext, FR_sim)
+    FR_ext_extrapolated = inverse_linear ( desired_FR, slope, intercept)
 
+    if if_plot: 
+        plot_fitted_line( FR_ext , FR_sim, slope, intercept,  FR_to_I_coef = tau * g_ext * N_ext / 1000, ax = ax, noise_var = noise_var, c = c)
+
+    return FR_ext_extrapolated / 1000   # FR_ext is in Hz, we want spk/ms
+
+def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = 25, maxfev = 5000, g_ext = 0, N_ext = 0, tau = 0, ax = None):
+    ''' All firing rates in Hz'''
+    # plt.figure()
+    # plt.plot( FR_ext, FR_sim, '-o')
+    xdata, ydata = get_non_linear_part( FR_ext, FR_sim, end_of_nonlinearity =  end_of_nonlinearity)
+    x, y = rescale_x_and_y ( xdata, ydata )
+    coefs = fit_FR_as_a_func_of_FR_ext ( x, y, sigmoid, maxfev = maxfev)
+    FR_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
+                                                find_y_normalizing_factor(ydata), 
+                                                find_x_mid_point_sigmoid( ydata, xdata)) 
+    
+    if if_plot:
+        plot_fitted_sigmoid(xdata, ydata, x, coefs, FR_to_I_coef = tau * g_ext * N_ext, ax = ax)
+
+    return FR_ext / 1000  # FR_ext is in Hz, we want spk/ms
 
 class Nucleus:
 
@@ -538,13 +564,26 @@ class Nucleus:
             self.rest_ext_input =  self.FR_ext * self.syn_weight_ext_pop * self.n_ext_population * self.membrane_time_constant - I_syn
 
     def estimate_needed_external_input(self, all_FR_list, dt, t_list, receiving_class_dict, if_plot = False, end_of_nonlinearity = 25,
-                                        n_FR = 50, left_pad = 0.001, right_pad =0.001, maxfev = 5000):
+                                        n_FR = 50, left_pad = 0.001, right_pad =0.001, maxfev = 5000, ax = None, c= 'grey'):
         start = timeit.default_timer()
         all_FR_list_2D = np.repeat(all_FR_list.reshape(-1,1), self.n, axis = 1) # provide the array for all neurons
         FR_sim = self.Find_threshold_of_firing( all_FR_list_2D, t_list, dt, receiving_class_dict )
         FR_list = find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, self.init_method, n_FR = n_FR, left_pad = left_pad, right_pad = right_pad)
         FR_sim = self.run_for_all_FR_ext( FR_list, t_list, dt, receiving_class_dict )
-        self. set_FR_ext_each_neuron( FR_list, FR_sim, dt,  if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+        self. set_FR_ext_each_neuron( FR_list, FR_sim, dt,  extrapolate = extrapolate_FR_ext_from_neuronal_response_curve,
+                                    if_plot = if_plot, ax = ax, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, c= c)
+        self.clear_history()
+        stop = timeit.default_timer()
+        print('t for I_ext init ' + self.name  + ' =', round(stop - start, 2),' s')
+
+    def estimate_needed_external_input_high_act(self, FR_range, dt, t_list, receiving_class_dict, if_plot = False, n_FR = 25, ax = None, c = 'grey'):
+
+        start = timeit.default_timer()
+        FR_start = FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [0], self.n_ext_population)
+        FR_end =  FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
+        FR_list = np.linspace ( FR_start, FR_end, n_FR)
+        FR_sim = self.run_for_all_FR_ext( FR_list, t_list, dt, receiving_class_dict )
+        self. set_FR_ext_each_neuron( FR_list, FR_sim, dt, extrapolate = extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot = if_plot, ax = ax, c= c)
         self.clear_history()
         stop = timeit.default_timer()
         print('t for I_ext init ' + self.name  + ' =', round(stop - start, 2),' s')
@@ -564,7 +603,7 @@ class Nucleus:
         return FR_sim
 
     def plot_mem_potential_distribution_of_one_t(self, t,  ax = None, bins = 50, color = 'gray'):
-        fig, ax = get_axes (axj)
+        fig, ax = get_axes (ax)
         ax.hist(self.all_mem_pot[:,t] / self.n, bins = bins, color = color, label = self.name, density = True, stacked = True)
         ax.set_xlabel('Membrane potential (mV)', fontsize = 15)
         ax.set_ylabel(r'$Probability\ density$',fontsize = 15)
@@ -599,19 +638,22 @@ class Nucleus:
         for t in t_list: # run temporal dynamics
             self.solve_IF_without_syn_input(t,dt,receiving_class_dict[(self.name,str(self.population_num))])
 
-    def set_FR_ext_each_neuron(self, FR_list, FR_sim, dt,  if_plot = False, end_of_nonlinearity = 25, maxfev = 5000):
+    def set_FR_ext_each_neuron(self, FR_list, FR_sim, dt, extrapolate = extrapolate_FR_ext_from_neuronal_response_curve,
+                                if_plot = False, ax = None,end_of_nonlinearity = 25, maxfev = 5000, c= 'grey'):
 
         self.FR_ext = np.zeros((self.n))
 
         if self.init_method == 'homogeneous' :#and FR_list.shape[1] == 1:
-            rep_FR_ext, _ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list[:,0] * 1000, np.average(FR_sim, axis = 0),
-                                                                            self.basal_firing, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+            rep_FR_ext = extrapolate ( FR_list[:,0] * 1000, np.average(FR_sim, axis = 0), 
+                                        self.basal_firing, ax = ax, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, 
+                                        tau = self.membrane_time_constant[0], g_ext = self.syn_weight_ext_pop, N_ext =self.n_ext_population, noise_var = self.noise_variance, c= c)
             self.FR_ext = np.full( self.n, rep_FR_ext ) 
                                     
         else :
             for i in range(self.n):
-                self.FR_ext[i], _ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list[:,i] * 1000, FR_sim[i,:] , self.basal_firing, 
-                                                                                if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev)
+                self.FR_ext[i] = extrapolate( FR_list[:,i] * 1000, FR_sim[i,:] , self.basal_firing, ax = ax,
+                                            if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, 
+                                            tau = self.membrane_time_constant[i], g_ext = self.syn_weight_ext_pop, N_ext =self.n_ext_population, noise_var = self.noise_variance, c= c)
     def scale_synaptic_weight(self):
         self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
@@ -908,24 +950,30 @@ def find_FR_ext_range_for_each_neuron(FR_sim, all_FR_list, init_method,  n_FR = 
 
     return FR_list
 
-def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = 25, maxfev = 5000):
-    ''' All firing rates in Hz'''
-    # plt.figure()
-    # plt.plot( FR_ext, FR_sim, '-o')
-    xdata, ydata = get_non_linear_part( FR_ext, FR_sim, end_of_nonlinearity =  end_of_nonlinearity)
-    x, y = rescale_x_and_y ( xdata, ydata )
-    coefs = fit_FR_as_a_func_of_FR_ext ( x, y, sigmoid, maxfev = maxfev)
-    FR_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
-                                                find_y_normalizing_factor(ydata), 
-                                                find_x_mid_point_sigmoid( ydata, xdata)) 
-    
-    if if_plot: 
-        plot_fitted_curve(xdata, ydata, x, coefs)
 
-    return FR_ext / 1000 , coefs # FR_ext is in Hz, we want spk/ms
+def find_FR_ext_range_for_each_neuron_high_act(FR_sim, all_FR_list, init_method,  n_FR = 25 , left_pad = 0.005, right_pad = 0.005, lin_start = 35):
+    ''' linear spaced FR for linear regime of response curve with high noise (i.e. Proto neurons)'''
+    n_pop = FR_sim.shape[ 0 ]
+    if init_method == 'homogeneous':
 
-def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list, 
-                        all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, right_pad = 0.005, maxfev = 5000):
+          # setting according to one neurons would be enough
+
+        start_act = np.average([all_FR_list[np.min( np.where( FR_sim[i,:] > lin_start )[0])] for i in range(n_pop)]) # setting according to one neurons would be enough
+
+        FR_list = np.repeat( np.linspace( start_act, all_FR_list[-1], n_FR).rehsape(-1,1) , n_pop, axis = 1 )
+        
+    else:
+        
+        FR_list = np.zeros( (n_FR, n_pop) )
+        for i in range(n_pop):
+        
+            start_act = all_FR_list[np.min( np.where( FR_sim[i,:] > lin_start )[0])]
+            FR_list[:,i] = np.linspace( start_act, all_FR_list[-1], n_FR).reshape(-1,)
+
+    return FR_list
+
+def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list, c = 'grey',
+                        all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, right_pad = 0.005, maxfev = 5000, ax = None):
     '''find number of connections and build J matrix, set ext inputs as well'''
     #K = calculate_number_of_connections(N,N_real,K_real)
     K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
@@ -939,8 +987,12 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_di
                 nucleus.scale_synaptic_weight() # filter based on the receiving nucleus
 
             elif nucleus. der_ext_I_from_curve :
-                nucleus.estimate_needed_external_input(all_FR_list, dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
-                                                        n_FR = n_FR , left_pad = left_pad, right_pad = right_pad)
+                if nucleus.basal_firing > 30:
+                    print(all_FR_list[nucleus.name])
+                    nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, n_FR = n_FR, ax = ax, c= c)
+                else:
+                    nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
+                                    n_FR = n_FR , left_pad = left_pad, right_pad = right_pad, ax = ax, c= c)
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return receiving_class_dict
 
@@ -964,13 +1016,36 @@ def load_json_file_as_obj(filepath):
     file_ = o.read()
     return jsonpickle.decode(file_)
 
-def plot_fitted_curve(xdata, ydata, x_scaled, coefs = []):
-    ax = plt.figure()
-    ax.plot(xdata, ydata,'-o', label = 'data')
+def ax_label_adjust(ax, fontsize = 18):
+    ax.locator_params(axis='y', nbins=5)
+    ax.locator_params(axis='x', nbins=5)
+    plt.rcParams['xtick.labelsize'] = fontsize
+    plt.rcParams['ytick.labelsize'] = fontsize
+
+def plot_fitted_sigmoid(xdata, ydata, x_scaled, FR_to_I_coef = 0, coefs = [], ax = None):
+    fig, ax = get_axes (ax)
+    ax.plot(xdata * FR_to_I_coef, ydata,'-o', label = 'response curve')
     if coefs != []:
         y = sigmoid(x_scaled ,*coefs)
-        ax.plot(x_scaled + find_x_mid_point_sigmoid( ydata, xdata), y * find_y_normalizing_factor(ydata), label = 'fitted curve')
+        I_ext = (x_scaled + find_x_mid_point_sigmoid( ydata, xdata)) * FR_to_I_coef
+        FR = y * find_y_normalizing_factor(ydata)
+        ax.plot( I_ext, FR, label = 'fitted curve')
     ax.legend()
+    ax.set_xlabel('I_ext (mV)', fontsize = 15)
+    ax.set_ylabel('FR (Hz)', fontsize = 15)
+    ax_label_adjust(ax)
+    remove_frame(ax)
+
+def plot_fitted_line( x, y, slope, intercept, FR_to_I_coef = 0, ax = None, noise_var = 0, c = 'grey'):
+    fig, ax = get_axes (ax)
+    ax.plot(x * FR_to_I_coef, y , 'o', label = r'$\sigma =$' + str(noise_var), c = c, markersize= 7, markerfacecolor='none', markeredgewidth=1.5)
+    ax.plot(x * FR_to_I_coef, slope * x + intercept, c = c, label = 'fitted curve' , lw = 2)
+    ax.set_xlabel(r'$I_{ext} \; (mV)$', fontsize = 15)
+    ax.set_ylabel('FR (Hz)', fontsize = 15)
+    ax_label_adjust(ax)
+    remove_frame(ax)
+    if ax != None:
+        ax.legend()
 
 def scale_bound_with_mean(mean, lower_bound_perc , upper_bound_perc, scale = None):
     lower_bound = mean * lower_bound_perc 
@@ -1084,6 +1159,10 @@ def FR_ext_theory(V_thresh, V_rest, tau, g_ext, FR_list, N_ext):
     ''' calculate what external input is needed to get the desired firing of the list FR_list '''
     frac = (V_thresh - V_rest ) / ( FR_list * g_ext * N_ext * tau)
     return -1 / np.log ( 1 - frac ) / tau
+def FR_ext_of_given_FR_theory(V_thresh, V_rest, tau, g_ext, FR, N_ext):
+    ''' calculate what external input is needed to get the desired firing of the list FR_list '''
+    exp = np.exp( -1 / tau / FR)
+    return (V_thresh - V_rest)/ (1-exp) / tau/ g_ext/ N_ext
 
 def find_x_mid_point_sigmoid( y, x):
     ''' extrapolate the x of half max of y from the two nearest data points'''
@@ -1101,6 +1180,14 @@ def sigmoid(x, x0, k):
     
 def inverse_sigmoid( y, x0, k):
     return -1/k * np.log ( (1 - y) / y) + x0
+
+def inverse_linear( y, a, b):
+     return ( y - b ) / a
+
+def linear_regresstion(x, y):
+
+    res = stats.linregress(x, y)
+    return res.slope, res.intercept
 
 def fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func, maxfev=5000):
     popt, pcov = curve_fit(estimating_func, FR_ext.reshape(-1,), FR, method='dogbox', maxfev = maxfev)
@@ -2232,7 +2319,7 @@ def find_AUC_of_input(name,poisson_prop,gain, threshold, neuronal_consts,tau,ext
 
 
 
-def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts, start_epsilon = 10**(-10)):
+def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts, start_epsilon = 10**(-10), x_val = 'FR'):
     
     start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
               / (poisson_prop[name]['g']*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + start_epsilon)
@@ -2242,10 +2329,16 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_const
     y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
                               neuronal_consts[name]['u_rest'], 
                               neuronal_consts[name]['membrane_time_constant']['mean'], poisson_prop[name]['g'], x_theory, poisson_prop[name]['n'])
-    plt.plot(x_theory * 1000, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
+    if x_val == 'FR':
+        x = x_theory * 1000
+        xlim = [I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000]
+    elif x_val == 'I_ext':
+        x = x_theory * poisson_prop[name]['g'] * poisson_prop [name ]['n'] * poisson_prop[name]['tau']['decay']['mean']
+        xlim = [I_ext_range[name][0] * poisson_prop[name]['tau']['decay']['mean'], I_ext_range[name][1] * poisson_prop[name]['tau']['decay']['mean']]
+    plt.plot(x, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
     plt.xlabel(r'$FR_{ext}$',fontsize=15)
     plt.ylabel(r'$FR$',fontsize=15)
-    plt.xlim(I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000)
+    plt.xlim(xlim)
     plt.legend()
 
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):

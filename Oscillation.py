@@ -354,9 +354,10 @@ plt.title(name + ' ' + init_method, fontsize = 20)
 plt.legend()
 
 #%% FR simulation vs FR_ext (I = cte + Gaussian noise) 
+plt.close('all')
 def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance, amplitude):
 
-    N_sim = 1
+    N_sim = 1000
     N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
     dt = 0.25
     t_sim = 1000; t_list = np.arange(int(t_sim/dt))
@@ -376,8 +377,8 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
 
     return firing_prop
 
-init_method = 'heterogeneous'
-# init_method = 'homogeneous'
+# init_method = 'heterogeneous'
+init_method = 'homogeneous'
 name = 'Proto'
 n = 50
 # start=59.5; end=60.5;  # for FSI & D2
@@ -387,31 +388,40 @@ poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.
 FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]).reshape(-1,) / poisson_prop[name]['g'] / poisson_prop [name ]['n'] 
 
 n_samples = 4
-mapcolors = create_color_map(n_samples, colormap = plt.cm.gnuplot)
+mapcolors = create_color_map(n_samples, colormap = plt.get_cmap('viridis'))
 amplitude_list = np.full(n_samples, 1)
 variance_list = np.logspace(start = -11.8, stop = -1, num = n_samples , base = 10)
-variance_list = [5, 10, 15, 20]
-plt.figure()
+variance_list = [0, 5, 10, 20]
+fig, ax = plt.subplots(1,1, figsize = (6,5))
 
 
 for i in range (n_samples):
     print(i+1, 'from', n_samples)
     # label_str = fmt(variance_list[i])
     label_str = (variance_list[i])
-
+    # x_series  = FR_list * 1000
+    x_series =FR_list * g_ext * poisson_prop[name]['tau']['decay']['mean']* poisson_prop[name]['n']
     firing_prop_hetero = run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list, variance_list[i], amplitude_list[i])
-    plt.plot(FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,'-o',label = r'$\sigma=$'+"{}".format(label_str), c = mapcolors[i], markersize = 4)
-    plt.fill_between(FR_list * 1000,
+    plt.plot(x_series, firing_prop_hetero[name]['firing_mean'][:,0] ,'-o',label = r'$\sigma=$'+"{}".format(label_str), c = mapcolors[i], markersize = 4)
+    plt.fill_between(x_series,
                      (firing_prop_hetero[name]['firing_mean'][:,0] - firing_prop_hetero[name]['firing_var'][:,0]) ,
                      (firing_prop_hetero[name]['firing_mean'][:,0] + firing_prop_hetero[name]['firing_var'][:,0])  ,
                   alpha = 0.1, color = mapcolors[i])
-plt.xlabel(r'$FR_{external}$',fontsize = 15)
-plt.ylabel(r'$FR_{simulation}$',fontsize = 15)
+# plt.xlabel(r'$FR_{external}$',fontsize = 15)
+
 plt.title(name + ' ' + init_method, fontsize = 20)
 # plt.ylim(min(FR_list * 1000), max(FR_list * 1000))
 plt.legend()    
-plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
-### extrapolate with the average firing rate ofthe  population
+plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts, x_val = 'I_ext')
+plt.xlabel(r'$I_{external} \; (mV)$',fontsize = 15)
+plt.ylabel(r'$FR_{simulation} \; (Hz)$',fontsize = 15)
+remove_frame(ax)
+filename = 'Proto_1000_neuron_response_curve_with_different_noise.png'
+fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)### extrapolate with the average firing rate ofthe  population
+filename = 'Proto_1000_neuron_response_curve_with_different_noise.pdf'
+fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # FR_ext,_ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,A[name],
                                                             # if_plot = True, end_of_nonlinearity = 25)
 
@@ -455,18 +465,19 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts)
 # firing_prop = find_FR_sim_vs_FR_ext([FR_ext],poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt)
 #%% Deriving F_ext from the response curve
 # np.random.seed(1006)
+plt.close('all')
 name = 'Proto'
-N_sim = 100
+N_sim = 1
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 100; t_list = np.arange(int(t_sim/dt))
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {}
 receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
-init_method = 'heterogeneous'
-# init_method = 'homogeneous'
+# init_method = 'heterogeneous'
+init_method = 'homogeneous'
 noise_variance = {name : 0}
 noise_amplitude = {name : 1}
 g = -0.01; g_ext = -g
@@ -479,18 +490,45 @@ poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.
 
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
            synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',
-           poisson_prop =poisson_prop, init_method = init_method, der_ext_I_from_curve= False, ext_inp_method = ext_inp_method,
+           poisson_prop =poisson_prop, init_method = init_method, der_ext_I_from_curve= True, ext_inp_method = ext_inp_method,
            syn_input_integ_method = syn_input_integ_method, ext_input_integ_method= ext_input_integ_method, path = path) for i in pop_list]
 nuclei_dict = {name: nuc}
+nucleus = nuc[0]
 n = 50
 pad = [0.001, 0.001]
-all_FR_list = np.linspace ( 0.04, 0.075 , 200).reshape(-1,1)
-if_plot = False
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                         all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
-
+all_FR_list ={name: np.array([0.040, 0.07])}
+n_samples = 4
+mapcolors = create_color_map(n_samples, colormap = plt.get_cmap('viridis'))
+if_plot = True
+fig,ax = plt.subplots(1,1)
+FR_str = FR_ext_of_given_FR_theory(nucleus.spike_thresh, nucleus.u_rest, nucleus.membrane_time_constant, nucleus.syn_weight_ext_pop, all_FR_list[name][0], nucleus.n_ext_population)
+FR_end = FR_ext_of_given_FR_theory(nucleus.spike_thresh, nucleus.u_rest, nucleus.membrane_time_constant, nucleus.syn_weight_ext_pop, all_FR_list[name][1], nucleus.n_ext_population)
+FR_list = np.linspace(FR_str, FR_end, 100)
+nucleus.noise_variance = 0
+variance_list = [0, 10, 20]
+count = 0
+for noise in variance_list:
+    if count == 1:
+        count +=1
+    c = mapcolors[count]
+    nucleus.noise_variance = noise
+    receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                         all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, 
+                                         left_pad =pad[0], right_pad=pad[1], ax = ax, c = c)
+    count +=1
+ax.plot( FR_list * nucleus.membrane_time_constant * nucleus.syn_weight_ext_pop * nucleus.n_ext_population,
+        FR_ext_theory(nucleus.spike_thresh, nucleus.u_rest, nucleus.membrane_time_constant, nucleus.syn_weight_ext_pop, 
+                      FR_list, nucleus.n_ext_population)* 1000 ,c= 'lightcoral', label = 'theory', lw = 2.5)
+ax.legend()
+ax_label_adjust(ax, fontsize = 20)
+filename = 'Proto_on_neuron_linear_fit_to_response_curve.png'
+fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+filename = 'Proto_on_neuron_linear_fit_to_response_curve.pdf'
+fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
+        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #### Check behavior
-nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc})
+# nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc})
 
 
 # fig, axs = plt.subplots(len(nuclei_dict), 1, sharex=True, sharey=True)
@@ -547,7 +585,7 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  {name: nuc})
 # plt.xlabel("time (ms)", fontsize = 15)
 # plt.ylabel(r"$V_{m}$", fontsize = 15)
 # plt.legend()
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_ob = None, title_fontsize=15, title = init_method)
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, title = init_method)
 
 #%% two connected nuclei with derived I_ext from response curve
 
@@ -680,7 +718,9 @@ nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_vari
 nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
 n = 50
 pad = [0.001, 0.001]
-all_FR_list = np.linspace ( 0.045, 0.08 , 250).reshape(-1,1)
+all_FR_list ={name1: np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
+              name2: np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
+              name3: [0.035, 0.06]}
 if_plot = False
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 25, left_pad =pad[0], right_pad=pad[1])
@@ -746,7 +786,6 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = 100, title = init_method)
 
-#%% Synaptic weight explortation SNN
 #%% synaptic weight exploration SNN
 duration_base = [0, int(t_mvt/dt)]
 N_100 = dict.fromkeys(N, 100)
