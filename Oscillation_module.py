@@ -33,7 +33,7 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act ( FR_ext, FR_sim , 
     # plt.plot( FR_ext, FR_sim, '-o')
     slope, intercept = linear_regresstion ( FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear ( desired_FR, slope, intercept)
-
+    print('extrapolated = ', FR_ext_extrapolated)
     if if_plot: 
         plot_fitted_line( FR_ext , FR_sim, slope, intercept,  FR_to_I_coef = tau * g_ext * N_ext / 1000, ax = ax, noise_var = noise_var, c = c)
 
@@ -60,7 +60,7 @@ class Nucleus:
     def __init__(self, population_number,gain, threshold,neuronal_consts,tau, ext_inp_delay, noise_variance, noise_amplitude, N, A,A_mvt, name, G, T, t_sim, dt, 
         synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',neuronal_model = 'rate',
         poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve = False, bound_to_mean_ratio = [0.8 , 1.2],
-        spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, 
+        spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, set_input_from_response_curve = True,
         set_random_seed = False, keep_mem_pot_all_t = False, save_init = False):
         
         if set_random_seed :
@@ -137,6 +137,7 @@ class Nucleus:
             self.sum_syn_inp_at_rest = None
             self.keep_mem_pot_all_t = keep_mem_pot_all_t
             self.save_init = save_init
+            self.set_input_from_response_curve = set_input_from_response_curve
             if self.keep_mem_pot_all_t:
                 self.all_mem_pot = np.zeros((self.n, n_timebins ))
             self.ext_input_integ_method = ext_input_integ_method
@@ -541,6 +542,10 @@ class Nucleus:
         self.spike_thresh = f['spike_thresh']
         self.membrane_time_constant = f['membrane_time_constant']
         self.tau_ext_pop = f['tau_ext_pop']
+        try :
+            self.noise_variance = f['noise_variance']
+        except KeyError:
+            pass
 
 
     def _save_init(self):
@@ -549,8 +554,9 @@ class Nucleus:
                     'spike_thresh': self.spike_thresh, 
                     'membrane_time_constant': self.membrane_time_constant,
                     'tau_ext_pop': self.tau_ext_pop,
-                    'FR_ext': self.FR_ext}
-            pickle_obj(init, os.path.join( self.path, self.name + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '.pkl'))
+                    'FR_ext': self.FR_ext,
+                    'noise_variance': self.noise_variance}
+            pickle_obj(init, os.path.join( self.path, self.name + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
         exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
@@ -558,7 +564,7 @@ class Nucleus:
         self.FR_ext = self.rest_ext_input / self.syn_weight_ext_pop / self.n_ext_population / self.membrane_time_constant
 
     def _set_ext_inp_const_plus_noise(self, I_syn):
-        if self.basal_firing > 25 : # linear regime:
+        if self.basal_firing > 25 and not self.set_input_from_response_curve: # linear regime if decided not to derive from reponse curve (works for low noise levels)
             self._set_ext_inp_poisson( I_syn)
         else:
             self.rest_ext_input =  self.FR_ext * self.syn_weight_ext_pop * self.n_ext_population * self.membrane_time_constant - I_syn
@@ -647,6 +653,7 @@ class Nucleus:
             rep_FR_ext = extrapolate ( FR_list[:,0] * 1000, np.average(FR_sim, axis = 0), 
                                         self.basal_firing, ax = ax, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, 
                                         tau = self.membrane_time_constant[0], g_ext = self.syn_weight_ext_pop, N_ext =self.n_ext_population, noise_var = self.noise_variance, c= c)
+            print('before setting=', rep_FR_ext)
             self.FR_ext = np.full( self.n, rep_FR_ext ) 
                                     
         else :
@@ -706,11 +713,14 @@ class Nucleus:
     def low_pass_filter(self, dt, low, high, order = 6):
         self.pop_act = butter_bandpass_filter(self.pop_act, low, high, 1 / (dt / 1000), order = order )
 
-def set_init_all_nuclei(nuclei_dict):
+def set_init_all_nuclei(nuclei_dict, filepaths = None):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            filepath = os.path.join( nucleus.path, nucleus.name + '_N_' + str(nucleus.n) + '_T_' + str(nucleus.t_sim) + '.pkl')
+            if filepaths == None:
+                filepath = os.path.join( nucleus.path, nucleus.name + '_N_' + str(nucleus.n) + '_T_' + str(nucleus.t_sim) + '.pkl')
+            else:
+                filepath = os.path.join(nucleus.path, filepaths[nucleus.name])
             nucleus.set_init_from_pickle(filepath)
 
 def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None):
@@ -749,7 +759,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
     peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
     lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, plt_ylim = [0,80],
     plot_spectrum = False, spec_figsize = (6,5), plot_raster = False, plot_start = 0, plot_end = None, find_beta_band_power = False, n_windows = 6, fft_method = 'rfft',
-    include_beta_band_in_legend = True):
+    include_beta_band_in_legend = True, n_neuron = None):
 
     if set_seed:
         np.random.seed(1956)
@@ -805,7 +815,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
 
             if plot_raster:
                 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = outer[i], title = title, fig = fig_raster, plot_start = plot_start, 
-                                                    plot_end = plot_end, labelsize = 10, title_fontsize = 15, lw  = 1.8, linelengths = 1)
+                                                    plot_end = plot_end, labelsize = 10, title_fontsize = 15, lw  = 1.8, linelengths = 1, n_neuron = n_neuron)
             
             data = find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , 
                                 check_stability , freq_method , plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum =plot_spectrum, ax = ax_spec, 
@@ -1254,9 +1264,9 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
             if plot_end == None:
                 plot_end = len(nucleus.pop_act)
             ax = plt.Subplot(fig, inner[j])
-            if n_neurons == None : 
-                n_neurons = nucleus.n
-            neurons = np.random.choice(nucleus.n, n_neurons, replace = False)
+            if n_neuron == None : 
+                n_neuron = nucleus.n
+            neurons = np.random.choice(nucleus.n, n_neuron, replace = False)
             spikes_sparse = create_sparse_matrix (nucleus.spikes[neurons,:], end = (plot_end / dt), start = (plot_start / dt)) * dt
             ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw)
             fig.add_subplot(ax)
