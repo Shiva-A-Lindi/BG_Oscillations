@@ -9,6 +9,7 @@ from matplotlib.ticker import FormatStrFormatter
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from numpy.fft import rfft,fft, fftfreq
 from tempfile import TemporaryFile
 import pickle
@@ -35,11 +36,12 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act ( FR_ext, FR_sim , 
     FR_ext_extrapolated = inverse_linear ( desired_FR, slope, intercept)
     print('extrapolated = ', FR_ext_extrapolated)
     if if_plot: 
+
         plot_fitted_line( FR_ext , FR_sim, slope, intercept,  FR_to_I_coef = tau * g_ext * N_ext / 1000, ax = ax, noise_var = noise_var, c = c)
 
     return FR_ext_extrapolated / 1000   # FR_ext is in Hz, we want spk/ms
 
-def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = 25, maxfev = 5000, g_ext = 0, N_ext = 0, tau = 0, ax = None):
+def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = 25, maxfev = 5000, g_ext = 0, N_ext = 0, tau = 0, ax = None, noise_var = 0, c = 'grey'):
     ''' All firing rates in Hz'''
     # plt.figure()
     # plt.plot( FR_ext, FR_sim, '-o')
@@ -49,9 +51,9 @@ def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_F
     FR_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
                                                 find_y_normalizing_factor(ydata), 
                                                 find_x_mid_point_sigmoid( ydata, xdata)) 
-    
+    print(tau * g_ext * N_ext / 1000)
     if if_plot:
-        plot_fitted_sigmoid(xdata, ydata, x, coefs, FR_to_I_coef = tau * g_ext * N_ext, ax = ax)
+        plot_fitted_sigmoid(xdata, ydata, x, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
 
     return FR_ext / 1000  # FR_ext is in Hz, we want spk/ms
 
@@ -545,6 +547,7 @@ class Nucleus:
         try :
             self.noise_variance = f['noise_variance']
         except KeyError:
+            print("Watchout couldn't set noise for the " + self.name + ", set it manually!")
             pass
 
 
@@ -723,7 +726,7 @@ def set_init_all_nuclei(nuclei_dict, filepaths = None):
                 filepath = os.path.join(nucleus.path, filepaths[nucleus.name])
             nucleus.set_init_from_pickle(filepath)
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None):
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None, set_noise = True):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -755,11 +758,11 @@ def get_max_len_dict(dictionary):
     ''' return maximum length between items of a dictionary'''
     return max(len(v) for k,v in dictionary.items())
 
-def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
-    lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, plt_ylim = [0,80],
-    plot_spectrum = False, spec_figsize = (6,5), plot_raster = False, plot_start = 0, plot_end = None, find_beta_band_power = False, n_windows = 6, fft_method = 'rfft',
-    include_beta_band_in_legend = True, n_neuron = None):
+    lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, firing_ylim = [0,80],
+    plot_spectrum = False, spec_figsize = (6,5), plot_raster = False, plot_start = 0, plot_start_raster = 0, plot_end = None, find_beta_band_power = False, n_windows = 6, fft_method = 'rfft',
+    include_beta_band_in_legend = True, n_neuron = None, save_pkl = False, include_std = True, round_dec = 2, legend_loc = 'upper right'):
 
     if set_seed:
         np.random.seed(1956)
@@ -814,7 +817,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
             nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
 
             if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = outer[i], title = title, fig = fig_raster, plot_start = plot_start, 
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = outer[i], title = title, fig = fig_raster, plot_start = plot_start_raster, 
                                                     plot_end = plot_end, labelsize = 10, title_fontsize = 15, lw  = 1.8, linelengths = 1, n_neuron = n_neuron)
             
             data = find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , 
@@ -831,17 +834,17 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
                 x_l = 8
                 ax_spec.axhline(x_l, ls = '--', c = 'grey')
 
-            ax_spec.set_title(title, fontsize = 18)
-            ax_spec.legend(fontsize = 11, loc = 'upper center')
+            # ax_spec.set_title(title, fontsize = 18)
+            ax_spec.legend(fontsize = 11, loc = 'upper center', framealpha = 0.1, frameon = False)
             ax_spec.set_xlim(5,55)
             rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax_spec)
 
         if if_plot:
             ax = fig.add_subplot(n_iter,1,count+1)
-            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title,
-                n_subplots = int(n_iter), plt_txt = 'horizontal', plt_mvt = False, plt_freq = True ,plot_start = plot_start, plot_end = plot_end)
-            ax.legend(fontsize = 13, loc = 'upper right')
-            ax.set_ylim(*plt_ylim)
+            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std = include_std, round_dec = round_dec, legend_loc = legend_loc,
+                n_subplots = int(n_iter), plt_txt = 'horizontal', plt_mvt = False, plt_freq = True ,plot_start = plot_start, plot_end = plot_end, ylim = firing_ylim)
+            ax.legend(fontsize = 13, loc = legend_loc, framealpha = 0.1, frameon = False)
+            # ax.set_ylim(*plt_ylim)
             rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax)
 
         count +=1
@@ -857,7 +860,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
     if plot_spectrum:
         fig_spec.set_size_inches((11, 15), forward=False)
         fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center',fontsize = 18)
-        fig_spec.text(0.03, 0.5, 'fft Power', va='center', rotation='vertical', fontsize = 18)
+        fig_spec.text(0.02, 0.5, 'fft Power', va='center', rotation='vertical', fontsize = 18)
         figs.append(fig_spec)
     if plot_raster:
         fig.set_size_inches((11, 15), forward=False)
@@ -865,14 +868,13 @@ def synaptic_weight_exploration_SNN(nuclei_dict, duration_base, G_dict, color_di
         fig_raster.text(0.03, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 18)
         figs.append(fig_raster)
         fig_raster.show()
-    # output = open(filename, 'wb')
-    # pickle.dump(data, output)
-    # output.close()
+    if save_pkl:
+        pickle_obj( data, filepath)
     return figs, title, data
 def rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax):
     ax.set_xlabel("")
     ax.set_ylabel("")
-    if count < n_iter-1:
+    if count+1 < n_iter:
         ax.axes.xaxis.set_ticklabels([])
 
 def _get_title(G_dict, i):
@@ -1026,25 +1028,27 @@ def load_json_file_as_obj(filepath):
     file_ = o.read()
     return jsonpickle.decode(file_)
 
-def ax_label_adjust(ax, fontsize = 18):
-    ax.locator_params(axis='y', nbins=5)
-    ax.locator_params(axis='x', nbins=5)
+def ax_label_adjust(ax, fontsize = 18, nbins = 5):
+    ax.locator_params(axis='y', nbins= nbins)
+    ax.locator_params(axis='x', nbins= nbins)
     plt.rcParams['xtick.labelsize'] = fontsize
     plt.rcParams['ytick.labelsize'] = fontsize
 
-def plot_fitted_sigmoid(xdata, ydata, x_scaled, FR_to_I_coef = 0, coefs = [], ax = None):
+def plot_fitted_sigmoid(xdata, ydata, x_scaled, FR_to_I_coef = 0, coefs = [], ax = None,  noise_var = 0, c = 'grey'):
     fig, ax = get_axes (ax)
-    ax.plot(xdata * FR_to_I_coef, ydata,'-o', label = 'response curve')
+    ax.plot(xdata * FR_to_I_coef, ydata,'o',label = r'$\sigma =$' + str(noise_var), c = c, markersize= 7, markerfacecolor='none', markeredgewidth=1.5)
     if coefs != []:
         y = sigmoid(x_scaled ,*coefs)
         I_ext = (x_scaled + find_x_mid_point_sigmoid( ydata, xdata)) * FR_to_I_coef
         FR = y * find_y_normalizing_factor(ydata)
-        ax.plot( I_ext, FR, label = 'fitted curve')
-    ax.legend()
-    ax.set_xlabel('I_ext (mV)', fontsize = 15)
+        ax.plot( I_ext, FR, c = c, label = 'fitted curve' , lw = 2)
+    ax.legend(framealpha = 0.1, frameon = False)
+    ax.set_xlabel(r'$I_{ext} \; (mV)$', fontsize = 15)
     ax.set_ylabel('FR (Hz)', fontsize = 15)
     ax_label_adjust(ax)
     remove_frame(ax)
+    if ax != None:
+        ax.legend()
 
 def plot_fitted_line( x, y, slope, intercept, FR_to_I_coef = 0, ax = None, noise_var = 0, c = 'grey'):
     fig, ax = get_axes (ax)
@@ -1055,7 +1059,7 @@ def plot_fitted_line( x, y, slope, intercept, FR_to_I_coef = 0, ax = None, noise
     ax_label_adjust(ax)
     remove_frame(ax)
     if ax != None:
-        ax.legend()
+        ax.legend(framealpha = 0.1, frameon = False)
 
 def scale_bound_with_mean(mean, lower_bound_perc , upper_bound_perc, scale = None):
     lower_bound = mean * lower_bound_perc 
@@ -1231,23 +1235,29 @@ def create_sparse_matrix (matrix , end = None, start = 0):
     n_cols = matrix.shape [1]
     if end == None:
         end = n_cols
-    return  np.array( [ np.where( matrix[i,int(start):int(end)] == 1 ) [0]  for i in range( n_rows )] ,dtype = object)
+    return  np.array( [ np.where( matrix[i,int(start):int(end)] == 1 ) [0]  for i in range( n_rows )] ,dtype = object) + int(start)
 
 def get_axes (ax, figsize = (6,5)):
     if ax == None :
         fig, ax = plt.subplots(1,1, figsize = figsize)
     return plt.gcf(), ax
 
-def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labelsize = 10, title_fontsize = 15, linelengths = 2, lw = 2):
+def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labelsize = 10, title_fontsize = 15, linelengths = 2.5, lw = 3, xlim = None):
     fig, ax = get_axes (ax)
-    ax.eventplot(spikes_sparse, colors = color, linelengths = linelengths, lw = lw, orientation='horizontal')
+    c_dict = color_dict.copy()
+    c_to_ch = {v:k for k, v in c_dict.items()}['grey']
+    c_dict[c_to_ch] = 'k'
+    ax.eventplot(spikes_sparse, colors = c_dict[name], linelengths = linelengths, lw = lw, orientation='horizontal')
     ax.tick_params(axis = 'both', labelsize = labelsize)
     ax.set_title( name, c = color_dict[name], fontsize = title_fontsize)
     remove_frame(ax)
+    if xlim != None:
+        ax.set_xlim(xlim)
+    ax.legend(loc = 'upper right', framealpha = 0.1, frameon = False)
     return ax
 
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, 
-                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None):
+                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2) [ 0 ]
@@ -1255,9 +1265,10 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
     inner = gridspec.GridSpecFromSubplotSpec( len(nuclei_dict), 1,
                     subplot_spec= outer, wspace=0.1, hspace=0.1)
     j = 0
-    ax = plt.Subplot(fig, outer)
-    ax.set_title(title, fontsize = 15)
-    ax.axis('off')
+    if include_title:
+        ax = plt.Subplot(fig, outer)
+        ax.set_title(title, fontsize = 15)
+        ax.axis('off')
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
@@ -1268,9 +1279,13 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
                 n_neuron = nucleus.n
             neurons = np.random.choice(nucleus.n, n_neuron, replace = False)
             spikes_sparse = create_sparse_matrix (nucleus.spikes[neurons,:], end = (plot_end / dt), start = (plot_start / dt)) * dt
-            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw)
+            if set_xlim : 
+                xlim =  [plot_start, plot_end]
+            else: xlim = None
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw, xlim =xlim)
             fig.add_subplot(ax)
-            rm_ax_unnecessary_labels_in_subplots(j+1 ,len(nuclei_dict), ax)
+            ax_label_adjust(ax, fontsize = 18, nbins = 4)
+            rm_ax_unnecessary_labels_in_subplots(j ,len(nuclei_dict), ax)
             j += 1
     return fig
 def find_FR_sim_vs_FR_expected(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
@@ -1444,7 +1459,7 @@ def plot_fft_spectrum ( peak_freq, f, pxx, N, ax = None, c = 'navy', label = 'ff
     ax.plot( f, pxx , c = c, label = label, lw = 1.5)
     ax.set_xlabel('frequency (Hz)', fontsize = 15)
     ax.set_ylabel('FFT power', fontsize = 15) 
-    ax.legend(fontsize = 15, loc = 'upper right')
+    ax.legend(fontsize = 15, loc = 'center right', framealpha = 0.1, frameon = False)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax.locator_params(axis='y', nbins=5)
     ax.locator_params(axis='x', nbins=5)
@@ -1562,7 +1577,7 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 18,plot_start = 0,ylabelpad = 0,
-         plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False):    
+         plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right'):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
@@ -1582,9 +1597,12 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
             if plt_mvt:
                 ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha=0.2,lw = 1 )
             FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
-            txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,2), round(FR_std,2) )
+            if include_std:
+                txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,round_dec), round(FR_std,round_dec) )
+            else:
+                txt =  r"$\overline{{FR_{{{0}}}}}$ ={1}".format(nucleus.name,  round(FR_mean,round_dec))
             if plt_txt == 'horizontal' :
-                ax.text(0.1 + count * 0.2, 0.8 , txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
+                ax.text(0.05 + count * 0.22, 0.9 , txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
 
             elif plt_txt == 'vertical':
                 ax.text(0.2, 0.9 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
@@ -1594,15 +1612,20 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.set_title(title, fontsize = title_fontsize)
     ax.set_xlabel("time (ms)", fontsize = 15)
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    ax.legend(fontsize = 15, loc = 'upper right')
+    ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax.locator_params(axis='y', nbins=5)
     ax.locator_params(axis='x', nbins=5)
     plt.rcParams['xtick.labelsize'] = 18
     plt.rcParams['ytick.labelsize'] = 18
     ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
+    if ylim != None:
+        ax.set_ylim(ylim)
     remove_frame(ax)
     return fig
+
+def _str_G_with_key(key):
+    return r'$G_{' + list(key)[1] + '-' + list(key)[0] + r'}$'
 
 def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = 'G', title = "",title_fontsize = 18, figsize = (6,5)):    
 
@@ -1621,7 +1644,7 @@ def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = '
     plt.title(title, fontsize = title_fontsize)
     plt.xlabel( xlabel, fontsize = 15)
     plt.ylabel("frequency", fontsize = 15)
-    plt.legend(fontsize = 15, loc = 'upper right')
+    plt.legend(fontsize = 15, loc = 'upper right', framealpha = 0.1, frameon = False)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     plt.locator_params(axis='y', nbins=6)
     plt.locator_params(axis='x', nbins=5)
@@ -2329,27 +2352,30 @@ def find_AUC_of_input(name,poisson_prop,gain, threshold, neuronal_consts,tau,ext
 
 
 
-def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range, neuronal_consts, start_epsilon = 10**(-10), x_val = 'FR'):
-    
+def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, x_range, neuronal_consts, start_epsilon = 10**(-10), x_val = 'FR', ax = None, lw = 3):
+    fig, ax = get_axes(ax)
     start_theory = (((neuronal_consts[name]['spike_thresh']['mean']-neuronal_consts[name]['u_rest'])
               / (poisson_prop[name]['g']*poisson_prop[name]['n']*neuronal_consts[name]['membrane_time_constant']['mean'])) + start_epsilon)
     x1 = np.linspace( start_theory, start_theory + 0.0001, 1000).reshape(-1,1)
-    end = I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n']
+    end = x_range[1] / poisson_prop[name]['g'] / poisson_prop [name ]['n']
     x_theory = np.concatenate( ( x1, np.geomspace(x1 [ -1], end, 10)))
     y_theory = FR_ext_theory(neuronal_consts[name]['spike_thresh']['mean'], 
                               neuronal_consts[name]['u_rest'], 
                               neuronal_consts[name]['membrane_time_constant']['mean'], poisson_prop[name]['g'], x_theory, poisson_prop[name]['n'])
     if x_val == 'FR':
         x = x_theory * 1000
-        xlim = [I_ext_range[name][0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, I_ext_range[name][1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000]
+        xlim = [x_range[0] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000, x_range[1] / poisson_prop[name]['g'] / poisson_prop [name ]['n'] * 1000]
+        ax.set_xlabel(r'$FR_{ext} \; (Hz)$',fontsize=15)
     elif x_val == 'I_ext':
         x = x_theory * poisson_prop[name]['g'] * poisson_prop [name ]['n'] * poisson_prop[name]['tau']['decay']['mean']
-        xlim = [I_ext_range[name][0] * poisson_prop[name]['tau']['decay']['mean'], I_ext_range[name][1] * poisson_prop[name]['tau']['decay']['mean']]
-    plt.plot(x, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey')
-    plt.xlabel(r'$FR_{ext}$',fontsize=15)
-    plt.ylabel(r'$FR$',fontsize=15)
-    plt.xlim(xlim)
-    plt.legend()
+        xlim = [x_range[0] * poisson_prop[name]['tau']['decay']['mean'], x_range[1] * poisson_prop[name]['tau']['decay']['mean']]
+        ax.set_xlabel(r'$I_{ext} \; (mV)$',fontsize=15)
+    ax.plot(x, y_theory * 1000,label='theory', c= 'lightcoral' , markersize = 6, markeredgecolor = 'grey', lw = lw)
+    ax.set_ylabel(r'$FR\; (Hz)$',fontsize=15)
+    ax.set_xlim(xlim)
+    ax_label_adjust(ax)
+    remove_frame(ax)
+    ax.legend()
 
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
 #     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
