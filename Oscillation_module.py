@@ -23,7 +23,10 @@ from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz
 from scipy import signal,stats
-
+def as_si(x, ndp):
+    s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
+    m, e = s.split('e')
+    return r'{m:s}\times 10^{{{e:d}}}'.format(m=m, e=int(e))
 
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
 g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
@@ -63,7 +66,7 @@ class Nucleus:
         synaptic_time_constant, receiving_from_list,smooth_kern_window,oscil_peak_threshold, syn_input_integ_method = 'exp_rise_and_decay',neuronal_model = 'rate',
         poisson_prop = None,AUC_of_input = None, init_method = 'homogeneous', ext_inp_method = 'const+noise', der_ext_I_from_curve = False, bound_to_mean_ratio = [0.8 , 1.2],
         spike_thresh_bound_ratio = [1/20, 1/20], ext_input_integ_method = 'dirac_delta_input', path = None, mem_pot_init_method = 'uniform', plot_initial_V_m_dist = False, set_input_from_response_curve = True,
-        set_random_seed = False, keep_mem_pot_all_t = False, save_init = False):
+        set_random_seed = False, keep_mem_pot_all_t = False, save_init = False, scale_g_with_N = True):
         
         if set_random_seed :
             self.random_seed = 1996
@@ -110,7 +113,7 @@ class Nucleus:
             self.mvt_ext_input = np.zeros(( n_timebins )) # external input mimicing movement
             self.noise_induced_basal_firing = None # the basal firing as a result of noise at steady state
             self.oscil_peak_threshold = oscil_peak_threshold[self.name]
-
+            self.scale_g_with_N = scale_g_with_N
         if neuronal_model == 'spiking':
             self.spikes = np.zeros((self.n,int(t_sim/dt)),dtype = int)
             ## dt incorporated in tau for efficiency
@@ -198,7 +201,9 @@ class Nucleus:
 
 
     def normalize_synaptic_weight(self):
-        self.synaptic_weight = {k: v / (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest) for k, v in self.synaptic_weight.items() if k[0]==self.name}
+        # self.synaptic_weight = {k: v / (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest) for k, v in self.synaptic_weight.items() if k[0]==self.name}
+        self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - self.u_rest) for k, v in self.synaptic_weight.items() if k[0]==self.name}
+
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):  
         ## to do
@@ -207,7 +212,7 @@ class Nucleus:
         for projecting in receiving_from_class_list:
 
             syn_inputs += self.synaptic_weight[(self.name, projecting.name)]*np.matmul(self.connectivity_matrix[(projecting.name,str(projecting.population_num))], 
-                           projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))/self.K_connections[(self.name, projecting.name)]
+                           projecting.output[(self.name,str(self.population_num))][:,-int(self.transmission_delay[(self.name,projecting.name)]/dt)].reshape(-1,1))#/self.K_connections[(self.name, projecting.name)]
         
         #        print("noise", noise_generator(self.noise_amplitude, self.noise_variance, self.n)[0])
         inputs = syn_inputs + self.rest_ext_input  + mvt_ext_inp #+ noise_generator(self.noise_amplitude, self.noise_variance, self.n)
@@ -435,7 +440,8 @@ class Nucleus:
             X = stats.truncexpon(b = (upper-lower) / scale, loc = lower, scale = scale)
             self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(self.n) 
            
-        
+    def normalize_synaptic_weight_by_N(self):
+        self.synaptic_weight = {k: v / self.K_connections[k] for k,v in self.synaptic_weight.items()}
 
     def clear_history(self, mem_pot_init_method = None):
 
@@ -495,8 +501,10 @@ class Nucleus:
 
         if self.neuronal_model == 'rate':
             
-            self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] for proj in proj_list]) + self.threshold
-            self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] for proj in proj_list]) + self.threshold - self.rest_ext_input
+            # self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] for proj in proj_list]) + self.threshold
+            # self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] for proj in proj_list]) + self.threshold - self.rest_ext_input
+            self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] * self.K_connections[self.name, proj] for proj in proj_list]) + self.threshold
+            self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] * self.K_connections[self.name, proj]for proj in proj_list]) + self.threshold - self.rest_ext_input
             self.external_inp_t_series =  mvt_step_ext_input(D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
         else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
@@ -538,6 +546,7 @@ class Nucleus:
             # print(decimal.Decimal.from_float(temp[0]))#, 'ext_inp=',self.rest_ext_input)
 
         # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
+
     def set_init_from_pickle(self, filepath):
         f = load_pickle ( filepath)
         self.FR_ext = f['FR_ext']
@@ -665,7 +674,8 @@ class Nucleus:
                                             if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, 
                                             tau = self.membrane_time_constant[i], g_ext = self.syn_weight_ext_pop, N_ext =self.n_ext_population, noise_var = self.noise_variance, c= c)
     def scale_synaptic_weight(self):
-        self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
+        if self.scale_g_with_N :
+            self.synaptic_weight = {k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0]==self.name}
 
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, 
         method = 'zero_crossing', plot_sig = False, plot_spectrum = False, ax = None, c_spec = 'navy', fft_label = 'fft', spec_figsize = (6,5), 
@@ -762,7 +772,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
     lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, firing_ylim = [0,80],
     plot_spectrum = False, spec_figsize = (6,5), plot_raster = False, plot_start = 0, plot_start_raster = 0, plot_end = None, find_beta_band_power = False, n_windows = 6, fft_method = 'rfft',
-    include_beta_band_in_legend = True, n_neuron = None, save_pkl = False, include_std = True, round_dec = 2, legend_loc = 'upper right'):
+    include_beta_band_in_legend = True, n_neuron = None, save_pkl = False, include_std = True, round_dec = 2, legend_loc = 'upper right', display = 'sci', decimal = 0):
 
     if set_seed:
         np.random.seed(1956)
@@ -809,7 +819,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i)
+        title = _get_title(G_dict, i, display = display, decimal = decimal)
 
         for j in range(n_run):
 
@@ -877,11 +887,15 @@ def rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax):
     if count+1 < n_iter:
         ax.axes.xaxis.set_ticklabels([])
 
-def _get_title(G_dict, i):
-
-    title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
+def _get_title(G_dict, i, display = 'normal', decimal = 0):
+    if display =='normal':
+        title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][i],2)) +
                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i],2)) +
                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i],2)))
+    if display =='sci':
+        title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ r"${0:s}$".format(as_si(list(G_dict.values())[0][i],decimal)) +
+                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[1][i],decimal)) +
+                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[2][i],decimal)))
     return title
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig , 
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, ax = None, c_spec = 'navy', spec_figsize = (6,5), find_beta_band_power = False, 
@@ -984,7 +998,7 @@ def find_FR_ext_range_for_each_neuron_high_act(FR_sim, all_FR_list, init_method,
 
     return FR_list
 
-def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list, c = 'grey',
+def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list, c = 'grey', scale_g_with_N = True,
                         all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, right_pad = 0.005, maxfev = 5000, ax = None):
     '''find number of connections and build J matrix, set ext inputs as well'''
     #K = calculate_number_of_connections(N,N_real,K_real)
@@ -995,12 +1009,11 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_di
         for nucleus in nuclei_list:
 
             nucleus.set_connections(K, N)
-            if nucleus.neuronal_model == 'rate':
-                nucleus.scale_synaptic_weight() # filter based on the receiving nucleus
+            if nucleus.neuronal_model == 'rate' and scale_g_with_N:
+                nucleus.scale_synaptic_weight() 
 
             elif nucleus. der_ext_I_from_curve :
                 if nucleus.basal_firing > 30:
-                    print(all_FR_list[nucleus.name])
                     nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, n_FR = n_FR, ax = ax, c= c)
                 else:
                     nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
@@ -1576,7 +1589,7 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 18,plot_start = 0,ylabelpad = 0,
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,ylabelpad = 0, include_FR = True,
          plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right'):    
 
     fig, ax = get_axes (ax)
@@ -1597,15 +1610,18 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
             if plt_mvt:
                 ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha=0.2,lw = 1 )
             FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
-            if include_std:
-                txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,round_dec), round(FR_std,round_dec) )
-            else:
-                txt =  r"$\overline{{FR_{{{0}}}}}$ ={1}".format(nucleus.name,  round(FR_mean,round_dec))
-            if plt_txt == 'horizontal' :
-                ax.text(0.05 + count * 0.22, 0.9 , txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
+            if include_FR:
+                if include_std:
+                    txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,round_dec), round(FR_std,round_dec) )
+                else:
+                    txt =  r"$\overline{{FR_{{{0}}}}}$ ={1}".format(nucleus.name,  round(FR_mean,round_dec))
 
-            elif plt_txt == 'vertical':
-                ax.text(0.2, 0.9 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
+            
+                if plt_txt == 'horizontal' :
+                    ax.text(0.05 + count * 0.22, 0.9 , txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
+
+                elif plt_txt == 'vertical':
+                    ax.text(0.2, 0.9 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
             count = count + 1
 
     ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
@@ -1654,7 +1670,7 @@ def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = '
 
     return fig
 
-def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15):
+def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15, cmap = 'YlOrBr'):
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -1673,10 +1689,8 @@ def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15):
     clb = fig.colorbar(img)
     clb.set_label(label[2], labelpad=10, y=0.5, rotation=-90)
     clb.ax.locator_params(nbins=4)
-    plt.locator_params(axis='y', nbins=4)
-    plt.locator_params(axis='x', nbins=4)
-    plt.show()
-    
+    ax_label_adjust(ax)   
+    remove_frame(ax) 
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits = None):
 
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
@@ -1864,7 +1878,7 @@ def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, meth
     trimmed = sig[start:end]
     if method == 'simple' : 
         return trimmed
-    elif method == 'complex':
+    elif method == 'neat':
         cut_sig_ind = cut_plateau(sig, epsilon= cut_plateau_epsilon)
         plateau_y = find_mean_of_signal(trimmed, cut_sig_ind)
         trimmed = trimmed - plateau_y # remove the offset determined with plateau level
@@ -1932,7 +1946,7 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
         ################# relative first and last peak ratio thresholding
         if len(peaks)>1 : 
             last_first_peak_ratio = sig[peaks[-1]]/sig[peaks[1]]
-            print(last_first_peak_ratio)
+            print('last_first_peak_ratio = ', last_first_peak_ratio)
         else: return False
         if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
             # plt.figure()
@@ -2007,8 +2021,17 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             data['g'][i,j,:] = [g_1, g_2]
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
             for nucleus in nucleus_list:
-                data[(nucleus.name, 'n_half_cycles_mvt')][i,j],data[(nucleus.name,'perc_t_oscil_mvt')][i,j], data[(nucleus.name,'mvt_freq')][i,j],if_stable_mvt= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
-                data[(nucleus.name, 'n_half_cycles_base')][i,j],data[(nucleus.name,'perc_t_oscil_base')][i,j], data[(nucleus.name,'base_freq')][i,j],if_stable_base= find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
+
+                (data[(nucleus.name, 'n_half_cycles_mvt')][i,j],
+                data[(nucleus.name,'perc_t_oscil_mvt')][i,j], 
+                data[(nucleus.name,'mvt_freq')][i,j],
+                if_stable_mvt )= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, 
+                                                                smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
+                (data[(nucleus.name, 'n_half_cycles_base')][i,j],
+                    data[(nucleus.name,'perc_t_oscil_base')][i,j], 
+                    data[(nucleus.name,'base_freq')][i,j],
+                    if_stable_base ) = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, 
+                                                                        smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
                 print(nucleus.name,' g1 = ', round(g_1,2), ' g2 = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
 
                 if not found_g_transient[nucleus.name]  and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
@@ -2018,7 +2041,8 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
                     if_trans_plotted = True
                     print("transient plotted")
-                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"$G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)),
+                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = 100, legend_loc = 'upper left',title_fontsize = 15,
+                        title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)),
                         ax = None)
                 
                 if not found_g_stable[nucleus.name] and if_stable_mvt: 
@@ -2028,7 +2052,8 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_stable_plotted and if_stable_mvt:
                     if_stable_plotted = True
                     print("stable plotted")
-                    plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, title = r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(g_1,2))+r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(g_2,2)), 
+                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = 100, legend_loc = 'upper left', title_fontsize = 15,
+                        title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)), 
                         ax = None)
             if if_plot:
                 ax = fig.add_subplot(n,m,count+1)
@@ -2049,7 +2074,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
     output = open(filename, 'wb')
     pickle.dump(data, output)
     output.close()
-
+    return fig_trans, fig_stable
 
 # def run_specific_g
 def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
@@ -2111,6 +2136,7 @@ def reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
         for nucleus in nucleus_list:
             nucleus.clear_history()
             nucleus.set_synaptic_weights(G)
+            nucleus.scale_synaptic_weight() 
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return nuclei_dict
 
@@ -2222,10 +2248,72 @@ def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebin
         data[(nucleus.name, 'trans_pop_act')] = np.zeros(pop_act_size)
     data['tau'] = np.zeros(tuple(iter_param_length_list+[n_time_scale]))
     return data
-
-def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap,x_axis = 'multiply',title = "",x_label = "G"):
+def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
+                                                    c_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = ()):
     maxs = [] ; mins = []
-    fig = plt.figure(figsize=(10,8))
+    fig, ax = plt.subplots(1,1,figsize=(8,6))
+    # for i in range(len(filename_list)):
+    #     pkl_file = open(filename_list[i], 'rb')
+    #     data = pickle.load(pkl_file)
+    #     pkl_file.close()
+    #     maxs.append(np.max(data[name_list[i],c_list[i]]))
+    #     mins.append(np.min(data[name_list[i],c_list[i]]))
+    # vmax = max(maxs) ; vmin = min(mins)
+    vmax = 50; vmin = 0
+    for i in range(len(filename_list)):
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        keys = list(data['g'].keys())
+        if x_axis == 'multiply':
+            g = np.ones( len( list (data ['g'].values()) [0] ))
+            for v in data['g'].values():
+                g *= v
+            x_label = r'$G_{Loop}$'
+            txt = []
+            for k in keys:
+                if k == key:
+                    txt.append( _str_G_with_key(k) +'=[' + r"${0:s}$".format(as_si(data['g'][k][0],0)) + ',' + r"${0:s}$".format(as_si(data['g'][k][-1],0)) + ']')
+                    continue
+                txt.append( _str_G_with_key(k) +'=' + r"${0:s}$".format(as_si(data['g'][k][0],1)))
+                title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+        else:
+            g = data['g'][key]
+            x_label = _str_G_with_key(key)
+            title = ''
+            txt = []
+            for k in keys:
+                if k == key:
+                    continue
+                txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
+                title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+
+        ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], 
+                         cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2, s=100)
+    plt.axhline( 6, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
+
+    ax.set_xlabel(x_label,fontsize = 20)
+    ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
+    # ax.set_title(title,fontsize=20)
+    ax_label_adjust(ax, fontsize = 18, nbins = 6)
+    axins1 = inset_axes(ax,
+                    width="5%",  # width = 50% of parent_bbox width
+                    height="50%",  # height : 5%
+                    loc='center right',borderpad=8)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+    clb = fig.colorbar(img, cax=axins1, orientation="vertical")
+    clb.ax.locator_params(nbins=4)
+    clb.set_label('Frequency (Hz)', labelpad=20, y=.5, rotation=-90,fontsize=15)
+    img.set_clim(0,50)
+    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = 'upper right')
+    remove_frame(ax)
+    plt.show()
+    for i in range( len(txt)):
+        plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
+    return fig
+
+def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap = 'hot',x_axis = 'multiply',title = "",x_label = "G"):
+    maxs = [] ; mins = []
+    fig = plt.figure(figsize=(8,7))
     ax = fig.add_subplot(111)
     for i in range(len(filename_list)):
         pkl_file = open(filename_list[i], 'rb')
@@ -2241,6 +2329,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
             g = np.squeeze(data['g'][:,:,0]*data['g'][:,:,1])
             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_stable_boundary'][0][g_cte_ind[i]] 
+            x_label = r'$G_{Loop}$'
         else:
             g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
@@ -2251,7 +2340,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
         # img = ax.scatter(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
         # plt.axvline(g_transient[g_ind[i]], c = color_list[i])
         ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
-        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k',zorder=2,s=80)
+        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2,s=80)
         plt.axvline(g_transient, linestyle = '-.',c = color_list[i],alpha = 0.3,lw=2)  # to get the circuit g which is the muptiplication
         plt.axvline(g_stable, c = color_list[i],lw=2)  # to get the circuit g which is the muptiplication
     plt.text(g_stable-0.5, 0.6, 'Stable oscillations',fontsize=18, rotation = -90)
@@ -2259,20 +2348,24 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     ax.set_xlabel(x_label,fontsize = 20)
     ax.set_ylabel('frequency(Hz)',fontsize=20)
     ax.set_title(title,fontsize=20)
-    plt.rcParams['xtick.labelsize'] = 20
-    plt.rcParams['ytick.labelsize'] = 20
-    plt.locator_params(axis='y', nbins=5)
-    plt.locator_params(axis='x', nbins=5)
+    ax_label_adjust(ax, fontsize = 18, nbins = 5)
+
     # ax.set_xlim(limits['x'])
     # ax.set_ylim(limits['y'])
-    clb = fig.colorbar(img)
+    axins1 = inset_axes(ax,
+                    width="5%",  # width = 50% of parent_bbox width
+                    height="70%",  # height : 5%
+                    loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+    clb = fig.colorbar(img, cax=axins1, orientation="vertical")
     clb.ax.locator_params(nbins=4)
-    clb.set_label('% Oscillation', labelpad=15, y=.5, rotation=-90,fontsize=20)
-    plt.legend(fontsize=15)
-    plt.show()
+    clb.set_label('% Oscillation', labelpad=20, y=.5, rotation=-90,fontsize=15)
+    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = 'upper right')
+    remove_frame(ax)
+
     return fig
 
-def multi_plot_as_f_of_timescale_shared_colorbar(data, y_list, c_list, label_list,g_ratio_list,name_list,filename_list,x_label,y_label,ylabelpad = -5):
+def multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list, c_list, label_list,name_list,filename_list,x_label,y_label, 
+                                    g_tau_2_ind = None, g_ratio_list = [], ylabelpad = -5, colormap = 'hot', title = '', c_label = ''):
     maxs = [] ; mins = []
     fig = plt.figure(figsize = (10,8))
     ax = fig.add_subplot(111)
@@ -2291,17 +2384,14 @@ def multi_plot_as_f_of_timescale_shared_colorbar(data, y_list, c_list, label_lis
         y_spec = data[(name_list[i], y_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
         c_spec = data[(name_list[i], c_list[i])][:,g_tau_2_ind]*g_ratio_list[i]
         ax.plot(x_spec,y_spec,c = color_list[i], lw = 3, label= label_list[i],zorder = 1)
-        img = ax.scatter(x_spec,y_spec,vmin = vmin, vmax = vmax, c=c_spec, cmap=colormap,lw = 1,edgecolor = 'k',s =90,zorder = 2)
+        img = ax.scatter(x_spec,y_spec,vmin = vmin, vmax = vmax, c=c_spec, cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',s =90,zorder = 2)
         # plt.axvline(g_transient, c = color_list[i])  # to get the circuit g which is the muptiplication
         ax.set_xlabel(x_label,fontsize = 20)
         ax.set_ylabel(y_label,fontsize = 20,labelpad=ylabelpad)
         ax.set_title(title,fontsize = 20)
         # ax.set_xlim(limits['x'])
         # ax.set_ylim(limits['y'])
-        plt.locator_params(axis='y', nbins=5)
-        plt.locator_params(axis='x', nbins=5)
-        plt.rcParams['xtick.labelsize'] = 20
-        plt.rcParams['ytick.labelsize'] = 20
+        ax_label_adjust(ax, fontsize = 20)
     
     clb = fig.colorbar(img)
     clb.set_label(c_label, labelpad=20, y=.5, rotation=-90,fontsize = 20)
@@ -2377,6 +2467,44 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, x_range, neuronal_consts, s
     remove_frame(ax)
     ax.legend()
 
+
+def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method):
+    G = G_dict
+    names = [list(nuclei_dict.values())[i][0].name for i in range(len(nuclei_dict))]
+    gs = [str(round(G[('D2', 'FSI')][0],3)) + '--' + str(round(G[('D2', 'FSI')][-1],3)), 
+          str(round(G[('Proto', 'D2')][0],3)) + '--' + str(round(G[('Proto', 'D2')][-1],3)), 
+          str(round(G[('FSI', 'Proto')][0],3)) + '--' + str(round(G[('FSI', 'Proto')][-1],3))]
+    gs = [gs[i].replace('.','-') for i in range( len (gs))]
+    nucleus = nuclei_dict[names[0]][0]
+    
+    filename = (  names[0] + '_' + names[1] + '_'+  names[2] + '_G(FD)=' + gs[0]+ '_G(DP)=' +gs[1] + '_G(PF)= '  + gs[2] + 
+              '_' + nucleus.init_method + '_' + nucleus.ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + '_syn_' + nucleus.syn_input_integ_method+ '_' +
+              str(noise_variance[names[0]]) + '_' + str(noise_variance[names[1]]) + '_' + str(noise_variance[names[2]]) 
+            + '_N=' + str(nucleus.n) +'_T' + str(nucleus.t_sim) + '_' + fft_method  ) 
+    
+    return filename
+
+def save_figs(figs, G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3):
+    prefix = [ 'Firing_rate_', 'Power_spectrum_','Raster_' ]
+    prefix = [pre_prefix[i] + prefix[i] for i in range( len(prefix))]
+    prefix = ['Synaptic_weight_exploration_' + p for p in prefix]
+    filename = _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method)
+    for i in range( len (figs)):
+        figs[i].set_size_inches(s [i], forward=False)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename + '.png'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename):
+    fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
 #     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
 #     got_it = False ;g_stable = None; g_transient = None
