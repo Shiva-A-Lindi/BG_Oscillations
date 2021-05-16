@@ -568,7 +568,7 @@ class Nucleus:
                     'tau_ext_pop': self.tau_ext_pop,
                     'FR_ext': self.FR_ext,
                     'noise_variance': self.noise_variance}
-            pickle_obj(init, os.path.join( self.path, self.name + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
+            pickle_obj(init, os.path.join( self.path, self.name + '_A_' + str(self.basal_firing) + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
         exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
@@ -1264,12 +1264,13 @@ def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labels
     ax.tick_params(axis = 'both', labelsize = labelsize)
     ax.set_title( name, c = color_dict[name], fontsize = title_fontsize)
     remove_frame(ax)
+    ax_label_adjust(ax, fontsize = labelsize, nbins = 4)
     if xlim != None:
         ax.set_xlim(xlim)
     ax.legend(loc = 'upper right', framealpha = 0.1, frameon = False)
     return ax
 
-def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, 
+def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, tick_label_fontsize = 18,
                             labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
@@ -1295,9 +1296,9 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
             if set_xlim : 
                 xlim =  [plot_start, plot_end]
             else: xlim = None
-            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = 10, title_fontsize = 15, linelengths = linelengths , lw  = lw, xlim =xlim)
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = labelsize, title_fontsize = 15, linelengths = linelengths , lw  = lw, xlim =xlim)
             fig.add_subplot(ax)
-            ax_label_adjust(ax, fontsize = 18, nbins = 4)
+            
             rm_ax_unnecessary_labels_in_subplots(j ,len(nuclei_dict), ax)
             j += 1
     return fig
