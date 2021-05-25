@@ -46,7 +46,8 @@ if 1:
          'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011, Corbit et al. 2016
          'GPi':0,
          'Arky': 12} # De la Crompe (2020)
-    A_mvt = { 'STN': 50 , 'Proto': 22, 'FSI': 70, 'D2':3, # Mallet et al. 2016 mean firing rate during movement from experiments
+    A_mvt = { 'STN': 50 , 'Proto': 22, 'FSI': 70, # Mallet et al. 2016 mean firing rate during movement from experiments
+             'D2': 4, # Mirzaei et al. 2017
              'Arky':40} # Dodson et al. 2015
     threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
     neuron_type = {'STN': 'Glut', 'Proto': 'GABA', 'D2': 'GABA', 'FSI':'GABA'}
@@ -654,7 +655,7 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, ax = No
 #%% Deriving F_ext from the response curve for FSI DD 
 # np.random.seed(1006)
 plt.close('all')
-name = 'Proto'
+name = 'FSI'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
@@ -680,20 +681,20 @@ if_plot = False
 # bound_to_mean_ratio = [0.5, 20]
 # spike_thresh_bound_ratio = [1/5, 1/5]
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
-
+A['FSI'] = 18.5
 Act = A
-Act = A_DD
-Act = A_mvt
+# Act = A_DD
+# Act = A_mvt
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
                poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,
                ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
-n = 70
+n = 50
 pad = [0.002, 0.0022]
 
-pad = [0.1, 0.1] ## Proto mvt
+# pad = [0.1, 0.1] ## Proto mvt
 all_FR_list ={'FSI': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
               'D2': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
               # 'Proto': [0.02, 0.05]} # (0.04, 0.07) 
@@ -711,7 +712,7 @@ filepaths = {name1: name1+ '_N_'+str(N_sim) +'_T_2000.pkl',
 nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]))
 
 receiving_class_dict = set_connec_ext_inp(Act, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 40, 
+                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 33, 
                                           left_pad =pad[0], right_pad=pad[1])
 
 # nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]))
@@ -723,7 +724,7 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
 # np.random.seed(1006)
 plt.close('all')
 name = 'D2'
-N_sim = 1000
+N_sim = 1
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -742,15 +743,16 @@ ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
 set_input_from_response_curve = True
-save_init = True
+save_init = False
 der_ext_I_from_curve= True
-if_plot = False
+if_plot = True
 # bound_to_mean_ratio = [0.5, 20]
 # spike_thresh_bound_ratio = [1/5, 1/5]
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':0.2}}, 'g':g_ext}}
 
 Act = A
 Act = A_DD
+# Act = A_mvt
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
                poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,
@@ -1084,22 +1086,25 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_sim = 4000; t_list = np.arange(int(t_sim/dt))
 duration_base = [0, int(t_mvt/dt)]
 name1 = 'FSI' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
 g = -0.5; g_ext =  0.01
 G = {}
-plot_start = int(t_sim / 5)
-t_transition = plot_start + int( t_sim / 4)
+# plot_start = int(t_sim / 5)
+# t_transition = plot_start + int( t_sim / 4)
+plot_start = 300
+t_transition = 800
+
 duration_base = [int(100/dt), int(t_transition/dt)] 
 length = duration_base[1] - duration_base[0]
 duration_2 = [int(t_sim /dt) - length, int(t_sim /dt)]
 
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  0,0,0
 
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  -2.5 * 10**-4, -4* 10**-4, -15 *10**-4 ## close to oscillatory regime
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  -1.8 * 10**-4, -3.5* 10**-4, -12 *10**-4 ## close to oscillatory regime
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
                 name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
@@ -1153,7 +1158,7 @@ nuclei_dict = run_transition_to_movement(receiving_class_dict,t_list, dt, nuclei
 
 # nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-state = 'transition_to_mvt'
+state = 'transition_to_mvt_transient'
 D_mvt = t_sim - t_transition
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_transition, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = init_method,
            include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt= 0.8, axvspan_color='lightskyblue')
@@ -1196,6 +1201,16 @@ fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+state+'.png'), dpi = 300, f
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+
+fig,ax = plt.subplots(1,1)
+f, t, Sxx = spectrogram(nuc3[0].pop_act[int(plot_start/dt):], 1/(dt/1000))
+img =ax.pcolormesh(t, f, 10*np.log(Sxx), cmap = plt.get_cmap('jet'),shading='gouraud', vmin=-30, vmax=0)
+ax.axvline(t_transition/1000 - plot_start/1000, ls = '--', c = 'grey')
+ax.set_ylabel('Frequency (Hz)')
+ax.set_xlabel('Time (sec)')
+ax.set_ylim(0,70)
+clb = fig.colorbar(img)
 #%% Pallidostrital Transition to DD
 plt.close('all')
 N_sim = 1000

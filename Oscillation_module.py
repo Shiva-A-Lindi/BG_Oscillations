@@ -22,7 +22,7 @@ import scipy
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
-from scipy.signal import butter, sosfilt, sosfreqz
+from scipy.signal import butter, sosfilt, sosfreqz, spectrogram
 from scipy import signal,stats
 def as_si(x, ndp):
     s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
