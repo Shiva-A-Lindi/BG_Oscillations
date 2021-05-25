@@ -2,6 +2,7 @@ from __future__ import division
 import os
 import timeit
 import numpy as np
+from numpy import inf
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -37,7 +38,7 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act ( FR_ext, FR_sim , 
     # plt.plot( FR_ext, FR_sim, '-o')
     slope, intercept = linear_regresstion ( FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear ( desired_FR, slope, intercept)
-    print('extrapolated = ', FR_ext_extrapolated)
+    # print('extrapolated = ', FR_ext_extrapolated)
     if if_plot: 
 
         plot_fitted_line( FR_ext , FR_sim, slope, intercept,  FR_to_I_coef = tau * g_ext * N_ext / 1000, ax = ax, noise_var = noise_var, c = c)
@@ -54,10 +55,13 @@ def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_F
     FR_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
                                                 find_y_normalizing_factor(ydata), 
                                                 find_x_mid_point_sigmoid( ydata, xdata)) 
-    print(tau * g_ext * N_ext / 1000)
-    if if_plot:
+    # print(tau * g_ext * N_ext / 1000)
+    if if_plot :
         plot_fitted_sigmoid(xdata, ydata, x, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
-
+    if FR_ext == np.nan or FR_ext == np.inf:
+        print(desired_FR, find_y_normalizing_factor(ydata))
+        print('Corr FR_ext =', FR_ext)
+        plot_fitted_sigmoid(xdata, ydata, x, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
     return FR_ext / 1000  # FR_ext is in Hz, we want spk/ms
 
 class Nucleus:
@@ -550,6 +554,9 @@ class Nucleus:
     def set_init_from_pickle(self, filepath):
         f = load_pickle ( filepath)
         self.FR_ext = f['FR_ext']
+        # ind = np.where(self.FR_ext != inf)[0]
+        # self.FR_ext[self.FR_ext == inf] = np.average(self.FR_ext[ind])
+        # print(self.name,np.isnan(np.sum(self.FR_ext)))
         self.spike_thresh = f['spike_thresh']
         self.membrane_time_constant = f['membrane_time_constant']
         self.tau_ext_pop = f['tau_ext_pop']
@@ -568,7 +575,7 @@ class Nucleus:
                     'tau_ext_pop': self.tau_ext_pop,
                     'FR_ext': self.FR_ext,
                     'noise_variance': self.noise_variance}
-            pickle_obj(init, os.path.join( self.path, self.name + '_A_' + str(self.basal_firing) + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
+            pickle_obj(init, os.path.join( self.path, self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
         exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
@@ -665,7 +672,7 @@ class Nucleus:
             rep_FR_ext = extrapolate ( FR_list[:,0] * 1000, np.average(FR_sim, axis = 0), 
                                         self.basal_firing, ax = ax, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev, 
                                         tau = self.membrane_time_constant[0], g_ext = self.syn_weight_ext_pop, N_ext =self.n_ext_population, noise_var = self.noise_variance, c= c)
-            print('before setting=', rep_FR_ext)
+            # print('before setting=', rep_FR_ext)
             self.FR_ext = np.full( self.n, rep_FR_ext ) 
                                     
         else :
@@ -736,12 +743,14 @@ def set_init_all_nuclei(nuclei_dict, filepaths = None):
                 filepath = os.path.join(nucleus.path, filepaths[nucleus.name])
             nucleus.set_init_from_pickle(filepath)
 
+
 def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None, set_noise = True):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
-            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            if set_noise:
+                nucleus.set_noise_param(noise_variance, noise_amplitude)
             nucleus.set_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
@@ -751,6 +760,7 @@ def bandpower(f, pxx, fmin, fmax):
     ''' return the average power at the given range of frequency'''
     ind_min = scipy.argmin(f[f > fmin]) 
     ind_max = scipy.argmax(f[f < fmax]) 
+    print(fmin, fmax)
     return scipy.trapz(pxx[ind_min: ind_max], f[ind_min: ind_max]) / (f[ind_max] - f[ind_min])
 
 def beta_bandpower(f, pxx, fmin = 13, fmax = 30):
@@ -881,6 +891,124 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     if save_pkl:
         pickle_obj( data, filepath)
     return figs, title, data
+
+
+def synaptic_weight_exploration_SNN_all_changing(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+    peak_threshold = 0.1, smooth_kern_window= 3 , cut_plateau_epsilon = 0.1, check_stability = False, freq_method = 'fft', plot_sig = False,n_run = 1,
+    lim_oscil_perc = 10, if_plot = False, smooth_window_ms = 5, low_pass_filter = False, lower_freq_cut = 1, upper_freq_cut = 2000, set_seed = False, firing_ylim = [0,80],
+    plot_spectrum = False, spec_figsize = (6,5), plot_raster = False, plot_start = 0, plot_start_raster = 0, plot_end = None, find_beta_band_power = False, n_windows = 6, fft_method = 'rfft',
+    include_beta_band_in_legend = True, n_neuron = None, save_pkl = False, include_std = True, round_dec = 2, legend_loc = 'upper right', display = 'sci', decimal = 0):
+
+    if set_seed:
+        np.random.seed(1956)
+    else: 
+        np.random.seed()
+    nn = 200
+    n_iter = get_max_len_dict(G_dict)
+    data = {} 
+    for nucleus_list in nuclei_dict.values():
+        nucleus = nucleus_list[0] # get only on class from each population
+        # data[(nucleus.name, 'mvt_freq')] = np.zeros((n,m))
+        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros((n,m))
+        data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
+        data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
+        data[(nucleus.name,'base_beta_power')] = np.zeros((n_iter, n_run))
+        data[(nucleus.name,'f')] = np.zeros((n_iter, n_run, 0))
+        data[(nucleus.name,'pxx')] = np.zeros((n_iter, n_run, 0))
+
+    data['g'] = G_dict
+    count  = 0
+    G = dict.fromkeys(G_dict.keys(), None)
+
+    if if_plot:
+        fig = plt.figure()
+
+    if n_run > 1 : # don't plot all the runs
+        plot_spectrum = False
+    if plot_spectrum:
+        fig_spec = plt.figure()
+
+    if plot_raster :
+        fig_raster = plt.figure()
+        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2) 
+    for i in range( n_iter):
+        start = timeit.default_timer()
+        for k,values in G_dict.items():
+            G[k] = values[ i ]
+            print(k, values[i])
+
+        if plot_spectrum:
+            ax_spec = fig_spec.add_subplot(n_iter,1,count+1)
+
+        else: ax_spec = None
+
+        title = _get_title(G_dict, i, display = display, decimal = decimal)
+
+        for j in range(n_run):
+
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt)#, mem_pot_init_method = 'uniform')
+            nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
+
+            if plot_raster:
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = outer[i], title = title, fig = fig_raster, plot_start = plot_start_raster, 
+                                                    plot_end = plot_end, labelsize = 10, title_fontsize = 15, lw  = 1.8, linelengths = 1, n_neuron = n_neuron)
+            
+            data = find_freq_SNN_all_changing(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , 
+                                check_stability , freq_method , plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum =plot_spectrum, ax = ax_spec, 
+                                c_spec = color_dict, spec_figsize = spec_figsize, n_windows = n_windows, fft_method = fft_method, find_beta_band_power = find_beta_band_power, 
+                                include_beta_band_in_legend = include_beta_band_in_legend)
+        
+
+        if plot_spectrum:
+            if fft_method == 'rfft':
+                x_l = 10**9
+
+            else: 
+                x_l = 8
+                ax_spec.axhline(x_l, ls = '--', c = 'grey')
+
+            # ax_spec.set_title(title, fontsize = 18)
+            ax_spec.legend(fontsize = 11, loc = 'upper center', framealpha = 0.1, frameon = False)
+            ax_spec.set_xlim(5,55)
+            rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax_spec)
+
+        if if_plot:
+            ax = fig.add_subplot(n_iter,1,count+1)
+            plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std = include_std, round_dec = round_dec, legend_loc = legend_loc,
+                n_subplots = int(n_iter), plt_txt = 'horizontal', plt_mvt = False, plt_freq = True ,plot_start = plot_start, plot_end = plot_end, ylim = firing_ylim)
+            ax.legend(fontsize = 13, loc = legend_loc, framealpha = 0.1, frameon = False)
+            # ax.set_ylim(*plt_ylim)
+            rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax)
+
+        count +=1
+        stop = timeit.default_timer()
+        print(count, "from", int(n_iter), ' t=', round(stop - start,2))
+
+    figs = []
+    if if_plot:
+        fig.set_size_inches((15, 15), forward=False)
+        fig.text(0.5, 0.05, 'time (ms)', ha='center',fontsize = 18)
+        fig.text(0.03, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical', fontsize = 18)
+        figs.append(fig)
+        fig.show()
+    if plot_spectrum:
+        fig_spec.set_size_inches((11, 15), forward=False)
+        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center',fontsize = 18)
+        fig_spec.text(0.02, 0.5, 'fft Power', va='center', rotation='vertical', fontsize = 18)
+        figs.append(fig_spec)
+        fig_spec.show()
+    if plot_raster:
+        fig.set_size_inches((11, 15), forward=False)
+        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center', va='center',fontsize= 18)
+        fig_raster.text(0.03, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = 18)
+        figs.append(fig_raster)
+        fig_raster.show()
+    if save_pkl:
+        pickle_obj( data, filepath)
+    return figs, title, data
+
 def rm_ax_unnecessary_labels_in_subplots(count , n_iter, ax):
     ax.set_xlabel("")
     ax.set_ylabel("")
@@ -937,6 +1065,75 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
 
     return data
 
+def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig , 
+                low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, ax = None, c_spec = 'navy', spec_figsize = (6,5), find_beta_band_power = False, 
+                fft_method = 'rfft', n_windows = 6, include_beta_band_in_legend = True):
+
+    for nucleus_list in nuclei_dict.values():
+        for nucleus in nucleus_list:
+        
+            nucleus.smooth_pop_activity(dt, window_ms = smooth_window_ms)
+
+            if low_pass_filter:
+                nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order = 6)
+
+            nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+                                                                     peak_threshold = peak_threshold,
+                                                                    smooth_kern_window = smooth_kern_window , 
+                                                                   cut_plateau_epsilon =cut_plateau_epsilon, 
+                                                                    check_stability = check_stability, 
+                                                                    method = freq_method, 
+                                                                     plot_sig = plot_sig,
+                                                                     plot_spectrum =plot_spectrum, 
+                                                                    ax = ax, c_spec = c_spec[nucleus.name], 
+                                                                     fft_label = nucleus.name, 
+                                                                    spec_figsize = spec_figsize, 
+                                                                    find_beta_band_power = find_beta_band_power,
+                                                                    fft_method = fft_method,
+                                                                    n_windows = n_windows,
+                                                                    include_beta_band_in_legend = include_beta_band_in_legend)
+
+
+
+
+def find_freq_SNN_all_changing(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , check_stability , freq_method , plot_sig , 
+                low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum = False, ax = None, c_spec = 'navy', spec_figsize = (6,5), find_beta_band_power = False, 
+                fft_method = 'rfft', n_windows = 6, include_beta_band_in_legend = True):
+
+    for nucleus_list in nuclei_dict.values():
+        for nucleus in nucleus_list:
+        
+            nucleus.smooth_pop_activity(dt, window_ms = smooth_window_ms)
+
+            if low_pass_filter:
+                nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order = 6)
+
+            (data[(nucleus.name, 'n_half_cycles_base')][i,j],
+            data[(nucleus.name,'perc_t_oscil_base')][i,j],
+            data[(nucleus.name,'base_freq')][i,j],
+            if_stable_base, 
+            data[(nucleus.name,'base_beta_power')][i,j],
+            f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+                                                                     peak_threshold = peak_threshold,
+                                                                    smooth_kern_window = smooth_kern_window , 
+                                                                   cut_plateau_epsilon =cut_plateau_epsilon, 
+                                                                    check_stability = check_stability, 
+                                                                    method = freq_method, 
+                                                                     plot_sig = plot_sig,
+                                                                     plot_spectrum =plot_spectrum, 
+                                                                    ax = ax, c_spec = c_spec[nucleus.name], 
+                                                                     fft_label = nucleus.name, 
+                                                                    spec_figsize = spec_figsize, 
+                                                                    find_beta_band_power = find_beta_band_power,
+                                                                    fft_method = fft_method,
+                                                                    n_windows = n_windows,
+                                                                    include_beta_band_in_legend = include_beta_band_in_legend)
+            data[(nucleus.name, 'pxx')][i,j,:]
+            nucleus.frequency_basal =  data[(nucleus.name,'base_freq')][i,j]
+
+            print(nucleus.name, 'f = ', round(data[(nucleus.name,'base_freq')][i,j],2) , 'beta_p =', data[(nucleus.name,'base_beta_power')][i,j])
+
+    return data
 def remove_frame(ax):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -998,11 +1195,11 @@ def find_FR_ext_range_for_each_neuron_high_act(FR_sim, all_FR_list, init_method,
 
     return FR_list
 
-def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list, c = 'grey', scale_g_with_N = True,
+def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, c = 'grey', scale_g_with_N = True,
                         all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, right_pad = 0.005, maxfev = 5000, ax = None):
     '''find number of connections and build J matrix, set ext inputs as well'''
     #K = calculate_number_of_connections(N,N_real,K_real)
-    K = calculate_number_of_connections(N,N_real,K_real_STN_Proto_diverse)
+    K = calculate_number_of_connections(N,N_real,K_real)
     receiving_class_dict= create_receiving_class_dict(receiving_pop_list, nuclei_dict)
 
     for nuclei_list in nuclei_dict.values():
@@ -1145,7 +1342,6 @@ def f_LIF(tau, V, V_rest, I_ext, I_syn):
 def save_all_mem_potential(nuclei_dict, path):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            print(nucleus.name)
             np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name), nucleus.all_mem_pot)
 
 def draw_random_from_data_pdf(data, n, bins= 50, if_plot = False):
@@ -1171,7 +1367,7 @@ def draw_random_from_data_pdf(data, n, bins= 50, if_plot = False):
 
 def Runge_Kutta_second_order_LIF(dt, V_t, f_t, tau, I_syn_next_dt, V_rest, I_ext):
     ''' Solve second order Runge-Kutta for a LIF at time t+dt (Mascagni & Sherman, 1997)'''
-
+    # print(np.isnan(np.sum(V_t)), np.isnan(np.sum(f_t)), np.isnan(np.sum(V_rest)), np.isnan(np.sum(I_syn_next_dt)), np.isnan(np.sum(I_ext)), np.isnan(np.sum(tau)))
     V_next_dt = V_t + dt/2 * ( -(V_t + dt * f_t - V_rest) + I_syn_next_dt + I_ext ) / tau + f_t * dt / 2 
     return V_next_dt
 
@@ -1255,7 +1451,8 @@ def get_axes (ax, figsize = (6,5)):
         fig, ax = plt.subplots(1,1, figsize = figsize)
     return plt.gcf(), ax
 
-def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labelsize = 10, title_fontsize = 15, linelengths = 2.5, lw = 3, xlim = None):
+def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labelsize = 10, title_fontsize = 15, linelengths = 2.5, lw = 3, xlim = None, 
+                axvspan = False, span_start = None, span_end = None, axvspan_color = 'lightskyblue'):
     fig, ax = get_axes (ax)
     c_dict = color_dict.copy()
     c_to_ch = {v:k for k, v in c_dict.items()}['grey']
@@ -1263,6 +1460,8 @@ def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labels
     ax.eventplot(spikes_sparse, colors = c_dict[name], linelengths = linelengths, lw = lw, orientation='horizontal')
     ax.tick_params(axis = 'both', labelsize = labelsize)
     ax.set_title( name, c = color_dict[name], fontsize = title_fontsize)
+    if axvspan:
+        ax.axvspan(span_start,span_end, alpha=0.2, color=axvspan_color)
     remove_frame(ax)
     ax_label_adjust(ax, fontsize = labelsize, nbins = 4)
     if xlim != None:
@@ -1271,7 +1470,8 @@ def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labels
     return ax
 
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, tick_label_fontsize = 18,
-                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True):
+                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True,
+                            axvspan = False, span_start = None, span_end = None, axvspan_color = 'lightskyblue'):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2) [ 0 ]
@@ -1296,7 +1496,8 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
             if set_xlim : 
                 xlim =  [plot_start, plot_end]
             else: xlim = None
-            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = labelsize, title_fontsize = 15, linelengths = linelengths , lw  = lw, xlim =xlim)
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = labelsize, title_fontsize = title_fontsize, linelengths = linelengths , lw  = lw, xlim =xlim, 
+                            axvspan = axvspan, span_start =span_start, span_end = span_end, axvspan_color = axvspan_color)
             fig.add_subplot(ax)
             
             rm_ax_unnecessary_labels_in_subplots(j ,len(nuclei_dict), ax)
@@ -1548,6 +1749,69 @@ def run(receiving_class_dict,t_list, dt, nuclei_dict):
     return nuclei_dict
        
 
+def run_transition_to_DA_depletion(receiving_class_dict,t_list, dt, nuclei_dict, DD_init_filepaths,K_DD, N, N_real, A_DD, A_mvt, D_mvt,t_mvt,t_transition = None):
+    if t_transition == None:
+        t_transition = t_list[ int(len(t_list) / 3 )]
+    start = timeit.default_timer()
+    
+    for t in t_list:
+
+        for nuclei_list in nuclei_dict.values():
+            k = 0
+            for nucleus in nuclei_list:
+                k += 1
+        #        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
+                mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.external_inp_t_series[t] # movement added 
+                if nucleus.neuronal_model == 'rate': ######## rate model
+                    nucleus.calculate_input_and_inst_act(t, dt, receiving_class_dict[(nucleus.name,str(k))], mvt_ext_inp)
+                    nucleus.update_output(dt)
+                if nucleus.neuronal_model == 'spiking': ######## QIF
+                    nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))],mvt_ext_inp)
+
+        if t == t_transition:
+            set_init_all_nuclei(nuclei_dict, filepaths = DD_init_filepaths) 
+            retet_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt,t_mvt, t_list, dt)
+
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    return nuclei_dict
+
+def retet_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt,t_mvt, t_list, dt):
+    K = calculate_number_of_connections(N,N_real,K_DD)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.set_connections(K, N)
+            # nucleus.set_synaptic_weights(G_DD)
+            nucleus.set_ext_input(A_DD, A_mvt, D_mvt,t_mvt, t_list, dt)
+
+def run_transition_to_movement(receiving_class_dict,t_list, dt, nuclei_dict, mvt_init_filepaths, N, N_real, A_mvt, D_mvt,t_mvt,t_transition = None):
+    if t_transition == None:
+        t_transition = t_list[ int(len(t_list) / 3 )]
+    start = timeit.default_timer()
+    
+    for t in t_list:
+
+        for nuclei_list in nuclei_dict.values():
+            k = 0
+            for nucleus in nuclei_list:
+                k += 1
+        #        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement 
+                mvt_ext_inp = np.ones((nucleus.n,1))*nucleus.external_inp_t_series[t] # movement added 
+                if nucleus.neuronal_model == 'rate': ######## rate model
+                    nucleus.calculate_input_and_inst_act(t, dt, receiving_class_dict[(nucleus.name,str(k))], mvt_ext_inp)
+                    nucleus.update_output(dt)
+                if nucleus.neuronal_model == 'spiking': ######## QIF
+                    nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))],mvt_ext_inp)
+
+        if t == t_transition:
+            set_init_all_nuclei(nuclei_dict, filepaths = mvt_init_filepaths) 
+
+            for nuclei_list in nuclei_dict.values():
+                for nucleus in nuclei_list:
+                    nucleus.set_ext_input(A_mvt, A_mvt, D_mvt,t_mvt, t_list, dt)
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    return nuclei_dict
 def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
@@ -1590,8 +1854,9 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,ylabelpad = 0, include_FR = True,
-         plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right'):    
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,ylabelpad = 0, include_FR = True, alpha_mvt = 0.2,
+         plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
+         continuous_firing_base_lines = True, axvspan_color = 'lightskyblue'):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
@@ -1607,9 +1872,16 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
             else: 
                 label = nucleus.name
             ax.plot(t_list[plot_start: plot_end]*dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
-            ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+            if continuous_firing_base_lines:
+                ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+            else:
+                ax.plot(t_list[plot_start: int(t_mvt /dt)]*dt, np.ones_like(t_list[plot_start: int(t_mvt /dt)])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+
             if plt_mvt:
-                ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha=0.2,lw = 1 )
+                if continuous_firing_base_lines:
+                    ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha = alpha_mvt,lw = 1 )
+                else:
+                    ax.plot(t_list[int(t_mvt /dt): plot_end]*dt, np.ones_like(t_list[int(t_mvt /dt): plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha= alpha_mvt,lw = 1 )
             FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
             if include_FR:
                 if include_std:
@@ -1625,7 +1897,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
                     ax.text(0.2, 0.9 - count * 0.05, txt, ha='left', va='center', rotation='horizontal',fontsize = 15, color = color_dict[nucleus.name], transform=ax.transAxes)
             count = count + 1
 
-    ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color='lightskyblue')
+    ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color=axvspan_color)
     ax.set_title(title, fontsize = title_fontsize)
     ax.set_xlabel("time (ms)", fontsize = 15)
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
