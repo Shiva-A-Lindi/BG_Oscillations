@@ -499,7 +499,7 @@ class Nucleus:
 
         self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==self.name}
 
-    def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt):
+    def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity= 25):
 
         proj_list = [k[0] for k in list(self.receiving_from_list)]
 
@@ -521,7 +521,7 @@ class Nucleus:
                 self._set_ext_inp_poisson( I_syn)
 
             elif self.ext_inp_method == 'const+noise' or self.ext_inp_method == 'const' :
-                self._set_ext_inp_const_plus_noise(I_syn)
+                self._set_ext_inp_const_plus_noise(I_syn, end_of_nonlinearity)
             else: 
                 raise ValueError('external input handling method not right!')
             self._save_init()
@@ -582,8 +582,8 @@ class Nucleus:
         self.rest_ext_input = ( (self.spike_thresh - self.u_rest) / (1-exp) - I_syn)
         self.FR_ext = self.rest_ext_input / self.syn_weight_ext_pop / self.n_ext_population / self.membrane_time_constant
 
-    def _set_ext_inp_const_plus_noise(self, I_syn):
-        if self.basal_firing > 25 and not self.set_input_from_response_curve: # linear regime if decided not to derive from reponse curve (works for low noise levels)
+    def _set_ext_inp_const_plus_noise(self, I_syn, end_of_nonlinearity):
+        if self.basal_firing > end_of_nonlinearity and not self.set_input_from_response_curve: # linear regime if decided not to derive from reponse curve (works for low noise levels)
             self._set_ext_inp_poisson( I_syn)
         else:
             self.rest_ext_input =  self.FR_ext * self.syn_weight_ext_pop * self.n_ext_population * self.membrane_time_constant - I_syn
@@ -744,7 +744,7 @@ def set_init_all_nuclei(nuclei_dict, filepaths = None):
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None, set_noise = True):
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt,t_mvt, t_list, dt, mem_pot_init_method = None, set_noise = True, end_of_nonlinearity = 25):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -753,7 +753,7 @@ def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, 
                 nucleus.set_noise_param(noise_variance, noise_amplitude)
             nucleus.set_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
-            nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity = end_of_nonlinearity)
     return nuclei_dict
 
 def bandpower(f, pxx, fmin, fmax):
@@ -1210,12 +1210,12 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real, receiving_p
                 nucleus.scale_synaptic_weight() 
 
             elif nucleus. der_ext_I_from_curve :
-                if nucleus.basal_firing > 30:
+                if nucleus.basal_firing > end_of_nonlinearity:
                     nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, n_FR = n_FR, ax = ax, c= c)
                 else:
                     nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
                                     n_FR = n_FR , left_pad = left_pad, right_pad = right_pad, ax = ax, c= c)
-            nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity = end_of_nonlinearity)
     return receiving_class_dict
 
 def pickle_obj( obj, filepath):

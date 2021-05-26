@@ -46,7 +46,8 @@ if 1:
          'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011, Corbit et al. 2016
          'GPi':0,
          'Arky': 12} # De la Crompe (2020)
-    A_mvt = { 'STN': 50 , 'Proto': 22, 'FSI': 70, # Mallet et al. 2016 mean firing rate during movement from experiments
+    A_mvt = { 'STN': 50 , 'Proto': 22,  # Mallet et al. 2016 mean firing rate during movement from experiments
+             'FSI': 32,
              'D2': 4, # Mirzaei et al. 2017
              'Arky':40} # Dodson et al. 2015
     threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
@@ -589,13 +590,13 @@ name = 'Proto'
 N_sim = 1
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 G = {}
 receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
-noise_variance = {name : 0.1}
+noise_variance = {name : 1}
 noise_amplitude = {name : 1}
 g = -0.01; g_ext = -g
 init_method = 'heterogeneous'
@@ -622,7 +623,8 @@ nuclei_dict = {name: nuc}
 nucleus = nuc[0]
 n = 50
 pad = [0.001, 0.001]
-all_FR_list ={'FSI': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
+all_FR_list ={'FSI': np.array([ 0.0008, 0.008]),
+              # 'FSI': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
               'D2': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
                'Proto': np.array([0.02, 0.05])} # (0.04, 0.07)
               # 'Proto': np.linspace(0.02, 0.05, 250).reshape(-1,1)} # (0.04, 0.07)
@@ -684,7 +686,7 @@ poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.
 A['FSI'] = 18.5
 Act = A
 # Act = A_DD
-# Act = A_mvt
+Act = A_mvt
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act, A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
                poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,
@@ -692,7 +694,7 @@ nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_varia
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
 n = 50
-pad = [0.002, 0.0022]
+pad = [0.003, 0.0033]
 
 # pad = [0.1, 0.1] ## Proto mvt
 all_FR_list ={'FSI': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1),
@@ -712,7 +714,7 @@ filepaths = {name1: name1+ '_N_'+str(N_sim) +'_T_2000.pkl',
 nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]))
 
 receiving_class_dict = set_connec_ext_inp(Act, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 33, 
+                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = 45, 
                                           left_pad =pad[0], right_pad=pad[1])
 
 # nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]))
