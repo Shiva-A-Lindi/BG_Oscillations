@@ -1088,17 +1088,17 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 4000; t_list = np.arange(int(t_sim/dt))
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 duration_base = [0, int(t_mvt/dt)]
 name1 = 'FSI' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
 g = -0.5; g_ext =  0.01
 G = {}
-# plot_start = int(t_sim / 5)
-# t_transition = plot_start + int( t_sim / 4)
-plot_start = 300
-t_transition = 800
+plot_start = int(t_sim / 5)
+t_transition = plot_start + int( t_sim / 4)
+# plot_start = 300
+# t_transition = 800
 
 duration_base = [int(100/dt), int(t_transition/dt)] 
 length = duration_base[1] - duration_base[0]
@@ -1106,7 +1106,8 @@ duration_2 = [int(t_sim /dt) - length, int(t_sim /dt)]
 
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  0,0,0
 
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  -1.8 * 10**-4, -3.5* 10**-4, -12 *10**-4 ## close to oscillatory regime
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  -1.8 * 10**-4, -3.5* 10**-4, -12 *10**-4 ##FSI 70
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  -1.1 * 10**-4, -3.2* 10**-4, -3.2 *10**-4 ## close to oscillatory regime
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
                 name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
@@ -1141,13 +1142,14 @@ nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_vari
                ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
 nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
 
-filepaths = {name1: name1+ '_N_'+str(N_sim) +'_T_2000.pkl',
-             # name2:name2 + '_N_'+str(N_sim) +'_T_2000.pkl', ## A = 3
+filepaths = {name1: 'FSI_A_18-5_N_1000_T_2000_noise_var_1.pkl' ,
              name2: 'D2_A_1-1_N_1000_T_2000_noise_var_0-1.pkl' ,
             name3: name3 + '_N_'+str(N_sim) +'_T_2000_noise_var_15.pkl'}
+
 mvt_init_filepaths ={'Proto': 'Proto_A_22_N_1000_T_2000_noise_var_15.pkl',
-               'FSI': 'FSI_A_70_N_1000_T_2000_noise_var_10.pkl',
-               'D2' :name2 + '_N_'+str(N_sim) +'_T_2000.pkl'}
+               # 'FSI': 'FSI_A_70_N_1000_T_2000_noise_var_10.pkl',
+               'FSI': 'FSI_A_32_N_1000_T_2000_noise_var_1.pkl',
+               'D2' : 'D2_A_4_N_1000_T_2000_noise_var_0-1.pkl'}
 
 
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
@@ -1184,7 +1186,7 @@ peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_e
 find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
                 low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
                 fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-x_l = 6
+x_l = 0.75
 ax.axhline(x_l, ls = '--', c = 'grey')
 ax.set_xlim(0,55)
 ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
@@ -1206,13 +1208,18 @@ fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+state+'.pdf'), dpi = 300, f
 
 
 fig,ax = plt.subplots(1,1)
-f, t, Sxx = spectrogram(nuc3[0].pop_act[int(plot_start/dt):], 1/(dt/1000))
-img =ax.pcolormesh(t, f, 10*np.log(Sxx), cmap = plt.get_cmap('jet'),shading='gouraud', vmin=-30, vmax=0)
-ax.axvline(t_transition/1000 - plot_start/1000, ls = '--', c = 'grey')
-ax.set_ylabel('Frequency (Hz)')
-ax.set_xlabel('Time (sec)')
+f, t, Sxx = spectrogram(nuc2[0].pop_act[int(plot_start/dt):], 1/(dt/1000))
+img = ax.pcolormesh(t, f, 10*np.log(Sxx), cmap = plt.get_cmap('jet'),shading='gouraud', vmin=-30, vmax=0)
+ax.axvline( (t_transition - plot_start)/1000, ls = '--', c = 'grey')
+ax.set_ylabel('Frequency (Hz)',  fontsize = 15)
+ax.set_xlabel('Time (sec)', fontsize = 15)
 ax.set_ylim(0,70)
 clb = fig.colorbar(img)
+fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
 #%% Pallidostrital Transition to DD
 plt.close('all')
 N_sim = 1000
@@ -1333,6 +1340,19 @@ ax.set_xlim(5,55)
 fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+fig,ax = plt.subplots(1,1)
+f, t, Sxx = spectrogram(nuc2[0].pop_act[int(plot_start/dt):], 1/(dt/1000))
+img = ax.pcolormesh(t, f, 10*np.log(Sxx), cmap = plt.get_cmap('jet'),shading='gouraud', vmin=-30, vmax=0)
+ax.axvline( (t_transition - plot_start)/1000, ls = '--', c = 'grey')
+ax.set_ylabel('Frequency (Hz)',  fontsize = 15)
+ax.set_xlabel('Time (sec)', fontsize = 15)
+ax.set_ylim(0,70)
+clb = fig.colorbar(img)
+fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #%% synaptic weight exploration SNN
 duration_base = [0, int(t_mvt/dt)]
