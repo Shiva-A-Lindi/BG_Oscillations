@@ -6,6 +6,7 @@ from numpy import inf
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import matplotlib.patheffects as pe
 from matplotlib.ticker import FormatStrFormatter
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
@@ -552,11 +553,9 @@ class Nucleus:
         # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
 
     def set_init_from_pickle(self, filepath):
+
         f = load_pickle ( filepath)
         self.FR_ext = f['FR_ext']
-        # ind = np.where(self.FR_ext != inf)[0]
-        # self.FR_ext[self.FR_ext == inf] = np.average(self.FR_ext[ind])
-        # print(self.name,np.isnan(np.sum(self.FR_ext)))
         self.spike_thresh = f['spike_thresh']
         self.membrane_time_constant = f['membrane_time_constant']
         self.tau_ext_pop = f['tau_ext_pop']
@@ -575,7 +574,8 @@ class Nucleus:
                     'tau_ext_pop': self.tau_ext_pop,
                     'FR_ext': self.FR_ext,
                     'noise_variance': self.noise_variance}
-            pickle_obj(init, os.path.join( self.path, self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
+            pickle_obj(init, os.path.join( self.path, 'tau_m' + str(self.neuronal_consts['membrane_time_constant']['mean']) + '_' + self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + 
+                str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
         exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
@@ -640,7 +640,7 @@ class Nucleus:
         fig, ax = get_axes (ax)
         ax.hist( a.reshape( int(a.shape[0]* a.shape[1]), 1) , bins = bins,  color = color, label = self.name, density = True, stacked = True)
         ax.set_xlabel('Membrane potential (mV)', fontsize = 15)
-        ax.set_ylabel(r'$Probability\ density$',fontsize = 15)
+        ax.set_ylabel(r'$Probability$',fontsize = 15)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize = 15)
 
@@ -1144,7 +1144,7 @@ def plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict):
         for nucleus in nucleus_list:
             nucleus.plot_mem_potential_distribution_of_all_t(ax = ax, color = color_dict[nucleus.name], bins = 100)
     remove_frame(ax)
-    return ax
+    return fig, ax
 
 def _plot_signal(if_plot, start, end, dt, sig, plateau_y, cut_sig_ind):
     if if_plot:
@@ -1470,8 +1470,8 @@ def raster_plot(spikes_sparse, name, color_dict, color = 'k',  ax = None, labels
     return ax
 
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = 0, plot_end = None, tick_label_fontsize = 18,
-                            labelsize = 10, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True,
-                            axvspan = False, span_start = None, span_end = None, axvspan_color = 'lightskyblue'):
+                            labelsize = 15, title_fontsize = 15, lw  = 1, linelengths = 1, n_neuron = None, include_title = True, set_xlim = True,
+                            axvspan = False, span_start = None, span_end = None, axvspan_color = 'lightskyblue', ax_label = False):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2) [ 0 ]
@@ -1496,12 +1496,15 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None
             if set_xlim : 
                 xlim =  [plot_start, plot_end]
             else: xlim = None
-            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = labelsize, title_fontsize = title_fontsize, linelengths = linelengths , lw  = lw, xlim =xlim, 
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax = ax, labelsize = tick_label_fontsize, title_fontsize = title_fontsize, linelengths = linelengths , lw  = lw, xlim =xlim, 
                             axvspan = axvspan, span_start =span_start, span_end = span_end, axvspan_color = axvspan_color)
             fig.add_subplot(ax)
-            
+
             rm_ax_unnecessary_labels_in_subplots(j ,len(nuclei_dict), ax)
             j += 1
+    if ax_label:
+        fig.text(0.5, 0.03, 'time (ms)', ha='center', va='center',fontsize= labelsize)
+        fig.text(0.03, 0.5, 'neuron', ha='center', va='center', rotation='vertical',fontsize = labelsize)
     return fig
 def find_FR_sim_vs_FR_expected(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
     ''' simulated FR vs. what we input as the desired firing rate'''
@@ -1856,7 +1859,7 @@ dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,ylabelpad = 0, include_FR = True, alpha_mvt = 0.2,
          plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
-         continuous_firing_base_lines = True, axvspan_color = 'lightskyblue'):    
+         continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
@@ -1873,15 +1876,15 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
                 label = nucleus.name
             ax.plot(t_list[plot_start: plot_end]*dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
             if continuous_firing_base_lines:
-                ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+                ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '--', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
             else:
-                ax.plot(t_list[plot_start: int(t_mvt /dt)]*dt, np.ones_like(t_list[plot_start: int(t_mvt /dt)])*A[nucleus.name], '-.', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+                ax.plot(t_list[plot_start: int(t_mvt /dt)]*dt, np.ones_like(t_list[plot_start: int(t_mvt /dt)])*A[nucleus.name], '--', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
 
             if plt_mvt:
                 if continuous_firing_base_lines:
-                    ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha = alpha_mvt,lw = 1 )
+                    ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha = alpha_mvt,lw = 1 )
                 else:
-                    ax.plot(t_list[int(t_mvt /dt): plot_end]*dt, np.ones_like(t_list[int(t_mvt /dt): plot_end])*A_mvt[nucleus.name], '-.', c = color_dict[nucleus.name], alpha= alpha_mvt,lw = 1 )
+                    ax.plot(t_list[int(t_mvt /dt): plot_end]*dt, np.ones_like(t_list[int(t_mvt /dt): plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha= alpha_mvt,lw = 1 )
             FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
             if include_FR:
                 if include_std:
@@ -1903,10 +1906,8 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
     ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False)
     # ax.tick_params(axis='both', which='major', labelsize=10)
-    ax.locator_params(axis='y', nbins=5)
-    ax.locator_params(axis='x', nbins=5)
-    plt.rcParams['xtick.labelsize'] = 18
-    plt.rcParams['ytick.labelsize'] = 18
+    ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
+
     ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
     if ylim != None:
         ax.set_ylim(ylim)
@@ -2637,6 +2638,28 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
 
     return fig
 
+def multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
+                                    g_tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
+    fig, ax = get_axes (ax)
+    
+    for i in range(len(filename_list)):
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        x_spec =  data['tau'][:,:,0][:,0]
+
+        y_spec = data[(name_list[i], y_list[i])][:,g_tau_2_ind]. reshape(-1,)
+        print(x_spec.shape, y_spec.shape)
+        ax.plot(x_spec,y_spec, '-o', c = color_list[i], lw = 3, label= label_list[i],zorder = 1)#, path_effects=[pe.Stroke(linewidth=1, foreground='k'), pe.Normal()])
+        ax.set_xlabel(x_label,fontsize = 20)
+        ax.set_ylabel(y_label,fontsize = 20,labelpad=ylabelpad)
+        ax.set_title(title,fontsize = 20)
+        # ax.set_xlim(limits['x'])
+        # ax.set_ylim(limits['y'])
+        ax_label_adjust(ax, fontsize = 20)
+        remove_frame(ax)
+    plt.legend(fontsize = 20)
+    plt.show()
+    return fig, ax
 def multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list, c_list, label_list,name_list,filename_list,x_label,y_label, 
                                     g_tau_2_ind = None, g_ratio_list = [], ylabelpad = -5, colormap = 'hot', title = '', c_label = ''):
     maxs = [] ; mins = []
@@ -2738,7 +2761,7 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, x_range, neuronal_consts, s
     ax.set_xlim(xlim)
     ax_label_adjust(ax)
     remove_frame(ax)
-    ax.legend()
+    # ax.legend()
 
 
 def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method):
