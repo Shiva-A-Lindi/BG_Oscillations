@@ -1238,8 +1238,10 @@ def load_json_file_as_obj(filepath):
     file_ = o.read()
     return jsonpickle.decode(file_)
 
-def ax_label_adjust(ax, fontsize = 18, nbins = 5):
-    ax.locator_params(axis='y', nbins= nbins)
+def ax_label_adjust(ax, fontsize = 18, nbins = 5, ybins = None):
+    if ybins == None:
+        ybins = nbins
+    ax.locator_params(axis='y', nbins= ybins)
     ax.locator_params(axis='x', nbins= nbins)
     plt.rcParams['xtick.labelsize'] = fontsize
     plt.rcParams['ytick.labelsize'] = fontsize
@@ -1944,13 +1946,12 @@ def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = '
 
     return fig
 
-def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15, cmap = 'YlOrBr'):
+def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15, cmap = 'YlOrBr', ax = None):
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    fig, ax = get_axes(ax)
 
     ax.plot(x, y,'k', lw = 0.5)
-    img = ax.scatter(x, y, c=c, cmap=plt.hot(),lw = 1,edgecolor = 'k', s = 50)
+    img = ax.scatter(x, y, c=c, cmap=plt.get_cmap(cmap),lw = 1,edgecolor = 'k', s = 50)
 
     if limits == None:
         limits = {'x':(min(x),max(x)), 'y':(min(y),max(y))}
@@ -1962,9 +1963,10 @@ def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15, cmap
     # ax.set_ylim(limits['y'])
     clb = fig.colorbar(img)
     clb.set_label(label[2], labelpad=10, y=0.5, rotation=-90)
-    clb.ax.locator_params(nbins=4)
+    clb.ax.locator_params(nbins=5)
     ax_label_adjust(ax)   
     remove_frame(ax) 
+    return fig
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits = None):
 
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
@@ -1995,12 +1997,12 @@ def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits 
     clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
     
-def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsize = 15):
+def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsize = 15, cmap = 'hot', tick_label_fontsize = 15):
     
-    fig = plt.figure()
+    fig = plt.figure(figsize = (8,5))
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_wireframe(x, y, z, color = 'grey', lw = 0.5 ,zorder = 1)
-    img = ax.scatter(x.flatten(), y.flatten(), z.flatten(), c=c.flatten(), cmap=plt.hot(), s = 20, lw = 1,edgecolor = 'k',zorder=2)
+    img = ax.scatter(x.flatten(), y.flatten(), z.flatten(), c=c.flatten(), cmap=plt.get_cmap(cmap), s = 20, lw = 1,edgecolor = 'k',zorder=2)
 
     if limits == None:
         limits = {'x':(np.amin(x),np.amax(x)), 'y':(np.amin(y),np.amax(y)), 'z':(np.amin(z),np.max(z))}
@@ -2011,8 +2013,8 @@ def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsiz
     ax.w_xaxis.gridlines.set_lw(.5)
     ax.w_yaxis.gridlines.set_lw(0.5)
     ax.w_zaxis.gridlines.set_lw(0.5)
-    ax.set_xlabel(label[0], fontsize = label_fontsize)
-    ax.set_ylabel(label[1],fontsize = label_fontsize)
+    ax.set_xlabel(label[0], fontsize = label_fontsize, labelpad = 10)
+    ax.set_ylabel(label[1],fontsize = label_fontsize, labelpad = 10)
     ax.set_zlabel(label[2],fontsize = label_fontsize,rotation = -90)
     ax.set_title(title)
     ax.set_xlim(limits['x'])
@@ -2020,11 +2022,13 @@ def scatter_3d_wireframe_plot(x,y,z,c, title, label, limits = None,label_fontsiz
     ax.set_zlim(limits['z'])
     ax.zaxis.set_major_formatter(FormatStrFormatter('%.0f'))    
     clb = fig.colorbar(img,pad = 0.15)
+
     clb.set_label(label[3], labelpad=10, y=.5, rotation=-90)
     clb.ax.locator_params(nbins=5)
     plt.rcParams['grid.linewidth'] = 0.1
     # plt.locator_params(axis='y', nbins=6)
     # plt.locator_params(axis='x', nbins=6)
+    ax_label_adjust(ax, fontsize = tick_label_fontsize)
     plt.locator_params(axis='z', nbins=5)
     plt.show()
     return fig,ax
@@ -2213,10 +2217,6 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
             # plt.figure()
             # plt.plot(sig)
             # plt.axhline(np.average(sig))
-        ################## amplitude envelope Slope thresholding method
-        # slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
-        # print('slope = ', slope)
-        # if slope > amp_env_slope_thresh: 
         ################# relative first and last peak ratio thresholding
         if len(peaks)>1 : 
             last_first_peak_ratio = sig[peaks[-1]]/sig[peaks[1]]
@@ -2232,7 +2232,15 @@ def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp
             # plt.plot(troughs,sig[troughs],"x", markersize = 10, markeredgewidth = 2)
         #    plt.legend()
             # print('peaks, slope = ', slope)
+
+        ################## amplitude envelope Slope thresholding method
+        # slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
+        # print('slope = ', slope)
+        # if slope > amp_env_slope_thresh: 
+
             return True
+
+
         else:
             return False
     else: # it's transient
@@ -2256,7 +2264,7 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
         return False
     
 
-def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, color_dict, if_plot = False, G_ratio_dict = None):
+def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, color_dict, if_plot = False, G_ratio_dict = None, plt_start = 0):
     list_1  = list(G_dict.values())[0] ; list_2  = list(G_dict.values())[1]
     n = len(list_1) ;m = len(list_2)
     print(n,m)
@@ -2315,7 +2323,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
                     if_trans_plotted = True
                     print("transient plotted")
-                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = 100, legend_loc = 'upper left',title_fontsize = 15,
+                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = plt_start, legend_loc = 'upper left',title_fontsize = 15,
                         title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)),
                         ax = None)
                 
@@ -2326,7 +2334,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 if not if_stable_plotted and if_stable_mvt:
                     if_stable_plotted = True
                     print("stable plotted")
-                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = 100, legend_loc = 'upper left', title_fontsize = 15,
+                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = plt_start, legend_loc = 'upper left', title_fontsize = 15,
                         title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)), 
                         ax = None)
             if if_plot:
@@ -2585,7 +2593,8 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
         plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
     return fig
 
-def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap = 'hot',x_axis = 'multiply',title = "",x_label = "G"):
+def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap = 'hot',
+                                                    x_axis = 'multiply',title = "",x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', vline_txt = True):
     maxs = [] ; mins = []
     fig = plt.figure(figsize=(8,7))
     ax = fig.add_subplot(111)
@@ -2613,16 +2622,17 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
         # ax.plot(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
         # img = ax.scatter(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
         # plt.axvline(g_transient[g_ind[i]], c = color_list[i])
-        ax.plot(g, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
-        img = ax.scatter(g, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2,s=80)
-        plt.axvline(g_transient, linestyle = '-.',c = color_list[i],alpha = 0.3,lw=2)  # to get the circuit g which is the muptiplication
-        plt.axvline(g_stable, c = color_list[i],lw=2)  # to get the circuit g which is the muptiplication
-    plt.text(g_stable-0.5, 0.6, 'Stable oscillations',fontsize=18, rotation = -90)
-    plt.text(g_transient, 0.6, 'Oscillation appears',fontsize=18, rotation = -90)
+        ax.plot(g * x_scale_factor, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        img = ax.scatter(g * x_scale_factor, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2,s=80)
+        ax.axvline(g_transient * x_scale_factor, linestyle = '-.',c = color_list[i],alpha = 0.3,lw=2)  # to get the circuit g which is the muptiplication
+        ax.axvline(g_stable * x_scale_factor, c = color_list[i],lw=2)  # to get the circuit g which is the muptiplication
+    if vline_txt :
+        ax.text(g_stable * x_scale_factor-0.5, 0.6, 'Stable oscillations',fontsize=18, rotation = -90)
+        ax.text(g_transient * x_scale_factor, 0.6, 'Oscillation appears',fontsize=18, rotation = -90)
     ax.set_xlabel(x_label,fontsize = 20)
     ax.set_ylabel('frequency(Hz)',fontsize=20)
     ax.set_title(title,fontsize=20)
-    ax_label_adjust(ax, fontsize = 18, nbins = 5)
+    ax_label_adjust(ax, fontsize = 18, nbins = 8)
 
     # ax.set_xlim(limits['x'])
     # ax.set_ylim(limits['y'])
@@ -2633,7 +2643,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     clb = fig.colorbar(img, cax=axins1, orientation="vertical")
     clb.ax.locator_params(nbins=4)
     clb.set_label('% Oscillation', labelpad=20, y=.5, rotation=-90,fontsize=15)
-    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = 'upper right')
+    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
     remove_frame(ax)
 
     return fig
@@ -2687,13 +2697,12 @@ def multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list, c_list, lab
         ax.set_title(title,fontsize = 20)
         # ax.set_xlim(limits['x'])
         # ax.set_ylim(limits['y'])
-        ax_label_adjust(ax, fontsize = 20)
-    
+        ax_label_adjust(ax, fontsize = 20, nbins = 5, ybins = 6 )
+    ax.margins(0)
     clb = fig.colorbar(img)
     clb.set_label(c_label, labelpad=20, y=.5, rotation=-90,fontsize = 20)
-    clb.ax.locator_params(nbins=4)
-    plt.legend(fontsize = 20)
-    plt.show()
+    clb.ax.locator_params(nbins=5)
+    ax.legend(fontsize = 20, frameon=False)
     return fig
 
 
