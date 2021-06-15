@@ -2680,12 +2680,14 @@ N = dict.fromkeys(N, N_sim)
 t_sim = 400 # simulation time in ms
 dt = 0.5 # euler time step in ms
 t_mvt = int(t_sim/2)
+plot_start = 100
+ylim = (-10,70)
 D_mvt = t_sim - t_mvt
 t_list = np.arange(int(t_sim/dt))
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)]
 duration_base = [0, int(t_mvt/dt)]
-G = { ('STN', 'Proto'): -3,
-  ('Proto', 'STN'): 0.5, 
+G = { ('STN', 'Proto'): -0.1,
+  ('Proto', 'STN'): 1, 
   ('Proto', 'Proto'): 0 } # synaptic weight
 G[('Proto', 'Proto')] = G[('STN', 'Proto')]
 receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
@@ -2703,13 +2705,13 @@ nuclei_dict = {'Proto': Proto, 'STN' : STN}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list)
 reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
 nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, plot_start=0,title_fontsize=15,
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, plot_start=plot_start,title_fontsize=15,ylim=ylim,include_FR=False,
      title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 #g_list = np.linspace(-.6,-0.1, 20)
 # n_half_cycle, G, nuclei_dict = find_oscillation_boundary_STN_GPe(g_list,nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base)
-figname = 'STN-GPe loop with Proto-Proto stable'
-fig.savefig(figname+'.png',dpi = 300)
-fig.savefig(figname+'.pdf',dpi = 300)
+figname = 'STN-GPe loop with Proto-Proto_no_ocsill'
+fig.savefig(os.path.joijn(path_rate, figname+'.png'),dpi = 300)
+fig.savefig(os.path.joijn(path_rate, figname+'.pdf'),dpi = 300)
 #print(find_freq_of_pop_act_spec_window(STN[0],*duration_mvt))
 temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_mvt)
 # temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_base)
