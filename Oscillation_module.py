@@ -51,18 +51,18 @@ def extrapolate_FR_ext_from_neuronal_response_curve ( FR_ext, FR_sim , desired_F
     # plt.figure()
     # plt.plot( FR_ext, FR_sim, '-o')
     xdata, ydata = get_non_linear_part( FR_ext, FR_sim, end_of_nonlinearity =  end_of_nonlinearity)
-    x, y = rescale_x_and_y ( xdata, ydata )
+    x, y = rescale_x_and_y ( xdata, ydata , desired_FR)
     coefs = fit_FR_as_a_func_of_FR_ext ( x, y, sigmoid, maxfev = maxfev)
     FR_ext = extrapolated_FR_ext_from_fitted_curve (x, y, desired_FR, coefs, sigmoid, inverse_sigmoid, 
-                                                find_y_normalizing_factor(ydata), 
+                                                find_y_normalizing_factor(ydata,desired_FR), 
                                                 find_x_mid_point_sigmoid( ydata, xdata)) 
     # print(tau * g_ext * N_ext / 1000)
     if if_plot :
-        plot_fitted_sigmoid(xdata, ydata, x, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
+        plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
     if FR_ext == np.nan or FR_ext == np.inf:
-        print(desired_FR, find_y_normalizing_factor(ydata))
+        print(desired_FR, find_y_normalizing_factor(ydata, desired_FR))
         print('Corr FR_ext =', FR_ext)
-        plot_fitted_sigmoid(xdata, ydata, x, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
+        plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs = coefs, FR_to_I_coef = tau * g_ext * N_ext/ 1000, ax = ax, noise_var = noise_var, c = c)
     return FR_ext / 1000  # FR_ext is in Hz, we want spk/ms
 
 class Nucleus:
@@ -574,7 +574,7 @@ class Nucleus:
                     'tau_ext_pop': self.tau_ext_pop,
                     'FR_ext': self.FR_ext,
                     'noise_variance': self.noise_variance}
-            pickle_obj(init, os.path.join( self.path, 'tau_m' + str(self.neuronal_consts['membrane_time_constant']['mean']) + '_' + self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + 
+            pickle_obj(init, os.path.join( self.path, 'tau_m_' + str(self.neuronal_consts['membrane_time_constant']['mean']) + '_' + self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + 
                 str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
@@ -1246,13 +1246,13 @@ def ax_label_adjust(ax, fontsize = 18, nbins = 5, ybins = None):
     plt.rcParams['xtick.labelsize'] = fontsize
     plt.rcParams['ytick.labelsize'] = fontsize
 
-def plot_fitted_sigmoid(xdata, ydata, x_scaled, FR_to_I_coef = 0, coefs = [], ax = None,  noise_var = 0, c = 'grey'):
+def plot_fitted_sigmoid(xdata, ydata, x_scaled, desired_FR , FR_to_I_coef = 0, coefs = [], ax = None,  noise_var = 0, c = 'grey'):
     fig, ax = get_axes (ax)
     ax.plot(xdata * FR_to_I_coef, ydata,'o',label = r'$\sigma =$' + str(noise_var), c = c, markersize= 7, markerfacecolor='none', markeredgewidth=1.5)
     if coefs != []:
         y = sigmoid(x_scaled ,*coefs)
         I_ext = (x_scaled + find_x_mid_point_sigmoid( ydata, xdata)) * FR_to_I_coef
-        FR = y * find_y_normalizing_factor(ydata)
+        FR = y * find_y_normalizing_factor(ydata, desired_FR)
         ax.plot( I_ext, FR, c = c, label = 'fitted curve' , lw = 2)
     ax.legend(framealpha = 0.1, frameon = False)
     ax.set_xlabel(r'$I_{ext} \; (mV)$', fontsize = 15)
@@ -1422,15 +1422,21 @@ def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, coefs, estima
     
     return inverse_estimating_func( desired_FR / FR_normalizing_factor, *coefs) + x_shift
 
-def find_y_normalizing_factor (y):
-    return np.max (y)
+def find_y_normalizing_factor (y, desired_FR, epsilon = 0.2):
+    y_max = np.max(y)
+    if   -0.2 < desired_FR - np.max(y) < 0.2:
+        y_max = np.max(y) + epsilon
+    return y_max
+
+# def find_y_normalizing_factor (y, desired_FR):
+#     return np.max (y)
 
 def get_non_linear_part( x, y, end_of_nonlinearity = 25):
     ind =  np.where(y < end_of_nonlinearity)[0]
     return x[ind], y[ind]
 
-def rescale_x_and_y ( x, y ):
-    ydata = y / find_y_normalizing_factor(y)
+def rescale_x_and_y ( x, y , desired_FR):
+    ydata = y / find_y_normalizing_factor(y, desired_FR)
     x_shift = find_x_mid_point_sigmoid( y, x)
     xdata = x - x_shift
     return xdata, ydata
