@@ -433,7 +433,7 @@ class Nucleus:
 
         elif method == 'draw_from_data':
 
-            data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '.npy'))
+            data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '_tau_' + str( np.round(self.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.','-') + '.npy'))
             y_dist = data.reshape( int( data.shape [0] * data.shape [1] ), 1)
             self.mem_potential = draw_random_from_data_pdf( y_dist, self.n, bins = 20)
 
@@ -1344,7 +1344,7 @@ def f_LIF(tau, V, V_rest, I_ext, I_syn):
 def save_all_mem_potential(nuclei_dict, path):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name + 'tau_' + str( np.round(nucleus.neuronal_consts['membrane_time_constant']['mean'], 1))), nucleus.all_mem_pot)
+            np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name + '_tau_' + str( np.round(nucleus.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.','-')), nucleus.all_mem_pot)
 
 def draw_random_from_data_pdf(data, n, bins= 50, if_plot = False):
     
