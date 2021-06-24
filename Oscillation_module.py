@@ -178,9 +178,15 @@ class Nucleus:
         if plot_initial_V_m_dist :
             self.plot_mem_potential_distribution_of_one_t( 0, bins = 50)
         
-        self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
+        if 'truncmin' in self.neuronal_consts['membrane_time_constant']:
+            self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
                                                              self.neuronal_consts['membrane_time_constant']['var'] , self.n,
-                                                             lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc)
+                                                             truncmin = self.neuronal_consts['membrane_time_constant']['truncmin'],
+                                                             truncmax = self.neuronal_consts['membrane_time_constant']['truncmax'])        
+        else:
+            self.membrane_time_constant = truncated_normal_distributed ( self.neuronal_consts['membrane_time_constant']['mean'], 
+                                                                 self.neuronal_consts['membrane_time_constant']['var'] , self.n,
+                                                                 lower_bound_perc = lower_bound_perc, upper_bound_perc = upper_bound_perc)
 
         ## dt incorporated in tau for efficiency
         self.tau_ext_pop = {'rise': truncated_normal_distributed ( poisson_prop[self.name]['tau']['rise']['mean'],
@@ -574,7 +580,7 @@ class Nucleus:
                     'tau_ext_pop': self.tau_ext_pop,
                     'FR_ext': self.FR_ext,
                     'noise_variance': self.noise_variance}
-            pickle_obj(init, os.path.join( self.path, 'tau_m_' + str(self.neuronal_consts['membrane_time_constant']['mean']) + '_' + self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + 
+            pickle_obj(init, os.path.join( self.path, 'tau_m_' + str(self.neuronal_consts['membrane_time_constant']['mean']).replace('.','-') + '_' + self.name + '_A_' + str(self.basal_firing).replace('.','-') + '_N_' + 
                 str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
@@ -1283,9 +1289,12 @@ def scale_bound_with_arbitrary_value(mean, lower_bound_perc , upper_bound_perc, 
     upper_bound = mean + scale* upper_bound_perc
     return lower_bound, upper_bound
 
-def truncated_normal_distributed ( mean, sigma, n, scale_bound = scale_bound_with_mean, scale = None, lower_bound_perc = 0.8, upper_bound_perc = 1.2):
+def truncated_normal_distributed ( mean, sigma, n, scale_bound = scale_bound_with_mean, scale = None, lower_bound_perc = 0.8, upper_bound_perc = 1.2, truncmin = None, truncmax = None):
     
-    lower_bound, upper_bound = scale_bound(mean, lower_bound_perc, upper_bound_perc, scale = scale)
+    if truncmin != None and  truncmax != None:
+        lower_bound, upper_bound = truncmin, truncmax
+    else:
+        lower_bound, upper_bound = scale_bound(mean, lower_bound_perc, upper_bound_perc, scale = scale)
     return stats.truncnorm.rvs((lower_bound-mean)/sigma,(upper_bound-mean)/sigma, loc = mean, scale = sigma, size = int(n))
 
 def find_FR_sim_vs_FR_ext(FR_list,poisson_prop,receiving_class_dict,t_list, dt,nuclei_dict,A, A_mvt, D_mvt,t_mvt):
