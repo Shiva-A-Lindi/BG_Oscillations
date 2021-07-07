@@ -1840,7 +1840,9 @@ def run_transition_to_movement(receiving_class_dict,t_list, dt, nuclei_dict, mvt
 
 def run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
 										A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ):
-
+	''' 
+		run normaly til "t_transient" then exert an external transient input to "list_of_nuc_with_trans_inp" then resume to normal state until the end of simulation
+	'''
 	start = timeit.default_timer()
 	### basal firing 
 	iterate_SNN(nuclei_dict, dt,receiving_class_dict, t_start = 0, t_end = t_transient)
