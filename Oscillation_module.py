@@ -608,11 +608,24 @@ class Nucleus:
 		stop = timeit.default_timer()
 		print('t for I_ext init ' + self.name  + ' =', round(stop - start, 2),' s')
 
-	def estimate_needed_external_input_high_act(self, FR_range, dt, t_list, receiving_class_dict, if_plot = False, n_FR = 25, ax = None, c = 'grey'):
+	def estimate_needed_external_input_high_act(self, FR_range, dt, t_list, receiving_class_dict, if_plot = False, n_FR = 25, ax = None, c = 'grey', set_FR_range_from_theory = True):
 
 		start = timeit.default_timer()
-		FR_start = FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [0], self.n_ext_population)
-		FR_end =  FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
+
+		# if set_FR_range_from_theory: # find range based on theory. Only works for neurons bahaving close to tbe theory range
+		# 	FR_start =  FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [0], self.n_ext_population) 	
+		# 	FR_end =   FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
+						
+		if set_FR_range_from_theory: # scale range based on the homogeneous neurons
+			FR_mean_start = FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.u_rest, self.neuronal_consts['membrane_time_constant']['mean'], self.syn_weight_ext_pop, FR_range [0], self.n_ext_population)
+			FR_mean_end =  FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.u_rest, self.neuronal_consts['membrane_time_constant']['mean'], self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
+			FR_start = ( FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [0], self.n_ext_population) 
+						/ FR_mean_start * FR_range [0] ) 
+			FR_end =  ( FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
+						/ FR_mean_end * FR_range [-1] )
+		else:
+			FR_start = FR_range[0]
+			FR_end = FR_range[-1]
 		FR_list = np.linspace ( FR_start, FR_end, n_FR)
 		FR_sim = self.run_for_all_FR_ext( FR_list, t_list, dt, receiving_class_dict )
 		self. set_FR_ext_each_neuron( FR_list, FR_sim, dt, extrapolate = extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot = if_plot, ax = ax, c= c)
@@ -1203,7 +1216,8 @@ def find_FR_ext_range_for_each_neuron_high_act(FR_sim, all_FR_list, init_method,
 	return FR_list
 
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, c = 'grey', scale_g_with_N = True,
-						all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, right_pad = 0.005, maxfev = 5000, ax = None):
+						all_FR_list = np.linspace(0.05,0.07,100) , n_FR = 50, if_plot = False, end_of_nonlinearity = 25, left_pad = 0.005, 
+						right_pad = 0.005, maxfev = 5000, ax = None, set_FR_range_from_theory = True):
 	'''find number of connections and build J matrix, set ext inputs as well'''
 	#K = calculate_number_of_connections(N,N_real,K_real)
 	K = calculate_number_of_connections(N,N_real,K_real)
@@ -1218,7 +1232,7 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real, receiving_p
 
 			elif nucleus. der_ext_I_from_curve :
 				if nucleus.basal_firing > end_of_nonlinearity:
-					nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, n_FR = n_FR, ax = ax, c= c)
+					nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, n_FR = n_FR, ax = ax, c= c, set_FR_range_from_theory = set_FR_range_from_theory)
 				else:
 					nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity, maxfev = maxfev,
 									n_FR = n_FR , left_pad = left_pad, right_pad = right_pad, ax = ax, c= c)
@@ -1434,8 +1448,10 @@ def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, coefs, estima
 
 def find_y_normalizing_factor (y, desired_FR, epsilon = 0.2):
 	y_max = np.max(y)
-	if   -0.2 < desired_FR - np.max(y) < 0.2:
+	if   -0.2 < desired_FR - np.max(y) < 0.2: ## if the maximum of the curve is the same as the desired FR add epsilon to it to avoid errors in log
+		print('Oooops! max_sigmoid = desired_FR')
 		y_max = np.max(y) + epsilon
+		print(y_max)
 	return y_max
 
 # def find_y_normalizing_factor (y, desired_FR):

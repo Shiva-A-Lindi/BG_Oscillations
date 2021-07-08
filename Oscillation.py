@@ -49,7 +49,7 @@ if 1:
              'FSI': 32,
              'D2': 4, # Mirzaei et al. 2017
              'Arky':38} # Dodson et al. 2015
-    A_trans = {'STN': 30, 'Proto': A['Proto'], 'D2': 20} # with ctx stimulation
+    A_trans = {'STN': 65, 'Proto': A['Proto'], 'D2': 23} # with ctx stimulation
     Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
     threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
     neuron_type = {'STN': 'Glut', 'Proto': 'GABA', 'D2': 'GABA', 'FSI':'GABA'}
@@ -208,7 +208,11 @@ if 1:
     color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'darkorange'}
     noise_variance = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
     noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
-    I_ext_range = {'Proto' : [0.175*100, 0.185*100], 'STN': [], 'D2': [0.0595*100, 0.0605*100], 'FSI': [0.05948*100, 0.0605*100], 'Arky': []}
+    I_ext_range = {'Proto' : [0.175*100, 0.185*100], 
+                   'STN': [0.012009 * 100, 0.02 * 100], 
+                   'D2': [0.0595*100, 0.0605*100], 
+                   'FSI': [0.05948*100, 0.0605*100], 
+                   'Arky': []}
     oscil_peak_threshold = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky': 0.1}
     smooth_kern_window = {key: value * 30 for key, value in noise_variance.items()}
     #oscil_peak_threshold = {key: (gain[key]*noise_amplitude[key]*noise_variance[key]-threshold[key])/5 for key in noise_variance.keys()}
@@ -397,8 +401,8 @@ def run_FR_sim_vs_FR_ext_with_I_cte_and_noise(name, g_ext, poisson_prop, FR_list
 
 # init_method = 'heterogeneous'
 init_method = 'homogeneous'
-name = 'Proto'
-n = 50
+name = 'STN'
+n = 100
 # start=59.5; end=60.5;  # for FSI & D2
 
 g = -0.01; g_ext = -g
@@ -438,10 +442,10 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range[name], neuronal_con
 plt.xlabel(r'$I_{external} \; (mV)$',fontsize = 15)
 plt.ylabel(r'$FR_{simulation} \; (Hz)$',fontsize = 15)
 remove_frame(ax)
-filename = 'Proto_N_1000_response_curve_with_different_noise_[0_0-1_1_5_15].png'
+filename = name + '_N_1000_response_curve_with_different_noise_[0_0-1_1_5_15].png'
 fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)### extrapolate with the average firing rate ofthe  population
-filename = 'Proto_1000_neuron_response_curve_with_different_noise.pdf'
+filename = name + '_1000_neuron_response_curve_with_different_noise.pdf'
 fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # FR_ext,_ = extrapolate_FR_ext_from_neuronal_response_curve ( FR_list * 1000, firing_prop_hetero[name]['firing_mean'][:,0] ,A[name],
@@ -648,7 +652,7 @@ noise_variance_tau_m_5 = {'rest': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
 noise_variance_tau_real = {'rest': {'FSI' : 8 , 'D2': 3 , 'Proto': 15*2, 'STN':4} , # Proto tau_m = 13
                             'mvt': {'FSI' : 8 , 'D2': 3 , 'Proto': 15*2, 'STN':4} ,
                             'DD': {'FSI' : 10 , 'D2': 3 , 'Proto': 15*2, 'STN':4} ,
-                            'trans': {'STN' : 5, 'D2' : 10}
+                            'trans': {'STN' : 5, 'D2' : 12}
                           }
 noise_variance = noise_variance_tau_real[state]
 noise_amplitude = {name : 1}
@@ -660,7 +664,7 @@ ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
 # mem_pot_init_method = 'uniform'
-
+set_FR_range_from_theory = True
 set_input_from_response_curve = True
 save_init = True
 der_ext_I_from_curve= True
@@ -680,9 +684,9 @@ n = 50
 #                'D2': {'rest': [0.001, 0.001], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] },
 #                'Proto': {'rest': [], 'mvt': [0.1] , 'DD': [] }}
 pad_tau_real = {'FSI': {'rest': [0.005, 0.0057], 'mvt': [0.003, 0.0033] , 'DD': [] },
-               'D2': {'rest': [0.002, 0.002], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] , 'trans' : [0.003, 0.003]},
+               'D2': {'rest': [0.002, 0.002], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] , 'trans' : [0.003, 0.005]},
                'Proto': {'rest': [0.001, 0.001], 'mvt': [0.1, 0.3] , 'DD': [] },
-               'STN': {'rest': [0.004, 0.006], 'mvt': [0.003, 0.0033] , 'DD': [], 'trans': [0.003, 0.009]}}
+               'STN': {'rest': [0.004, 0.006], 'mvt': [0.003, 0.0033] , 'DD': [], 'trans': [0.003, 0.003]}}
 
 pad  = pad_tau_real
 # all_FR_list_tau_m_5 ={
@@ -712,15 +716,15 @@ all_FR_list_tau_real ={
                                  'mvt' : np.linspace ( 0.13, 0.3 , 250).reshape(-1,1) , 
                                  'DD' : []},
                     'STN': { 'rest' : np.linspace (  0.008, 0.03 , 250).reshape(-1,1) , 
-                               'mvt': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1), 
-                               'DD': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1) / 2 ,
-                            'trans' : np.linspace ( 0.007, 0.03 , 250).reshape(-1,1)}
+                             'mvt': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1), 
+                             'DD': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1) / 2 ,
+                             'trans' : np.linspace ( 0.0135, 0.018 , 250).reshape(-1,1)}
                       }
 end_of_nonlinearity = {
                       'FSI': { 'rest' : 35 , 'mvt': 25, 'DD':40 } ,
-                      'D2':  { 'rest' : 10 , 'mvt': 10 , 'DD': 20, 'trans': 25 } ,
+                      'D2':  { 'rest' : 10 , 'mvt': 10 , 'DD': 20, 'trans': 40 } ,
                       'Proto':  { 'rest' :  25, 'mvt': 25 , 'DD': 35  },
-                      'STN': { 'rest' : 35 , 'mvt': 25, 'DD':40, 'trans': 50 } 
+                      'STN': { 'rest' : 35 , 'mvt': 25, 'DD':40, 'trans': 35 } 
                       }
 all_FR_list = {name: all_FR_list_tau_real[name][state]}
 
@@ -735,7 +739,7 @@ nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]), set_noise = Fa
 
 receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
-                                          left_pad =pad[name][state][0], right_pad=pad[name][state][1])
+                                          left_pad =pad[name][state][0], right_pad=pad[name][state][1], set_FR_range_from_theory=set_FR_range_from_theory)
 
 # nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]))
 print(np.sum(np.isnan(nuc[0].FR_ext)))
@@ -1310,7 +1314,7 @@ g = -0.004; g_ext =  0.01
 G = {}
 plot_start = 150
 plot_start_raster = 500
-G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = g, -g , g
+G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = -.003, 0.003 , -0.0015
 # G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = 0,0, 0
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
@@ -1352,43 +1356,44 @@ nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_vari
 nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
-rest_init_filepaths = {'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
+rest_init_filepaths = {
+                    'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
                         'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl',              
                     # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
                     # 'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
                     'Proto': 'tau_m_25_Proto_A_45_N_1000_T_2000_noise_var_120.pkl'}
 
 trans_init_filepaths = {
-                        # 'STN':'tau_m_5-13_STN_A_100_N_1000_T_2000_noise_var_10.pkl',
-                        'STN':'tau_m_5-13_STN_A_30_N_1000_T_2000_noise_var_5.pkl',
+                        # 'STN':'tau_m_5-13_STN_A_46_N_1000_T_2000_noise_var_5.pkl',
+                        'STN':'tau_m_5-13_STN_A_65_N_1000_T_2000_noise_var_5.pkl',
                         'Proto': rest_init_filepaths['Proto'],
-                        # 'D2':'tau_m_13_D2_A_150_N_1000_T_2000_noise_var_50.pkl',
-                        # 'D2' : 'tau_m_13_D2_A_30_N_1000_T_2000_noise_var_30.pkl',
-                        'D2' : 'tau_m_13_D2_A_20_N_1000_T_2000_noise_var_10.pkl', 
+                        # 'D2':'tau_m_13_D2_A_30_N_1000_T_2000_noise_var_20.pkl',
+                        'D2' : 'tau_m_13_D2_A_23_N_1000_T_2000_noise_var_12.pkl',
+                        # 'D2' : 'tau_m_13_D2_A_20_N_1000_T_2000_noise_var_10.pkl', 
                         }
 t_transient = 200 # ms
 duration = 5
-n_run = 10
+n_run = 15
 list_of_nuc_with_trans_inp = ['STN', 'D2']
 set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
 
 nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
                                       t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
 
-run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-										Act['trans'],list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), duration = int( duration / dt))
+# run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
+# 										Act['trans'],list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), duration = int( duration / dt))
 
 # nuc1[0].low_pass_filter( dt, 1,200, order = 6)
 # nuc2[0].low_pass_filter( dt, 1,200, order = 6)
 # # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-# avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-# 										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
-#                                         duration = int( duration / dt) ,n_run = 10)
-# for nuclei_list in nuclei_dict.values():
-#     for k,nucleus in enumerate( nuclei_list) :
-#         nucleus.pop_act = avg_act[nucleus.name][:,k]
-state = 'STN_GPe_D2_Real_tau_Proto_25_ms_trans_Ctx_10_run_not_loop'
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
+										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
+                                        duration = int( duration / dt) ,n_run = n_run)
+for nuclei_list in nuclei_dict.values():
+    for k,nucleus in enumerate( nuclei_list) :
+        nucleus.pop_act = avg_act[nucleus.name][:,k]
+state = 'STN_GPe_D2_Real_tau_Proto_25_ms_trans_Ctx_'+str(n_run) + '_run'
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
             title = r'$\tau_{{m}}^{{Proto}} = 25\;ms\; , \; G={0}$'.format(g), plt_mvt = False, include_FR=False)#, ylim = [0,150])
 fig.set_size_inches((15, 7), forward=False)
