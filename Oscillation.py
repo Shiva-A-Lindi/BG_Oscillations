@@ -192,8 +192,10 @@ if 1:
                        'membrane_time_constant':{'mean':5.13,'var':1.5},'spike_thresh': {'mean':-50.8,'var':0.5}}} #tau_m: Paz et al 2005 
     tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
            ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
-           ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
-           ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate
+            ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
+           # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Geetsner
+
+           ('Proto','STN'): {'rise':[0.2],'decay':[12]}, # Glut estimate
            ('Proto','Proto'): {'rise':[0.5],'decay':[4.9]}, # Sims et al. 2008
            ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 ( in thesis it was 2 and 10)
            ('FSI','Proto'): {'rise':[1],'decay':[6]}} 
@@ -1193,15 +1195,15 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 700; t_list = np.arange(int(t_sim/dt))
+t_sim = 500; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'Proto' # projecting
 name2 = 'STN' # recieving
-g = -0.008; g_ext =  0.01
+g = -0.002; g_ext =  0.01
 G = {}
-plot_start = 150
-plot_start_raster = 500
+plot_start = 0
+plot_start_raster = 150
 G[(name2, name1)] , G[(name1, name2)]  = g, -g
 # G[(name2, name1)] , G[(name1, name2)]  = 0,0
 
@@ -1209,7 +1211,7 @@ poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':
                 name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
 
 receiving_pop_list = {(name1,'1') :  [(name2,'1')],
-                      (name2, '1'): []}
+                      (name2, '1'): [(name1,'1')]}
 
 pop_list = [1]  
 init_method = 'heterogeneous'
@@ -1243,9 +1245,10 @@ rest_init_filepaths = {'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl
                     'Proto': 'tau_m_25_Proto_A_45_N_1000_T_2000_noise_var_120.pkl'}
 
 trans_init_filepaths = {'STN':'tau_m_5-13_STN_A_100_N_1000_T_2000_noise_var_10.pkl',
-                   'Proto': rest_init_filepaths['Proto']}
+                        'Proto': rest_init_filepaths['Proto']}
 t_transient = 200 # ms
 duration = 5
+n_run = 15
 list_of_nuc_with_trans_inp = ['STN']
 set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
 
@@ -1261,11 +1264,11 @@ nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_var
 
 avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
 										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
-                                        duration = int( duration / dt) ,n_run = 50)
+                                        duration = int( duration / dt) ,n_run = n_run)
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
         nucleus.pop_act = avg_act[nucleus.name][:,k]
-state = 'STN_GPe_Real_tau_Proto_25_ms_trans_Ctx_10_run_not_loop'
+state = 'Only_STN_GPe_Real_tau_Proto_25_ms_with_GABA-B_trans_Ctx_' + str(n_run) + '_run'
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
             title = r'$\tau_{{m}}^{{Proto}} = 25\;ms\; , \; G={0}$'.format(g), plt_mvt = False, include_FR=False, ylim = [0,150])
 fig.set_size_inches((15, 7), forward=False)
@@ -1300,7 +1303,7 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 #%% effect of transient increase in STN activity onto GPe in a STR-GPe-STN network
-plt.close('all')
+# plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
@@ -1314,7 +1317,7 @@ g = -0.004; g_ext =  0.01
 G = {}
 plot_start = 150
 plot_start_raster = 500
-G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = -.003, 0.003 , -0.0015
+G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = -.001, 0.001 , -0.001
 # G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = 0,0, 0
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
@@ -1358,10 +1361,10 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_
 
 rest_init_filepaths = {
                     'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
-                        'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl',              
+                    'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl',              
                     # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
-                    # 'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
-                    'Proto': 'tau_m_25_Proto_A_45_N_1000_T_2000_noise_var_120.pkl'}
+                    'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
+                    # 'Proto': 'tau_m_25_Proto_A_45_N_1000_T_2000_noise_var_120.pkl'}
 
 trans_init_filepaths = {
                         # 'STN':'tau_m_5-13_STN_A_46_N_1000_T_2000_noise_var_5.pkl',
@@ -1373,7 +1376,7 @@ trans_init_filepaths = {
                         }
 t_transient = 200 # ms
 duration = 5
-n_run = 15
+n_run = 10
 list_of_nuc_with_trans_inp = ['STN', 'D2']
 set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
 
@@ -1393,9 +1396,9 @@ avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_i
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
         nucleus.pop_act = avg_act[nucleus.name][:,k]
-state = 'STN_GPe_D2_Real_tau_Proto_25_ms_trans_Ctx_'+str(n_run) + '_run'
+state = 'STN_GPe_D2_Real_tau_Proto_13_ms_trans_Ctx_'+str(n_run) + '_run_tau_SP_12'
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
-            title = r'$\tau_{{m}}^{{Proto}} = 25\;ms\; , \; G={0}$'.format(g), plt_mvt = False, include_FR=False)#, ylim = [0,150])
+            title = r'$\tau_{{m}}^{{Proto}} = 13\;ms\; , \; G={0}, \; \tau_{{SP}}=12$'.format(g), plt_mvt = False, include_FR=False)#, ylim = [0,150])
 fig.set_size_inches((15, 7), forward=False)
 plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
 fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',

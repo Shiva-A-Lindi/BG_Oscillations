@@ -313,10 +313,10 @@ class Nucleus:
 		sum_components = np.zeros(self.n)
 		for i in range(pre_n_components):
 			self.I_syn[pre_name,pre_num][:,i], self.I_rise[pre_name,pre_num][:,i] = self.input_integ_method_dict [self.syn_input_integ_method](self.syn_inputs[pre_name,pre_num], 
-																										I_rise = self.I_rise[pre_name,pre_num][:,i], 
-																										I = self.I_syn[pre_name,pre_num][:,i], 
-																										tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
-																										tau_decay = self.tau[(self.name,pre_name)]['decay'][i])
+																												  I_rise = self.I_rise[pre_name,pre_num][:,i], 
+																												  I = self.I_syn[pre_name,pre_num][:,i], 
+																												  tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
+																												  tau_decay = self.tau[(self.name,pre_name)]['decay'][i])
 			self.representative_inp[pre_name,pre_num][t,i] = self.I_syn[pre_name,pre_num][0,i]
 			sum_components = sum_components + self.I_syn[pre_name,pre_num][:,i]
 			i += 1
@@ -506,6 +506,18 @@ class Nucleus:
 
 		self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==self.name}
 
+	def incoming_rest_I_syn_single_comp_synapses(self, proj_list, A):
+
+		I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
+
+		return I_syn
+
+	def incoming_rest_I_syn_multi_comp_synapses(self, proj_list, A):
+
+		I_syn = np.sum( [ self.synaptic_weight[self.name,proj] * A[proj] / 1000 * self.K_connections[self.name,proj] * len ( self.tau[self.name,proj]['rise'] ) for proj in proj_list]) * self.membrane_time_constant
+
+		return I_syn
+
 	def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity= 25):
 
 		proj_list = [k[0] for k in list(self.receiving_from_list)]
@@ -519,8 +531,9 @@ class Nucleus:
 			self.external_inp_t_series =  mvt_step_ext_input(D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
 		else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
+			I_syn = self.incoming_rest_I_syn_single_comp_synapses( proj_list, A)
+			# I_syn = self.incoming_rest_I_syn_multi_comp_synapses( proj_list, A)
 
-			I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
 			# print('I_syn', np.average(I_syn))
 			self.sum_syn_inp_at_rest = I_syn
 
