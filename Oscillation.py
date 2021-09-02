@@ -195,7 +195,7 @@ if 1:
             ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
            # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Geetsner
 
-           ('Proto','STN'): {'rise':[0.2],'decay':[12]}, # Glut estimate
+           ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate
            ('Proto','Proto'): {'rise':[0.5],'decay':[4.9]}, # Sims et al. 2008
            ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 ( in thesis it was 2 and 10)
            ('FSI','Proto'): {'rise':[1],'decay':[6]}} 
@@ -1429,6 +1429,125 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig.savefig(os.path.join(path, 'SNN_spectrum_mvt_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+#%% effect of MC-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays of MC-STR and MC-STN
+
+# plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+dt = 0.25
+t_sim = 700; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+name1 = 'Proto' # projecting
+name2 = 'STN' # recieving
+name3 = 'D2'
+g = -0.004; g_ext =  0.01
+G = {}
+plot_start = 150
+plot_start_raster = 500
+G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = -.001, 0.001 , -0.001
+# G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)]  = 0,0, 0
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name3:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1'), (name3,'1')],
+                      (name2, '1'): [(name1,'1')],
+                      (name3, '1'): []
+                      }
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+# mem_pot_init_method = 'uniform'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+save_init = False
+noise_variance = {name1 : 0.1,  name2 : 15, name3 : .1}
+noise_amplitude = {name1 : 1,  name2: 1, name3 : 1}
+
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt, 
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
+nuc3 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name3, G, T, t_sim, dt, 
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2, name3: nuc3}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+rest_init_filepaths = {
+                    'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
+                    'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl',              
+                    # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
+                    'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
+                    # 'Proto': 'tau_m_25_Proto_A_45_N_1000_T_2000_noise_var_120.pkl'}
+
+trans_init_filepaths = {
+                        # 'STN':'tau_m_5-13_STN_A_46_N_1000_T_2000_noise_var_5.pkl',
+                        'STN':'tau_m_5-13_STN_A_65_N_1000_T_2000_noise_var_5.pkl',
+                        'Proto': rest_init_filepaths['Proto'],
+                        # 'D2':'tau_m_13_D2_A_30_N_1000_T_2000_noise_var_20.pkl',
+                        'D2' : 'tau_m_13_D2_A_23_N_1000_T_2000_noise_var_12.pkl',
+                        # 'D2' : 'tau_m_13_D2_A_20_N_1000_T_2000_noise_var_10.pkl', 
+                        }
+t_transient = 200 # ms
+duration = 5
+n_run = 10
+list_of_nuc_with_trans_inp = ['STN', 'D2']
+
+# for k, v in T.items():
+# 	if (k[1] == 'Ctx'):
+# 		
+# 		if k[0] == 'STR' or 'STN' :
+# 			
+syn_trans_delay_dict_STN = {k[0]: v for k,v in T.items() if k[0] == 'STN' and k[1] == 'Ctx'}
+syn_trans_delay_dict_STR = {k[0]: v for k,v in T.items() if k[0] == 'D2' and k[1] == 'Ctx'}
+syn_trans_delay_dict = {**syn_trans_delay_dict_STN, **syn_trans_delay_dict_STR}
+
+set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
+
+nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
+                                      t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
+
+# run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
+# 										Act['trans'],list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), duration = int( duration / dt))
+
+# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
+# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
+# # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+
+#### to do: specify the "run_with_..." function before running
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
+										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
+                                        duration = int( duration / dt) ,n_run = n_run)
+
+for nuclei_list in nuclei_dict.values():
+    for k,nucleus in enumerate( nuclei_list) :
+        nucleus.pop_act = avg_act[nucleus.name][:,k]
+state = 'STN_GPe_D2_Real_tau_Proto_13_ms_trans_Ctx_'+str(n_run) + '_run_tau_SP_12'
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
+            title = r'$\tau_{{m}}^{{Proto}} = 13\;ms\; , \; G={0}, \; \tau_{{SP}}=12$'.format(g), plt_mvt = False, include_FR=False)#, ylim = [0,150])
+fig.set_size_inches((15, 7), forward=False)
+plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
+fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+
 #%% STN-GPe + GP-GP
 plt.close('all')
 N_sim = 1000

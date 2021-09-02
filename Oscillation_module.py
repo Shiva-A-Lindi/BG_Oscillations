@@ -1,5 +1,5 @@
 from __future__ import division
-import os
+import os , sys, subprocess
 import timeit
 import numpy as np
 from numpy import inf
@@ -15,16 +15,22 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from numpy.fft import rfft,fft, fftfreq
 from tempfile import TemporaryFile
 import pickle
-import jsonpickle
-# import decimal
-# from decimal import *
-# from scipy import optimize
 import scipy
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram
-from scipy import signal,stats
+from scipy import signal, stats
+try:
+    import jsonpickle
+except ImportError or ModuleNotFoundError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'jsonpickle'])
+    
+# import jsonpickle
+# import decimal
+# from decimal import *
+# from scipy import optimize
+
 def as_si(x, ndp):
 	s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
 	m, e = s.split('e')
@@ -33,6 +39,7 @@ def as_si(x, ndp):
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
 g = lambda x,pos : "${}$".format(f._formatSciNotation('%1.10e' % x))
 fmt = mticker.FuncFormatter(g)
+
 def extrapolate_FR_ext_from_neuronal_response_curve_high_act ( FR_ext, FR_sim , desired_FR, if_plot = False, end_of_nonlinearity = None, maxfev = None, g_ext = 0, N_ext = 0, tau = 0, ax = None, noise_var = 0, c= 'grey'):
 	''' All firing rates in Hz'''
 	# plt.figure()
@@ -598,7 +605,7 @@ class Nucleus:
 				str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.','-') + '.pkl'))
 
 	def _set_ext_inp_poisson(self, I_syn):
-		exp = np.exp(-1/(self.membrane_time_constant*self.basal_firing/1000))
+		exp = np.exp(-1/(self.membrane_time_constant * self.basal_firing/1000))
 		self.rest_ext_input = ( (self.spike_thresh - self.u_rest) / (1-exp) - I_syn)
 		self.FR_ext = self.rest_ext_input / self.syn_weight_ext_pop / self.n_ext_population / self.membrane_time_constant
 
@@ -1888,10 +1895,48 @@ def run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_di
 	stop = timeit.default_timer()
 	print("t = ", stop - start)
 	return nuclei_dict
+def get_corr_key_to_val(mydict, value):
+	""" return all the keys corresponding to the specified value"""
+	return [k for k,v in mydict.items() if v == value]
+
+def run_with_transient_external_input_including_transmission_delay(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
+										A_trans,  syn_trans_delay_dict, t_transient = 10, duration = 10):
+	''' 
+		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation
+	'''
+    
+    
+    
+	min_syn_trans_delays = min(syn_trans_delay_dict, key = syn_trans_delay_dict. get)
+	t_start_inp_dict = {k: t_transient + v - min_syn_trans_delays for k, v in syn_trans_delay_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
+	t_end_inp_dict = {k: duration + t_start_inp_dict for k, v in t_start_inp_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
+
+	start = timeit.default_timer()
+	
+	for t in t_list:
+		### if it's the start of external input to (a) nucleus(ei)
+		if t in list( t_start_inp_dict.values() ):
+			selective_reset_ext_input(nuclei_dict, transient_init_filepaths, 
+									 get_corr_key_to_val(t_start_inp_dict, t), 
+									 A_trans)
+		### if it's the end of external input to (a) nucleus(ei)
+		if t in list( t_end_inp_dict.values() ):
+			selective_reset_ext_input(nuclei_dict, rest_init_filepaths, 
+									 get_corr_key_to_val(t_end_inp_dict, t), 
+									 A)
+		for nuclei_list in nuclei_dict.values():
+			for k, nucleus in enumerate(nuclei_list):
+				k+=1
+				nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))])
+
+	stop = timeit.default_timer()
+	print("t = ", stop - start)
+	
+	return nuclei_dict
 
 def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
 										A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1):
-	avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys()) }
+	avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
 	for i in range(n_run):
 		run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
 										A_trans, list_of_nuc_with_trans_inp, t_transient = t_transient, duration = duration )
