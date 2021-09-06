@@ -513,17 +513,19 @@ class Nucleus:
 
 		self.synaptic_time_constant = {k: v for k, v in synaptic_time_constant.items() if k[1]==self.name}
 
-	def incoming_rest_I_syn_single_comp_synapses(self, proj_list, A):
+	def incoming_rest_I_syn(self, proj_list, A):
 
-		I_syn = np.sum([self.synaptic_weight[self.name,proj]*A[proj]/1000*self.K_connections[self.name,proj] for proj in proj_list])*self.membrane_time_constant
-
-		return I_syn
-
-	def incoming_rest_I_syn_multi_comp_synapses(self, proj_list, A):
-
-		I_syn = np.sum( [ self.synaptic_weight[self.name,proj] * A[proj] / 1000 * self.K_connections[self.name,proj] * len ( self.tau[self.name,proj]['rise'] ) for proj in proj_list]) * self.membrane_time_constant
+		I_syn = np.sum([ self.synaptic_weight[self.name,proj] * A[proj] / 1000 * self.K_connections[self.name,proj]  * len ( self.tau[self.name,proj]['rise'] ) for proj in proj_list])*self.membrane_time_constant
 
 		return I_syn
+
+# 	def incoming_rest_I_syn_multi_comp_synapses(self, proj_list, A):
+
+# 		I_syn = np.sum( [ self.synaptic_weight[self.name,proj] * A[proj] / 1000 * self.K_connections[self.name,proj] * len ( self.tau[self.name,proj]['rise'] ) 
+# 					      for proj in proj_list]) * self.membrane_time_constant
+
+# 		return I_syn
+
 
 	def set_ext_input(self,A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity= 25):
 
@@ -538,7 +540,7 @@ class Nucleus:
 			self.external_inp_t_series =  mvt_step_ext_input(D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
 		else: # for the firing rate model the ext input is reported as the firing rate of the ext pop needed.
-			I_syn = self.incoming_rest_I_syn_single_comp_synapses( proj_list, A)
+			I_syn = self.incoming_rest_I_syn( proj_list, A)
 			# I_syn = self.incoming_rest_I_syn_multi_comp_synapses( proj_list, A)
 
 			# print('I_syn', np.average(I_syn))
@@ -774,11 +776,12 @@ class Nucleus:
 		self.pop_act = butter_bandpass_filter(self.pop_act, low, high, 1 / (dt / 1000), order = order )
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp = None, filepaths = None):
-	if list_of_nuc_with_trans_inp() != None:
+	if list_of_nuc_with_trans_inp != None:
 		filtered_nuclei_dict = {key: value for key, value in nuclei_dict.items() if key in list_of_nuc_with_trans_inp}
+		
 	else: 
 		filtered_nuclei_dict = nuclei_dict
-	for nuclei_list in nuclei_dict.values():
+	for nuclei_list in filtered_nuclei_dict.values():
 		for nucleus in nuclei_list:
 			if filepaths == None:
 				filepath = os.path.join( nucleus.path, nucleus.name + '_N_' + str(nucleus.n) + '_T_' + str(nucleus.t_sim) + '.pkl')
@@ -1907,7 +1910,8 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
 																   transient_init_filepaths, A, A_trans,  syn_trans_delay_dict, 
 																   t_transient = 10, duration = 10):
 	''' 
-		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation
+		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation.
+		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to different nuclei (e.g. MC to STN and MC to D2)
 	'''
     
 	min_syn_trans_delays = min(syn_trans_delay_dict, key = syn_trans_delay_dict. get)
@@ -1922,13 +1926,13 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
 	for t in t_list:
 		### if it's the start of external input to (a) nucleus(ei)
 		if t in list( t_start_inp_dict.values() ):
-			print("stim at {} for {}".format(t*dt, get_corr_key_to_val(t_start_inp_dict, t)))
-			selective_reset_ext_input(nuclei_dict, transient_init_filepaths, 
+ 			# print("stim at {} for {}".format(t*dt, get_corr_key_to_val(t_start_inp_dict, t)))
+ 			selective_reset_ext_input(nuclei_dict, transient_init_filepaths, 
 									 get_corr_key_to_val(t_start_inp_dict, t), 
 									 A_trans)
 		### if it's the end of external input to (a) nucleus(ei)
 		if t in list( t_end_inp_dict.values() ):
-			print("stim end at {} for {}".format(t*dt, get_corr_key_to_val(t_end_inp_dict, t)))
+# 			print("stim end at {} for {}".format(t*dt, get_corr_key_to_val(t_end_inp_dict, t)))
 			selective_reset_ext_input(nuclei_dict, rest_init_filepaths, 
 									 get_corr_key_to_val(t_end_inp_dict, t), 
 									 A)
@@ -1942,17 +1946,17 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
 	
 	return nuclei_dict
 
-def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, func_to_run, A,
+def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths,  A,
 										A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1):
 	avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
 	for i in range(n_run):
-		func_to_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
+		run_with_transient_external_input_including_transmission_delay(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
 										A_trans, list_of_nuc_with_trans_inp, t_transient = t_transient, duration = duration )
 		for nuclei_list in nuclei_dict.values():
 				for k,nucleus in enumerate( nuclei_list) :
 					avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
 					nucleus.clear_history()
-		print(i,'from',n_run)
+		print(i,'from',n_run-1)
 	return avg_act
 
 def iterate_SNN(nuclei_dict, dt,receiving_class_dict, t_start = 0, t_end = 500):
