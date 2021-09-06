@@ -282,12 +282,11 @@ class Nucleus:
 		name = projecting.name
 		self.syn_inputs[name,num] = (
 									(self.synaptic_weight[(self.name,name)] * 
-									np.matmul( 
-										self.connectivity_matrix[(name,num)] , 
-										projecting.spikes[ : , int ( t - self.transmission_delay[ (self.name, name) ] / dt ) ]
+									np.matmul( self.connectivity_matrix[(name,num)] , 
+											   projecting.spikes[ : , int ( t - self.transmission_delay[ (self.name, name) ] / dt ) ]
 											) / dt
 									* self.membrane_time_constant).reshape(-1,)
-								   )     
+								    )     
 
 	def sum_synaptic_input(self, receiving_from_class_list, dt,t):
 		''''''
@@ -320,10 +319,10 @@ class Nucleus:
 		sum_components = np.zeros(self.n)
 		for i in range(pre_n_components):
 			self.I_syn[pre_name,pre_num][:,i], self.I_rise[pre_name,pre_num][:,i] = self.input_integ_method_dict [self.syn_input_integ_method](self.syn_inputs[pre_name,pre_num], 
-																												  I_rise = self.I_rise[pre_name,pre_num][:,i], 
-																												  I = self.I_syn[pre_name,pre_num][:,i], 
-																												  tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
-																												  tau_decay = self.tau[(self.name,pre_name)]['decay'][i])
+																																	           I_rise = self.I_rise[pre_name,pre_num][:,i], 
+																																			   I = self.I_syn[pre_name,pre_num][:,i], 
+																																			   tau_rise = self.tau[(self.name,pre_name)]['rise'][i],
+																																				tau_decay = self.tau[(self.name,pre_name)]['decay'][i])
 			self.representative_inp[pre_name,pre_num][t,i] = self.I_syn[pre_name,pre_num][0,i]
 			sum_components = sum_components + self.I_syn[pre_name,pre_num][:,i]
 			i += 1
@@ -1956,7 +1955,7 @@ def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_fi
 				for k,nucleus in enumerate( nuclei_list) :
 					avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
 					nucleus.clear_history()
-		print(i,'from',n_run-1)
+		print(i+1,'from',n_run)
 	return avg_act
 
 def iterate_SNN(nuclei_dict, dt,receiving_class_dict, t_start = 0, t_end = 500):

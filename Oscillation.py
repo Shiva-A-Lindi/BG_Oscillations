@@ -1202,11 +1202,12 @@ name1 = 'Proto' # projecting
 name2 = 'STN' # recieving
 g = -0.002; g_ext =  0.01
 G = {}
-plot_start = 0
-plot_start_raster = 150
+plot_start = 0 
+plot_start_raster = 500
 G[(name2, name1)] , G[(name1, name2)]  = g, -g
 # G[(name2, name1)] , G[(name1, name2)]  = 0,0
 tau[('STN','Proto')] =  {'rise':[1.1, 40],'decay':[7.8, 200]} # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Geetsner
+# tau[('STN','Proto')] =  {'rise':[1.1],'decay':[7.8]} # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Geetsner
 
 poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
                 name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
@@ -1269,15 +1270,15 @@ avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_i
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
         nucleus.pop_act = avg_act[nucleus.name][:,k]
-state = 'Only_STN_GPe_Real_tau_Proto_25_ms_with_GABA-B_trans_Ctx_' + str(n_run) + '_run'
+state = 'Only_STN_GPe_Real_tau_Proto_25_ms_with_GABA-B_trans_Ctx_' + str(n_run) + '_run_plt_beg_0'
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
             title = r'$\tau_{{m}}^{{Proto}} = 25\;ms\; , \; G={0}$'.format(g), plt_mvt = False, include_FR=False, ylim = [0,150])
 fig.set_size_inches((15, 7), forward=False)
 plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
 # fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 
         
