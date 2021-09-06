@@ -773,8 +773,11 @@ class Nucleus:
 	def low_pass_filter(self, dt, low, high, order = 6):
 		self.pop_act = butter_bandpass_filter(self.pop_act, low, high, 1 / (dt / 1000), order = order )
 
-def set_init_all_nuclei(nuclei_dict, filepaths = None):
-
+def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp = None, filepaths = None):
+	if list_of_nuc_with_trans_inp() != None:
+		filtered_nuclei_dict = {key: value for key, value in nuclei_dict.items() if key in list_of_nuc_with_trans_inp}
+	else: 
+		filtered_nuclei_dict = nuclei_dict
 	for nuclei_list in nuclei_dict.values():
 		for nucleus in nuclei_list:
 			if filepaths == None:
@@ -1874,8 +1877,9 @@ def run_transition_to_movement(receiving_class_dict,t_list, dt, nuclei_dict, mvt
 	print("t = ", stop - start)
 	return nuclei_dict
 
-def run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
-										A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ):
+def run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, 
+									  transient_init_filepaths, A, A_trans, list_of_nuc_with_trans_inp, 
+									  t_transient = 10, duration = 10 ):
 	''' 
 		run normaly til "t_transient" then exert an external transient input to "list_of_nuc_with_trans_inp" then resume to normal state until the end of simulation
 	'''
@@ -1899,28 +1903,32 @@ def get_corr_key_to_val(mydict, value):
 	""" return all the keys corresponding to the specified value"""
 	return [k for k,v in mydict.items() if v == value]
 
-def run_with_transient_external_input_including_transmission_delay(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
-										A_trans,  syn_trans_delay_dict, t_transient = 10, duration = 10):
+def run_with_transient_external_input_including_transmission_delay(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, 
+																   transient_init_filepaths, A, A_trans,  syn_trans_delay_dict, 
+																   t_transient = 10, duration = 10):
 	''' 
 		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation
 	'''
     
-    
-    
 	min_syn_trans_delays = min(syn_trans_delay_dict, key = syn_trans_delay_dict. get)
-	t_start_inp_dict = {k: t_transient + v - min_syn_trans_delays for k, v in syn_trans_delay_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
-	t_end_inp_dict = {k: duration + t_start_inp_dict for k, v in t_start_inp_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
-
+	t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
+	t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()} # synaptic trans delay relative to the nucleus with minimum delay.
+	
+# 	print('stimulation start times = ', t_start_inp_dict*dt)
+# 	print('stimulation end times = ', t_end_inp_dict)
+	
 	start = timeit.default_timer()
 	
 	for t in t_list:
 		### if it's the start of external input to (a) nucleus(ei)
 		if t in list( t_start_inp_dict.values() ):
+			print("stim at {} for {}".format(t*dt, get_corr_key_to_val(t_start_inp_dict, t)))
 			selective_reset_ext_input(nuclei_dict, transient_init_filepaths, 
 									 get_corr_key_to_val(t_start_inp_dict, t), 
 									 A_trans)
 		### if it's the end of external input to (a) nucleus(ei)
 		if t in list( t_end_inp_dict.values() ):
+			print("stim end at {} for {}".format(t*dt, get_corr_key_to_val(t_end_inp_dict, t)))
 			selective_reset_ext_input(nuclei_dict, rest_init_filepaths, 
 									 get_corr_key_to_val(t_end_inp_dict, t), 
 									 A)
@@ -1934,11 +1942,11 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
 	
 	return nuclei_dict
 
-def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
+def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, func_to_run, A,
 										A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1):
 	avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
 	for i in range(n_run):
-		run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
+		func_to_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, transient_init_filepaths, A, 
 										A_trans, list_of_nuc_with_trans_inp, t_transient = t_transient, duration = duration )
 		for nuclei_list in nuclei_dict.values():
 				for k,nucleus in enumerate( nuclei_list) :
@@ -1957,7 +1965,7 @@ def iterate_SNN(nuclei_dict, dt,receiving_class_dict, t_start = 0, t_end = 500):
 
 
 def selective_reset_ext_input(nuclei_dict, init_filepaths, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
-	set_init_all_nuclei(nuclei_dict, filepaths = init_filepaths) 
+	set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp =list_of_nuc_with_trans_inp, filepaths = init_filepaths) 
 	for nuclei_list in nuclei_dict.values():
 		for nucleus in nuclei_list:
 			if nucleus.name in list_of_nuc_with_trans_inp:

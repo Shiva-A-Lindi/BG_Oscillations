@@ -1389,8 +1389,8 @@ nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_var
 # nuc1[0].low_pass_filter( dt, 1,200, order = 6)
 # nuc2[0].low_pass_filter( dt, 1,200, order = 6)
 # # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-
-avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
+func = run_with_transient_external_input
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, func,  Act['rest'], 
 										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
                                         duration = int( duration / dt) ,n_run = n_run)
 for nuclei_list in nuclei_dict.values():
@@ -1436,7 +1436,7 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
-t_sim = 700; t_list = np.arange(int(t_sim/dt))
+t_sim = 400; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'Proto' # projecting
@@ -1505,18 +1505,16 @@ trans_init_filepaths = {
                         }
 t_transient = 200 # ms
 duration = 5
-n_run = 10
+n_run = 1
 list_of_nuc_with_trans_inp = ['STN', 'D2']
 
-# for k, v in T.items():
-# 	if (k[1] == 'Ctx'):
-# 		
-# 		if k[0] == 'STR' or 'STN' :
-# 			
+			
 syn_trans_delay_dict_STN = {k[0]: v for k,v in T.items() if k[0] == 'STN' and k[1] == 'Ctx'}
 syn_trans_delay_dict_STR = {k[0]: v for k,v in T.items() if k[0] == 'D2' and k[1] == 'Ctx'}
 syn_trans_delay_dict = {**syn_trans_delay_dict_STN, **syn_trans_delay_dict_STR}
+syn_trans_delay_dict= {'D2': 50, 'STN': 5}
 
+syn_trans_delay_dict = {k: v / dt for k,v in syn_trans_delay_dict.items()}
 set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
 
 nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
@@ -1529,21 +1527,23 @@ nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_var
 # nuc2[0].low_pass_filter( dt, 1,200, order = 6)
 # # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-#### to do: specify the "run_with_..." function before running
-avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-										Act['trans'], list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), 
+#### specify the "run_with_..." function before running
+func = run_with_transient_external_input_including_transmission_delay
+# func = run_with_transient_external_input
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, func, Act['rest'], 
+										Act['trans'], syn_trans_delay_dict, t_transient = int( t_transient / dt), 
                                         duration = int( duration / dt) ,n_run = n_run)
 
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
         nucleus.pop_act = avg_act[nucleus.name][:,k]
-state = 'STN_GPe_D2_Real_tau_Proto_13_ms_trans_Ctx_'+str(n_run) + '_run_tau_SP_12'
+state = 'STN_GPe_D2_Real_tau_Proto_13_ms_trans_Ctx_'+str(n_run) + '_trans_delay_extreme_run_tau_SP_6'
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
             title = r'$\tau_{{m}}^{{Proto}} = 13\;ms\; , \; G={0}, \; \tau_{{SP}}=12$'.format(g), plt_mvt = False, include_FR=False)#, ylim = [0,150])
 fig.set_size_inches((15, 7), forward=False)
 plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
-fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
