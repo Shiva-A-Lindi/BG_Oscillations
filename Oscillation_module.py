@@ -1264,6 +1264,7 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt,dt, N, N_real, K_real, receiving_p
 			nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt, end_of_nonlinearity = end_of_nonlinearity)
 	return receiving_class_dict
 
+
 def pickle_obj( obj, filepath):
 	
 	with open( filepath, "wb") as file_:
@@ -1453,10 +1454,28 @@ def sigmoid(x, x0, k):
 	return 1 / (1 + np.exp(-k*(x-x0)))
 	
 def inverse_sigmoid( y, x0, k):
-	return -1/k * np.log ( (1 - y) / y) + x0
+	import warnings
+
+	with warnings.catch_warnings():
+		warnings.filterwarnings('error')
+		try:
+			output = -1/k * np.log ( (1 - y) / y) + x0
+
+		except Warning as e:
+			      print('error found:', e, y)
+
+	return output
+# 	try:
+# 		return -1/k * np.log ( (1 - y) / y) + x0
+# 	except RuntimeWarning:
+# 		print('y  = ', y)
 
 def inverse_linear( y, a, b):
-	 return ( y - b ) / a
+	return ( y - b ) / a
+# 	try:	 
+# 		return ( y - b ) / a
+# 	except RuntimeWarning:
+# 		print('y  = {} \n b = {}, a = {}'.format(y, b, a))
 
 def linear_regresstion(x, y):
 
@@ -1469,15 +1488,18 @@ def fit_FR_as_a_func_of_FR_ext ( FR_ext, FR, estimating_func, maxfev=5000):
 
 def extrapolated_FR_ext_from_fitted_curve (FR_ext, FR, desired_FR, coefs, estimating_func, inverse_estimating_func , FR_normalizing_factor , x_shift):
 	
+	
 	return inverse_estimating_func( desired_FR / FR_normalizing_factor, *coefs) + x_shift
 
 def find_y_normalizing_factor (y, desired_FR, epsilon = 0.2):
 	y_max = np.max(y)
-	if   -0.2 < desired_FR - np.max(y) < 0.2: ## if the maximum of the curve is the same as the desired FR add epsilon to it to avoid errors in log
-		print('Oooops! max_sigmoid = desired_FR')
-		y_max = np.max(y) + epsilon
-		print(y_max)
-	return y_max
+	if  desired_FR >= y_max: ## if the maximum of the curve is the same as the desired FR add epsilon to it to avoid errors in log
+		print('Oooops! max_sigmoid < desired_FR')
+# 		y_max = np.max(y) + epsilon
+		return (desired_FR + epsilon)
+	else:
+		return y_max
+	
 
 # def find_y_normalizing_factor (y, desired_FR):
 #     return np.max (y)

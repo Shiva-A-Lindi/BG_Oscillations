@@ -629,8 +629,9 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range[name], neuronal_con
 # np.random.seed(1006)
 plt.close('all')
 name = 'Proto'
+name = 'FSI'
 state = 'mvt'
-N_sim = 1
+N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -640,7 +641,7 @@ receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
 noise_variance_tau_m_5 = {'rest': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
-                          'mvt': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
+                          'mvt': {'FSI' : 10 , 'D2': 0.1 , 'Proto': 15} ,
                           'DD': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
                           }
 # noise_variance_tau_real = {'rest': {'FSI' : 8 , 'D2': 3 , 'Proto': 15*7, 'STN':4} , # Proto tau_m = 20
@@ -668,9 +669,9 @@ mem_pot_init_method = 'draw_from_data'
 # mem_pot_init_method = 'uniform'
 set_FR_range_from_theory = True
 set_input_from_response_curve = True
-save_init = False
+save_init = True
 der_ext_I_from_curve= True
-if_plot = True
+if_plot = False
 # bound_to_mean_ratio = [0.5, 20]
 # spike_thresh_bound_ratio = [1/5, 1/5]
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
@@ -685,9 +686,9 @@ n = 50
 # pad_tau_m_5 = {'FSI': {'rest': [0.001, 0.001], 'mvt': [0.003, 0.0033] , 'DD': [] },
 #                'D2': {'rest': [0.001, 0.001], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] },
 #                'Proto': {'rest': [], 'mvt': [0.1] , 'DD': [] }}
-pad_tau_real = {'FSI': {'rest': [0.005, 0.0057], 'mvt': [0.003, 0.0033] , 'DD': [] },
+pad_tau_real = {'FSI': {'rest': [0.005, 0.0057], 'mvt': [0.005, 0.006] , 'DD': [] },
                'D2': {'rest': [0.002, 0.002], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] , 'trans' : [0.003, 0.005]},
-               'Proto': {'rest': [0.001, 0.001], 'mvt': [0.1, 0.3] , 'DD': [] },
+               'Proto': {'rest': [0.001, 0.001], 'mvt': [0.01, 0.01] , 'DD': [] },
                'STN': {'rest': [0.004, 0.006], 'mvt': [0.003, 0.0033] , 'DD': [], 'trans': [0.003, 0.003]}}
 
 pad  = pad_tau_real
@@ -703,9 +704,9 @@ pad  = pad_tau_real
 #                                  'DD' : np.array([0.04, 0.07])}
 #                       }
 
-all_FR_list_tau_real ={
+all_FR_list_tau_real = {
                       'FSI': { 'rest' : np.linspace ( 0.020, 0.05 , 250).reshape(-1,1) , 
-                               'mvt': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1), 
+                               'mvt': np.linspace ( 0.02, 0.05 , 250).reshape(-1,1), 
                                'DD': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1) / 2 } ,
                       'D2': { 'rest' : np.linspace ( 0.015, 0.05 , 250).reshape(-1,1), 
                               'mvt': np.linspace ( 0.015, 0.05 , 250).reshape(-1,1) , 
@@ -715,7 +716,7 @@ all_FR_list_tau_real ={
                       #            'mvt' : np.linspace ( 0.13, 0.3 , 250).reshape(-1,1) , 
                       #            'DD' : []},
                       'Proto': { 'rest' : np.array([0.01,0.03]), #tau_m = 13
-                                 'mvt' : np.linspace ( 0.01, 0.03 , 250).reshape(-1,1), 
+                                 'mvt' : np.linspace (  0.015, 0.022 , 250).reshape(-1,1), 
                                  'DD' : []},
                     'STN': { 'rest' : np.linspace (  0.008, 0.03 , 250).reshape(-1,1) , 
                              'mvt': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1), 
@@ -723,9 +724,9 @@ all_FR_list_tau_real ={
                              'trans' : np.linspace ( 0.0135, 0.018 , 250).reshape(-1,1)}
                       }
 end_of_nonlinearity = {
-                      'FSI': { 'rest' : 35 , 'mvt': 25, 'DD':40 } ,
+                      'FSI': { 'rest' : 35 , 'mvt': 40, 'DD':40 } ,
                       'D2':  { 'rest' : 10 , 'mvt': 10 , 'DD': 20, 'trans': 40 } ,
-                      'Proto':  { 'rest' :  25, 'mvt': 25 , 'DD': 35  },
+                      'Proto':  { 'rest' :  25, 'mvt': 40 , 'DD': 35  },
                       'STN': { 'rest' : 35 , 'mvt': 25, 'DD':40, 'trans': 35 } 
                       }
 all_FR_list = {name: all_FR_list_tau_real[name][state]}
@@ -737,7 +738,7 @@ filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
 # DD_init_filepaths ={'Proto': 'Proto_A_38_N_1000_T_2000_noise_var_15.pkl',
 #                     'FSI': 'FSI_A_24_N_1000_T_2000_noise_var_0-1.pkl',
 #                     'D2' :'D2_A_6-6_N_1000_T_2000_noise_var_0-1.pkl' }
-# nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]), set_noise = False)
+nuc[0].set_init_from_pickle( os.path.join( path,filepaths[name]), set_noise = False)
 
 receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
@@ -1494,7 +1495,7 @@ filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
 			 'STN': 'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl'
 			}
 
-mvt_init_filepaths ={'Proto': 'Proto_A_22_N_1000_T_2000_noise_var_15.pkl',
+mvt_init_filepaths ={'Proto': 'tau_m_12-94_Proto_A_22_N_1000_T_2000_noise_var_30.pkl',
 					 # 'FSI': 'FSI_A_70_N_1000_T_2000_noise_var_10.pkl',
 					 'FSI': 'FSI_A_32_N_1000_T_2000_noise_var_1.pkl',
 					 'D2' : 'tau_m_13_D2_A_4_N_1_T_2000_noise_var_3.pkl',
