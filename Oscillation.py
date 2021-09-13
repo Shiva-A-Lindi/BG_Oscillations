@@ -122,7 +122,8 @@ if 1:
     #      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
           ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
           ('D1', 'Ctx'): 10.5,
-          ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
+          # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
+          ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
           ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
           ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
           ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
@@ -1264,8 +1265,8 @@ nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_var
 # nuc2[0].low_pass_filter( dt, 1,200, order = 6)
 # # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-										Act['trans'], syn_trans_delay_dict, t_transient = int( t_transient / dt), 
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, Act['rest'], Act['trans'], 
+                            syn_trans_delay_dict, t_transient = int( t_transient / dt), transient_init_filepaths= trans_init_filepaths,
                                         duration = int( duration / dt) ,n_run = n_run)
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
@@ -1383,7 +1384,7 @@ trans_init_filepaths = {
                         }
 t_transient = 200 # ms
 duration = 5
-n_run = 10
+n_run = 1
 list_of_nuc_with_trans_inp = ['STN', 'D2']
 
 
@@ -1399,17 +1400,13 @@ set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
 nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
                                       t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
 
-# run_with_transient_external_input(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-# 										Act['trans'],list_of_nuc_with_trans_inp, t_transient = int( t_transient / dt), duration = int( duration / dt))
 
 # nuc1[0].low_pass_filter( dt, 1,200, order = 6)
 # nuc2[0].low_pass_filter( dt, 1,200, order = 6)
-# # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-#### specify the "run_with_..." function before running
-avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, trans_init_filepaths, Act['rest'], 
-										Act['trans'], syn_trans_delay_dict, t_transient = int( t_transient / dt), 
-                                        duration = int( duration / dt) ,n_run = n_run)
+avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, Act['rest'], Act['trans'], 
+                            syn_trans_delay_dict, t_transient = int( t_transient / dt),  transient_init_filepaths = trans_init_filepaths,
+                            duration = int( duration / dt), n_run = n_run)
 
 for nuclei_list in nuclei_dict.values():
     for k,nucleus in enumerate( nuclei_list) :
@@ -1421,7 +1418,132 @@ fig.set_size_inches((15, 7), forward=False)
 plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
 # fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+# fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+#%%  effect of MC-induced transient input on FSI and D2
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+dt = 0.25
+t_sim = 300; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+name1 = 'FSI' # projecting
+name2 = 'D2' # recieving
+g = -0.005; g_ext =  0.01
+G = {}
+
+tau[('STN','Proto')] =  {'rise':[1.1, 40],'decay':[7.8, 200]} # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Geetsner
+
+plot_start = 150
+plot_start_raster = 500
+G[(name2, name1)]   = g
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') :  [],
+                      (name2, '1'): [(name1,'1')]
+                      }
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+# mem_pot_init_method = 'uniform'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+save_init = False
+noise_variance = {name1 : 1,  name2 : 0.1}
+noise_amplitude = {name1 : 1,  name2: 1}
+
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt, 
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
+
+nuclei_dict = {name1: nuc1, name2: nuc2}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+rest_init_filepaths = {
+                    'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl',
+                    'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl'}
+
+
+t_transient = 200 # ms
+duration = 5
+n_run = 5
+list_of_nuc_with_trans_inp = ['STN', 'D2']
+inp = 2 # external input in mV to FSI and D2 from Cortex
+g_rel_MC = 1.5 # relative gain of MC-FSI to MC-D2
+g_rel_MC_series = np.linspace(1, 4, 4)
+inp_series = np.linspace(0.5, 5, 4)
+n_subplots =  int( len(g_rel_MC_series) * len(inp_series))
+
+
+			
+syn_trans_delay_dict_STN = {k[0]: v for k,v in T.items() if k[0] == 'FSI' and k[1] == 'Ctx'}
+syn_trans_delay_dict_STR = {k[0]: v for k,v in T.items() if k[0] == 'D2' and k[1] == 'Ctx'}
+syn_trans_delay_dict = {**syn_trans_delay_dict_STN, **syn_trans_delay_dict_STR}
+syn_trans_delay_dict = {k: v / dt for k,v in syn_trans_delay_dict.items()}
+
+
+set_init_all_nuclei(nuclei_dict, filepaths = rest_init_filepaths)
+
+count = 0
+fig = plt.figure()
+# fig, axes = plt.subplots(nrows=4, ncols=4, sharex=True, sharey=True, figsize=(6, 6))
+
+for inp in inp_series:
+    
+    for g_rel_MC in g_rel_MC_series:
+        print(count, "from ", n_subplots)
+        ext_inp_dict = {'FSI': {'mean' : g_rel_MC * inp ,'sigma' : 5} ,
+                'D2': {'mean' : inp, 'sigma' : 5 }
+                }
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
+                                              t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
+        
+        
+        avg_act = average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths, Act['rest'], 
+        										Act['trans'], syn_trans_delay_dict, t_transient = int( t_transient / dt), 
+                                                duration = int( duration / dt) ,n_run = n_run, inp_method = 'add', ext_inp_dict = ext_inp_dict)
+        
+        for nuclei_list in nuclei_dict.values():
+            for k,nucleus in enumerate( nuclei_list) :
+                nucleus.pop_act = avg_act[nucleus.name][:,k]
+        state = 'FSI_D2_trans_Ctx_'+str(n_run) + '_runs_delay_included'
+        ax = fig.add_subplot( len(inp_series) , len( g_rel_MC_series) , count+1)
+        plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title_fontsize=10, plot_start = plot_start, n_subplots = n_subplots,
+                    title = r'$\frac{{G_{{MC-FSI}}}}{{G_{{MC-D2}}}} = {0} \; I_{{MC}}={1}$'.format(g_rel_MC, inp), 
+                    plt_mvt = False, include_FR=False, tick_label_fontsize = 10)#, ylim = [0,150])
+        plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
+        plt.xlabel("")
+        plt.ylabel("")
+        count += 1
+        if count <  ( len(inp_series) - 1) * len(g_rel_MC_series) - 1:
+            ax.axes.xaxis.set_ticklabels([])
+            
+
+        
+        
+fig.add_subplot(111, frameon=False)
+# hide tick and tick label of the big axis
+plt.tick_params(labelcolor='none', which='both', top=False, bottom=False, left=False, right=False)
+plt.xlabel("time (ms)")
+plt.ylabel("Firing rate (Hz)")
+fig.set_size_inches((15, 7), forward=False)
+# fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig.savefig(os.path.join(path, 'SNN_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 
