@@ -48,11 +48,9 @@ fmt = mticker.FuncFormatter(g)
 
 def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=None, maxfev=None, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
     ''' All firing rates in Hz'''
-    # plt.figure()
-    # plt.plot( FR_ext, FR_sim, '-o')
+
     slope, intercept = linear_regresstion(FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear(desired_FR, slope, intercept)
-    # print('extrapolated = ', FR_ext_extrapolated)
     if if_plot:
 
         plot_fitted_line(FR_ext, FR_sim, slope, intercept,  FR_to_I_coef=tau *
@@ -63,8 +61,7 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, des
 
 def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=25, maxfev=5000, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
     ''' All firing rates in Hz'''
-    # plt.figure()
-    # plt.plot( FR_ext, FR_sim, '-o')
+
     xdata, ydata = get_non_linear_part(
         FR_ext, FR_sim, end_of_nonlinearity=end_of_nonlinearity)
     x, y = rescale_x_and_y(xdata, ydata, desired_FR)
@@ -72,10 +69,10 @@ def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, 
     FR_ext = extrapolated_FR_ext_from_fitted_curve(x, y, desired_FR, coefs, sigmoid, inverse_sigmoid,
                                                 find_y_normalizing_factor(ydata, desired_FR),
                                                 find_x_mid_point_sigmoid(ydata, xdata))
-    # print(tau * g_ext * N_ext / 1000)
     if if_plot:
         plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs=coefs,
-                            FR_to_I_coef=tau * g_ext * N_ext / 1000, ax=ax, noise_var=noise_var, c=c)
+                            FR_to_I_coef=tau * g_ext * N_ext / 1000, 
+                            ax=ax, noise_var=noise_var, c=c)
     if FR_ext == np.nan or FR_ext == np.inf:
         print(desired_FR, find_y_normalizing_factor(ydata, desired_FR))
         print('Corr FR_ext =', FR_ext)
@@ -190,20 +187,28 @@ class Nucleus:
                 self.all_mem_pot = np.zeros((self.n, n_timebins))
             self.ext_input_integ_method = ext_input_integ_method
             self.mem_pot_init_method = mem_pot_init_method
-            if init_method == 'homogeneous':
-                self.initialize_homogeneously(poisson_prop, dt)
-                self.FR_ext = 0
-            elif init_method == 'heterogeneous':
-                self.initialize_heterogeneously(poisson_prop, dt, t_sim, spike_thresh_bound_ratio,
-                                                *bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
-                self.FR_ext = np.zeros(self.n)
+            self.init_method = init_method
+            self.spike_thresh_bound_ratio = spike_thresh_bound_ratio
+            self.bound_to_mean_ratio = bound_to_mean_ratio
+            
+            self.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
+            
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
                 'const+noise': self.constant_ext_input_with_noise, 'constant': self.constant_ext_input}
             self.input_integ_method_dict = {'exp_rise_and_decay': exp_rise_and_decay,
                 'instantaneus_rise_expon_decay': instantaneus_rise_expon_decay, 'dirac_delta_input': _dirac_delta_input}
             self.syn_input_integ_method = syn_input_integ_method
             self.normalize_synaptic_weight()
-
+            
+    def set_init_distribution(self, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False):
+        if self.init_method == 'homogeneous':
+            self.initialize_homogeneously(poisson_prop, dt)
+            self.FR_ext = 0
+        elif self.init_method == 'heterogeneous':
+            self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio,
+                                            *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
+            self.FR_ext = np.zeros(self.n)
+            
     def initialize_heterogeneously(self, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                     plot_initial_V_m_dist=False):
         ''' cell properties and boundary conditions come from distributions'''
@@ -682,6 +687,29 @@ class Nucleus:
         else:
             self.rest_ext_input = self.FR_ext * self.syn_weight_ext_pop * \
                 self.n_ext_population * self.membrane_time_constant - I_syn
+                
+    def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
+                                                 if_plot=False, end_of_nonlinearity=25, maxfev=5000, c='grey'):
+        if self.basal_firing < end_of_nonlinearity:
+            FR_list = spacing_with_high_resolution_in_the_middle(n_FR , * FR_range)
+        else:
+            FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
+        FR_sim_all_neurons = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
+        FR_sim = np.average(FR_sim_all_neurons, axis = 0)
+        if self.basal_firing > end_of_nonlinearity:
+            
+            self.FR_ext = extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_list.reshape(-1,) * 1000, FR_sim, self.basal_firing, if_plot= if_plot, 
+                                                                                   end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev, 
+                                                                                   tau= np.average(self.membrane_time_constant), g_ext=self.syn_weight_ext_pop, 
+                                                                                   N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
+        else:
+            
+            self.FR_ext =  extrapolate_FR_ext_from_neuronal_response_curve(FR_list * 1000 , FR_sim, self.basal_firing, if_plot= if_plot, 
+                                                                                   end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev, 
+                                                                                   tau= np.average(self.membrane_time_constant), g_ext=self.syn_weight_ext_pop, 
+                                                                                   N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
+        self.clear_history()
+
 
     def estimate_needed_external_input(self, all_FR_list, dt, t_list, receiving_class_dict, if_plot=False, end_of_nonlinearity=25,
                                         n_FR=50, left_pad=0.001, right_pad=0.001, maxfev=5000, ax=None, c='grey'):
@@ -699,7 +727,8 @@ class Nucleus:
         stop = timeit.default_timer()
         print('t for I_ext init ' + self.name + ' =', round(stop - start, 2), ' s')
 
-    def estimate_needed_external_input_high_act(self, FR_range, dt, t_list, receiving_class_dict, if_plot=False, n_FR=25, ax=None, c='grey', set_FR_range_from_theory=True):
+    def estimate_needed_external_input_high_act(self, FR_range, dt, t_list, receiving_class_dict, if_plot=False, n_FR=25, ax=None, c='grey', 
+                                                set_FR_range_from_theory=True):
 
         start = timeit.default_timer()
 
@@ -716,16 +745,33 @@ class Nucleus:
                         / FR_mean_start * FR_range[0])
             FR_end = (FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range[-1], self.n_ext_population)
                         / FR_mean_end * FR_range[-1])
-        else:
-            FR_start = FR_range[0]
-            FR_end = FR_range[-1]
-        FR_list = np.linspace(FR_start, FR_end, n_FR)
+        # else:
+            # FR_start = FR_range[0]
+            # FR_end = FR_range[-1]
+        FR_list = np.linspace(*FR_range, n_FR)
         FR_sim = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
         self. set_FR_ext_each_neuron(
             FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot=if_plot, ax=ax, c=c)
         self.clear_history()
         stop = timeit.default_timer()
         print('t for I_ext init ' + self.name + ' =', round(stop - start, 2), ' s')
+        
+    def set_FR_ext_each_neuron(self, FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve,
+                                if_plot=False, ax=None, end_of_nonlinearity=25, maxfev=5000, c='grey'):
+
+        self.FR_ext = np.zeros((self.n))
+
+        if self.init_method == 'homogeneous':  # and FR_list.shape[1] == 1:
+            rep_FR_ext = extrapolate(FR_list[:, 0] * 1000, np.average(FR_sim, axis=0),
+                                        self.basal_firing, ax=ax, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
+                                        tau=self.membrane_time_constant[0], g_ext=self.syn_weight_ext_pop, N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
+            self.FR_ext = np.full(self.n, rep_FR_ext)
+
+        else:
+            for i in range(self.n):
+                self.FR_ext[i] = extrapolate(FR_list[:, i] * 1000, FR_sim[i, :], self.basal_firing, ax=ax,
+                                            if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
+                                            tau=self.membrane_time_constant[i], g_ext=self.syn_weight_ext_pop, N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
 
     def run_for_all_FR_ext(self, FR_list, t_list, dt, receiving_class_dict):
 
@@ -784,23 +830,6 @@ class Nucleus:
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
 
-    def set_FR_ext_each_neuron(self, FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve,
-                                if_plot=False, ax=None, end_of_nonlinearity=25, maxfev=5000, c='grey'):
-
-        self.FR_ext = np.zeros((self.n))
-
-        if self.init_method == 'homogeneous':  # and FR_list.shape[1] == 1:
-            rep_FR_ext = extrapolate(FR_list[:, 0] * 1000, np.average(FR_sim, axis=0),
-                                        self.basal_firing, ax=ax, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
-                                        tau=self.membrane_time_constant[0], g_ext=self.syn_weight_ext_pop, N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
-            # print('before setting=', rep_FR_ext)
-            self.FR_ext = np.full(self.n, rep_FR_ext)
-
-        else:
-            for i in range(self.n):
-                self.FR_ext[i] = extrapolate(FR_list[:, i] * 1000, FR_sim[i, :], self.basal_firing, ax=ax,
-                                            if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
-                                            tau=self.membrane_time_constant[i], g_ext=self.syn_weight_ext_pop, N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
 
     def scale_synaptic_weight(self):
         if self.scale_g_with_N:
@@ -865,6 +894,46 @@ class Nucleus:
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
 
 
+def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
+                        all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
+                        right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron'):
+    '''find number of connections and build J matrix, set ext inputs as well'''
+    # K = calculate_number_of_connections(N,N_real,K_real)
+    K = calculate_number_of_connections(N, N_real, K_real)
+    receiving_class_dict = create_receiving_class_dict(
+        receiving_pop_list, nuclei_dict)
+
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+
+            nucleus.set_connections(K, N)
+            
+            if nucleus.neuronal_model == 'rate' and scale_g_with_N:
+                
+                nucleus.scale_synaptic_weight()
+
+            elif nucleus. der_ext_I_from_curve:
+                
+                if method == 'collective':
+                    print("external input is being set collectively for {}...".format(nucleus.name))
+                    nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
+                                                                    if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity,
+                                                                    maxfev = maxfev, c=c, n_FR=n_FR)
+                    
+                else:
+                    if nucleus.basal_firing > end_of_nonlinearity:
+                        nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
+                                                                        n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
+                        
+                    else:
+                        nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
+                                                               end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
+                                                               n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
+            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
+                                  dt, end_of_nonlinearity=end_of_nonlinearity)
+    return receiving_class_dict
+
+
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
     if list_of_nuc_with_trans_inp != None:
         filtered_nuclei_dict = {key: value for key, value in nuclei_dict.items(
@@ -882,15 +951,20 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25):
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, poisson_prop = None,
+                            mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None):
+    
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             nucleus.clear_history(mem_pot_init_method=mem_pot_init_method)
-            if set_noise:
-                nucleus.set_noise_param(noise_variance, noise_amplitude)
             nucleus.set_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
+            
+            if set_noise:
+                nucleus.set_noise_param(noise_variance, noise_amplitude)
+            if reset_init_dist:
+                nucleus.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False)
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
     return nuclei_dict
@@ -924,9 +998,11 @@ def get_max_len_dict(dictionary):
 
 def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
-    lim_oscil_perc=10, if_plot=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
+    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_std=True, round_dec=2, legend_loc='upper right', display='sci', decimal=0):
+    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_std=True, round_dec=2, legend_loc='upper right', display='sci', decimal=0,
+    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
+    receiving_pop_list = None):
 
     if set_seed:
         np.random.seed(1956)
@@ -952,7 +1028,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
-    if if_plot:
+    if plot_firing:
         print('firing plotted')
         fig = plt.figure()
 
@@ -982,7 +1058,12 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         for j in range(n_run):
 
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False)  # , mem_pot_init_method = 'uniform')
+                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, reset_init_dist= reset_init_dist)  # , mem_pot_init_method = 'uniform')
+            if reset_init_dist:
+                receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state], 
+                                                          set_FR_range_from_theory = False,
+                                                          method = 'collective')
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 
             if plot_raster:
@@ -1008,7 +1089,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             ax_spec.set_xlim(5, 55)
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
-        if if_plot:
+        if plot_firing:
             ax = fig.add_subplot(n_iter, 1, count+1)
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                 n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim)
@@ -1021,7 +1102,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         print(count, "from", int(n_iter), ' t=', round(stop - start, 2))
 
     figs = []
-    if if_plot:
+    if plot_firing:
         fig.set_size_inches((15, 15), forward=False)
         fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
         fig.text(0.03, 0.5, 'firing rate (spk/s)',
@@ -1048,7 +1129,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
 def synaptic_weight_exploration_SNN_all_changing(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
-    lim_oscil_perc=10, if_plot=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
+    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
     include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_std=True, round_dec=2, legend_loc='upper right', display='sci', decimal=0):
 
@@ -1075,7 +1156,7 @@ def synaptic_weight_exploration_SNN_all_changing(nuclei_dict, filepath, duration
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
-    if if_plot:
+    if plot_firing:
         fig = plt.figure()
 
     if n_run > 1:  # don't plot all the runs
@@ -1128,7 +1209,7 @@ def synaptic_weight_exploration_SNN_all_changing(nuclei_dict, filepath, duration
             ax_spec.set_xlim(5, 55)
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
-        if if_plot:
+        if plot_firing:
             ax = fig.add_subplot(n_iter, 1, count+1)
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                 n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim)
@@ -1141,7 +1222,7 @@ def synaptic_weight_exploration_SNN_all_changing(nuclei_dict, filepath, duration
         print(count, "from", int(n_iter), ' t=', round(stop - start, 2))
 
     figs = []
-    if if_plot:
+    if plot_firing:
         fig.set_size_inches((15, 15), forward=False)
         fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
         fig.text(0.03, 0.5, 'firing rate (spk/s)',
@@ -1371,33 +1452,6 @@ def find_FR_ext_range_for_each_neuron_high_act(FR_sim, all_FR_list, init_method,
     return FR_list
 
 
-def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
-                        all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
-                        right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True):
-    '''find number of connections and build J matrix, set ext inputs as well'''
-    # K = calculate_number_of_connections(N,N_real,K_real)
-    K = calculate_number_of_connections(N, N_real, K_real)
-    receiving_class_dict = create_receiving_class_dict(
-        receiving_pop_list, nuclei_dict)
-
-    for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
-
-            nucleus.set_connections(K, N)
-            if nucleus.neuronal_model == 'rate' and scale_g_with_N:
-                nucleus.scale_synaptic_weight()
-
-            elif nucleus. der_ext_I_from_curve:
-                if nucleus.basal_firing > end_of_nonlinearity:
-                    nucleus.estimate_needed_external_input_high_act(
-                        all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
-                else:
-                    nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
-                                    n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
-            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
-                                  dt, end_of_nonlinearity=end_of_nonlinearity)
-    return receiving_class_dict
-
 
 def pickle_obj(obj, filepath):
 
@@ -1500,7 +1554,7 @@ def find_FR_sim_vs_FR_ext(FR_list, poisson_prop, receiving_class_dict, t_list, d
                 nucleus.clear_history()
                 nucleus.FR_ext = FR
                 nucleus.rest_ext_input = FR * nucleus.syn_weight_ext_pop * \
-                    nucleus.n_ext_population * nucleus.membrane_time_constant
+                                        nucleus.n_ext_population * nucleus.membrane_time_constant
         nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
