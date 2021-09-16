@@ -709,8 +709,8 @@ class Nucleus:
                                                                                    tau= np.average(self.membrane_time_constant), g_ext=self.syn_weight_ext_pop, 
                                                                                    N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
         self.clear_history()
-
-
+        print(self.name, "FR_ext = ", self.FR_ext)
+        return self.FR_ext
     def estimate_needed_external_input(self, all_FR_list, dt, t_list, receiving_class_dict, if_plot=False, end_of_nonlinearity=25,
                                         n_FR=50, left_pad=0.001, right_pad=0.001, maxfev=5000, ax=None, c='grey'):
         start = timeit.default_timer()
@@ -896,13 +896,14 @@ class Nucleus:
 
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
-                        right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron'):
+                        right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
+                        use_saved_FR_ext = False, return_saved_FR_ext = False):
     '''find number of connections and build J matrix, set ext inputs as well'''
     # K = calculate_number_of_connections(N,N_real,K_real)
     K = calculate_number_of_connections(N, N_real, K_real)
     receiving_class_dict = create_receiving_class_dict(
         receiving_pop_list, nuclei_dict)
-
+    FR_ext_all_nuclei = {}
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
@@ -914,13 +915,13 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
 
             elif nucleus. der_ext_I_from_curve:
                 
-                if method == 'collective':
+                if method == 'collective' and not use_saved_FR_ext:
                     print("external input is being set collectively for {}...".format(nucleus.name))
-                    nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
+                    FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
                                                                     if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity,
                                                                     maxfev = maxfev, c=c, n_FR=n_FR)
-                    
-                else:
+                    FR_ext_all_nuclei[nucleus.name] = FR_ext
+                elif method == 'single_neuron':
                     if nucleus.basal_firing > end_of_nonlinearity:
                         nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
                                                                         n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
@@ -929,10 +930,14 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
                         nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
                                                                end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
                                                                n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
+                elif use_saved_FR_ext:
+                    nucleus.FR_ext = FR_ext_all_nuclei_saved[nucleus.name]
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
-    return receiving_class_dict
-
+    if return_saved_FR_ext:
+        return receiving_class_dict, FR_ext_all_nuclei
+    else:
+        return receiving_class_dict
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
     if list_of_nuc_with_trans_inp != None:
@@ -1002,7 +1007,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
     include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_std=True, round_dec=2, legend_loc='upper right', display='sci', decimal=0,
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
-    receiving_pop_list = None):
+    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False):
 
     if set_seed:
         np.random.seed(1956)
@@ -1021,25 +1026,22 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         # data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
         data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
         data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, nn))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, nn))
+        data[(nucleus.name, 'f')] = np.empty((n_iter, n_run, 0))
+        data[(nucleus.name, 'pxx')] = np.empty((n_iter, n_run, 0))
 
     data['g'] = G_dict
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
     if plot_firing:
-        print('firing plotted')
         fig = plt.figure()
 
     if n_run > 1:  # don't plot all the runs
         plot_spectrum = False
     if plot_spectrum:
-        print("spectrum plotted")
         fig_spec = plt.figure()
 
     if plot_raster:
-        print('raster_plotted')
         fig_raster = plt.figure()
         outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
     for i in range(n_iter):
@@ -1058,12 +1060,15 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         for j in range(n_run):
 
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, reset_init_dist= reset_init_dist)  # , mem_pot_init_method = 'uniform')
+                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop)  # , mem_pot_init_method = 'uniform')
             if reset_init_dist:
                 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state], 
-                                                          set_FR_range_from_theory = False,
-                                                          method = 'collective')
+                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
+                                                          end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state], 
+                                                          set_FR_range_from_theory = False, method = 'collective', use_saved_FR_ext= use_saved_FR_ext,
+                                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei_saved, return_saved_FR_ext= return_saved_FR_ext)
+                
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 
             if plot_raster:
@@ -1256,17 +1261,32 @@ def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
         ax.axes.xaxis.set_ticklabels([])
 
 
+# def _get_title(G_dict, i, display='normal', decimal=0):
+#     if display == 'normal':
+
+#         title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + str(round(list(G_dict.values())[0][i], 2)) +
+#                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i], 2)) +
+#                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i], 2)))
+#     if display == 'sci':
+#         title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[0][i], decimal)) +
+#                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[1][i], decimal)) +
+#                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[2][i], decimal)))
+#     return title
+
 def _get_title(G_dict, i, display='normal', decimal=0):
-    if display == 'normal':
-        title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + str(round(list(G_dict.values())[0][i], 2)) +
-                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i], 2)) +
-                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i], 2)))
-    if display == 'sci':
-        title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[0][i], decimal)) +
-                r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[1][i], decimal)) +
-                r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[2][i], decimal)))
+
+    title = ''
+    for j in range(len(G_dict)):
+        if display == 'normal':
+            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + str(round(list(G_dict.values())[j][i], 2))
+        
+        elif display == 'sci':
+            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[j][i], decimal)) 
+        if j % 3 == 0:
+            title += ' \n '  
     return title
 
+            
 
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
@@ -1285,8 +1305,7 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
             data[(nucleus.name, 'base_freq')][i, j],
             if_stable_base,
             data[(nucleus.name, 'base_beta_power')][i, j],
-            data[(nucleus.name, 'f')][i, j, :],
-            data[(nucleus.name, 'pxx')][i, j, :]) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+            f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
                                                                      peak_threshold=peak_threshold,
                                                                     smooth_kern_window=smooth_kern_window,
                                                                    cut_plateau_epsilon=cut_plateau_epsilon,
@@ -1301,7 +1320,12 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     fft_method=fft_method,
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend)
-
+            # try:
+            #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
+            # except ValueError:
+            #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, :len(pxx)] = f, pxx
+            #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, len(pxx):] = np.nan
+                
             nucleus.frequency_basal = data[(nucleus.name, 'base_freq')][i, j]
 
             print(nucleus.name, 'f = ', round(data[(nucleus.name, 'base_freq')][i, j], 2), 'beta_p =', data[(
