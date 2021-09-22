@@ -562,11 +562,14 @@ class Nucleus:
     def smooth_pop_activity(self, dt, window_ms=5):
         self.pop_act = moving_average_array(self.pop_act, int(window_ms / dt))
 
-    def average_pop_activity(self, t_list, last_fraction=1/2):
-        average = np.average(self.pop_act[int(len(t_list) * last_fraction):])
-        std = np.std(self.pop_act[int(len(t_list) * last_fraction):])
+    # def average_pop_activity(self, t_list, last_fraction=1/2):
+    #     average = np.average(self.pop_act[int(len(t_list) * last_fraction):])
+    #     std = np.std(self.pop_act[int(len(t_list) * last_fraction):])
+    #     return average, std
+    def average_pop_activity(self,ind_start, ind_end):
+        average = np.average(self.pop_act[ind_start : ind_end])
+        std = np.std(self.pop_act[ind_start : ind_end])
         return average, std
-
     def set_synaptic_weights(self, G):
 
         # filter based on the receiving nucleus
@@ -836,6 +839,14 @@ class Nucleus:
             self.synaptic_weight = {
                 k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0] == self.name}
 
+    def change_pop_firing_rate(self, FR_ext, A, A_mvt = None, D_mvt = None , t_mvt = None, t_list = None,
+                                  dt = None, end_of_nonlinearity=30):
+        self.FR_ext = FR_ext
+        self.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
+                                      dt, end_of_nonlinearity=end_of_nonlinearity)
+    def change_basal_firing(self, A_new):
+        self.basal_firing = A_new
+        
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
@@ -906,7 +917,7 @@ class Nucleus:
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
-                        use_saved_FR_ext = False, return_saved_FR_ext = False):
+                        use_saved_FR_ext = False, return_saved_FR_ext = False, normalize_G_by_N = False):
     '''find number of connections and build J matrix, set ext inputs as well'''
     # K = calculate_number_of_connections(N,N_real,K_real)
     K = calculate_number_of_connections(N, N_real, K_real)
@@ -941,12 +952,15 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
                                                                n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
                 elif use_saved_FR_ext:
                     nucleus.FR_ext = FR_ext_all_nuclei_saved[nucleus.name]
+            if normalize_G_by_N:
+                nucleus.normalize_synaptic_weight_by_N()
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
     if return_saved_FR_ext:
         return receiving_class_dict, FR_ext_all_nuclei
     else:
         return receiving_class_dict
+
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
     if list_of_nuc_with_trans_inp != None:
@@ -966,7 +980,7 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
 
 
 def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, poisson_prop = None,
-                            mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None):
+                            mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
 
     for nuclei_list in nuclei_dict.values():
@@ -974,6 +988,8 @@ def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, 
             nucleus.clear_history(mem_pot_init_method=mem_pot_init_method)
             nucleus.set_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
+            if normalize_G_by_N:
+                nucleus.normalize_synaptic_weight_by_N()
             
             if set_noise:
                 nucleus.set_noise_param(noise_variance, noise_amplitude)
@@ -986,14 +1002,13 @@ def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, 
 
 def bandpower(f, pxx, fmin, fmax):
     ''' return the average power at the given range of frequency'''
-    ind_min = scipy.argmin(f[f > fmin])
-    ind_max = scipy.argmax(f[f < fmax])
-
+    ind_min = np.argmin(f[f > fmin])
+    ind_max = np.argmax(f[f < fmax])
     return scipy.trapz(pxx[ind_min: ind_max], f[ind_min: ind_max]) / (f[ind_max] - f[ind_min])
 
 
 def beta_bandpower(f, pxx, fmin=13, fmax=30):
-    return bandpower(f, pxx, fmin=fmin, fmax=fmax)
+    return bandpower(f, pxx, fmin, fmax)
 
 
 def find_sending_pop_dict(receiving_pop_list):
@@ -1014,9 +1029,10 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_std=True, round_dec=2, legend_loc='upper right', display='sci', decimal=0,
+    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
-    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False):
+    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
+    spec_lim = [0, 55]):
 
     if set_seed:
         np.random.seed(1956)
@@ -1024,7 +1040,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         np.random.seed()
     nn = 200
     n_iter = get_max_len_dict(G_dict)
-    print("n_inter = ", n_iter)
+    # print("n_inter = ", n_iter)
     data = {}
     for nucleus_list in nuclei_dict.values():
         nucleus = nucleus_list[0]  # get only on class from each population
@@ -1073,13 +1089,15 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop)  # , mem_pot_init_method = 'uniform')
+                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, normalize_G_by_N= True)  # , mem_pot_init_method = 'uniform')
             if reset_init_dist:
                 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
                                                           end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state], 
-                                                          set_FR_range_from_theory = False, method = 'collective', use_saved_FR_ext= use_saved_FR_ext,
-                                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei_saved, return_saved_FR_ext= return_saved_FR_ext)
+                                                          set_FR_range_from_theory = False, method = 'collective', 
+                                                          use_saved_FR_ext= use_saved_FR_ext,
+                                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei_saved, 
+                                                          return_saved_FR_ext= return_saved_FR_ext, normalize_G_by_N= False)
                 
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 
@@ -1103,7 +1121,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             # ax_spec.set_title(title, fontsize = 18)
             ax_spec.legend(fontsize=11, loc='upper center',
                            framealpha=0.1, frameon=False)
-            ax_spec.set_xlim(5, 55)
+            ax_spec.set_xlim(spec_lim[0], spec_lim[1])
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
         if plot_firing:
@@ -1174,7 +1192,8 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     find_beta_band_power=find_beta_band_power,
                                                                     fft_method=fft_method,
                                                                     n_windows=n_windows,
-                                                                    include_beta_band_in_legend=include_beta_band_in_legend)
+                                                                    include_beta_band_in_legend=include_beta_band_in_legend,
+                                                                    divide_beta_band_in_power= divide_beta_band_in_power)
             # try:
             #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
             # except ValueError:
@@ -1431,7 +1450,7 @@ def find_FR_sim_vs_FR_ext(FR_list, poisson_prop, receiving_class_dict, t_list, d
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
                 nucleus.smooth_pop_activity(dt, window_ms=5)
-                FR_mean, FR_std = nucleus. average_pop_activity(t_list, last_fraction=1/2)
+                FR_mean, FR_std = nucleus. average_pop_activity(int(len(t_list) / 2) , len(t_list))
                 firing_prop[nucleus.name]['firing_mean'][i,
                     nucleus.population_num-1] = FR_mean
                 firing_prop[nucleus.name]['firing_var'][i,
@@ -1891,7 +1910,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 
 	fig, ax = get_axes(ax, figsize=figsize)
 	# plt.semilogy(freq[:N//2], f[:N//2])
-	label = label + ' f =' + str(round(peak_freq, 0))
+	label = label + ' f =' + str(round(peak_freq, 1))
 	if include_beta_band_in_legend:
 		beta_band_power = beta_bandpower(f, pxx)
 		label += ' ' + r'$\overline{P}_{\beta}=$' + str(round(beta_band_power, 3))
@@ -1903,7 +1922,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 	ax.locator_params(axis='y', nbins=5)
 	ax.locator_params(axis='x', nbins=5)
 	plt.rcParams['xtick.labelsize'] = 18
-	plt.rcParams['ytick.labelsize'] = 18
+	plt.rcParams['ytick.labelsize'] = 18 
 	remove_frame(ax)
 
 
@@ -1926,6 +1945,7 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 			f, pxx, peak_freq = freq_from_rfft(sig, dt,  N)
 		if method == 'Welch':
 			f, pxx, peak_freq = freq_from_welch(sig, dt, n_windows=n_windows)
+            
 		# Find the peak and interpolate to get a more accurate peak
 
 		if plot_spectrum:
@@ -1977,14 +1997,10 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
 					nucleus.solve_IF(t, dt, receiving_class_dict[(
 					    nucleus.name, str(k))], mvt_ext_inp)
 
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-	return nuclei_dict
 
 	stop = timeit.default_timer()
 	print("t = ", stop - start)
 	return nuclei_dict
-
 
 def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict, DD_init_filepaths, K_DD, N, N_real, A_DD, A_mvt, D_mvt, t_mvt, t_transition=None):
 	if t_transition == None:
@@ -2329,8 +2345,9 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections):
 
 dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,ylabelpad = 0, include_FR = True, alpha_mvt = 0.2,
-         plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,
+         ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
+         plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18):    
 
     fig, ax = get_axes (ax)
@@ -2357,7 +2374,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
                     ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha = alpha_mvt,lw = 1 )
                 else:
                     ax.plot(t_list[int(t_mvt /dt): plot_end]*dt, np.ones_like(t_list[int(t_mvt /dt): plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha= alpha_mvt,lw = 1 )
-            FR_mean, FR_std = nucleus. average_pop_activity( t_list, last_fraction = 1/2)
+            FR_mean, FR_std = nucleus. average_pop_activity(int(len(t_list) / 2) , len(t_list))
             if include_FR:
                 if include_std:
                     txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,round_dec), round(FR_std,round_dec) )
@@ -3000,16 +3017,12 @@ def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebin
     data['tau'] = np.zeros(tuple(iter_param_length_list+[n_time_scale]))
     return data
 def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
-                                                    c_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), param =None):
+                                                    c_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), 
+                                                    param = 'all', y_line_fix = 4, clb_lower_lim = 0, clb_higher_lim = 50, 
+                                                    clb_loc = 'center right', legend_loc = 'upper right', clb_borderpad = 8):
     maxs = [] ; mins = []
     fig, ax = plt.subplots(1,1,figsize=(8,6))
-    # for i in range(len(filename_list)):
-    #     pkl_file = open(filename_list[i], 'rb')
-    #     data = pickle.load(pkl_file)
-    #     pkl_file.close()
-    #     maxs.append(np.max(data[name_list[i],c_list[i]]))
-    #     mins.append(np.min(data[name_list[i],c_list[i]]))
-    # vmax = max(maxs) ; vmin = min(mins)
+
     vmax = 50; vmin = 0
     for i in range(len(filename_list)):
         pkl_file = open(filename_list[i], 'rb')
@@ -3037,25 +3050,27 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
                     continue
                 txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
                 title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
-#         print('g = ', g)
-        if param == None:
+        if param == "all":
             y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
-            title = ''
+            std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)
+            title = 'beta band (12-30 Hz)'
         elif param == 'low':
-            y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])][:,:,0] , axis = 1))
+            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
+            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
             title = 'Low beta band (12-30 Hz)'
         elif param == 'high':
-            y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])][:,:,1] , axis = 1))
+            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
+            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
             title = 'High beta band (20-30 Hz)'
         color = np.squeeze( np.average ( data[(name_list[i],c_list[i])] , axis = 1))
         where_are_NaNs = np.isnan(y)
         y[where_are_NaNs] = 0
-#         print('beta_power = ', y)
-#         print('freq = ', color)
-        ax.plot(g, y, c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        # ax.plot(g, y, c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        ax.errorbar(g, y, yerr = std, c = color_list[i], lw = 3, label= label_list[i],zorder=1, capthick = 5, elinewidth = 1.5)
+
         img = ax.scatter(g, y ,vmin = vmin, vmax = vmax, c = color, 
-                         cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2, s=100)
-    plt.axhline( 4, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
+                          cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2, s=60)
+    plt.axhline( y_line_fix, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
     plt.title(title, fontsize = 20)
     ax.set_xlabel(x_label,fontsize = 20)
     ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
@@ -3064,12 +3079,12 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
     axins1 = inset_axes(ax,
                     width="5%",  # width = 50% of parent_bbox width
                     height="50%",  # height : 5%
-                    loc='center right',borderpad=8)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+                    loc= clb_loc ,borderpad=clb_borderpad)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
     clb = fig.colorbar(img, cax=axins1, orientation="vertical")
     clb.ax.locator_params(nbins=4)
     clb.set_label('Frequency (Hz)', labelpad=20, y=.5, rotation=-90,fontsize=15)
-    img.set_clim(0,50)
-    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = 'upper right')
+    img.set_clim(clb_lower_lim , clb_higher_lim)
+    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = legend_loc)
     remove_frame(ax)
     plt.show()
     for i in range( len(txt)):
