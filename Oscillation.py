@@ -212,7 +212,6 @@ if 1:
           ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
     G_DD[('Proto', 'Proto')] = 0.5* G_DD[('STN', 'Proto')]
     color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'darkorange'}
-    noise_variance = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
     noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
     I_ext_range = {'Proto' : [0.175*100, 0.185*100], 
                    'STN': [0.012009 * 100, 0.02 * 100], 
@@ -228,10 +227,10 @@ if 1:
                     'Arky': [1.5/300, 2.8/300]}
     
     noise_variance = {'Proto' : 50, 
-               'STN': 10, 
-               'D2': 2 , 
-               'FSI': 10, 
-               'Arky': 6}
+                      'STN': 10, 
+                      'D2': 2 , 
+                      'FSI': 10, 
+                      'Arky': 6}
     end_of_nonlinearity = {
                       'FSI': { 'rest' : 35 , 'mvt': 40, 'DD':40 } ,
                       'D2':  { 'rest' : 25 , 'mvt': 10 , 'DD': 20, 'trans': 40 } ,
@@ -2789,6 +2788,7 @@ fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.png'), dpi = 300
 fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #%% synaptic weight exploration SNN (FSI-D2-Proto)
+# runcell('Constants', '/home/shiva/BG_Oscillations/Oscillation.py')
 plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -2877,8 +2877,8 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N = True)
-n_run = 1;  plot_firing = True; plot_spectrum= True; plot_raster =True; low_pass_filter= False ; save_pkl = False ; save_figures = False
-# plot_firing = False; plot_spectrum= False; plot_raster = False; save_pkl = True ; save_figures = False
+# n_run = 1;  plot_firing = True; plot_spectrum= True; plot_raster =True; low_pass_filter= False ; save_pkl = False ; save_figures = False
+n_run = 5 ; plot_firing = False; plot_spectrum= False; plot_raster = False;low_pass_filter= False; save_pkl = True ; save_figures = False
 # save_figures = True
 round_dec = 1 ; include_std = False
 plot_start =  1500 #int(t_sim/2)
@@ -2887,9 +2887,11 @@ n_neuron = 25
 legend_loc = 'center right'
 # x = np.flip(np.geomspace(-40, -0.1, n))
 
-# x = np.linspace(5.5, 1, n)
-x = np.array([ 0.6])
+# x = np.array([ .2, 1])
+x = np.linspace(.2, 1, 16)
+
 n = len(x)
+
 g = -0.005  # start
 
 # G_dict = {(name2, name1) : np.array([g * 1.2]* (n)) ,
@@ -2913,6 +2915,7 @@ G_dict = {(name2, name1): g * x ,
 filename = 'D2_Proto_FSI_N_1000_T_2000_G_all_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
 G_dict = { k: v * K[k] for k, v in G_dict.items()}
+G_FSI_loop = G_dict[(name1, name3)] * G_dict[(name2, name1)] * G_dict[(name3, name2)]
 
 fft_method = 'Welch'
 filepath = os.path.join(path, 'Beta_power', filename)
@@ -3623,8 +3626,8 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
-n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True; low_pass_filter= False ; save_pkl = False ; save_figures = False
-# n_run = 10; plot_firing = False; plot_spectrum= False; plot_raster = False; save_pkl = True ; save_figures = False
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True; low_pass_filter= False ; save_pkl = False ; save_figures = False
+n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False;  low_pass_filter= False ;save_pkl = True ; save_figures = False
 # save_figures = True
 # save_pkl = False
 round_dec = 1 ; include_std = False
@@ -3636,7 +3639,8 @@ legend_loc = 'center right'
 # x = np.flip(np.geomspace(-40, -0.1, n))
 # x = np.linspace(0.3, 12, 20)
 coef = 1
-x = np.array([0.6])
+x = np.array([0.1, .91])
+x = np.linspace(0.1, 0.91, 16)
 n = len(x)
 g = -0.005  # start
 
@@ -3813,6 +3817,70 @@ fig = synaptic_weight_transition_multiple_circuit_SNN(filename_list, nucleus_nam
                                                       clb_higher_lim = 30, clb_lower_lim= 5, legend_loc = legend_loc, clb_loc = clb_loc, clb_borderpad = clb_borderpad)   
 fig.savefig(os.path.join(path,'Beta_power', 'abs_norm_G_' + param + '_beta_' + os.path.basename(filename_list[0]).replace('.pkl','.png')), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+#%% critical g plot SNN (Fig. 7) low and high beta separate (frequency as inset)
+plt.close('all')
+
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+def _str_G_with_key(key):
+    return r'$G_{' + list(key)[1] + '-' + list(key)[0] + r'}$'
+
+# title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = "+ str(round(list(G_dict.values())[0][0],2)) +
+#         r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][0],2)))
+     
+title = ""
+
+g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_N_1000_T_2000_G_D2_Proto_changing_15_pts_2_runs.pkl')]; key = ('Proto','D2')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_N_1000_T_2000_G_FSI_D2_changing_15_pts_2_runs.pkl')]; key = ('D2','FSI')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2 _Proto_FSI_N_1000_T_2000_G_Proto_FSI_changing_15_pts_2_runs.pkl')]; key = ('FSI', 'Proto')
+
+# nucleus_name_list = ['FSI', 'Proto','D2', 'STN']
+# n_nuclei = len(nucleus_name_list)
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_FSI_D2_changing_20_pts_5_runs.pkl')]; key = ('D2', 'FSI')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_Proto_FSI_changing_20_pts_5_runs.pkl')]; key = ('FSI', 'Proto')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_Proto_STN_changing_20_pts_5_runs.pkl')]; key = ('STN', 'Proto')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_5_runs.pkl')]; key = ('Proto', 'STN')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_D2_Proto_changing_20_pts_5_runs.pkl')]; key = ('Proto', 'D2')
+# filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_10_runs.pkl')]; key = ('Proto', 'STN')
+
+
+nucleus_name_list = ['FSI', 'Proto','D2']
+n_nuclei = len(nucleus_name_list)
+filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_N_1000_T_2000_G_all_changing_16_pts_5_runs.pkl')]; key = [('D2', 'FSI'),
+                                                                                                                                     ('FSI', 'Proto'),
+                                                                                                                                     ('Proto', 'D2')]
+
+nucleus_name_list = ['FSI', 'Proto','D2', 'Arky']
+n_nuclei = len(nucleus_name_list)
+filename_list = n_nuclei * [os.path.join(path, 'Beta_power', 'D2_Proto_FSI_Arky_N_1000_T_1000_G_all_changing_16_pts_5_runs.pkl')]; key = [('D2', 'Arky'), 
+                                                                                                                                          ('D2', 'FSI'),
+                                                                                                                                          ('FSI', 'Proto'),
+                                                                                                                                          ('Proto', 'D2'),
+                                                                                                                                          ('Arky', 'Proto')]
+
+key_sec_ax = [('D2', 'FSI'),('FSI', 'Proto'),('Proto', 'D2')]
+
+# filename_list = [os.path.join(path, filename) for filename in filename_list]
+# x_axis = 'one'
+x_axis = 'multiply'
+legend_list = nucleus_name_list
+color_list = [color_dict[name] for name in nucleus_name_list]
+param_list = n_nuclei * ['base_beta_power']
+color_param_list = n_nuclei * ['base_freq']
+# param = 'low'
+# param = 'high'
+param = 'all'
+y_line_fix = 2 ; legend_loc = 'center' ; clb_loc = 'upper right' ; clb_borderpad = 5
+y_line_fix = 2 ; legend_loc = 'upper left' ; clb_loc = 'lower left' ; clb_borderpad = 2
+double_xaxis = True
+fig = synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, nucleus_name_list, legend_list, color_list,g_cte_ind,g_ch_ind,param_list,
+                                                      color_param_list,'YlOrBr',x_axis = x_axis,param = param,  key = key, y_line_fix = y_line_fix,
+                                                              inset_ylim=[0,30],  legend_loc = 'upper right', double_xaxis=double_xaxis, key_sec_ax = key_sec_ax)   
+fig.savefig(os.path.join(path,'Beta_power', 'abs_norm_G_double_loop_' + param + '_beta_' + os.path.basename(filename_list[0]).replace('.pkl','.png')), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20

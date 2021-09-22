@@ -3075,7 +3075,7 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
     ax.set_xlabel(x_label,fontsize = 20)
     ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
     # ax.set_title(title,fontsize=20)
-    ax_label_adjust(ax, fontsize = 18, nbins = 6)
+    # ax_label_adjust(ax, fontsize = 18, nbins = 6)
     axins1 = inset_axes(ax,
                     width="5%",  # width = 50% of parent_bbox width
                     height="50%",  # height : 5%
@@ -3084,6 +3084,117 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
     clb.ax.locator_params(nbins=4)
     clb.set_label('Frequency (Hz)', labelpad=20, y=.5, rotation=-90,fontsize=15)
     img.set_clim(clb_lower_lim , clb_higher_lim)
+    ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = legend_loc)
+    remove_frame(ax)
+    plt.show()
+    for i in range( len(txt)):
+        plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
+    return fig
+
+def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
+                                                    freq_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), 
+                                                    param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
+                                                    include_Gs = True, double_xaxis = False, key_sec_ax = ()):
+    maxs = [] ; mins = []
+    fig, ax = plt.subplots(figsize=[8, 6])
+    # left, bottom, width, height = [0.25, 0.3, 0.2, 0.2]
+    # ax2 = fig.add_axes([left, bottom, width, height])
+    axins = ax.inset_axes(
+        [0.02, 0.3, 0.35, 0.35])
+    vmax = 50; vmin = 0
+    for i in range(len(filename_list)):
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        keys = list(data['g'].keys())
+        if x_axis == 'multiply':
+            g = np.ones( len( list (data ['g'].values()) [0] ))
+            for v in data['g'].values():
+                g *= v
+            x_label = r'$G_{Loop(s)}$'
+            txt = []
+            if include_Gs:
+                for k in keys:
+                    if k in key:
+                        txt.append( _str_G_with_key(k) +'=[' + r"${0}$".format(round(data['g'][k][0],1)) + ',' + r"${0}$".format(round(data['g'][k][-1],1)) + ']')
+                        continue
+                    txt.append( _str_G_with_key(k) +'=' + r"${0}$".format(round(data['g'][k][0],1)))
+                    title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+        
+
+        else:
+            g = data['g'][key]
+            x_label = _str_G_with_key(key)
+            title = ''
+            txt = []
+            for k in keys:
+                if k == key:
+                    continue
+                txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
+                title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+        if param == "all":
+            y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
+            std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)
+            title = 'Beta band (12-30 Hz)'
+        elif param == 'low':
+            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
+            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
+            title = 'Low beta band (12-30 Hz)'
+        elif param == 'high':
+            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
+            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
+            title = 'High beta band (20-30 Hz)'
+        freq = np.squeeze( np.average ( data[(name_list[i],freq_list[i])] , axis = 1))
+        freq_std = np.squeeze( np.std ( data[(name_list[i],freq_list[i])] , axis = 1))
+
+        where_are_NaNs = np.isnan(y)
+        y[where_are_NaNs] = 0
+        # ax.plot(g, y, c = color_list[i], lw = 3, label= label_list[i],zorder=1)
+        ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, capthick = 5, elinewidth = 1.5)
+        axins.errorbar(abs(g), freq, yerr = freq_std,  c = color_list[i], lw = 1, label= label_list[i],zorder=1, capthick = 1, elinewidth = .7)
+        
+
+    ax.axhline( y_line_fix, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
+    ax.set_title(title, fontsize = 20)
+    ax.set_xlabel(x_label,fontsize = 20)
+    ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
+    ax_label_adjust(ax, fontsize = 18, nbins = 6)
+    # ax_label_adjust(axins, fontsize=5, nbins=3, ybins=3)
+    # ax_label_adjust(axins, fontsize=10, nbins=3, ybins=3)
+
+    axins.set_yticklabels(labels = axins.get_yticks().tolist(), fontsize = 12)
+    axins.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    axins.set_ylim(inset_ylim)
+    axins.set_ylabel("Frequency (Hz)", fontsize = 10)
+    axins.yaxis.set_label_position("right")
+    axins.yaxis.tick_right()
+    from matplotlib.ticker import MaxNLocator
+    axins.xaxis.set_major_locator(MaxNLocator(5)) 
+    axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
+    axins.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    axins.set_xlabel("G", fontsize = 10)
+
+    if double_xaxis:
+        ax3 = ax.twiny()
+        
+        new_tick_locations = np.array([0.2, 0.5, 0.8]) #np.array(np.arange(abs(g[0]), abs(g[1]), 6))
+        
+        def tick_function(g_ax_keys, gs):
+            gg = np.ones(len(gs[g_ax_keys[0]]))
+            for k in g_ax_keys:
+                gg = gg * gs[k]
+            return abs(gg)
+        new_x = tick_function(key_sec_ax, data['g'])
+        print(new_x, abs(g))
+        # scale = (new_x[-1] - new_x[0])/ (abs(g[-1]), abs(g[0]))
+        scale = (new_x[-1] - new_x[0])
+        # print(scale, new_x)
+        # ax3.set_xlim(ax.get_xlim())
+        ax3.set_xticks(new_tick_locations)
+        ax3.set_xticklabels(["%.1f" % z for z in scale * new_tick_locations + scale*new_x[0]])
+        ax3.set_xlabel(r"$G_{original loop}$")
+        # ax3.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        plt.show()
+
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = legend_loc)
     remove_frame(ax)
     plt.show()
