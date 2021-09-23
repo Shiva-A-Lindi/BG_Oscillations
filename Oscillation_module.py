@@ -832,6 +832,33 @@ class Nucleus:
         for t in t_list:  # run temporal dynamics
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
+    def find_spike_times_all_neurons(self):
+        return np.where(self.spikes == 1)[1]
+      
+    def find_peaks_of_pop_act(self, height = 1):
+        peaks,_ = signal.find_peaks(self.pop_act, height = height)
+        return peaks
+    
+    def polar_phase_hist(self, dt, low_f, high_f, filter_order = 6, height = 1):
+        self.low_pass_filter( dt, low_f, high_f, order= filter_order)
+        peaks = self.find_peaks_of_pop_act( height = height)
+        spike_times_all_neurons = self.find_spike_times_all_neurons()
+        return  peaks, spike_times_all_neurons
+    
+    def find_phases_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1):
+        
+        peaks, all_spikes = self.polar_phase_hist( dt, low_f, high_f, filter_order = filter_order, height = height)
+    
+        phase_all_spikes = np.zeros(len(all_spikes))
+        count = 0
+        for left_peak, right_peak in zip(peaks[:-1], peaks[1:]):
+            
+            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes)
+            phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
+            count += n_spikes_of_this_cycle
+            
+        return phase_all_spikes
+    
 
 
     def scale_synaptic_weight(self):
@@ -847,6 +874,7 @@ class Nucleus:
     def change_basal_firing(self, A_new):
         self.basal_firing = A_new
         
+    
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
@@ -913,6 +941,91 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
 
+def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0, gaps=True):
+    """
+    Produce a circular histogram of angles on ax.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes._subplots.PolarAxesSubplot
+        axis instance created with subplot_kw=dict(projection='polar').
+
+    x : array
+        Angles to plot, expected in units of radians.
+
+    bins : int, optional
+        Defines the number of equal-width bins in the range. The default is 16.
+
+    density : bool, optional
+        If True plot frequency proportional to area. If False plot frequency
+        proportional to radius. The default is True.
+
+    offset : float, optional
+        Sets the offset for the location of the 0 direction in units of
+        radians. The default is 0.
+
+    gaps : bool, optional
+        Whether to allow gaps between bins. When gaps = False the bins are
+        forced to partition the entire [-pi, pi] range. The default is True.
+
+    Returns
+    -------
+    n : array or list of arrays
+        The number of values in each bin.
+
+    bins : array
+        The edges of the bins.
+
+    patches : `.BarContainer` or list of a single `.Polygon`
+        Container of individual artists used to create the histogram
+        or list of such containers if there are multiple input datasets.
+    """
+    # Wrap angles to [-pi, pi)
+    x = (x+np.pi) % (2*np.pi) - np.pi
+
+    # Force bins to partition entire circle
+    if not gaps:
+        bins = np.linspace(-np.pi, np.pi, num=bins+1)
+
+    # Bin data and record counts
+    n, bins = np.histogram(x, bins=bins)
+
+    # Compute width of each bin
+    widths = np.diff(bins)
+
+    # By default plot frequency proportional to area
+    if density:
+        # Area to assign each bin
+        area = n / x.size
+        # Calculate corresponding bin radius
+        radius = (area/np.pi) ** .5
+    # Otherwise plot frequency proportional to radius
+    else:
+        radius = n
+
+    # Plot data on ax
+    patches = ax.bar(bins[:-1], radius, zorder=1, align='edge', width=widths,facecolor = facecolor,
+                     edgecolor='C0', fill=fill, linewidth=1, alpha = alpha)
+
+    # Set the direction of the zero angle
+    ax.set_theta_offset(offset)
+
+    # Remove ylabels for area plots (they are mostly obstructive)
+    if density:
+        ax.set_yticks([])
+
+    return n, bins, patches
+
+
+def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes):
+    corr_spike_times = all_spikes[ 
+                                                    np.logical_and(all_spikes > left_peak_time, 
+                                                                   all_spikes < right_peak_time) 
+                                                   ]
+    cycle_length = right_peak_time - left_peak_time
+    n_spikes = len(corr_spike_times)
+    phase = ( corr_spike_times - right_peak_time ) / cycle_length * 2 * np.pi
+    return phase, n_spikes
 
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
@@ -1127,7 +1240,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         if plot_firing:
             ax = fig.add_subplot(n_iter, 1, count+1)
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
-                n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim)
+                n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
             ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
             # ax.set_ylim(*plt_ylim)
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax)
@@ -1161,6 +1274,11 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         pickle_obj(data, filepath)
     return figs, title, data
 
+def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, order=6):
+    for nucleus_list in nuclei_dict.values():
+        for nucleus in nucleus_list:
+            nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order= order)
+            
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
                 fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False):
@@ -3172,7 +3290,7 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
     axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
     axins.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     axins.set_xlabel("G", fontsize = 10)
-
+    axins.axhline(13,  linestyle = '--', c = 'grey', lw=2)
     if double_xaxis:
         ax3 = ax.twiny()
         
@@ -3191,7 +3309,7 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
         # ax3.set_xlim(ax.get_xlim())
         ax3.set_xticks(new_tick_locations)
         ax3.set_xticklabels(["%.1f" % z for z in scale * new_tick_locations + scale*new_x[0]])
-        ax3.set_xlabel(r"$G_{original loop}$")
+        ax3.set_xlabel(r"$G_{FSI-D2-P}$", loc = 'right', fontsize = 15, labelpad = -20)
         # ax3.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         plt.show()
 
