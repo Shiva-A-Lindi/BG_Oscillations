@@ -1270,7 +1270,7 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
 #%% GP-GP 
 
 plt.close('all')
-N_sim = 2000
+N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
@@ -1280,13 +1280,22 @@ t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'Proto'
 state = 'rest'
-g = -0.05; g_ext =  0.01
+g_ext =  0.01
 G = {}
-plot_start = 1500
-plot_start_raster = 1500
+plot_start = 1000
+plot_start_raster = 1000
 
-# G[(name1, name2)] , G[(name2, name1)] , G[(name2, name2)]= g , -g, g
-G[(name1, name1)] = g
+# G[(name1, name1)] = -0.000015
+# neuronal_consts['Proto'] = {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':-37}, # Bogacz et al. 2016
+#                     # 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
+#                     'membrane_time_constant':{'mean':43,'var':10},'spike_thresh': {'mean':-37,'var':5}} # tau_m :#Projecting to STN from Karube et al 2019
+# noise_variance['Proto'] = 100
+
+G[(name1, name1)] = -0.005
+neuronal_consts['Proto'] = {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':-37}, # Bogacz et al. 2016
+                    # 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
+                    'membrane_time_constant':{'mean':12.94,'var':10},'spike_thresh': {'mean':-37,'var':5}} # tau_m :#Projecting to STN from Karube et al 2019
+noise_variance['Proto'] = 100
 
 G = { k: v * K[k] for k, v in G.items()}
 
@@ -1294,11 +1303,7 @@ poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':
 
 receiving_pop_list = {(name1,'1') :  [(name1,'1')] }
 
-neuronal_consts['Proto'] = {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':-37}, # Bogacz et al. 2016
-                    # 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
-                    'membrane_time_constant':{'mean':38,'var':4},'spike_thresh': {'mean':-37,'var':5}} # tau_m :#Projecting to STN from Karube et al 2019
-                    
-
+               
 pop_list = [1]  
 init_method = 'heterogeneous'
 # init_method = 'homogeneous'
@@ -1307,11 +1312,10 @@ ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
 # mem_pot_init_method = 'uniform'
-keep_mem_pot_all_t = True
+keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
 save_init = False
-# noise_variance = {name1 : 0.1, name2: 0.1, name3 : 15}
 noise_amplitude = {name1 : 1, name2: 1}
 
 nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
@@ -1324,21 +1328,27 @@ nuclei_dict = {name1: nuc1}
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name] for name in list(nuclei_dict.keys()) } 
 
-# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = True, end_of_nonlinearity = 35, 
-#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
-#                                           use_saved_FR_ext= False, normalize_G_by_N= True)
-# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
+receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+                                          use_saved_FR_ext= False, normalize_G_by_N= True)
+pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-Proto_tau_'+ str(neuronal_consts['Proto']['membrane_time_constant']).replace('.','-') + '.pkl'))
 
 
 # Run on previously saved data
-FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
-receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei)
-
-nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+# FR_ext_all_nuclei  = load_pickle( os.path.join(path,  'FR_ext_Proto-Proto_tau_'+ str(neuronal_consts['Proto']['membrane_time_constant']).replace('.','-') + '.pkl'))
+# receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+#                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei)
+for i in range(n_run):
+    nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+    
+    peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+    freq = find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
+                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
+    
 # save_all_mem_potential(nuclei_dict, path)
 
 # fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
@@ -1347,9 +1357,9 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 # fig.savefig(os.path.join(path, 'V_m_Distribution_all_nuclei_'+mem_pot_init_method+'.png'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-status = 'GPe-GPe_tau_m_38'
+status = 'GPe-GPe_tau_m_' + str(neuronal_consts['Proto']['membrane_time_constant']).replace('.','-') 
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = [-10, 90])
+           include_FR = True, include_std=True, plt_mvt=False, legend_loc='upper right', ylim = None)
 
 fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
@@ -1364,10 +1374,7 @@ fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecol
 fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
+
 fig.set_size_inches((6, 5), forward=False)
 # x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
@@ -1381,7 +1388,8 @@ fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, faceco
 
 #%% Polar phase histogram
 
-
+a =  np.random.rand(10, 10)
+projection_list = a.argpartition(4,axis=1)
 
 def plot_polar_phase_all_nuclei(nuclei_dict, dt, low_f, high_f, filter_order = 6, height = 1):
     for nuclei_list in nuclei_dict.values():
@@ -1389,7 +1397,7 @@ def plot_polar_phase_all_nuclei(nuclei_dict, dt, low_f, high_f, filter_order = 6
             fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'))
             phase_all_spikes = nucleus.find_phases_of_spikes( dt,  low_f, high_f, filter_order = filter_order, height = height)
             circular_hist(ax, phase_all_spikes, fill = True, alpha = 0.3)
-plot_polar_phase_all_nuclei(nuclei_dict, dt, 10,30, filter_order = 6, height = 1)
+# plot_polar_phase_all_nuclei(nuclei_dict, dt, 10,30, filter_order = 6, height = 1)
 #%% FSI-D2-Proto 
 plt.close('all')
 N_sim = 1000

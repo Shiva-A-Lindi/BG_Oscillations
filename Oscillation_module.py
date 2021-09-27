@@ -482,14 +482,18 @@ class Nucleus:
         self.noise_amplitude = noise_amplitude[self.name]
 
     def set_connections(self, K, N):
-        ''' creat Jij connection matrix'''
+        ''' creat Jij connection matrix
 
+        '''
+        same_pop = False
         self.K_connections = {k: v for k, v in K.items() if k[0] == self.name}
         for projecting in self.receiving_from_list:
 
             n_connections = self.K_connections[(self.name, projecting[0])]
+            if self.name == projecting[0]:
+                same_pop = True
             self.connectivity_matrix[projecting] = build_connection_matrix(
-                self.n, N[projecting[0]], n_connections)
+                self.n, N[projecting[0]], n_connections, same_pop = same_pop)
 
     def initialize_mem_potential(self, method='uniform'):
         np.random.seed()
@@ -1338,7 +1342,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
             if low_pass_filter:
                 nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order=6)
 
-            nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+            (n_half_cycles, perc_oscil, freq, if_stable, beta_band_power, f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
                                                                      peak_threshold=peak_threshold,
                                                                     smooth_kern_window=smooth_kern_window,
                                                                    cut_plateau_epsilon=cut_plateau_epsilon,
@@ -1354,7 +1358,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend)
 
-
+    return freq
 
 
 def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
@@ -2450,11 +2454,30 @@ def transfer_func(Threshold, gain, x):
     of input higher than the threshold'''
     return gain* np.maximum(np.zeros_like(x), (x - Threshold))
     
-def build_connection_matrix(n_receiving,n_projecting,n_connections):
-    ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving'''
-    # produce a matrix listing received projections for each neuron in row i
-    projection_list = np.random.rand(n_receiving, n_projecting).argpartition(n_connections,axis=1)[:,:n_connections]
-#    print(projection_list)
+# def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
+#     ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving'''
+#     # produce a matrix listing received projections for each neuron in row i
+#     projection_list = np.random.rand(n_receiving, n_projecting).argpartition(n_connections,axis=1)[:,:n_connections]
+#     JJ = np.zeros((n_receiving, n_projecting),dtype = int)
+#     rows = ((np.ones((n_connections,n_receiving))*np.arange(n_receiving)).T).flatten().astype(int)
+#     cols = projection_list.flatten().astype(int)
+#     JJ[rows,cols] = int(1)
+#     return JJ
+
+def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
+    ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving
+        Arguments:
+                same_pop: optional bool (default = False)
+                    if the neuron type of pre and post are the same this value shows if they are in the same population as to avoid 
+                    connecting a neuron to itself    
+    '''
+    # projection_list = np.random.rand(n_receiving, n_projecting).argpartition(n_connections,axis=1)[:,:n_connections] ### What the fuck? why this way? [Sep 2021]
+    connection_prob = np.random.rand(n_receiving, n_projecting)
+    
+    if same_pop: # if connecting the population to itself, avoid autapses
+        np.fill_diagonal(connection_prob, 0)
+    projection_list = np.argsort(connection_prob, axis = 1)[::-1][:,:n_connections]
+    
     JJ = np.zeros((n_receiving, n_projecting),dtype = int)
     rows = ((np.ones((n_connections,n_receiving))*np.arange(n_receiving)).T).flatten().astype(int)
     cols = projection_list.flatten().astype(int)
