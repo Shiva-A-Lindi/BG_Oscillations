@@ -210,7 +210,7 @@ class Nucleus:
             self.FR_ext = np.zeros(self.n)
             
     def initialize_heterogeneously(self, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2,
-                                    plot_initial_V_m_dist=False):
+                                    plot_initial_V_m_dist=False, plot_mem_tau_hist = False):
         ''' cell properties and boundary conditions come from distributions'''
         self.spike_thresh = truncated_normal_distributed(self.neuronal_consts['spike_thresh']['mean'],
                                                             self.neuronal_consts['spike_thresh']['var'], self.n,
@@ -233,7 +233,8 @@ class Nucleus:
             self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
                                                                  self.neuronal_consts['membrane_time_constant']['var'], self.n,
                                                                  lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
-
+        if plot_mem_tau_hist:
+            plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
         # dt incorporated in tau for efficiency
         self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
                                                                 poisson_prop[self.name]['tau']['rise']['var'], self.n,
@@ -944,7 +945,11 @@ class Nucleus:
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
-
+        
+def plot_histogram(y, bins = 25, title = ""):
+    fig, ax = plt.subplots()
+    ax.hist(y, bins )
+    ax.set_title(title, fontsize = 15)
 def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0, gaps=True):
     """
     Produce a circular histogram of angles on ax.
@@ -1149,7 +1154,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
-    spec_lim = [0, 55]):
+    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -1167,6 +1172,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
         # data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
         data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
+        data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool)
+
         if divide_beta_band_in_power:
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
         else:
@@ -1225,7 +1232,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             data = find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
-                                include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power)
+                                include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
+                                half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance)
 
         if plot_spectrum:
             if fft_method == 'rfft':
@@ -1285,7 +1293,8 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
             
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False):
+                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, half_peak_range = 5, 
+                n_std = 2, cut_off_freq = 100, check_peak_significance = False):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -1316,12 +1325,16 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend,
                                                                     divide_beta_band_in_power= divide_beta_band_in_power)
+            if check_peak_significance:
+                    data[(nucleus.name, 'peak_significance')][i, j] = check_significance_of_PSD_peak(f, pxx, half_peak_range = half_peak_range, n_std = n_std, cut_off_freq = cut_off_freq)
+                                      
             # try:
             #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
             # except ValueError:
             #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, :len(pxx)] = f, pxx
             #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, len(pxx):] = np.nan
                 
+
             nucleus.frequency_basal = data[(nucleus.name, 'base_freq')][i, j]
 
             print(nucleus.name, 'f = ', round(data[(nucleus.name, 'base_freq')][i, j], 2), 'beta_p =', data[(
@@ -1357,28 +1370,37 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
                                                                     fft_method=fft_method,
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend)
+            
+    return freq, f, pxx
 
-    return freq
-
-
+def check_significance_of_PSD_peak(f, pxx, half_peak_range = 5, n_std = 2, cut_off_freq = 100):
+    ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
+    freq = f[f < cut_off_freq]
+    peak_freq = f[np.argmax(pxx)]
+    f_range_peak = [peak_freq - half_peak_range , peak_freq + half_peak_range]
+    
+    try:
+        min_f_ind = np.max( np.where(f <= f_range_peak[0])[0] ) 
+    except ValueError:
+        min_f_ind = 0
+    try:
+        max_f_ind = np.min ( np.where(f >= f_range_peak[1])[0] ) 
+    except ValueError:
+        min_f_ind = len(f) - 1
+    PSD_ex_peak_range = np.concatenate((pxx[:min_f_ind], pxx[ max_f_ind:]))
+    significance_thresh = (n_std * np.std(PSD_ex_peak_range) + 
+                           np.average(PSD_ex_peak_range) ) 
+    if peak_freq > significance_thresh:
+        return True
+    else:
+        return False
+    
 def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
     ax.set_xlabel("")
     ax.set_ylabel("")
     if count+1 < n_iter:
         ax.axes.xaxis.set_ticklabels([])
 
-
-# def _get_title(G_dict, i, display='normal', decimal=0):
-#     if display == 'normal':
-
-#         title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + str(round(list(G_dict.values())[0][i], 2)) +
-#                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+str(round(list(G_dict.values())[1][i], 2)) +
-#                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+str(round(list(G_dict.values())[2][i], 2)))
-#     if display == 'sci':
-#         title = (r"$G_{"+list(G_dict.keys())[0][0]+"-"+list(G_dict.keys())[0][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[0][i], decimal)) +
-#                 r"  $G_{"+list(G_dict.keys())[1][0]+"-"+list(G_dict.keys())[1][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[1][i], decimal)) +
-#                 r"  $G_{"+list(G_dict.keys())[2][0]+"-"+list(G_dict.keys())[2][1]+"}$ ="+r"${0:s}$".format(as_si(list(G_dict.values())[2][i], decimal)))
-#     return title
 
 def _get_title(G_dict, i, display='normal', decimal=0):
 
@@ -1543,7 +1565,8 @@ def scale_bound_with_arbitrary_value(mean, lower_bound_perc, upper_bound_perc, s
     return lower_bound, upper_bound
 
 
-def truncated_normal_distributed(mean, sigma, n, scale_bound=scale_bound_with_mean, scale=None, lower_bound_perc=0.8, upper_bound_perc=1.2, truncmin=None, truncmax=None):
+def truncated_normal_distributed(mean, sigma, n, scale_bound=scale_bound_with_mean, scale=None, lower_bound_perc=0.8, upper_bound_perc=1.2, 
+                                 truncmin=None, truncmax=None):
 
     if truncmin != None and truncmax != None:
         lower_bound, upper_bound = truncmin, truncmax
