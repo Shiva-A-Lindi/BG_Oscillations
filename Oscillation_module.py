@@ -840,23 +840,19 @@ class Nucleus:
     def find_spike_times_all_neurons(self):
         return np.where(self.spikes == 1)[1]
       
-    def find_peaks_of_pop_act(self, height = 1):
-        peaks,_ = signal.find_peaks(self.pop_act, height = height)
+    def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1):
+        act = self.low_pass_filter_not_modify( dt, low_f, high_f, order= filter_order)
+        peaks,_ = signal.find_peaks(act, height = height)
         return peaks
     
-    def polar_phase_hist(self, dt, low_f, high_f, filter_order = 6, height = 1):
-        self.low_pass_filter( dt, low_f, high_f, order= filter_order)
-        peaks = self.find_peaks_of_pop_act( height = height)
-        spike_times_all_neurons = self.find_spike_times_all_neurons()
-        return  peaks, spike_times_all_neurons
-    
-    def find_phases_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1):
-        
-        peaks, all_spikes = self.polar_phase_hist( dt, low_f, high_f, filter_order = filter_order, height = height)
-    
+
+    def find_phases_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1, ref_peaks = None):
+        all_spikes = self.find_spike_times_all_neurons()
+        if ref_peaks != None: # if peaks are given as argument phases are calculated relative to them
+            ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height)
         phase_all_spikes = np.zeros(len(all_spikes))
         count = 0
-        for left_peak, right_peak in zip(peaks[:-1], peaks[1:]):
+        for left_peak, right_peak in zip(ref_peaks[:-1], ref_peaks[1:]):
             
             phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes)
             phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
@@ -864,7 +860,6 @@ class Nucleus:
             
         return phase_all_spikes
     
-
 
     def scale_synaptic_weight(self):
         if self.scale_g_with_N:
@@ -941,15 +936,24 @@ class Nucleus:
     def low_pass_filter(self, dt, low, high, order=6):
         self.pop_act = butter_bandpass_filter(
             self.pop_act, low, high, 1 / (dt / 1000), order=order)
+    def low_pass_filter_not_modify(self, dt, low, high, order=6):
+        return butter_bandpass_filter(
+            self.pop_act, low, high, 1 / (dt / 1000), order=order)
 
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
         
-def plot_histogram(y, bins = 25, title = ""):
+def plot_histogram(y, bins = 50, title = "", color = 'k'):
     fig, ax = plt.subplots()
-    ax.hist(y, bins )
+    ax.hist(y, bins, color = color)
     ax.set_title(title, fontsize = 15)
+    ax.set_xlabel(r'$\tau_{m}(ms)$', fontsize = 15)
+    
+def wrap_angles(x):
+    ''' Wrap angles to [-pi, pi)'''
+    return (x+np.pi) % (2*np.pi) - np.pi
+
 def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0, gaps=True):
     """
     Produce a circular histogram of angles on ax.
@@ -989,8 +993,8 @@ def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey'
         Container of individual artists used to create the histogram
         or list of such containers if there are multiple input datasets.
     """
-    # Wrap angles to [-pi, pi)
-    x = (x+np.pi) % (2*np.pi) - np.pi
+    
+    x = wrap_angles(x)
 
     # Force bins to partition entire circle
     if not gaps:
@@ -1026,6 +1030,13 @@ def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey'
     return n, bins, patches
 
 
+def plot_polar_phase_all_nuclei(nuclei_dict, dt, low_f, high_f, filter_order = 6, height = 1):
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'))
+            phase_all_spikes = nucleus.find_phases_of_spikes( dt,  low_f, high_f, filter_order = filter_order, height = height)
+            circular_hist(ax, phase_all_spikes, fill = True, alpha = 0.3)
+            
 def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes):
     corr_spike_times = all_spikes[ 
                                                     np.logical_and(all_spikes > left_peak_time, 
@@ -1146,6 +1157,26 @@ def get_max_len_dict(dictionary):
     ''' return maximum length between items of a dictionary'''
     return max(len(v) for k, v in dictionary.items())
 
+def find_peaks_of_pop_act_all_nuclei(data, i, j, nuclei_dict, dt, low_f, high_f, filter_order = 6, height = 1):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            peaks = nucleus.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+                                                                               height = height)
+            data[(nucleus.name, 'ind_peaks')][i,j, :len(peaks)]  = peaks
+            data[(nucleus.name, 'n_peaks')][i,j] = len(peaks)
+    return data
+
+def find_phases_of_spikes_relative_to_one_pop(data, i,j, nuclei_dict, n_phase_bins, dt, low_f, high_f, filter_order = 6, 
+                                              height = 1, ref_nuc_name = 'Proto'):
+    ref_peaks = nuclei_dict[ref_nuc_name][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+                                                                               height = height)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            phases = nucleus.find_phases_of_spikes(dt, low_f, high_f, filter_order = filter_order, 
+                                                                               height = height, ref_peaks = ref_peaks)
+            phases = wrap_angles(phases) # Wrap angles to [-pi, pi)
+            data[(nucleus.name, 'rel_phase_hist')][i,j,: ] = np.hist(phases, bins = n_phase_bins)
 
 def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
@@ -1154,25 +1185,30 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
-    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False):
+    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
+    peak_height_thresh = 1, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70):
 
     if set_seed:
         np.random.seed(1956)
     else:
         np.random.seed()
     nn = 200
+    max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = get_max_len_dict(G_dict)
     # print("n_inter = ", n_iter)
     data = {}
     for nucleus_list in nuclei_dict.values():
+        
         nucleus = nucleus_list[0]  # get only on class from each population
-        # data[(nucleus.name, 'mvt_freq')] = np.zeros((n,m))
         data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros((n,m))
-        data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
-        data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
         data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool)
+        
+        if find_phase:
+            data[(nucleus.name, 'ind_peaks')] = np.zeros((n_iter, n_run, max_n_peaks))
+            data[(nucleus.name, 'n_peaks')] = np.zeros((n_iter, n_run))
+            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, n_phase_bins))
 
         if divide_beta_band_in_power:
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
@@ -1207,13 +1243,14 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i, display=display, decimal=decimal)
+        title = _get_title(G_dict, i, display=display, decimal=decimal) + r'$\tau_{P}=\;$' + str(nuclei_dict['Proto'][0].neuronal_consts['membrane_time_constant']['mean'])
 
         for j in range(n_run):
 
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, normalize_G_by_N= True)  # , mem_pot_init_method = 'uniform')
+                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
+                                                  normalize_G_by_N= True)  
             if reset_init_dist:
                 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
@@ -1234,6 +1271,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
                                 half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance)
+            if find_phase:
+                data = find_peaks_of_pop_act_all_nuclei(data, i, j, nuclei_dict, dt, low_f, high_f, filter_order = filter_order, height = peak_height_thresh)
 
         if plot_spectrum:
             if fft_method == 'rfft':
@@ -1304,8 +1343,7 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
             if low_pass_filter:
                 nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order=6)
 
-            (data[(nucleus.name, 'n_half_cycles_base')][i, j],
-            data[(nucleus.name, 'perc_t_oscil_base')][i, j],
+            (_ , _,
             data[(nucleus.name, 'base_freq')][i, j],
             if_stable_base,
             data[(nucleus.name, 'base_beta_power')][i, j],
@@ -3255,10 +3293,25 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
         plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
     return fig
 
+def multiply_Gs(gs, nuc_loop_list):
+    g = np.ones( len( list (gs.values()) [0] ))
+    print("Keys in this loop are:")
+    for key in list (gs.keys()):
+        if set(key).issubset(nuc_loop_list): 
+            print(key)
+            g = g *gs[key]
+    return g
+
+def derive_G_multi_loop(gs, nuc_loop_lists):
+    g = np.zeros( len( list (gs.values()) [0] ))
+    for nuc_loop_list in nuc_loop_lists:
+        g = g + multiply_Gs(gs, nuc_loop_list)
+
+    return g
 def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
                                                     freq_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), 
                                                     param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
-                                                    include_Gs = True, double_xaxis = False, key_sec_ax = ()):
+                                                    include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, loops = 'single'):
     maxs = [] ; mins = []
     fig, ax = plt.subplots(figsize=[8, 6])
     # left, bottom, width, height = [0.25, 0.3, 0.2, 0.2]
@@ -3271,9 +3324,13 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
         data = pickle.load(pkl_file)
         keys = list(data['g'].keys())
         if x_axis == 'multiply':
-            g = np.ones( len( list (data ['g'].values()) [0] ))
-            for v in data['g'].values():
-                g *= v
+            if loops == 'single':
+                g = np.ones( len( list (data ['g'].values()) [0] ))
+                for v in data['g'].values():
+                    g *= v
+            else:
+                g = derive_G_multi_loop(data['g'], nuc_loop_lists)
+
             x_label = r'$G_{Loop(s)}$'
             txt = []
             if include_Gs:
@@ -3283,7 +3340,6 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
                         continue
                     txt.append( _str_G_with_key(k) +'=' + r"${0}$".format(round(data['g'][k][0],1)))
                     title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
-        
 
         else:
             g = data['g'][key]
@@ -3295,6 +3351,7 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
                     continue
                 txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
                 title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+        
         if param == "all":
             y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
             std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)
