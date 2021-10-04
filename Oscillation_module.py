@@ -21,7 +21,7 @@ import scipy
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
-from scipy.signal import butter, sosfilt, sosfreqz, spectrogram
+from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt
 from scipy import signal, stats
 try:
     import jsonpickle
@@ -191,7 +191,7 @@ class Nucleus:
             self.spike_thresh_bound_ratio = spike_thresh_bound_ratio
             self.spike_rel_phase_hist = None
             self.bound_to_mean_ratio = bound_to_mean_ratio
-            
+            self.pop_act_filtered = False
             self.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
             
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
@@ -838,30 +838,48 @@ class Nucleus:
         for t in t_list:  # run temporal dynamics
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
-    def find_spike_times_all_neurons(self):
-        return np.where(self.spikes == 1)[1]
+    def find_spike_times_all_neurons(self, start = 0):
+        spike_times = np.where(self.spikes == 1)[1]
+        return spike_times[spike_times > start ] - start
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0):
-        act = self.low_pass_filter_not_modify( dt, low_f, high_f, order= filter_order)
-        peaks,_ = signal.find_peaks(act[start:-1], height = height)
+        act = self.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
+        peaks,_ = signal.find_peaks(act[start:], height = height)
+        # if not self.pop_act_filtered :
+        #     self.butter_bandpass_filter_pop_act( dt, low_f, high_f, order= filter_order)
+        #     self.pop_act += 100
+        # peaks,_ = signal.find_peaks(self.pop_act[start:], height = height+100)
+        
         return peaks
     
 
-    def find_phases_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = []):
-        all_spikes = self.find_spike_times_all_neurons()
+    def find_phases_of_spikes_0_360(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = []):
+        all_spikes = self.find_spike_times_all_neurons(start = start)
         if ref_peaks == []: # if peaks are given as argument phases are calculated relative to them
             ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
         phase_all_spikes = np.zeros(len(all_spikes))
         count = 0
-        for left_peak, right_peak in zip(ref_peaks[:-1], ref_peaks[1:]):
+        for left_peak, right_peak in zip(ref_peaks[:-2], ref_peaks[1:-1]): # leave out the last peaks beacause sosfiltfilt affects the data boundaries
             
-            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes)
+            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, total_phase = 360)
             phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
             count += n_spikes_of_this_cycle
             
-        return convert_angle_to_0_360_interval(phase_all_spikes)
+        return phase_all_spikes[:count]
     
-
+    def find_phases_of_spikes_0_720(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = []):
+        all_spikes = self.find_spike_times_all_neurons(start = start)
+        if ref_peaks == []: # if peaks are given as argument phases are calculated relative to them
+            ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
+        phase_all_spikes = np.zeros(len(all_spikes))
+        count = 0
+        # print("ref peaks = ", ref_peaks * .25)
+        for left_peak, right_peak in zip(ref_peaks[::2][:-1], ref_peaks[::2][1:]): # go throught the peaks two by two to get aphase of 4pi
+            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, total_phase = 720)
+            phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
+            count += n_spikes_of_this_cycle
+            
+        return phase_all_spikes[:count]
     def scale_synaptic_weight(self):
         if self.scale_g_with_N:
             self.synaptic_weight = {
@@ -876,6 +894,7 @@ class Nucleus:
         self.basal_firing = A_new
         
     
+
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
@@ -934,10 +953,13 @@ class Nucleus:
             print("all plateau")
             return 0, 0, 0, False, None, [], []
 
-    def low_pass_filter(self, dt, low, high, order=6):
+    def butter_bandpass_filter_pop_act(self, dt, low, high, order=6):
+        self.pop_act_filtered = True
         self.pop_act = butter_bandpass_filter(
             self.pop_act, low, high, 1 / (dt / 1000), order=order)
-    def low_pass_filter_not_modify(self, dt, low, high, order=6):
+        
+    def butter_bandpass_filter_pop_act_not_modify(self, dt, low, high, order=6):
+        
         return butter_bandpass_filter(
             self.pop_act, low, high, 1 / (dt / 1000), order=order)
 
@@ -1042,47 +1064,61 @@ def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey'
 
 def plot_polar_phase_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, height = 1, density = True, bins = 16, start = 0):
     n_plots = len(nuclei_dict)
-    fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection='polar'), figsize = (5, 10))
+    # fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection='polar'), figsize = (5, 10))
+    fig, axes = plt.subplots(n_plots,1,  figsize = (5, 10))
+
     count = 0
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             ax = axes[count] 
-            phase_all_spikes = nucleus.find_phases_of_spikes( dt,  low_f, high_f, filter_order = filter_order, height = height, start = 0)
-            circular_hist(ax, phase_all_spikes, fill = True, alpha = 0.3, density = density, bins = bins, facecolor = color_dict[nucleus.name])
-            ax.set_title(nucleus.name, fontsize = 15)
+            phase_all_spikes = nucleus.find_phases_of_spikes_0_360( dt,  low_f, high_f, filter_order = filter_order, height = height, start = start)
+            ax.hist(phase_all_spikes, bins, color = color_dict[nucleus.name])
+            # circular_hist(ax, phase_all_spikes, fill = True, alpha = 0.3, density = density, bins = bins, facecolor = color_dict[nucleus.name])
+            ax.set_title(nucleus.name, fontsize = 15, color = color_dict[nucleus.name])
             count += 1
             
-    fig. tight_layout(pad=3.0)
+    fig. tight_layout(pad=1.0)
     
 def plot_linear_phase_all_nuclei_relative_to_one_pop(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, 
-                                                    height = 1, bins = 16,  ref_nuc_name = 'Proto', start = 0):
+                                                    height = 1, n_bins = 20,  ref_nuc_name = 'Proto', start = 0, total_phase = 360):
     n_plots = len(nuclei_dict)
     fig, axes = plt.subplots(n_plots,1, figsize = (5, 10))
     count = 0
-    find_phases_of_spikes_relative_to_one_pop(nuclei_dict, bins, dt, low_f, high_f, filter_order = 6, 
+    find_phases_of_spikes_relative_to_one_pop(nuclei_dict, n_bins, dt, low_f, high_f, filter_order = 6, 
                                               height = 1, ref_nuc_name = ref_nuc_name, start = start)
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             ax = axes[count] 
-            frq, edges = nucleus.spike_rel_phase_hist
-            ax.bar(edges[:-1], frq, width=np.diff(edges), facecolor = color_dict[nucleus.name])
-            
-            ax.set_title(nucleus.name, fontsize = 15)
+            # frq, edges = nucleus.spike_rel_phase_hist
+            bins = np.linspace(0, total_phase, endpoint=True, num = n_bins)
+            # ax.bar(edges[:-1], frq, width=np.diff(edges), facecolor = color_dict[nucleus.name])
+            ax.hist(nucleus.spike_rel_phase_hist, bins, color = color_dict[nucleus.name])
+
+            # print(nucleus.name, np.sum(frq) , len(np.where(nucleus.spikes == 1)[1])) ## checked sum of hist equals number of spikes
+            ax.set_title(nucleus.name, fontsize = 15, color = color_dict[nucleus.name])
             count += 1
-    print(edges, frq)
+            # ax.set_xlabel("Phase (deg)", fontsize = 12)
+            # ax.set_xlabel("Phase (deg)", fontsize = 12)
+    fig.text(0.6, 0.03, 'Phase (deg)', ha='center',
+                        va='center', fontsize=18)
+    fig.text(0.1, 0.5, 'Spike count', ha='center',
+                        va='center', rotation='vertical', fontsize=18)
     fig. tight_layout(pad=3.0)
     
-dt = 0.25
-def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes):
+def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes, total_phase = 360):
     corr_spike_times = all_spikes[ 
                                                     np.logical_and(all_spikes >= left_peak_time, 
                                                                    all_spikes < right_peak_time) 
                                                    ]
-    # print("left", left_peak_time*dt, "right", right_peak_time*dt)
+    # print("left", left_peak_time * 0.25, "right", right_peak_time * 0.25)
     cycle_length = right_peak_time - left_peak_time
     n_spikes = len(corr_spike_times)
-    phase = ( corr_spike_times - left_peak_time ) / cycle_length * 2 * np.pi
-    # print("phases", phase * 180/ np.pi)
+    phase = ( corr_spike_times - left_peak_time ) / cycle_length * total_phase
+    # print(corr_spike_times * 0.25, n_spikes)
+    # fig,ax = plt.subplots()
+    # ax.hist(corr_spike_times, bins = 20)
+    # ax.hist(phase, bins = np.linspace(0, 360, endpoint=True, num = 50))
+
     return phase, n_spikes
 
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
@@ -1211,12 +1247,12 @@ def find_phases_of_spikes_relative_to_one_pop( nuclei_dict, n_phase_bins, dt, lo
                                                                                height = height, start = start)
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            print(nucleus.name,"\n")
-            phases = nucleus.find_phases_of_spikes(dt, low_f, high_f, filter_order = filter_order, 
+            phases = nucleus.find_phases_of_spikes_0_720(dt, low_f, high_f, filter_order = filter_order, start = start,
                                                                                height = height, ref_peaks = ref_peaks)
             # phases =convert_angle_to_0_360_interval(phases) # Wrap angles to [-pi, pi)
-            nucleus.spike_rel_phase_hist = np.histogram(phases, bins = n_phase_bins)
-            
+            # nucleus.spike_rel_phase_hist = np.histogram(phases, bins = np.linspace(0, 360, endpoint=True, num = n_phase_bins))
+            nucleus.spike_rel_phase_hist = phases
+
 
 def set_phases_into_dataframe(nuclei_dict, data, i,j):
     for nuclei_list in nuclei_dict.values():
@@ -1374,7 +1410,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, order=6):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order= order)
+            nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order= order)
             
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
@@ -1387,7 +1423,7 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
             nucleus.smooth_pop_activity(dt, window_ms=smooth_window_ms)
 
             if low_pass_filter:
-                nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order=6)
+                nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order=6)
 
             (_ , _,
             data[(nucleus.name, 'base_freq')][i, j],
@@ -1437,7 +1473,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
             nucleus.smooth_pop_activity(dt, window_ms=smooth_window_ms)
 
             if low_pass_filter:
-                nucleus.low_pass_filter(dt, lower_freq_cut, upper_freq_cut, order=6)
+                nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order=6)
 
             (n_half_cycles, perc_oscil, freq, if_stable, beta_band_power, f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
                                                                      peak_threshold=peak_threshold,
@@ -2614,10 +2650,11 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
                 label = nucleus.name
                 
             if plot_filtered:
-                act = nucleus.low_pass_filter_not_modify( dt, low_f, high_f, order= filter_order)
-                peaks,_ =c(act, height = 1)
-                ax.plot(peaks * dt, act[peaks], 'x')
-                ax.plot(t_list[plot_start: plot_end]*dt, act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
+                act = nucleus.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
+                peaks,_ =signal.find_peaks(act, height = 1)
+                ax.plot(peaks * dt, act[peaks] + A[nucleus.name], 'x')
+                ax.plot(t_list[plot_start: plot_end]*dt, act[plot_start: plot_end] + A[nucleus.name], line_type[nucleus.population_num-1], 
+                        c = color_dict[nucleus.name],lw = 1.5, alpha = 0.4)
             else:
                 ax.plot(t_list[plot_start: plot_end]*dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
             if continuous_firing_base_lines:
@@ -2887,8 +2924,11 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
         return sos
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+        ''' filtfilt is the forward-backward filter. It applies the filter twice, 
+        once forward and once backward, resulting in zero phase delay.
+        '''
         sos = butter_bandpass(lowcut, highcut, fs, order=order)
-        y = sosfilt(sos, data)
+        y = sosfiltfilt(sos, data)
         return y
 
 def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, method = 'neat'):
