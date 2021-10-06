@@ -1,6 +1,6 @@
 #%% Constants 
 path = '/home/shiva/BG_Oscillations/Outputs_SNN'
-# path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
+path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
 path_rate = '/home/shiva/BG_Oscillations/Outputs_rate_model'
 root = '/home/shiva/BG_Oscillations'
 if 1:
@@ -4670,20 +4670,27 @@ def phase_summary(filename, name_list, color_dict, n_g_list):
             ax.plot(centers, phase_frq_rel_mean, color = color_dict[name])
             ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
                             phase_frq_rel_mean + phase_frq_rel_std, alpha=0.2, color = color_dict[name])
-            highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
-            lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
-            ax.boxplot(data[(name,'rel_phase')][n_g,:],positions = [ ( highest_point + lowest_point ) / 2], vert=False,
-                        sym = '', widths = 50)
-            print(centers)
-            A, w, p, c, f = fit_sine(centers, phase_frq_rel_mean)
-            phase = (np.pi/2 - p)/w #* 180/ np.pi
-            if phase <0 : phase += 360
-            ax.plot(centers, sinfunc(centers, A, w, p, c), c = 'orange')
+            # highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
+            # lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
+            # ax.boxplot(data[(name,'rel_phase')][n_g,:],positions = [ ( highest_point + lowest_point ) / 2], vert=False,
+            #             sym = '', widths = 50)
+            A, w, p, c, f, fitfunc = fit_sine(deg_to_rad(centers), phase_frq_rel_mean)
+            if A > 0:
+                phase = rad_to_deg( np.pi/ 2/ w + p )
+            else:
+                phase = rad_to_deg(- np.pi/ 2/ w + p )
+            if phase <0 : phase += 360; print(name, i, phase)
+            ax.plot(centers, fitfunc(deg_to_rad(centers)), c = 'orange')
+            print(w * ( (np.pi/ 2/ w + p) - p), A, c)
             ax.axvline(phase, c = 'k', linestyle = '--')
+            ax.axvline(centers[np.argmax(phase_frq_rel_mean)])
             fig.add_subplot(ax)
             ax.set_xticks([0,180,360,540,720])
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             
+
 filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_10_runs.pkl' )
 name_list = ['Proto', 'D2', 'STN', 'FSI']
 n_g_list = np.linspace(0, 19, endpoint = True, num = 4).astype(int)

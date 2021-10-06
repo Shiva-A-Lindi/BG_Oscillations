@@ -1079,6 +1079,12 @@ def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey'
 
     return n, bins, patches
 
+def deg_to_rad(theta):
+    return theta * np. pi / 180
+
+def rad_to_deg(theta):
+    return theta / np.pi * 180
+
 def circular_bar_plot_as_hist(ax, frq, edges, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0):
     """
     Produce a circular histogram of angles on ax.
@@ -1506,7 +1512,25 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
 
 
-def sinfunc(t, A, w, p, c):  return A * np.sin(w*t + p) + c
+# def sinfunc(t, A, w, p, c):  return A * np.sin(w*t + p) + c
+# def fit_sine(t, y):
+#     '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
+
+#     f_init = np.fft.fftfreq(len(t), (t[1]-t[0]))   # assume uniform spacing
+#     Fy = abs(np.fft.fft(y))
+#     guess_freq = abs(f_init[np.argmax(Fy[1:])+1])   # excluding the zero frequency "peak", which is related to offset
+#     guess_amp = np.std(y) * 2.**0.5
+#     guess_offset = np.mean(y)
+#     guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
+
+    
+#     popt, pcov = curve_fit(sinfunc, t, y, p0=guess, maxfev=5000)
+#     A, w, p, c = popt
+#     f = w/(2.*np.pi)
+#     fitfunc = lambda t: A * np.sin(w*t + p) + c
+#     # return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
+#     return A, w, p, c, f
+def sinfunc(t, A, w, p, c):  return A * np.sin(w*(t - p)) + c
 def fit_sine(t, y):
     '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
 
@@ -1521,10 +1545,9 @@ def fit_sine(t, y):
     popt, pcov = curve_fit(sinfunc, t, y, p0=guess, maxfev=5000)
     A, w, p, c = popt
     f = w/(2.*np.pi)
-    fitfunc = lambda t: A * np.sin(w*t + p) + c
+    fitfunc = lambda t: A * np.sin(w*(t - p)) + c
     # return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
-    return A, w, p, c, f
-
+    return A, w, p, c, f, fitfunc
 def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, order=6):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
