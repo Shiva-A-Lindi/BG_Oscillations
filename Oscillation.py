@@ -4682,7 +4682,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list):
             if phase <0 : phase += 360; print(name, i, phase)
             ax.plot(centers, fitfunc(deg_to_rad(centers)), c = 'orange')
             print(w * ( (np.pi/ 2/ w + p) - p), A, c)
-            ax.axvline(phase, c = 'k', linestyle = '--')
+            # ax.axvline(phase, c = 'k', linestyle = '--')
             ax.axvline(centers[np.argmax(phase_frq_rel_mean)])
             fig.add_subplot(ax)
             ax.set_xticks([0,180,360,540,720])
