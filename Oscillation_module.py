@@ -1385,7 +1385,88 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name):
             data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
             centers = get_centers_from_edges(edges)
             data[(nucleus.name, 'rel_phase')][i,j] = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name)
+          
+def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto'):
+    fig = plt.figure()
+    outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
+    
+    data = load_pickle(filename)
+    
+    n_run = data[(name_list[0], 'rel_phase')].shape[1] 
+    
+    for i, n_g in enumerate(n_g_list):
+        inner = gridspec.GridSpecFromSubplotSpec(len(name_list), 1,
+                subplot_spec=outer[i], wspace=0.1, hspace=0.1)
+        
+        for j, name in enumerate(name_list):
+            ax = plt.Subplot(fig, inner[j])
             
+            edges = data[(name,'rel_phase_hist')][0,0,1,:]
+            centers = get_centers_from_edges(edges)
+            phase_hist_mean, phase_hist_std = get_mean_and_std_of_phase(data, n_g, name)
+            plot_mean_phase_plus_std(phase_hist_mean, phase_hist_std, name, n_g, ax, color_dict, centers)
+
+            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name)
+            
+            boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name)
+  
+            fig.add_subplot(ax)
+            ax.set_xticks([0,180,360,540,720])
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
+            
+    fig.text(0.5, 0.03, 'phase (deg)', ha='center',
+                 va='center', fontsize=15)
+    fig.text(0.02, 0.5, 'spike count', ha='center', va='center',
+                 rotation='vertical', fontsize=15)
+
+def get_mean_and_std_of_phase(data, n_g, name):
+    
+    phase_frq_rel_mean = np.average(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
+    phase_frq_rel_std = np.std(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
+    return phase_frq_rel_mean, phase_frq_rel_std
+
+def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name, n_g, ax, color_dict, centers):
+
+    ax.plot(centers, phase_frq_rel_mean, color = color_dict[name])
+    ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
+                    phase_frq_rel_mean + phase_frq_rel_std, alpha=0.2, color = color_dict[name])
+    
+def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name):
+    
+    phases= np.zeros(n_run)
+    for run in range(n_run):
+
+        y = data[(name,'rel_phase_hist')][n_g,run,0,:]
+        phases[run], fitfunc = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name)
+    return phases
+
+def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name):
+    
+    highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
+    lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
+    bp = ax.boxplot(phases, positions = [( highest_point + lowest_point ) / 2], vert=False,
+                sym = '', widths = 0.5 * ( highest_point - lowest_point) )
+    
+    # for patch, color in zip(bp['boxes'], colors): 
+    #     patch.set_facecolor(color) 
+       
+    # changing color and linewidth of 
+    # whiskers 
+    for whisker in bp['whiskers']: 
+        whisker.set(color =color_dict[name], 
+                    linewidth = 1.5)               
+    # changing color and linewidth of 
+    # caps 
+    for cap in bp['caps']: 
+        cap.set(color = color_dict[name], 
+                linewidth = 1.5) 
+       
+    # changing color and linewidth of 
+    # medians 
+    for median in bp['medians']: 
+        median.set(color = color_dict[name], 
+                   linewidth = 2) 
 def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],

@@ -2109,6 +2109,13 @@ ax.set_xlim(0,70)
 
 from statsmodels.graphics import tsaplots
 
+neuron = 1 ; window_ms = 10 ; t_lag = 2
+nucleus = nuclei_dict['STN'][0]
+fig, ax = plt.figure()
+spks = nucleus.spikes[neuron, :]
+spks = moving_average_array(spks, int(window_ms / dt))
+ax.plot(spks)
+tsaplots.plot_acf(spks, lags = int(t_lag / dt), ax =ax)
 
 #%% Arky-D2-Proto
 
@@ -4655,57 +4662,6 @@ fig.savefig(os.path.join(path,'Beta_power', 'abs_norm_G_single_loop_' + param + 
 
 #%% Phase summary
 
-def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto'):
-    fig = plt.figure()
-    outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
-    
-    pkl_file = open(filename, 'rb')
-    data = pickle.load(pkl_file)
-    
-    n_run = data[(name_list[0], 'rel_phase')].shape[1] 
-    
-    for i, n_g in enumerate(n_g_list):
-        inner = gridspec.GridSpecFromSubplotSpec(len(name_list), 1,
-                subplot_spec=outer[i], wspace=0.1, hspace=0.1)
-        
-        for j, name in enumerate(name_list):
-            ax = plt.Subplot(fig, inner[j])
-            edges = data[(name,'rel_phase_hist')][0,0,1,:]
-            centers = get_centers_from_edges(edges)
-
-            phase_frq_rel_mean = np.average(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
-            phase_frq_rel_std = np.std(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
-
-            phases= np.zeros(n_run)
-            for run in range(n_run):
-
-                y = data[(name,'rel_phase_hist')][n_g,run,0,:]
-                phases[run], fitfunc = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name)
-                
-               
-            # phase,fitfunc = find_phase_from_sine_and_max(centers, phase_frq_rel_mean, name, ref_nuc_name)
-            
-            ax.plot(centers, phase_frq_rel_mean, color = color_dict[name])
-            ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
-                            phase_frq_rel_mean + phase_frq_rel_std, alpha=0.2, color = color_dict[name])
-            
-            
-            highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
-            lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
-            ax.boxplot(phases, positions = [ ( highest_point + lowest_point ) / 2], vert=False,
-                        sym = '', widths = 50)
-            
-            
-            # ax.plot(centers, fitfunc(centers), c = 'orange')
-            # ax.axvline(phase_sine, c = 'k', linestyle = '--')
-            # ax.axvline(phase_max, c = 'b') 
-            # ax.axvline(phase, c = 'g')
-            
-            fig.add_subplot(ax)
-            ax.set_xticks([0,180,360,540,720])
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-            rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
-       
 
 filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_10_runs.pkl' )
 name_list = ['Proto', 'D2', 'STN', 'FSI']
