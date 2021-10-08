@@ -853,7 +853,7 @@ class Nucleus:
         return peaks
     
 
-    def find_phases_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = [], n_bins = 20, 
+    def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = [], n_bins = 20, 
                                     total_phase = 360, ref_nuc_name = 'self'):
         all_spikes = self.find_spike_times_all_neurons(start = start)
         if ref_peaks == []: # if peaks are given as argument phases are calculated relative to them
@@ -874,20 +874,7 @@ class Nucleus:
         self.spike_rel_phase_hist[ref_nuc_name] = frq, edges[:-1]
         return self.spike_rel_phase_hist[ref_nuc_name]
     
-    def find_phase_val(self, ref_nuc_name, plot_fit = False):
-        frq, edges = self.spike_rel_phase_hist[ref_nuc_name]
-        centers = ( edges + (edges[1]-edges[0])/2 ) * np.pi /180
-        A, w, phase, c, f = fit_sine(centers, frq)
-        
-        if plot_fit :
-            plt.figure()
-            plt.plot(centers, frq)
-            plt.plot(centers, sinfunc(centers, A, w, phase, c))
-        phase_deg = phase*180/np.pi
-        if phase_deg < 0:
-            phase_deg += 360
-        print("frequency = ", f, "phase = ", phase_deg)
-        return phase_deg
+
     
     def scale_synaptic_weight(self):
         if self.scale_g_with_N:
@@ -1152,7 +1139,7 @@ def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, 
     
     n_plots = len(nuclei_dict)
     fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection= projection), figsize = (5, 10))
-    find_phases_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = n_bins,
+    find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = n_bins,
                                               height = height, ref_nuc_name = ref_nuc_name, start = start, total_phase = total_phase)
     count = 0
     print(n_bins)
@@ -1318,7 +1305,7 @@ def get_max_len_dict(dictionary):
 #             data[(nucleus.name, 'n_peaks')][i,j] = len(peaks)
 #     return data
 
-def find_phases_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 20,
+def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 20,
                                               height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720):
     if ref_nuc_name != 'self':
         ref_peaks = nuclei_dict[ref_nuc_name][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
@@ -1329,19 +1316,76 @@ def find_phases_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
-            nucleus.find_phases_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
+            nucleus.find_phase_hist_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
                                           start = start, height = height, ref_peaks = ref_peaks,
                                           total_phase=total_phase, ref_nuc_name = ref_nuc_name)
 
+def find_phase_sine_fit(x, y):
+    ''' fit sine function derive phase'''
+    A, w, p, c, f, fitfunc = fit_sine(x, y)
+    if A > 0:
+        phase_sine =  np.pi/ 2/ w + p 
+    else:
+        phase_sine = - np.pi/ 2/ w + p 
+    phase_sine = equi_phase_in_0_360_range(phase_sine)
+    return phase_sine, fitfunc, w
 
+def shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name):
+    if nuc_name  != ref_nuc_name:
+        if phase < 30:
+            phase += 2 * np.pi / w
+    return phase
+
+def find_phase_from_max(x, y):
+    ''' find the phase of where the function maximises'''
+    phase_max = x[ np.argmax( y ) ]
+    phase_max = equi_phase_in_0_360_range(phase_max)
+    
+    return phase_max
+            
+def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name):
+    ''' In case sine fit and maximum are close (90 deg) go with maximum, 
+        Otherwise sine is to be trusted'''
+        
+    phase_sine,fitfunc, w = find_phase_sine_fit(x, y)
+    phase_max = find_phase_from_max(x, y)
+    
+    phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
+    phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
+    return phase, fitfunc
+
+def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
+    if abs( phase_sine - phase_max) < 90: # two methods are consistent, max is more accurate visually
+        phase = phase_max
+    else:
+        if phase_sine < 30 and nuc_name != ref_nuc_name: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
+            phase = phase_max
+            
+        elif phase_max < 30 and nuc_name != ref_nuc_name:
+            phase = phase_sine
+        else:
+            phase = phase_sine
+    return phase
+
+def equi_phase_in_0_360_range(phase):
+    ''' bring phase into [0,360)'''
+    if phase < 0 : phase += 360
+    if phase >= 360 : phase -=360
+    return phase
+
+def get_centers_from_edges(edges):
+    centers = edges + (edges[1] - edges[0]) / 2
+    return centers
 
 def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name):
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-
+            frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
             data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
             data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
-            data[(nucleus.name, 'rel_phase')][i,j] = nucleus.find_phase_val( ref_nuc_name)
+            centers = get_centers_from_edges(edges)
+            data[(nucleus.name, 'rel_phase')][i,j] = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name)
+            
 def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
@@ -1443,9 +1487,9 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                                 half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance)
             if find_phase:
 
-                find_phases_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
+                find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, total_phase = 720)
-                find_phases_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
+                find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
             if plot_phase:
@@ -1512,25 +1556,9 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
 
 
-# def sinfunc(t, A, w, p, c):  return A * np.sin(w*t + p) + c
-# def fit_sine(t, y):
-#     '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
 
-#     f_init = np.fft.fftfreq(len(t), (t[1]-t[0]))   # assume uniform spacing
-#     Fy = abs(np.fft.fft(y))
-#     guess_freq = abs(f_init[np.argmax(Fy[1:])+1])   # excluding the zero frequency "peak", which is related to offset
-#     guess_amp = np.std(y) * 2.**0.5
-#     guess_offset = np.mean(y)
-#     guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
-
-    
-#     popt, pcov = curve_fit(sinfunc, t, y, p0=guess, maxfev=5000)
-#     A, w, p, c = popt
-#     f = w/(2.*np.pi)
-#     fitfunc = lambda t: A * np.sin(w*t + p) + c
-#     # return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
-#     return A, w, p, c, f
 def sinfunc(t, A, w, p, c):  return A * np.sin(w*(t - p)) + c
+
 def fit_sine(t, y):
     '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
 
@@ -1548,6 +1576,7 @@ def fit_sine(t, y):
     fitfunc = lambda t: A * np.sin(w*(t - p)) + c
     # return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
     return A, w, p, c, f, fitfunc
+
 def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, order=6):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
