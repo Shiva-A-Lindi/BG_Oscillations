@@ -1,6 +1,7 @@
 #%% Constants 
 path = '/home/shiva/BG_Oscillations/Outputs_SNN'
 # path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
+path = '/Users/apple/BG_Oscillations/Outputs_SNN'
 path_rate = '/home/shiva/BG_Oscillations/Outputs_rate_model'
 root = '/home/shiva/BG_Oscillations'
 if 1:
@@ -2111,11 +2112,11 @@ from statsmodels.graphics import tsaplots
 
 neuron = 1 ; window_ms = 10 ; t_lag = 2
 nucleus = nuclei_dict['STN'][0]
-fig, ax = plt.figure()
+fig, ax = plt.subplots()
 spks = nucleus.spikes[neuron, :]
 spks = moving_average_array(spks, int(window_ms / dt))
 ax.plot(spks)
-tsaplots.plot_acf(spks, lags = int(t_lag / dt), ax =ax)
+tsaplots.plot_acf(spks, lags = int(t_lag / dt))
 
 #%% Arky-D2-Proto
 
