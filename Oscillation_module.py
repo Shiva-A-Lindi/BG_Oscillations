@@ -14,7 +14,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from numpy.fft import rfft, fft, fftfreq
+from numpy.fft import rfft, fft, fftfreq, ifft, fftshift
 from tempfile import TemporaryFile
 import pickle
 import scipy
@@ -2507,7 +2507,8 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 	remove_frame(ax)
 
 
-def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', figsize=(6, 5), method='rfft', n_windows=6, include_beta_band_in_legend=False):
+def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', figsize=(6, 5), 
+                  method='rfft', n_windows=6, include_beta_band_in_legend=False, max_f = 200):
 	"""
 	Estimate frequency from peak of FFT
 	"""
@@ -2532,8 +2533,9 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 		if plot_spectrum:
 			plot_fft_spectrum(peak_freq, f, pxx, N, ax=ax, c=c, label=label,
 			                  figsize=figsize, include_beta_band_in_legend=include_beta_band_in_legend)
-		ind_max = 200
-		return f[:ind_max], pxx[:ind_max], peak_freq
+		
+		return f[f < max_f], pxx[f < max_f], peak_freq #return f[:max_f], pxx[:max_f], peak_freq
+
 
 
 def freq_from_rfft(sig, dt, N):
@@ -3190,10 +3192,18 @@ def cut_plateau(sig, epsilon_std = 10**(-2), epsilon = 10**(-2), window = 40):
 
 def moving_average_array(X, n):
     '''Return the moving average over X with window n without changing dimesions of X'''
-
     z2= np.cumsum(np.pad(X, (n,0), 'constant', constant_values=0))
     z1 = np.cumsum(np.pad(X, (0,n), 'constant', constant_values=X[-1]))
     return (z1-z2)[(n-1):-1]/n
+
+def moving_average_array_2d(X, n):
+    '''Return the moving average over axis = 1 of X with window n without changing dimesions of X'''
+    z2 = np.cumsum(np.concatenate((np.zeros((X.shape[0], n)), X), axis = 1) ,
+                   axis = 1)
+    z1 = np.cumsum(np.concatenate(( X, np.repeat(X[:,-1].reshape(-1,1) , n, axis = 1 )), axis = 1) ,
+                   axis = 1)
+
+    return (z1-z2)[:,(n-1):-1]/n
 
 def rolling_window(a, window):
     pad = np.ones(len(a.shape), dtype=np.int32)

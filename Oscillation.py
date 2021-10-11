@@ -20,6 +20,7 @@ if 1:
     import sys
     import pandas as pd
     import seaborn as sns
+    # import patsy
     file_dir = os.path.dirname(__file__)
     sys.path.append(file_dir)
     from Oscillation_module import *
@@ -248,7 +249,6 @@ if 1:
                                     ('STN','1') : pert_val, ('STN','2') : -pert_val} # external input coming from Ctx and Str
     dopamine_percentage = 100
     t_sim = 400 # simulation time in ms
-    dt = 0.5 # euler time step in ms
     t_mvt = int(t_sim/2)
     D_mvt = t_sim - t_mvt
     D_perturb = 250 # transient selective perturbation
@@ -2106,17 +2106,66 @@ ax.set_xlim(0,70)
 
 
 #%% Autocorrelation of individual neurons
+def autocorr_1d(x, method = 'numpy', mode = 'same'):
+    if method == 'numpy':
+        result = np.correlate(x, x, mode= mode)
+    elif method == 'fft':
+        result = signal.correlate(x, x, mode= mode, method = 'fft')
+    return result[ result.size//2 : ]
 
-from statsmodels.graphics import tsaplots
+def autocorr_2d(x):
+  """FFT based autocorrelation function, which is faster than numpy.correlate"""
+  # x is supposed to be an array of sequences, of shape (totalelements, length)
+  length = x.shape[1]
+  l = length * 2 - 1
+  fftx = fft(x, n= l, axis=1)
+  ret = ifft(fftx * np.conjugate(fftx), axis=1).real
+  ret = fftshift(ret, axes=1)
+  autocorr = ret[:, ret.shape[1]//2 : ] # take the latter half of data for positive lags
+  return autocorr
 
-neuron = 1 ; window_ms = 10 ; t_lag = 2
+def freq_from_welch_2d(sig, dt, n_windows=6):
+ 	"""
+ 	Estimate frequency with Welch method for all the rows of a 2d array
+ 	"""
+ 	fs = 1 / dt ; print(int(sig.shape[1] / n_windows))
+ 	f, pxx = signal.welch(sig, axis=1, fs=fs, nperseg= int(sig.shape[1] / n_windows))
+ 	peak_freq = f[np.argmax(pxx, axis = 1)]
+ 	return f, pxx, peak_freq
+ 
+neuron = 10 ; window_ms = 10 ; t_lag = 200
 nucleus = nuclei_dict['STN'][0]
-fig, ax = plt.figure()
-spks = nucleus.spikes[neuron, :]
-spks = moving_average_array(spks, int(window_ms / dt))
-ax.plot(spks)
-tsaplots.plot_acf(spks, lags = int(t_lag / dt), ax =ax)
 
+neurons = np.random.choice(nucleus.n, 4)
+spks = nucleus.spikes[neurons, :]
+spks = moving_average_array_2d(spks, int(window_ms / dt))
+autc = autocorr_2d(spks)
+f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows=6)
+
+
+def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, n_window_welch = 6, n_sd_thresh = 2):
+    
+    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
+    autc = autocorr_2d(spks)
+    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
+    f = f [ f < max_f] 
+    pxx = pxx[ f < max_f] 
+    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
+    
+    
+    ### to do: find the number of significant data points of the pxx and if >=2 set a bool to true meaning it'll be included in the phase hist
+
+fig,ax = plt.subplots()
+fig1,ax1 = plt.subplots()
+c_list = ['b','r', 'g', 'k']
+for i in range(autc.shape[0]):
+    
+    ax.plot(f[ f < 250 ], pxx [i, f < 250], '-o', color = c_list[i])
+    ax.axhline(np.average(pxx), f[0], f[-1], c = c_list[i])
+    ax.axhline(np.average(pxx) + 2 * np.std(pxx), f[0], f[1], ls = '--', c = c_list[i])
+
+    ax1.plot(t_series, autc[i,:int(t_lag / dt)], color = c_list[i])
+ax1.set_xlabel('Time (ms)', fontsize = 15)
 #%% Arky-D2-Proto
 
 plt.close('all')
