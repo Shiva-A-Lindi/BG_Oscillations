@@ -1,6 +1,7 @@
 #%% Constants 
 path = '/home/shiva/BG_Oscillations/Outputs_SNN'
 # path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
+path = '/Users/apple/BG_Oscillations/Outputs_SNN'
 path_rate = '/home/shiva/BG_Oscillations/Outputs_rate_model'
 root = '/home/shiva/BG_Oscillations'
 if 1:
@@ -2141,7 +2142,6 @@ spks = nucleus.spikes[neurons, :]
 spks = moving_average_array_2d(spks, int(window_ms / dt))
 autc = autocorr_2d(spks)
 f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows=6)
-
 
 def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, n_window_welch = 6, n_sd_thresh = 2):
     
