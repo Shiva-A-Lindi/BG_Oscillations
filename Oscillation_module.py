@@ -2558,6 +2558,53 @@ def freq_from_welch(sig, dt, n_windows=6):
 	peak_freq = f[np.argmax(pxx)]
 	return f, pxx, peak_freq
 
+def autocorr_1d(x, method = 'numpy', mode = 'same'):
+    if method == 'numpy':
+        result = np.correlate(x, x, mode= mode)
+    elif method == 'fft':
+        result = signal.correlate(x, x, mode= mode, method = 'fft')
+    return result[ result.size//2 : ]
+
+def cut_PSD(f, pxx, max_f = 250):
+    f_to_keep_ind = f < max_f
+    pxx = pxx[:, f_to_keep_ind] 
+    return f[f_to_keep_ind] , pxx
+
+def autocorr_2d(x):
+  """FFT based autocorrelation function, which is faster than numpy.correlate"""
+  # x is supposed to be an array of sequences, of shape (totalelements, length)
+  length = x.shape[1]
+  l = length * 2 - 1
+  fftx = fft(x, n= l, axis=1)
+  ret = ifft(fftx * np.conjugate(fftx), axis=1).real
+  ret = fftshift(ret, axes=1)
+  autocorr = ret[:, ret.shape[1]//2 : ] # take the latter half of data for positive lags
+  return autocorr
+
+def freq_from_welch_2d(sig, dt, n_windows=6):
+ 	"""
+ 	Estimate frequency with Welch method for all the rows of a 2d array
+ 	"""
+ 	fs = 1 / dt 
+ 	f, pxx = signal.welch(sig, axis=1, fs=fs, nperseg= int(sig.shape[1] / n_windows))
+ 	peak_freq = f[np.argmax(pxx, axis = 1)]
+ 	return f, pxx, peak_freq
+ 
+def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, 
+                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2):
+    """ 
+        Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
+        in their PSD of autocorrelogram
+    """
+    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
+    autc = autocorr_2d(spks)
+    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
+    f, pxx = cut_PSD(f, pxx, max_f = max_f)
+    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
+    above_thresh_ind = np.where(pxx > signif_thresh.reshape(-1,1))
+    n_above_thresh_each_neuron = np.bincount(above_thresh_ind[0])
+    entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
+    return entrained_neuron_ind
 
 def run(receiving_class_dict, t_list, dt, nuclei_dict):
 
@@ -4026,7 +4073,7 @@ def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, x_range, neuronal_consts, s
     # ax.legend()
 
 
-def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method):
+def _generate_filename_3_nuclei(nuclei_dict, G_dict, noise_variance, fft_method):
     G = G_dict
     names = [list(nuclei_dict.values())[i][0].name for i in range(len(nuclei_dict))]
     gs = [str(round(G[('D2', 'FSI')][0],3)) + '--' + str(round(G[('D2', 'FSI')][-1],3)), 
@@ -4042,7 +4089,7 @@ def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method):
     
     return filename
 
-def save_figs(figs, G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3):
+def save_figs(nuclei_dict, figs, G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3):
     prefix = [ 'Firing_rate_', 'Power_spectrum_','Raster_' ]
     prefix = [pre_prefix[i] + prefix[i] for i in range( len(prefix))]
     prefix = ['Synaptic_weight_exploration_' + p for p in prefix]

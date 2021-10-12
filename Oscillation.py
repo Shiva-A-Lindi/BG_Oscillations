@@ -1,7 +1,7 @@
 #%% Constants 
 path = '/home/shiva/BG_Oscillations/Outputs_SNN'
 # path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
-path = '/Users/apple/BG_Oscillations/Outputs_SNN'
+# path = '/Users/apple/BG_Oscillations/Outputs_SNN'
 path_rate = '/home/shiva/BG_Oscillations/Outputs_rate_model'
 root = '/home/shiva/BG_Oscillations'
 if 1:
@@ -254,11 +254,9 @@ if 1:
     D_mvt = t_sim - t_mvt
     D_perturb = 250 # transient selective perturbation
     d_Str = 200 # duration of external input to Str
-    t_list = np.arange(int(t_sim/dt))
     #    duration_mvt = [int((t_mvt+ max(T[('Proto', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
     #    duration_base = [int((max(T[('Proto', 'STN')],T[('STN', 'Proto')]))/dt), int(t_mvt/dt)]
-    duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)]
-    duration_base = [0, int(t_mvt/dt)]
+
     #ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
     ext_inp_delay = 0
 #%% D2-FSI- Proto with derived external inputs
@@ -2106,66 +2104,83 @@ ax.set_xlim(0,70)
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 
-#%% Autocorrelation of individual neurons
-def autocorr_1d(x, method = 'numpy', mode = 'same'):
-    if method == 'numpy':
-        result = np.correlate(x, x, mode= mode)
-    elif method == 'fft':
-        result = signal.correlate(x, x, mode= mode, method = 'fft')
-    return result[ result.size//2 : ]
+#%% Autocorrelation of individual neurons Demo
+plt.close('all')
 
-def autocorr_2d(x):
-  """FFT based autocorrelation function, which is faster than numpy.correlate"""
-  # x is supposed to be an array of sequences, of shape (totalelements, length)
-  length = x.shape[1]
-  l = length * 2 - 1
-  fftx = fft(x, n= l, axis=1)
-  ret = ifft(fftx * np.conjugate(fftx), axis=1).real
-  ret = fftshift(ret, axes=1)
-  autocorr = ret[:, ret.shape[1]//2 : ] # take the latter half of data for positive lags
-  return autocorr
+def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, 
+                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2):
+    """ 
+        Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
+        in their PSD of autocorrelogram
+    """
+    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
+    autc = autocorr_2d(spks)
+    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
+    f, pxx = cut_PSD(f, pxx, max_f = max_f)
+    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
+    entrained_neuron_ind = check_significance_PSD(signif_thresh, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh )
+    return entrained_neuron_ind
 
-def freq_from_welch_2d(sig, dt, n_windows=6):
- 	"""
- 	Estimate frequency with Welch method for all the rows of a 2d array
- 	"""
- 	fs = 1 / dt ; print(int(sig.shape[1] / n_windows))
- 	f, pxx = signal.welch(sig, axis=1, fs=fs, nperseg= int(sig.shape[1] / n_windows))
- 	peak_freq = f[np.argmax(pxx, axis = 1)]
- 	return f, pxx, peak_freq
- 
-neuron = 10 ; window_ms = 10 ; t_lag = 200
+def check_significance_PSD(signif_thresh, pxx, n, n_pts_above_thresh = 2):
+    above_thresh_ind = np.where(pxx >= signif_thresh.reshape(-1,1))
+    n_above_thresh_each_neuron = np.bincount(above_thresh_ind[0])
+    entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
+    print( above_thresh_ind[ 0] [np.where( n_above_thresh_each_neuron < n_pts_above_thresh )[0]])
+    bool_neurons = np.zeros((n), dtype = bool)
+    for neuron in entrained_neuron_ind:
+        # print("neuron =", neuron)
+        ind = above_thresh_ind[0] == neuron
+        freq_above_thresh = above_thresh_ind[1][ind]
+        # print("freq_above_thresh = ", freq_above_thresh)
+        longest_seq =longest_consecutive_chain_of_numbers( freq_above_thresh)
+        if len(longest_seq) >= n_pts_above_thresh  :
+            bool_neurons[neuron] = True
+        else: 
+            print(neuron, freq_above_thresh, longest_seq)
+    return np.where(bool_neurons)[0]
+
+def longest_consecutive_chain_of_numbers(array ):
+    return  max(np.split(
+                        array , 
+                         np.where(np.diff( array ) != 1)[0]+1
+                         ), 
+                key=len).tolist()    
+n_neuron = 4 ; window_ms = 10 ; t_lag = 200
 nucleus = nuclei_dict['STN'][0]
 
-neurons = np.random.choice(nucleus.n, 4)
+entrained_ind = significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 200, 
+                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+
+mask_neurons = np.zeros((nucleus.n), dtype=bool)
+mask_neurons[entrained_ind] = True
+not_entrained_ind = np.where(~mask_neurons)[0]
+neurons = np.concatenate( ( np.random.choice(entrained_ind, 2, replace  = False), 
+                            np.random.choice(not_entrained_ind, n_neuron - 2, replace  = False)) , axis = 0)
+
+neurons = np.random.choice(not_entrained_ind, n_neuron)
+# neurons = np.random.choice(nucleus.n, n_neuron)
 spks = nucleus.spikes[neurons, :]
 spks = moving_average_array_2d(spks, int(window_ms / dt))
 autc = autocorr_2d(spks)
 f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows=6)
+f, pxx = cut_PSD(f, pxx, max_f = 250)
 
-def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, n_window_welch = 6, n_sd_thresh = 2):
-    
-    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
-    autc = autocorr_2d(spks)
-    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
-    f = f [ f < max_f] 
-    pxx = pxx[ f < max_f] 
-    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
-    
-    
-    ### to do: find the number of significant data points of the pxx and if >=2 set a bool to true meaning it'll be included in the phase hist
-
-fig,ax = plt.subplots()
-fig1,ax1 = plt.subplots()
+t_series = np.arange(int(t_lag / dt)) * dt
+fig, ax = plt.subplots()
+fig1, ax1 = plt.subplots()
 c_list = ['b','r', 'g', 'k']
 for i in range(autc.shape[0]):
     
-    ax.plot(f[ f < 250 ], pxx [i, f < 250], '-o', color = c_list[i])
-    ax.axhline(np.average(pxx), f[0], f[-1], c = c_list[i])
-    ax.axhline(np.average(pxx) + 2 * np.std(pxx), f[0], f[1], ls = '--', c = c_list[i])
-
+    ax.plot(f, pxx[i,:], '-o', color = c_list[i])
+    # ax.axhline(np.average(pxx[i,:]), f[0], f[-1], c = c_list[i])
+    ax.axhline(np.average(pxx[i,:]) + 2 * np.std(pxx[i,:]), f[0], f[1], ls = '--', c = c_list[i])
     ax1.plot(t_series, autc[i,:int(t_lag / dt)], color = c_list[i])
-ax1.set_xlabel('Time (ms)', fontsize = 15)
+    
+ax.set_xlim(0, 70)  
+ax.set_ylabel('PSD', fontsize = 15)
+ax.set_xlabel('Frequency (Hz)', fontsize = 15)  
+ax1.set_ylabel('Autocorrelation', fontsize = 15)
+ax1.set_xlabel('lag (ms)', fontsize = 15)
 #%% Arky-D2-Proto
 
 plt.close('all')
