@@ -1246,21 +1246,34 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-# fig.set_size_inches((6, 5), forward=False)
+# fig, ax = plt.subplots(1,1)
+# peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+# find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+#                 low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
+#                 fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
+# # fig.set_size_inches((6, 5), forward=False)
 # # x_l = 0.75
 # # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,70)
+# ax.set_xlim(0,70)
 # # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 # fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
+
+#### To see how removing the so-called non-entrained neurons will change the population mean firing rate
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
+#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+#         print(nucleus.name, len(entrained_ind))
+#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
+#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
+#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
 
 #%% Effect of proto tau_m on STN-GPe-GPe frequency
 
@@ -2106,58 +2119,19 @@ ax.set_xlim(0,70)
 
 #%% Autocorrelation of individual neurons Demo
 plt.close('all')
-
-def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, 
-                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2):
-    """ 
-        Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
-        in their PSD of autocorrelogram
-    """
-    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
-    autc = autocorr_2d(spks)
-    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
-    f, pxx = cut_PSD(f, pxx, max_f = max_f)
-    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
-    entrained_neuron_ind = check_significance_PSD(signif_thresh, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh )
-    return entrained_neuron_ind
-
-def check_significance_PSD(signif_thresh, pxx, n, n_pts_above_thresh = 2):
-    above_thresh_ind = np.where(pxx >= signif_thresh.reshape(-1,1))
-    n_above_thresh_each_neuron = np.bincount(above_thresh_ind[0])
-    entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
-    print( above_thresh_ind[ 0] [np.where( n_above_thresh_each_neuron < n_pts_above_thresh )[0]])
-    bool_neurons = np.zeros((n), dtype = bool)
-    for neuron in entrained_neuron_ind:
-        # print("neuron =", neuron)
-        ind = above_thresh_ind[0] == neuron
-        freq_above_thresh = above_thresh_ind[1][ind]
-        # print("freq_above_thresh = ", freq_above_thresh)
-        longest_seq =longest_consecutive_chain_of_numbers( freq_above_thresh)
-        if len(longest_seq) >= n_pts_above_thresh  :
-            bool_neurons[neuron] = True
-        else: 
-            print(neuron, freq_above_thresh, longest_seq)
-    return np.where(bool_neurons)[0]
-
-def longest_consecutive_chain_of_numbers(array ):
-    return  max(np.split(
-                        array , 
-                         np.where(np.diff( array ) != 1)[0]+1
-                         ), 
-                key=len).tolist()    
+  
 n_neuron = 4 ; window_ms = 10 ; t_lag = 200
-nucleus = nuclei_dict['STN'][0]
-
-entrained_ind = significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 200, 
+nucleus = nuclei_dict['Proto'][0]
+n = nucleus.n
+entrained_ind = significance_of_oscil_all_neurons( nuclei_dict['Proto'][0], dt, window_mov_avg = 10, max_f = 250, 
                                       n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-
 mask_neurons = np.zeros((nucleus.n), dtype=bool)
 mask_neurons[entrained_ind] = True
 not_entrained_ind = np.where(~mask_neurons)[0]
 neurons = np.concatenate( ( np.random.choice(entrained_ind, 2, replace  = False), 
                             np.random.choice(not_entrained_ind, n_neuron - 2, replace  = False)) , axis = 0)
 
-neurons = np.random.choice(not_entrained_ind, n_neuron)
+# neurons = np.random.choice(not_entrained_ind, n_neuron)
 # neurons = np.random.choice(nucleus.n, n_neuron)
 spks = nucleus.spikes[neurons, :]
 spks = moving_average_array_2d(spks, int(window_ms / dt))
@@ -2169,11 +2143,13 @@ t_series = np.arange(int(t_lag / dt)) * dt
 fig, ax = plt.subplots()
 fig1, ax1 = plt.subplots()
 c_list = ['b','r', 'g', 'k']
+n_sd_thresh = 2
+signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
 for i in range(autc.shape[0]):
     
     ax.plot(f, pxx[i,:], '-o', color = c_list[i])
     # ax.axhline(np.average(pxx[i,:]), f[0], f[-1], c = c_list[i])
-    ax.axhline(np.average(pxx[i,:]) + 2 * np.std(pxx[i,:]), f[0], f[1], ls = '--', c = c_list[i])
+    ax.axhline(signif_thresh[i], f[0], f[1], ls = '--', c = c_list[i])
     ax1.plot(t_series, autc[i,:int(t_lag / dt)], color = c_list[i])
     
 ax.set_xlim(0, 70)  

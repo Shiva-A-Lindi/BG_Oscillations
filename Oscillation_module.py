@@ -838,24 +838,26 @@ class Nucleus:
         for t in t_list:  # run temporal dynamics
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
-    def find_spike_times_all_neurons(self, start = 0):
-        spike_times = np.where(self.spikes == 1)[1]
+            
+    def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
+        if neurons_ind == 'all':    
+            spike_times = np.where(self.spikes == 1)[1]
+        elif hasattr(neurons_ind, '__len__') and (not isinstance(neurons_ind, str)): # an actual list of neurons is given
+            spike_times = np.where(self.spikes[neurons_ind,:] == 1)[1]
+        else:
+            raise("Invalid input for 'ind_neurons'. It has to be either 'all' or the list of indices of neurons to be included.")
         return spike_times[spike_times > start ] - start
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0):
         act = self.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
         peaks,_ = signal.find_peaks(act[start:], height = height)
-        # if not self.pop_act_filtered :
-        #     self.butter_bandpass_filter_pop_act( dt, low_f, high_f, order= filter_order)
-        #     self.pop_act += 100
-        # peaks,_ = signal.find_peaks(self.pop_act[start:], height = height+100)
-        
         return peaks
     
 
     def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = [], n_bins = 20, 
-                                    total_phase = 360, ref_nuc_name = 'self'):
-        all_spikes = self.find_spike_times_all_neurons(start = start)
+                                    total_phase = 360, ref_nuc_name = 'self', neurons_ind = 'all'):
+        
+        all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
         if ref_peaks == []: # if peaks are given as argument phases are calculated relative to them
             ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
         
@@ -1140,7 +1142,8 @@ def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, 
     n_plots = len(nuclei_dict)
     fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection= projection), figsize = (5, 10))
     find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = n_bins,
-                                              height = height, ref_nuc_name = ref_nuc_name, start = start, total_phase = total_phase)
+                                      height = height, ref_nuc_name = ref_nuc_name, start = start, 
+                                      total_phase = total_phase, only_entrained_neurons = False)
     count = 0
     print(n_bins)
     for nuclei_list in nuclei_dict.values():
@@ -1306,7 +1309,8 @@ def get_max_len_dict(dictionary):
 #     return data
 
 def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 20,
-                                              height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720):
+                                              height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720,
+                                              only_entrained_neurons = False):
     if ref_nuc_name != 'self':
         ref_peaks = nuclei_dict[ref_nuc_name][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
                                                                               height = height, start = start)
@@ -1315,10 +1319,14 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
         
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-
+            if only_entrained_neurons:
+                neurons_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
+                                                          n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+            else:
+                neurons_ind = 'all'
             nucleus.find_phase_hist_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
                                           start = start, height = height, ref_peaks = ref_peaks,
-                                          total_phase=total_phase, ref_nuc_name = ref_nuc_name)
+                                          total_phase=total_phase, ref_nuc_name = ref_nuc_name, neurons_ind = neurons_ind)
 
 def find_phase_sine_fit(x, y):
     ''' fit sine function derive phase'''
@@ -2596,15 +2604,37 @@ def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 
         Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
         in their PSD of autocorrelogram
     """
-    spks = moving_average_array_2d(nucleus.spikes, int(window_mov_avg / dt))
+    spks = moving_average_array_2d(nucleus.spikes.copy(), int(window_mov_avg / dt))
     autc = autocorr_2d(spks)
     f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
     f, pxx = cut_PSD(f, pxx, max_f = max_f)
     signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
-    above_thresh_ind = np.where(pxx > signif_thresh.reshape(-1,1))
-    n_above_thresh_each_neuron = np.bincount(above_thresh_ind[0])
-    entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
+    entrained_neuron_ind  = check_significance_PSD(signif_thresh, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh )
     return entrained_neuron_ind
+
+def check_significance_PSD(signif_thresh, pxx, n, n_pts_above_thresh = 2):
+    
+    above_thresh_neuron_ind, above_thresh_freq_ind = np.where(pxx >= signif_thresh.reshape(-1,1))
+    n_above_thresh_each_neuron = np.bincount(above_thresh_neuron_ind)
+    entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
+    bool_neurons = np.zeros((n), dtype = bool)
+    
+    for neuron in entrained_neuron_ind:
+        
+        ind = above_thresh_neuron_ind == neuron
+        freq_above_thresh = above_thresh_freq_ind[ind]
+        longest_seq =longest_consecutive_chain_of_numbers( freq_above_thresh)
+        if len(longest_seq) >= n_pts_above_thresh  :
+            bool_neurons[neuron] = True
+
+    return np.where(bool_neurons)[0]
+
+def longest_consecutive_chain_of_numbers(array ):
+    return  max(np.split(
+                        array , 
+                         np.where(np.diff( array ) != 1)[0]+1
+                         ), 
+                key=len).tolist()  
 
 def run(receiving_class_dict, t_list, dt, nuclei_dict):
 
