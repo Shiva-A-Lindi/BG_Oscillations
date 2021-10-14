@@ -840,9 +840,9 @@ class Nucleus:
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
             
     def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
-        if neurons_ind == 'all':    
+        if isinstance(neurons_ind, str)  and neurons_ind == 'all':    
             spike_times = np.where(self.spikes == 1)[1]
-        elif hasattr(neurons_ind, '__len__') and (not isinstance(neurons_ind, str)): # an actual list of neurons is given
+        elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
             spike_times = np.where(self.spikes[neurons_ind,:] == 1)[1]
         else:
             raise("Invalid input for 'ind_neurons'. It has to be either 'all' or the list of indices of neurons to be included.")
@@ -1308,7 +1308,7 @@ def get_max_len_dict(dictionary):
 #             data[(nucleus.name, 'n_peaks')][i,j] = len(peaks)
 #     return data
 
-def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 20,
+def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 90,
                                               height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720,
                                               only_entrained_neurons = False):
     if ref_nuc_name != 'self':
@@ -1583,7 +1583,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                 set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
             if plot_phase:
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                          density = False, n_bins = n_phase_bins, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', tick_label_fontsize=18,
                                            labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=True)
         if plot_spectrum:
@@ -2225,11 +2225,14 @@ def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, labelsize=
 
 
 def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                          density = False, n_bins = 16, ref_nuc_name = 'self', total_phase = 360, projection = None,
-                          outer=None, fig=None,  title='', tick_label_fontsize=18,
+                          density = False, ref_nuc_name = 'self', total_phase = 360, projection = None,
+                          outer=None, fig=None,  title='', tick_label_fontsize=18, ylim = None,
                            labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False):
-    if outer == None:
+    fig_generated = False
+    if fig == None:
+        fig_generated = True
         fig = plt.figure(figsize=(10, 8))
+    if outer == None:
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
 
     inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
@@ -2244,7 +2247,10 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
-            ax = plt.Subplot(fig, inner[j])
+            if not fig_generated:
+                ax = fig.axes[j]
+            else:
+                ax = plt.Subplot(fig, inner[j])
             frq, edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
 
             if projection == None:
@@ -2256,9 +2262,12 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
                 
                 circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
 
-            fig.add_subplot(ax)
+            if fig_generated:
+                fig.add_subplot(ax)
             rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
             j += 1
+            # if nucleus.name == 'Proto':
+            #     ax.set_ylim(ylim)
             
     if ax_label:
         fig.text(0.5, 0.03, 'phase (deg)', ha='center',

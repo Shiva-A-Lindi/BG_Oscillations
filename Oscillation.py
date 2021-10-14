@@ -4708,6 +4708,19 @@ name_list = ['Proto', 'D2', 'STN', 'FSI']
 n_g_list = np.linspace(0, 19, endpoint = True, num = 4).astype(int)
 phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name= 'Proto')
 
+#%% Phase summary only entrained
+
+ref_nuc_name = 'Proto'
+low_f, high_f = 8, 70
+only_entrained_neurons = True
+find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
+                                              height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
+                                              only_entrained_neurons =only_entrained_neurons)
+color_dict['Proto'] = 'b'
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
+                          density = False, ref_nuc_name = ref_nuc_name, total_phase = 360, projection = None,
+                          outer=None, fig=fig,  title='', tick_label_fontsize=18, ylim = [0,2000],
+                           labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False)
 #%% FR simulation vs FR_expected ( heterogeneous vs. homogeneous initialization)
 
 N_sim = 20
