@@ -1278,8 +1278,13 @@ def bandpower(f, pxx, fmin, fmax):
     ''' return the average power at the given range of frequency'''
     ind_min = np.argmin(f[f > fmin])
     ind_max = np.argmax(f[f < fmax])
-    return scipy.trapz(pxx[ind_min: ind_max], f[ind_min: ind_max]) / (f[ind_max] - f[ind_min])
+    return np.trapz(pxx[ind_min: ind_max], f[ind_min: ind_max]) / (f[ind_max] - f[ind_min])
 
+def bandpower_2d_pxx(f, pxx, fmin, fmax):
+    ''' return the average power at the given range of frequency'''
+    ind_min = np.argmin(f[f > fmin])
+    ind_max = np.argmax(f[f < fmax])
+    return np.trapz(pxx[:, ind_min: ind_max], f[ind_min: ind_max]) / (f[ind_max] - f[ind_min])
 
 def beta_bandpower(f, pxx, fmin=13, fmax=30):
     return bandpower(f, pxx, fmin, fmax)
@@ -1293,6 +1298,12 @@ def find_sending_pop_dict(receiving_pop_list):
             sending_pop_list[v].append(k)
     return sending_pop_list
 
+def create_a_list_of_entrianed_and_not(entrained_ind, n, n_entrained = 2, n_not_entrained = 2):
+    not_entrained_ind = get_complement_ind(entrained_ind, n)
+    neuron_list = np.concatenate( ( np.random.choice(entrained_ind, n_entrained, replace  = False), 
+                                np.random.choice(not_entrained_ind, n_not_entrained, replace  = False)) , 
+                             axis = 0)
+    return neuron_list
 
 def get_max_len_dict(dictionary):
     ''' return maximum length between items of a dictionary'''
@@ -1309,8 +1320,10 @@ def get_max_len_dict(dictionary):
 #     return data
 
 def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 90,
-                                              height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720,
-                                              only_entrained_neurons = False):
+                                       height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720,
+                                       only_entrained_neurons = False, min_f_sig_thres = 0,window_mov_avg = 10, max_f = 250,
+                                       n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2,
+                                       min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False):
     if ref_nuc_name != 'self':
         ref_peaks = nuclei_dict[ref_nuc_name][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
                                                                               height = height, start = start)
@@ -1320,8 +1333,12 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             if only_entrained_neurons:
-                neurons_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-                                                          n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+                neurons_ind = significance_of_oscil_all_neurons( nucleus, dt, max_f = max_f, 
+                                                          window_mov_avg = window_mov_avg, n_sd_thresh = n_sd_thresh, 
+                                                           min_f_sig_thres = min_f_sig_thres, n_window_welch = n_window_welch, 
+                                                           n_pts_above_thresh = n_pts_above_thresh,
+                                                           min_f_AUC_thres = min_f_AUC_thres ,  PSD_AUC_thresh = PSD_AUC_thresh , 
+                                                           filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
             else:
                 neurons_ind = 'all'
             nucleus.find_phase_hist_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
@@ -2607,8 +2624,9 @@ def freq_from_welch_2d(sig, dt, n_windows=6):
  	peak_freq = f[np.argmax(pxx, axis = 1)]
  	return f, pxx, peak_freq
  
-def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, 
-                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2):
+def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, min_f_sig_thres = 0,
+                                      n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2,
+                                      min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False):
     """ 
         Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
         in their PSD of autocorrelogram
@@ -2617,13 +2635,33 @@ def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 
     autc = autocorr_2d(spks)
     f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
     f, pxx = cut_PSD(f, pxx, max_f = max_f)
-    signif_thresh = np.average(pxx, axis = 1) + n_sd_thresh * np.std( pxx , axis = 1)
-    entrained_neuron_ind  = check_significance_PSD(signif_thresh, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh )
+    signif_thresh =  cal_sig_thresh(f, pxx, min_f = min_f_sig_thres, max_f = max_f, n_sd_thresh = n_sd_thresh)
+    entrained_neuron_ind  = check_significance_PSD( signif_thresh, f, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh,
+                                                   fmin= min_f_AUC_thres, fmax = max_f, PSD_AUC_thresh = PSD_AUC_thresh, 
+                                                   filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
     return entrained_neuron_ind
 
-def check_significance_PSD(signif_thresh, pxx, n, n_pts_above_thresh = 2):
+def cal_sig_thresh(f, pxx, n_sd_thresh = 2, min_f = 0, max_f = 250):
     
+    ind_f = np.logical_and( min_f < f, f < max_f)
+    return ( np.average( pxx[: , ind_f], axis = 1) + 
+             n_sd_thresh * 
+             np.std( pxx [:, ind_f] , axis = 1) )
+
+def filter_based_on_PSD_AUC(f, pxx, fmin= 0, fmax = 200, PSD_AUC_thresh = 10 ** -5):
+    PSD_integral = bandpower_2d_pxx(f, pxx, fmin, fmax)
+
+    return np.where(PSD_integral > PSD_AUC_thresh)[0]
+    
+def check_significance_PSD(signif_thresh, f, pxx, n, n_pts_above_thresh = 2, 
+                           fmin= 8, fmax = 200, PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False):
+    
+    if filter_based_on_AUC_of_PSD:
+        above_PSD_AUC_thresh = filter_based_on_PSD_AUC(f, pxx, fmin= fmin, fmax = fmax, 
+                                                   PSD_AUC_thresh = PSD_AUC_thresh)
+        pxx[get_complement_ind(above_PSD_AUC_thresh, n), : ] = 0 # to remove the neurons that don't pass the AUC citeria
     above_thresh_neuron_ind, above_thresh_freq_ind = np.where(pxx >= signif_thresh.reshape(-1,1))
+
     n_above_thresh_each_neuron = np.bincount(above_thresh_neuron_ind)
     entrained_neuron_ind = np.where( n_above_thresh_each_neuron >= n_pts_above_thresh )[0]
     bool_neurons = np.zeros((n), dtype = bool)
@@ -2637,6 +2675,14 @@ def check_significance_PSD(signif_thresh, pxx, n, n_pts_above_thresh = 2):
             bool_neurons[neuron] = True
 
     return np.where(bool_neurons)[0]
+
+
+def get_complement_ind(indices, n):
+    ''' return the complement of the indices from an array of 0 to n'''
+    mask = np.zeros((n), dtype=bool)
+    mask[indices] = True
+    return np.where(~mask)[0]
+
 
 def longest_consecutive_chain_of_numbers(array ):
     return  max(np.split(
