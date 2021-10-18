@@ -769,7 +769,8 @@ class Nucleus:
         # else:
             # FR_start = FR_range[0]
             # FR_end = FR_range[-1]
-        FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
+        FR_list = np.repeat(np.linspace(*FR_range, n_FR).reshape(-1,1), self.n, axis = 1)
+        # FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
         FR_sim = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
         self. set_FR_ext_each_neuron(
             FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot=if_plot, ax=ax, c=c)
@@ -2517,7 +2518,7 @@ def possion_spike_generator(n_pop, n_sending, r, dt):
 
 def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	'''return a series with lower spacing and higher resolution in the middle'''
-
+    
 	R = (start - end) / 2
 	x = R * np.linspace(-1, 1, n_points)
 	y = np.sqrt(R ** 2 - x ** 2)
@@ -2525,6 +2526,8 @@ def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	diff = - np.diff(np.flip(half_y))
 	series = np.concatenate((half_y, np.cumsum(diff) + y[len(y) // 2])) + start
 	# print(series[ len(series) // 2])
+# 	if len(series) < n_points: # doesn't work with odd number of points!!!!!!
+# 		series = np.concatenate((series, series[-1]))
 	return series.reshape(-1, 1)
 
 

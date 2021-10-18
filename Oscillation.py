@@ -583,10 +583,12 @@ filename = name + '_N_1000_response_curve_with_different_noise_[0_0-1_1_5_15].pn
 fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w',
         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)### extrapolate with the average firing rate ofthe  population
 
+
+
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 # np.random.seed(1006)
 plt.close('all')
-name = 'Proto'
+name = 'FSI'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -650,6 +652,8 @@ save_all_mem_potential(nuclei_dict, path)
 plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 # nucleus.smooth_pop_activity(dt, window_ms = 5)
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, title = init_method)
+
+
 #%% Deriving F_ext from the response curve
 # np.random.seed(1006)
 plt.close('all')
@@ -784,12 +788,12 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range[name], neuronal_con
 # plt.ylabel(r"$V_{m}$", fontsize = 15)
 # plt.legend()
 # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, title = init_method)
-#%% Deriving F_ext from the response curve for all neurons
+#%% Deriving F_ext from the response curve for each neuron individually
 # np.random.seed(1006)
 plt.close('all')
-name = 'Proto'
+name = 'FSI'
 state = 'rest'
-N_sim = 1000 
+N_sim = 1
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -827,7 +831,7 @@ set_FR_range_from_theory = False
 set_input_from_response_curve = True
 save_init = False
 der_ext_I_from_curve= True
-if_plot = True
+if_plot = False
 keep_mem_pot_all_t= True
 # bound_to_mean_ratio = [0.5, 20]
 # spike_thresh_bound_ratio = [1/5, 1/5]
@@ -840,9 +844,7 @@ nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_varia
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
 n = 50
-# pad_tau_m_5 = {'FSI': {'rest': [0.001, 0.001], 'mvt': [0.003, 0.0033] , 'DD': [] },
-#                'D2': {'rest': [0.001, 0.001], 'mvt': [0.001, 0.001] , 'DD': [0.001, 0.001] },
-#                'Proto': {'rest': [], 'mvt': [0.1] , 'DD': [] }}
+
 pad_tau_real = {'FSI': {'rest': [0.005, 0.0057], 'mvt': [0.005, 0.006] , 'DD': [0.005, 0.01] },
                'D2': {'rest': [0.002, 0.002], 'mvt': [0.001, 0.001] , 'DD': [0.002, 0.002] , 'trans' : [0.003, 0.005]},
                'Proto': {'rest': [0.001, 0.001], 'mvt': [0.01, 0.01] , 'DD': [] },
@@ -908,11 +910,12 @@ receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N
                                           method = 'single_neuron')
 print("rest ext inp mean = ", np.average(nuc[0].rest_ext_input))
 print("FR_ext mean = ", np.average(nuc[0].FR_ext))
+print("number of nans = ", np.sum(np.isnan(nuc[0].FR_ext)))
 
 # save_all_mem_potential(nuclei_dict, path)
-plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
-# print(np.sum(np.isnan(nuc[0].FR_ext)))
+
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
+plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 # nucleus.smooth_pop_activity(dt, window_ms = 5)
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, title = init_method)
 #%% plot fitted response curve different noise 
