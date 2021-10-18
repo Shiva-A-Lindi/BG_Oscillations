@@ -212,12 +212,18 @@ class Nucleus:
             
     def initialize_heterogeneously(self, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                     plot_initial_V_m_dist=False, plot_mem_tau_hist = False):
+        
         ''' cell properties and boundary conditions come from distributions'''
+        
+        self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
+                                                   self.neuronal_consts['u_rest']['var'], self.n,
+                                                   truncmin=self.neuronal_consts['u_rest']['truncmin'],
+                                                   truncmax=self.neuronal_consts['u_rest']['truncmax'])
         self.spike_thresh = truncated_normal_distributed(self.neuronal_consts['spike_thresh']['mean'],
-                                                            self.neuronal_consts['spike_thresh']['var'], self.n,
-                                                            scale_bound=scale_bound_with_arbitrary_value, scale=(
-                                                                self.neuronal_consts['spike_thresh']['mean'] - self.u_rest),
-                                                            lower_bound_perc=spike_thresh_bound_ratio[0], upper_bound_perc=spike_thresh_bound_ratio[1])
+                                                         self.neuronal_consts['spike_thresh']['var'], self.n,
+                                                         scale_bound=scale_bound_with_arbitrary_value, scale=(
+                                                         self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean']),
+                                                         lower_bound_perc=spike_thresh_bound_ratio[0], upper_bound_perc=spike_thresh_bound_ratio[1])
 
         self.initialize_mem_potential(method=self.mem_pot_init_method)
         if self.keep_mem_pot_all_t:
@@ -227,15 +233,17 @@ class Nucleus:
 
         if 'truncmin' in self.neuronal_consts['membrane_time_constant']:
             self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
-                                                             self.neuronal_consts['membrane_time_constant']['var'], self.n,
-                                                             truncmin=self.neuronal_consts['membrane_time_constant']['truncmin'],
-                                                             truncmax=self.neuronal_consts['membrane_time_constant']['truncmax'])
+                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
+                                                                       truncmin=self.neuronal_consts['membrane_time_constant']['truncmin'],
+                                                                       truncmax=self.neuronal_consts['membrane_time_constant']['truncmax'])
         else:
             self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
-                                                                 self.neuronal_consts['membrane_time_constant']['var'], self.n,
-                                                                 lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
+                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
+                                                                       lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
+            
         if plot_mem_tau_hist:
             plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
+            
         # dt incorporated in tau for efficiency
         self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
                                                                 poisson_prop[self.name]['tau']['rise']['var'], self.n,
@@ -243,10 +251,9 @@ class Nucleus:
                             'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
                                                                 poisson_prop[self.name]['tau']['decay']['var'], self.n,
                                                                 lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
-        self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
-                                                   self.neuronal_consts['u_rest']['var'], self.n,
-                                                   lower_bound_perc=lower_bound_perc, 
-                                                   upper_bound_perc=upper_bound_perc)
+        # print('setting u_rest')
+
+        
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         ''' cell properties and boundary conditions are constant for all cells'''
 
@@ -454,12 +461,12 @@ class Nucleus:
 
     def reset_potential(self, spiking_ind):
 
-        self.mem_potential[spiking_ind] = self.neuronal_consts['u_rest']
+        self.mem_potential[spiking_ind] = self.u_rest[spiking_ind]
 
     def reset_potential_with_interpolation(self, spiking_ind, dt):
         ''' set the potential at firing times according to Hansel et. al. (1998)'''
         self.mem_potential[spiking_ind] = linear_interpolation(self.mem_potential[spiking_ind], self.spike_thresh[spiking_ind],
-                                                                dt, self.mem_pot_before_spike[spiking_ind], self.neuronal_consts['u_rest'], self.membrane_time_constant[spiking_ind])
+                                                                dt, self.mem_pot_before_spike[spiking_ind], self.u_rest[spiking_ind], self.membrane_time_constant[spiking_ind])
 
     def cal_population_activity(self, dt, t, lower_bound_perc=0.8, upper_bound_perc=1.2):
 
@@ -521,7 +528,7 @@ class Nucleus:
             self.mem_potential = draw_random_from_data_pdf(y_dist, self.n, bins=20)
 
         elif method == 'constant':
-              self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest'])
+              self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest']['mean'])
 
         elif method == 'exponential':  # Doesn't work with linear interpolation of IF, diverges
             lower, upper, scale = 0, self.neuronal_consts['spike_thresh']['mean'] - \
@@ -751,9 +758,9 @@ class Nucleus:
         #     FR_end =   FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range [-1], self.n_ext_population)
 
         if set_FR_range_from_theory:  # scale range based on the homogeneous neurons
-            FR_mean_start = FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.u_rest,
+            FR_mean_start = FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.neuronal_consts['u_rest']['mean'],
                                                       self.neuronal_consts['membrane_time_constant']['mean'], self.syn_weight_ext_pop, FR_range[0], self.n_ext_population)
-            FR_mean_end = FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.u_rest,
+            FR_mean_end = FR_ext_of_given_FR_theory(self.neuronal_consts['spike_thresh']['mean'], self.neuronal_consts['u_rest']['mean'],
                                                     self.neuronal_consts['membrane_time_constant']['mean'], self.syn_weight_ext_pop, FR_range[-1], self.n_ext_population)
             FR_start = (FR_ext_of_given_FR_theory(self.spike_thresh, self.u_rest, self.membrane_time_constant, self.syn_weight_ext_pop, FR_range[0], self.n_ext_population)
                         / FR_mean_start * FR_range[0])
@@ -762,7 +769,7 @@ class Nucleus:
         # else:
             # FR_start = FR_range[0]
             # FR_end = FR_range[-1]
-        FR_list = np.linspace(*FR_range, n_FR)
+        FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
         FR_sim = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
         self. set_FR_ext_each_neuron(
             FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot=if_plot, ax=ax, c=c)
@@ -1988,7 +1995,7 @@ def scale_bound_with_arbitrary_value(mean, lower_bound_perc, upper_bound_perc, s
 
 def truncated_normal_distributed(mean, sigma, n, scale_bound=scale_bound_with_mean, scale=None, lower_bound_perc=0.8, upper_bound_perc=1.2, 
                                  truncmin=None, truncmax=None):
-
+    
     if truncmin != None and truncmax != None:
         lower_bound, upper_bound = truncmin, truncmax
     else:

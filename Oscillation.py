@@ -163,7 +163,7 @@ if 1:
          ('Th', 'GPi') : 0
          } # synaptic weight
     decay_time_scale = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 5, 'AMPA': 1.8, 'NMDA':51} # Gerstner. synaptic time scale for excitation and inhibition
-    synaptic_time_constant = {('STN', 'Proto'): [10] ,
+    synaptic_time_constant = {('STN', 'Proto'): [10] , ## used for rate model.
                             ('Proto', 'STN'): [decay_time_scale['Glut']], 
                             ('Proto', 'Proto'): [10],
                             ('D2', 'FSI'): [30], 
@@ -172,17 +172,7 @@ if 1:
                             ('Proto','D2'): [10],
                             ('Arky','Proto'): [6],
                             ('D2', 'Arky'): [30]}
-    # neuronal_consts = {'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
-    #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':25,'var':2}},
-    #                    'Arky': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -70, 'u_initial':{'min':-70, 'max':30},# Bogacz et al. 2016
-    #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':30,'var':2}},
-    #                    'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -85, 'u_initial':{'min':-85, 'max':-55}, # Willet et al. 2019
-    #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':-55,'var':2}},
-    #                    'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -75, 'u_initial':{'min':-75, 'max':-45}, # Taverna et al. 2013
-    #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':-45,'var':2}},
-    #                    'STN': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
-    #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':25,'var':2}},}
-    ### membrane time constants adjusted
+
     
     # mean_APth_Proto = ( (-56.6 * 14) + (-49.9*5) ) /(14 + 5)
     # SD_APth_Proto = np.sqrt( 
@@ -192,26 +182,27 @@ if 1:
     #                         ) # Abdli et al 2015 Table. 1 : average of PV+ and PV- proto
     neuronal_consts = { 
 				'Proto': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -66.3, 'var': 0.8}, 'u_initial':{'min':-66.3, 'max':-37.57}, #Stanford & cooper 2000 [type A]
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -85, 'truncmax': -40}, #Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
+                    'u_initial':{'min':-66.3, 'max':-37.57}, 
 					# 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
 					# 'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :#Projecting to STN from Karube et al 2019
 					# 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
-					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-37.57,'var':4.79}}, # tau_m : Jerome's measurements AP_thresh: Karube et al. 2019
+					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-37.57,'var':4.79}}, # tau_m : Jerome's measurements AP_thresh & tau_m trun bounds: Karube et al. 2019
 				'Arky': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -58.1, 'var': 1.1}, 'u_initial':{'min':-58.1, 'max':-42.9},# Stanford & cooper 2000 [type B]
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -85, 'truncmax': -50}, 'u_initial':{'min':-58.1, 'max':-42.9},# Stanford & cooper 2000 [type B]
 					# 'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
-					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-42.9,'var':0.8}}, # tau_m: Jerome . AP_threh : Stanford & Cooper 2000 [type B]
+					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-42.9,'var':0.8}}, # tau_m: Jerome . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
 				'D2': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -85, 'var': 1}, 'u_initial':{'min':-85, 'max': -41.94},# Willet et al. 2019
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-85, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
 					# 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
 					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
-					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
+					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
 				'FSI': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -75, 'var': 1}, 'u_initial':{'min':-75, 'max':-46}, # Taverna et al. 2013/ Russo
-					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -75, 'var': 1, 'truncmin': -100, 'truncmax': -65}, 'u_initial':{'min':-75, 'max':-46}, #  Russo et al. 2013. RMP trunc bound estimated
+					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
 				'STN': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -59, 'var': 0.4}, 'u_initial':{'min':-59, 'max':-50.8}, # Paz et al. 2005, Kita et al. 1983b
-					'membrane_time_constant':{'mean':5.13,'var':0.97, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-50.8,'var':0.5}}} # Paz et al 2005 
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -59, 'var': 0.4, 'truncmin': -100, 'truncmax': -65}, 'u_initial':{'min':-59, 'max':-50.8}, # Paz et al. 2005
+					'membrane_time_constant':{'mean':5.13,'var':0.97, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-50.8,'var':0.5}}} # Paz et al 2005 
 	
     tau = {
            ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
@@ -240,15 +231,12 @@ if 1:
                    'D2': [0.0595*100 / 3 , 0.0605*100 / 3] , 
                    'FSI': [0.05948*100, 0.0605*100], 
                    'Arky': []}
-    
-    
-    
+
     FR_ext_range = {'Proto': [4/300, 9/300], 
                     'STN': [2.5/300, 3.8/300], 
-                    'D2': [4/300 , 7/300] , 
+                    'D2': [0.2/300 , 1.5/300] , 
                     'FSI': [ 9/300, 10/300 ], 
                     'Arky': [1.5/300, 2.8/300]}
-    
     noise_variance = {'Proto' : 50, 
                       'STN': 10, 
                       'D2': 2 , 
@@ -566,17 +554,6 @@ init_method = 'heterogeneous'
 name = 'D2'
 n = 10
 
-FR_ext_range = {'Proto' : [4/300, 9/300], 
-               'STN': [3.2/300, 4.5/300], 
-               'D2': [4/300 , 7/300] , 
-               'FSI': [ 9/300, 10/300 ], 
-               'Arky': []}
-
-noise_variance = {'Proto' : 50, 
-               'STN': 20, 
-               'D2': 2 , 
-               'FSI': 10, 
-               'Arky': [1/300, 2/300]}
 g = -0.01; g_ext = -g
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
 # FR_list = spacing_with_high_resolution_in_the_middle(n, *I_ext_range[name]).reshape(-1,) / poisson_prop[name]['g'] / poisson_prop [name ]['n'] / 3
@@ -609,7 +586,7 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 # np.random.seed(1006)
 plt.close('all')
-name = 'Arky'
+name = 'Proto'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -638,6 +615,7 @@ save_init = False
 der_ext_I_from_curve= True
 if_plot = True
 
+
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
@@ -653,10 +631,15 @@ nucleus = nuc[0]
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name] for name in list(nuclei_dict.keys()) } 
 
-receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
-                                         set_FR_range_from_theory=set_FR_range_from_theory,
-                                          method = 'collective')
+receiving_class_dict, FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, end_of_nonlinearity = 35, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+                                          use_saved_FR_ext= False, normalize_G_by_N=True)
+
+# receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, end_of_nonlinearity = 35, 
+#                                           set_FR_range_from_theory=False, method = 'single_neuron', normalize_G_by_N=True)
+
 print("rest ext inp mean = ", np.average(nuc[0].rest_ext_input))
 print("FR_ext mean = ", np.average(nuc[0].FR_ext))
 
@@ -804,9 +787,9 @@ plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, I_ext_range[name], neuronal_con
 #%% Deriving F_ext from the response curve for all neurons
 # np.random.seed(1006)
 plt.close('all')
-name = 'D2'
+name = 'Proto'
 state = 'rest'
-N_sim = 1000
+N_sim = 1000 
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
@@ -815,10 +798,7 @@ G = {}
 receiving_pop_list = {(name,'1') : []}
 
 pop_list = [1]  
-noise_variance_tau_m_5 = {'rest': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
-                          'mvt': {'FSI' : 10 , 'D2': 0.1 , 'Proto': 15} ,
-                          'DD': {'FSI' : 1 , 'D2': 0.1 , 'Proto': 15} ,
-                          }
+
 # noise_variance_tau_real = {'rest': {'FSI' : 8 , 'D2': 3 , 'Proto': 15*7, 'STN':4} , # Proto tau_m = 20
 #                            'mvt': {'FSI' : 8 , 'D2': 3 , 'Proto': 15*7, 'STN':4} ,
 #                            'DD': {'FSI' : 10 , 'D2': 3 , 'Proto': 15*7, 'STN':4} ,
@@ -848,13 +828,14 @@ set_input_from_response_curve = True
 save_init = False
 der_ext_I_from_curve= True
 if_plot = True
+keep_mem_pot_all_t= True
 # bound_to_mean_ratio = [0.5, 20]
 # spike_thresh_bound_ratio = [1/5, 1/5]
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 nuc = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,keep_mem_pot_all_t= keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
@@ -884,16 +865,19 @@ all_FR_list_tau_real = {
                       'FSI': { 'rest' : np.linspace ( 0.020, 0.05 , 250).reshape(-1,1) , 
                                'mvt': np.linspace ( 0.02, 0.05 , 250).reshape(-1,1), 
                                'DD': np.linspace ( 0.02,  0.05 , 250).reshape(-1,1) } ,
-                      'D2': { 'rest' : np.linspace ( 0.015, 0.05 , 250).reshape(-1,1), 
+                      'D2': { 'rest' : np.linspace ( 0.001, 0.005 , 250).reshape(-1,1), 
                               'mvt': np.linspace ( 0.015, 0.05 , 250).reshape(-1,1) , 
                               'DD': np.linspace ( 0.015, 0.05 , 250).reshape(-1,1) ,
                               'trans' : np.linspace ( 0.01, 0.04 , 250).reshape(-1,1)} ,
-                      # 'Proto': { 'rest' : np.array([0.02,0.05]), # tau_m = 20
-                      #            'mvt' : np.linspace ( 0.13, 0.3 , 250).reshape(-1,1) , 
+                       # 'Proto': { 'rest' : np.array([0.02,0.05]), # tau_m = 20
+                       #            'mvt' : np.linspace ( 0.13, 0.3 , 250).reshape(-1,1) , 
+                       #            'DD' : []},
+                       'Proto': { 'rest' : np.array([0.01,0.02]), # tau_m = 43
+                                  'mvt' : np.linspace ( 0.13, 0.3 , 250).reshape(-1,1) , 
+                                  'DD' : []},                       
+                      # 'Proto': { 'rest' : np.array([0.01,0.03]), # tau_m = 13
+                      #            'mvt' : np.linspace (  0.015, 0.022 , 250).reshape(-1,1), 
                       #            'DD' : []},
-                      'Proto': { 'rest' : np.array([0.01,0.03]), # tau_m = 13
-                                 'mvt' : np.linspace (  0.015, 0.022 , 250).reshape(-1,1), 
-                                 'DD' : []},
                     'STN': { 'rest' : np.linspace (  0.008, 0.03 , 250).reshape(-1,1) , 
                              'mvt': np.linspace ( 0.045, 0.08 , 250).reshape(-1,1), 
                              'DD': np.linspace ( 0.01, 0.02 , 250).reshape(-1,1),
@@ -917,16 +901,16 @@ filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
 #                                           all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
 #                                           left_pad =pad[name][state][0], right_pad=pad[name][state][1], set_FR_range_from_theory=set_FR_range_from_theory)
 # ########## Collective 
-n = 10
-all_FR_list = {name: FR_ext_range[name] for name in list(nuclei_dict.keys()) } 
 
 receiving_class_dict = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
+                                          all_FR_list = all_FR_list , n_FR =20, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[name][state], 
                                           left_pad =pad[name][state][0], right_pad=pad[name][state][1], set_FR_range_from_theory=set_FR_range_from_theory,
-                                          method = 'collective')
+                                          method = 'single_neuron')
 print("rest ext inp mean = ", np.average(nuc[0].rest_ext_input))
 print("FR_ext mean = ", np.average(nuc[0].FR_ext))
 
+# save_all_mem_potential(nuclei_dict, path)
+plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 # print(np.sum(np.isnan(nuc[0].FR_ext)))
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 # nucleus.smooth_pop_activity(dt, window_ms = 5)
@@ -2070,8 +2054,8 @@ init_method = 'heterogeneous'
 syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
+# mem_pot_init_method = 'draw_from_data'
+mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
@@ -2146,12 +2130,12 @@ ax.set_xlim(0,70)
 # fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-for nuclei_list in nuclei_dict.values():
-    for nucleus in nuclei_list:
-        entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-                                                          n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-        print(nucleus.name, len(entrained_ind))
-        nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
+#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+#         print(nucleus.name, len(entrained_ind))
+#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
 
 #%% Autocorrelation of individual neurons Demo
 plt.close('all')
