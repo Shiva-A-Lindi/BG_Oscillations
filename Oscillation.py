@@ -183,23 +183,40 @@ if 1:
     #                    'STN': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':25}, # Bogacz et al. 2016
     #                    'membrane_time_constant':{'mean':5,'var':1.5},'spike_thresh': {'mean':25,'var':2}},}
     ### membrane time constants adjusted
-    neuronal_consts = {
-                        'Proto': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -65, 'u_initial':{'min':-65, 'max':-37}, # Bogacz et al. 2016
-                        # 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
-                        'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :#Projecting to STN from Karube et al 2019
-                        # 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
-                        'Arky': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -58, 'u_initial':{'min':-58, 'max':-43},# Stanford & cooper 2000
-                       'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
-                       'D2': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -85, 'u_initial':{'min':-85, 'max':-55}, # Willet et al. 2019
-                       'membrane_time_constant':{'mean':13,'var':1.5},'spike_thresh': {'mean':-55,'var':2}}, # tau_m : Planert et al. 2013
-                       'FSI': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -75, 'u_initial':{'min':-75, 'max':-45}, # Taverna et al. 2013
-                       'membrane_time_constant':{'mean':9.2,'var':0.2},'spike_thresh': {'mean':-45,'var':0.5}}, # tau_m: Russo et al 2013
-                       'STN': {'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': -59, 'u_initial':{'min':-59, 'max':-50.8}, # Paz et al. 2005, Kita et al. 1983b
-                       'membrane_time_constant':{'mean':5.13,'var':1.5},'spike_thresh': {'mean':-50.8,'var':0.5}}} #tau_m: Paz et al 2005 
     
-    tau = {('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
-           ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
-           ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
+    # mean_APth_Proto = ( (-56.6 * 14) + (-49.9*5) ) /(14 + 5)
+    # SD_APth_Proto = np.sqrt( 
+    #                         ( (14-1) * 1.8**2 + 14 * (-56.6 - mean_APth_Proto)**2 + 
+    #                          (5-1) * 2.8**2 + 5 * (-49.9 - mean_APth_Proto) **2 )  / 
+    #                         (5 + 14 -1 ) 
+    #                         ) # Abdli et al 2015 Table. 1 : average of PV+ and PV- proto
+    neuronal_consts = { 
+				'Proto': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -66.3, 'var': 0.8}, 'u_initial':{'min':-66.3, 'max':-37.57}, #Stanford & cooper 2000 [type A]
+					# 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
+					# 'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :#Projecting to STN from Karube et al 2019
+					# 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
+					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-37.57,'var':4.79}}, # tau_m : Jerome's measurements AP_thresh: Karube et al. 2019
+				'Arky': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -58.1, 'var': 1.1}, 'u_initial':{'min':-58.1, 'max':-42.9},# Stanford & cooper 2000 [type B]
+					# 'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
+					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-42.9,'var':0.8}}, # tau_m: Jerome . AP_threh : Stanford & Cooper 2000 [type B]
+				'D2': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -85, 'var': 1}, 'u_initial':{'min':-85, 'max': -41.94},# Willet et al. 2019
+					# 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
+					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
+					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
+				'FSI': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -75, 'var': 1}, 'u_initial':{'min':-75, 'max':-46}, # Taverna et al. 2013/ Russo
+					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
+				'STN': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -59, 'var': 0.4}, 'u_initial':{'min':-59, 'max':-50.8}, # Paz et al. 2005, Kita et al. 1983b
+					'membrane_time_constant':{'mean':5.13,'var':0.97, 'truncmin': 2, 'truncmax': 100},'spike_thresh': {'mean':-50.8,'var':0.5}}} # Paz et al 2005 
+	
+    tau = {
+           ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
+		   ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
+           # ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
            ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
            ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate
            ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
@@ -223,6 +240,7 @@ if 1:
                    'D2': [0.0595*100 / 3 , 0.0605*100 / 3] , 
                    'FSI': [0.05948*100, 0.0605*100], 
                    'Arky': []}
+    
     
     
     FR_ext_range = {'Proto': [4/300, 9/300], 

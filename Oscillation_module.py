@@ -158,7 +158,7 @@ class Nucleus:
             self.I_syn['ext_pop', '1'] = np.zeros(self.n,)
             self.I_rise['ext_pop', '1'] = np.zeros(self.n,)
             self.neuronal_consts = neuronal_consts[self.name]
-            self.u_rest = self.neuronal_consts['u_rest']
+            # self.u_rest = self.neuronal_consts['u_rest']
             self.mem_pot_before_spike = np.zeros(self.n)
             self.syn_inputs = {k: np.zeros((self.n, 1))
                                            for k in self.receiving_from_list}
@@ -243,15 +243,20 @@ class Nucleus:
                             'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
                                                                 poisson_prop[self.name]['tau']['decay']['var'], self.n,
                                                                 lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
-
+        self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
+                                                   self.neuronal_consts['u_rest']['var'], self.n,
+                                                   lower_bound_perc=lower_bound_perc, 
+                                                   upper_bound_perc=upper_bound_perc)
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         ''' cell properties and boundary conditions are constant for all cells'''
 
         # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
         self.spike_thresh = np.full(
             self.n, self.neuronal_consts['spike_thresh']['mean'])
+        self.u_rest = np.full(
+            self.n, self.neuronal_consts['u_rest']['mean'])
         self.mem_potential = np.random.uniform(
-            low=self.u_rest, high=self.spike_thresh, size=self.n)  # membrane potential
+            low=self.neuronal_consts['u_rest']['mean'], high=self.spike_thresh, size=self.n)  # membrane potential
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
 
