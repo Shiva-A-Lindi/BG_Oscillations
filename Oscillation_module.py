@@ -9,7 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as pe
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
@@ -48,9 +48,9 @@ fmt = mticker.FuncFormatter(g)
 
 def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=None, maxfev=None, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
     ''' All firing rates in Hz'''
-
     slope, intercept = linear_regresstion(FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear(desired_FR, slope, intercept)
+    print(FR_ext_extrapolated * slope + intercept)
     if if_plot:
 
         plot_fitted_line(FR_ext, FR_sim, slope, intercept,  FR_to_I_coef=tau *
@@ -599,7 +599,6 @@ class Nucleus:
             k: v for k, v in synaptic_time_constant.items() if k[1] == self.name}
 
     def incoming_rest_I_syn(self, proj_list, A):
-
         I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * self.K_connections[self.name, proj]
                        * len(self.tau[self.name, proj]['rise']) for proj in proj_list])*self.membrane_time_constant
 
@@ -696,6 +695,7 @@ class Nucleus:
                 str(self.n) + '_T_' + str(self.t_sim) + '_noise_var_' + str(self.noise_variance).replace('.', '-') + '.pkl'))
 
     def _set_ext_inp_poisson(self, I_syn):
+        
         exp = np.exp(-1/(self.membrane_time_constant * self.basal_firing/1000))
         self.rest_ext_input = ((self.spike_thresh - self.u_rest) / (1-exp) - I_syn)
         self.FR_ext = self.rest_ext_input / self.syn_weight_ext_pop / \
@@ -711,6 +711,7 @@ class Nucleus:
                 
     def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
                                                  if_plot=False, end_of_nonlinearity=25, maxfev=5000, c='grey'):
+        
         if self.basal_firing < end_of_nonlinearity:
             FR_list = spacing_with_high_resolution_in_the_middle(n_FR , * FR_range)
         else:
@@ -818,7 +819,7 @@ class Nucleus:
         ax.set_xlabel('Membrane potential (mV)', fontsize=15)
         ax.set_ylabel(r'$Probability\ density$', fontsize=15)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-        ax.legen(fontsize=15)
+        ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
 
     def plot_mem_potential_distribution_of_all_t(self, ax=None, bins=50, color='grey'):
         a = self.all_mem_pot.copy()
@@ -977,7 +978,13 @@ class Nucleus:
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
+       
         
+def change_basal_firing_all_nuclei(A_new, nuclei_dict):
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.change_basal_firing(A_new[nucleus.name])
+
 def plot_histogram(y, bins = 50, title = "", color = 'k'):
     fig, ax = plt.subplots()
     ax.hist(y, bins, color = color)
@@ -1208,10 +1215,11 @@ def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes
     return phase, n_spikes
 
 def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
-                        all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=25, left_pad=0.005,
+                        all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
-                        use_saved_FR_ext = False, return_saved_FR_ext = False, normalize_G_by_N = False):
-    '''find number of connections and build J matrix, set ext inputs as well'''
+                        use_saved_FR_ext = False, return_saved_FR_ext = False, normalize_G_by_N = False, state = 'rest'):
+    '''find number of connections and build J matrix, set ext inputs as well
+        Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
     # K = calculate_number_of_connections(N,N_real,K_real)
     K = calculate_number_of_connections(N, N_real, K_real)
     receiving_class_dict = create_receiving_class_dict(
@@ -1229,10 +1237,11 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
             elif nucleus. der_ext_I_from_curve:
                 
                 if method == 'collective' and not use_saved_FR_ext:
-                    print("external input is being set collectively for {}...".format(nucleus.name))
+                    print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
                     FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
-                                                                    if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity,
+                                                                    if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
                                                                     maxfev = maxfev, c=c, n_FR=n_FR)
+                    print(FR_ext, state)
                     FR_ext_all_nuclei[nucleus.name] = FR_ext
                 elif method == 'single_neuron':
                     if nucleus.basal_firing > end_of_nonlinearity:
@@ -1248,7 +1257,7 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
             if normalize_G_by_N:
                 nucleus.normalize_synaptic_weight_by_N()
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
-                                  dt, end_of_nonlinearity=end_of_nonlinearity)
+                                  dt, end_of_nonlinearity=end_of_nonlinearity[nucleus.name][state])
     if return_saved_FR_ext:
         return receiving_class_dict, FR_ext_all_nuclei
     else:
@@ -1428,10 +1437,10 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name):
             data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
             data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
             centers = get_centers_from_edges(edges)
-            data[(nucleus.name, 'rel_phase')][i,j] = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name)
+            data[(nucleus.name, 'rel_phase')][i,j],_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name)
           
-def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto'):
-    fig = plt.figure()
+def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, n = 1000):
+    fig = plt.figure(figsize = (5, 10))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
     
     data = load_pickle(filename)
@@ -1447,27 +1456,82 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             
             edges = data[(name,'rel_phase_hist')][0,0,1,:]
             centers = get_centers_from_edges(edges)
-            phase_hist_mean, phase_hist_std = get_mean_and_std_of_phase(data, n_g, name)
+            phase_hist_mean, phase_hist_std = get_mean_and_std_of_phase(data, n_g, name, n)
             plot_mean_phase_plus_std(phase_hist_mean, phase_hist_std, name, n_g, ax, color_dict, centers)
 
             phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name)
             
             boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name)
-  
+            ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
+            ax.annotate(name, xy=(0.86,0.2),xycoords='axes fraction', color = color_dict[name],
+             fontsize=14)
             fig.add_subplot(ax)
             ax.set_xticks([0,180,360,540,720])
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            ax.yaxis.set_major_locator(MaxNLocator(2)) 
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+            ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
+                        np.max(phase_hist_mean + phase_hist_std))
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             
     fig.text(0.5, 0.03, 'phase (deg)', ha='center',
                  va='center', fontsize=15)
-    fig.text(0.02, 0.5, 'spike count', ha='center', va='center',
+    fig.text(0.01, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
                  rotation='vertical', fontsize=15)
+    return fig
 
-def get_mean_and_std_of_phase(data, n_g, name):
+def save_pdf_png(path, fig, figname):
+    fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+def PSD_summary(filename, name_list, color_dict, n_g_list):
+    fig = plt.figure()    
+    data = load_pickle(filename)
     
-    phase_frq_rel_mean = np.average(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
-    phase_frq_rel_std = np.std(data[(name,'rel_phase_hist')][n_g,:,0,:], axis = 0)
+    n_run = data[(name_list[0], 'rel_phase')].shape[1] 
+
+    for i, n_g in enumerate(n_g_list):
+
+        ax = fig.add_subplot(i+1, 1, i + 1)
+        for j, name in enumerate(name_list):
+            f_mean = np.average( data[(name,'f')][0,:,:], axis = 0)
+            pxx_mean = np.average( data[(name,'pxx')][0,:,:], axis = 0)
+
+            pxx_std = np.std( data[(name,'pxx')][0,:,:], axis = 0)
+            
+            ax.plot(f_mean, pxx_mean, color = color_dict[name], label = name)
+            ax.fill_between(f_mean, pxx_mean - pxx_std ,
+                            pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
+            if name == 'D2':
+                plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2')
+
+        rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
+        ax.set_xlim(0,70)
+        ax.legend(fontsize = 15, loc = 'upper left',  framealpha = 0.1, frameon = False)
+
+    fig.text(0.5, 0.03, 'Frequency (Hz)', ha='center',
+                 va='center', fontsize=15)
+    fig.text(0.02, 0.5, 'PSD', ha='center', va='center',
+                 rotation='vertical', fontsize=15)
+    return fig
+def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2'):
+        axins = ax.inset_axes(
+                    [0.65, 0.6, 0.3, 0.3])
+        axins.plot(f_mean, pxx_mean, color = color_dict[name], label = name)
+        axins.fill_between(f_mean, pxx_mean - pxx_std ,
+                            pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
+        axins.set_xlim(0, 70)
+        axins.xaxis.set_major_locator(MaxNLocator(3)) 
+        axins.set_yticklabels(labels = axins.get_yticks().tolist(), fontsize = 12)
+        axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
+
+
+
+def get_mean_and_std_of_phase(data, n_g, name, n):
+    
+    phase_frq_rel_mean = np.average(data[(name,'rel_phase_hist')][n_g,:,0,:] / n, axis = 0)
+    phase_frq_rel_std = np.std(data[(name,'rel_phase_hist')][n_g,:,0,:] / n, axis = 0)
     return phase_frq_rel_mean, phase_frq_rel_std
 
 def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name, n_g, ax, color_dict, centers):
@@ -1489,9 +1553,13 @@ def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases
     
     highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
     lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
-    bp = ax.boxplot(phases, positions = [( highest_point + lowest_point ) / 2], vert=False,
-                sym = '', widths = 0.5 * ( highest_point - lowest_point) )
-    
+    middle = ( highest_point + lowest_point ) / 2
+    width = ( highest_point - lowest_point)
+    bp = ax.boxplot(phases, positions = [middle], vert=False,
+                sym = '', widths = 0.3 * width )
+    ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
+                xy=(np.average(phases) - 100, middle - 0.38 * width), color = color_dict[name])
+
     # for patch, color in zip(bp['boxes'], colors): 
     #     patch.set_facecolor(color) 
        
@@ -1520,7 +1588,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False):
+    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None):
 
     if set_seed:
         np.random.seed(1956)
@@ -1548,8 +1616,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
         else:
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.empty((n_iter, n_run, 0))
-        data[(nucleus.name, 'pxx')] = np.empty((n_iter, n_run, 0))
+        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, nn))
+        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, nn))
 
     data['g'] = G_dict
     count = 0
@@ -1592,7 +1660,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             if reset_init_dist:
                 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                          end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state], 
+                                                          end_of_nonlinearity = end_of_nonlinearity, 
                                                           set_FR_range_from_theory = False, method = 'collective', 
                                                           use_saved_FR_ext= use_saved_FR_ext,
                                                           FR_ext_all_nuclei_saved = FR_ext_all_nuclei_saved, 
@@ -1695,7 +1763,7 @@ def fit_sine(t, y):
     guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
 
     
-    popt, pcov = curve_fit(sinfunc, t, y, p0=guess, maxfev=5000)
+    popt, pcov = curve_fit(sinfunc, t, y, p0=guess, maxfev=20000)
     A, w, p, c = popt
     f = w/(2.*np.pi)
     fitfunc = lambda t: A * np.sin(w*(t - p)) + c
@@ -1710,7 +1778,7 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
                 fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, half_peak_range = 5, 
-                n_std = 2, cut_off_freq = 100, check_peak_significance = False):
+                n_std = 2, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -1740,6 +1808,8 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend,
                                                                     divide_beta_band_in_power= divide_beta_band_in_power)
+                                                               
+            data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f[:len_f_pxx], pxx[:len_f_pxx]                                                   
             if check_peak_significance:
                     data[(nucleus.name, 'peak_significance')][i, j,:] = check_significance_of_PSD_peak(f, pxx, half_peak_range = half_peak_range, n_std = n_std, cut_off_freq = cut_off_freq)
                                       
@@ -2776,7 +2846,60 @@ def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict
 	print("t = ", stop - start)
 	return nuclei_dict
 
+def run_transition_to_DA_depletion_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
+                                                     FR_ext_all_nuclei_DD, K_DD, N, N_real, A_DD,
+                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
+	if t_transition == None:
+		t_transition = t_list[int(len(t_list) / 3)]
+	start = timeit.default_timer()
 
+	for t in t_list:
+
+		for nuclei_list in nuclei_dict.values():
+			for k, nucleus in enumerate(nuclei_list):
+
+				nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k+1))])
+
+		if t == t_transition:
+			print('transitioning..')
+			change_basal_firing_all_nuclei(A_DD, nuclei_dict)
+			nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
+			receiving_class_dict  = set_connec_ext_inp(A_DD, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_DD, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_DD, normalize_G_by_N=False, state = 'DD')
+
+	stop = timeit.default_timer()
+	print("t = ", stop - start)
+	return nuclei_dict
+
+def run_transition_to_mvt_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
+                                                     FR_ext_all_nuclei_mvt, K, N, N_real, A,
+                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
+	if t_transition == None:
+		t_transition = t_list[int(len(t_list) / 3)]
+	start = timeit.default_timer()
+
+	for t in t_list:
+
+		for nuclei_list in nuclei_dict.values():
+			for k, nucleus in enumerate(nuclei_list):
+
+				nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k+1))])
+
+		if t == t_transition:
+			print('transitioning..')
+			change_basal_firing_all_nuclei(A_mvt, nuclei_dict)
+			receiving_class_dict  = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_mvt, normalize_G_by_N=False, state = 'mvt')
+
+	stop = timeit.default_timer()
+	print("t = ", stop - start)
+	return nuclei_dict
 def reset_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt, t_mvt, t_list, dt):
 	K = calculate_number_of_connections(N, N_real, K_DD)
 	for nuclei_list in nuclei_dict.values():
