@@ -1404,7 +1404,7 @@ def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name):
     phase_max = find_phase_from_max(x, y)
     
     phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
-    phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
+    # phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
     return phase, fitfunc
 
 def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
@@ -1440,7 +1440,7 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name):
             data[(nucleus.name, 'rel_phase')][i,j],_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name)
           
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, n = 1000):
-    fig = plt.figure(figsize = (5, 10))
+    fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
     
     data = load_pickle(filename)
@@ -1463,8 +1463,8 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             
             boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name)
             ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
-            ax.annotate(name, xy=(0.86,0.2),xycoords='axes fraction', color = color_dict[name],
-             fontsize=14)
+            ax.annotate(name, xy=(0.85,0.2),xycoords='axes fraction', color = color_dict[name],
+             fontsize=18)
             fig.add_subplot(ax)
             ax.set_xticks([0,180,360,540,720])
             ax.yaxis.set_major_locator(MaxNLocator(2)) 
@@ -1472,17 +1472,17 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
                         np.max(phase_hist_mean + phase_hist_std))
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
-            
-    fig.text(0.5, 0.03, 'phase (deg)', ha='center',
+            remove_frame(ax)
+    fig.text(0.5, 0.08, 'phase (deg)', ha='center',
                  va='center', fontsize=15)
-    fig.text(0.01, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
-                 rotation='vertical', fontsize=15)
+    fig.text(0.005, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
+                 rotation='vertical', fontsize=18)
     return fig
 
 def save_pdf_png(path, fig, figname):
     fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-    fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
+    fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 def PSD_summary(filename, name_list, color_dict, n_g_list):
@@ -1492,7 +1492,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list):
     n_run = data[(name_list[0], 'rel_phase')].shape[1] 
 
     for i, n_g in enumerate(n_g_list):
-
+        max_pxx = 0
         ax = fig.add_subplot(i+1, 1, i + 1)
         for j, name in enumerate(name_list):
             f_mean = np.average( data[(name,'f')][0,:,:], axis = 0)
@@ -1503,11 +1503,13 @@ def PSD_summary(filename, name_list, color_dict, n_g_list):
             ax.plot(f_mean, pxx_mean, color = color_dict[name], label = name)
             ax.fill_between(f_mean, pxx_mean - pxx_std ,
                             pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
+            ax.axvline(f_mean[np.argmax(pxx_mean)], linestyle = '--', color = color_dict[name])
             if name == 'D2':
                 plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2')
-
+            max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
+        ax.set_ylim(-0.1, max_pxx)
         rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
-        ax.set_xlim(0,70)
+        ax.set_xlim(8,60)
         ax.legend(fontsize = 15, loc = 'upper left',  framealpha = 0.1, frameon = False)
 
     fig.text(0.5, 0.03, 'Frequency (Hz)', ha='center',
@@ -1557,8 +1559,12 @@ def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases
     width = ( highest_point - lowest_point)
     bp = ax.boxplot(phases, positions = [middle], vert=False,
                 sym = '', widths = 0.3 * width )
-    ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                xy=(np.average(phases) - 100, middle - 0.38 * width), color = color_dict[name])
+    if np.average(phases) < 100:
+        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
+                xy=(np.average(phases), middle - 0.38 * width), color = color_dict[name], fontsize = 18)
+    else:
+        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
+                    xy=(np.average(phases) - 100, middle - 0.38 * width), color = color_dict[name], fontsize = 18)
 
     # for patch, color in zip(bp['boxes'], colors): 
     #     patch.set_facecolor(color) 
@@ -1588,7 +1594,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None):
+    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True):
 
     if set_seed:
         np.random.seed(1956)
@@ -1649,7 +1655,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i, display=display, decimal=decimal) + r'$\tau_{P}=\;$' + str(nuclei_dict['Proto'][0].neuronal_consts['membrane_time_constant']['mean'])
+        title = _get_title(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
 
@@ -1677,7 +1683,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
-                                half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance)
+                                half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance, save_pxx = save_pxx)
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
@@ -1689,13 +1695,13 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
                                           density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', tick_label_fontsize=18,
-                                           labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=True)
+                                           labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=True, nuc_order = nuc_order)
         if plot_spectrum:
             if fft_method == 'rfft':
                 x_l = 10**9
 
             else:
-                x_l = 8
+                x_l = 5
                 ax_spec.axhline(x_l, ls='--', c='grey')
 
             # ax_spec.set_title(title, fontsize = 18)
@@ -1729,12 +1735,7 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         fig_spec.text(0.02, 0.5, 'fft Power', va='center',
                       rotation='vertical', fontsize=18)
         figs.append(fig_spec)
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
+
     if plot_raster:
         fig.set_size_inches((11, 15), forward=False)
         fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
@@ -1743,6 +1744,12 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                         va='center', rotation='vertical', fontsize=18)
         figs.append(fig_raster)
         fig_raster.show()
+    if plot_phase:
+        fig_phase.set_size_inches((11, 15), forward=False)
+        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
+        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
+        #               rotation='vertical', fontsize=18)
+        figs.append(fig_phase)
     if save_pkl:
         pickle_obj(data, filepath)
     return figs, title, data
@@ -1778,7 +1785,7 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
 def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
                 fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, half_peak_range = 5, 
-                n_std = 2, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200):
+                n_std = 2, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, save_pxx = True):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -1808,11 +1815,11 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend,
                                                                     divide_beta_band_in_power= divide_beta_band_in_power)
-                                                               
-            data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f[:len_f_pxx], pxx[:len_f_pxx]                                                   
+            if save_pxx:                                               
+                data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f[:len_f_pxx], pxx[:len_f_pxx]                                                   
             if check_peak_significance:
-                    data[(nucleus.name, 'peak_significance')][i, j,:] = check_significance_of_PSD_peak(f, pxx, half_peak_range = half_peak_range, n_std = n_std, cut_off_freq = cut_off_freq)
-                                      
+                    data[(nucleus.name, 'peak_significance')][i, j,:] = check_significance_of_PSD_peak(f, pxx, n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3)
+                    print(data[(nucleus.name, 'peak_significance')][i, j,:])                 
             # try:
             #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
             # except ValueError:
@@ -1858,47 +1865,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
             
     return freq, f, pxx
 
-# def check_significance_of_PSD_peak(f, pxx, half_peak_range = 5, n_std = 2, cut_off_freq = 100):
-#     ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
-#     freq = f[f < cut_off_freq]
-#     peak_freq = f[np.argmax(pxx)]
-#     f_range_peak = [peak_freq - half_peak_range , peak_freq + half_peak_range]
-    
-#     try:
-#         min_f_ind = np.max( np.where(f <= f_range_peak[0])[0] ) 
-#     except ValueError:
-#         min_f_ind = 0
-#     try:
-#         max_f_ind = np.min ( np.where(f >= f_range_peak[1])[0] ) 
-#     except ValueError:
-#         min_f_ind = len(f) - 1
-#     PSD_ex_peak_range = np.concatenate((pxx[:min_f_ind], pxx[ max_f_ind:]))
-#     significance_thresh = (n_std * np.std(PSD_ex_peak_range) + 
-#                             np.average(PSD_ex_peak_range) ) 
-#     if pxx[np.argmax(pxx)] > significance_thresh:
-#         return True
-#     else:
-#         return False
-    
 
-def check_significance_of_PSD_peak(f, pxx, half_peak_range = 5, n_std = 2, cut_off_freq = 100):
-    ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
-    freq = f[f < cut_off_freq]
-    peak_freq = f[np.argmax(pxx)]
-    f_range_peak = [peak_freq - half_peak_range , peak_freq + half_peak_range]
-    
-    try:
-        min_f_ind = np.max( np.where(f <= f_range_peak[0])[0] ) 
-    except ValueError:
-        min_f_ind = 0
-    try:
-        max_f_ind = np.min ( np.where(f >= f_range_peak[1])[0] ) 
-    except ValueError:
-        min_f_ind = len(f) - 1
-    PSD_ex_peak_range = np.concatenate((pxx[:min_f_ind], pxx[ max_f_ind:]))
-    significance_thresh = (n_std * np.std(PSD_ex_peak_range) + 
-                           np.average(PSD_ex_peak_range) ) 
-    return pxx[np.argmax(pxx)], significance_thresh
     
 def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
     ax.set_xlabel("")
@@ -2335,10 +2302,12 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
                           outer=None, fig=None,  title='', tick_label_fontsize=18, ylim = None, plot_mode = 'line',
                            labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False):
     fig_generated = False
+    outer_generated = False
     if fig == None:
         fig_generated = True
         fig = plt.figure(figsize=(10, 8))
     if outer == None:
+        outer_generated = True
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
 
     inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
@@ -2354,10 +2323,10 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
 
     for nuc_name in nuc_order:
         nucleus = nuclei_dict[nuc_name][0]
-        if not fig_generated:
-            ax = fig.axes[j]
-        else:
-            ax = plt.Subplot(fig, inner[j])
+        # if not fig_generated and not outer_generated:
+        #     ax = fig.axes[j]
+        # else:
+        ax = plt.Subplot(fig, inner[j])
         frq, edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
 
         if projection == None:
@@ -2372,8 +2341,8 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
             
             circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
 
-        if fig_generated:
-            fig.add_subplot(ax)
+        # if fig_generated:
+        fig.add_subplot(ax)
         rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
         j += 1
         ax.set_xticks([0,180,360,540,720])
@@ -2696,9 +2665,14 @@ def autocorr_1d(x, method = 'numpy', mode = 'same'):
         result = signal.correlate(x, x, mode= mode, method = 'fft')
     return result[ result.size//2 : ]
 
-def cut_PSD(f, pxx, max_f = 250):
+def cut_PSD_2d(f, pxx, max_f = 250):
     f_to_keep_ind = f < max_f
     pxx = pxx[:, f_to_keep_ind] 
+    return f[f_to_keep_ind] , pxx
+
+def cut_PSD_1d(f, pxx, max_f = 250):
+    f_to_keep_ind = f < max_f
+    pxx = pxx[f_to_keep_ind] 
     return f[f_to_keep_ind] , pxx
 
 def autocorr_2d(x):
@@ -2721,6 +2695,12 @@ def freq_from_welch_2d(sig, dt, n_windows=6):
  	peak_freq = f[np.argmax(pxx, axis = 1)]
  	return f, pxx, peak_freq
  
+def get_fft_autc_spikes(nucleus, dt, window_mov_avg, n_window_welch):
+    spks = moving_average_array_2d(nucleus.spikes.copy(), int(window_mov_avg / dt))
+    autc = autocorr_2d(spks)
+    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
+    return f, pxx, peak_f
+
 def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, min_f_sig_thres = 0,
                                       n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2,
                                       min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False):
@@ -2728,12 +2708,10 @@ def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 
         Rerturn indice of the neurons that have <n_pts_above_thresh> points above significance threshold level
         in their PSD of autocorrelogram
     """
-    spks = moving_average_array_2d(nucleus.spikes.copy(), int(window_mov_avg / dt))
-    autc = autocorr_2d(spks)
-    f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
-    f, pxx = cut_PSD(f, pxx, max_f = max_f)
+    f, pxx, peak_f = get_fft_autc_spikes(nucleus, dt, window_mov_avg, n_window_welch)
+    f, pxx = cut_PSD_2d(f, pxx, max_f = max_f)
     signif_thresh =  cal_sig_thresh(f, pxx, min_f = min_f_sig_thres, max_f = max_f, n_sd_thresh = n_sd_thresh)
-    entrained_neuron_ind  = check_significance_PSD( signif_thresh, f, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh,
+    entrained_neuron_ind  = check_significance_neuron_autc_PSD( signif_thresh, f, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh,
                                                    fmin= min_f_AUC_thres, fmax = max_f, PSD_AUC_thresh = PSD_AUC_thresh, 
                                                    filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
     print(nucleus.name, len(entrained_neuron_ind), ' out of ', nucleus.n , ' entrained to oscillatin')
@@ -2751,7 +2729,7 @@ def filter_based_on_PSD_AUC(f, pxx, fmin= 0, fmax = 200, PSD_AUC_thresh = 10 ** 
 
     return np.where(PSD_integral > PSD_AUC_thresh)[0]
     
-def check_significance_PSD(signif_thresh, f, pxx, n, n_pts_above_thresh = 2, 
+def check_significance_neuron_autc_PSD(signif_thresh, f, pxx, n, n_pts_above_thresh = 2, 
                            fmin= 8, fmax = 200, PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False):
     
     if filter_based_on_AUC_of_PSD:
@@ -2775,11 +2753,48 @@ def check_significance_PSD(signif_thresh, f, pxx, n, n_pts_above_thresh = 2,
     return np.where(bool_neurons)[0]
 
 
+
+def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3):
+    ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
+    f, pxx = cut_PSD_1d(f, pxx, max_f = max_f)
+    signif_thresh = cal_sig_thresh(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
+    above_thresh_ind = np.where(pxx >= signif_thresh.reshape(-1,1))[0]
+    n_above_thresh = np.bincount(above_thresh_ind)
+    longest_seq_abv_thresh =longest_consecutive_chain_of_numbers( above_thresh_ind)
+    if len(longest_seq_abv_thresh) >= n_pts_above_thresh:
+        return True
+    else:
+        return False
+    
 def get_complement_ind(indices, n):
     ''' return the complement of the indices from an array of 0 to n'''
     mask = np.zeros((n), dtype=bool)
     mask[indices] = True
-    return np.where(~mask)[0]
+    return np.where(~mask)[0]    
+
+# def check_significance_of_PSD_peak(f, pxx, half_peak_range = 5, n_std = 2, cut_off_freq = 100):
+#     ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
+#     freq = f[f < cut_off_freq]
+#     peak_freq = f[np.argmax(pxx)]
+#     f_range_peak = [peak_freq - half_peak_range , peak_freq + half_peak_range]
+    
+#     try:
+#         min_f_ind = np.max( np.where(f <= f_range_peak[0])[0] ) 
+#     except ValueError:
+#         min_f_ind = 0
+#     try:
+#         max_f_ind = np.min ( np.where(f >= f_range_peak[1])[0] ) 
+#     except ValueError:
+#         min_f_ind = len(f) - 1
+#     PSD_ex_peak_range = np.concatenate((pxx[:min_f_ind], pxx[ max_f_ind:]))
+#     significance_thresh = (n_std * np.std(PSD_ex_peak_range) + 
+#                            np.average(PSD_ex_peak_range) ) 
+#     return pxx[np.argmax(pxx)], significance_thresh
+# def get_complement_ind(indices, n):
+#     ''' return the complement of the indices from an array of 0 to n'''
+#     mask = np.zeros((n), dtype=bool)
+#     mask[indices] = True
+#     return np.where(~mask)[0]
 
 
 def longest_consecutive_chain_of_numbers(array ):
@@ -3996,138 +4011,153 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
         plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
     return fig
 
-def multiply_Gs(gs, nuc_loop_list):
+
+def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
+                                                             freq_list,colormap, x_axis = 'multiply', title = "", x_label = "G", key = (), 
+                                                             param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
+                                                             include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, 
+                                                             loops = 'single', plot_phase = True, new_tick_locations = np.array([0.2, 0.5, 0.8]),
+                                                             second_axis_label = r"$G_{FSI-D2-P}$", inset_props = [0.02, 0.3, 0.35, 0.35],
+                                                             ylim = None):
+    maxs = [] ; mins = []
+    fig, ax = plt.subplots(figsize=[8, 6])
+    axins = ax.inset_axes(inset_props)
+    
+    vmax = 50; vmin = 0
+    
+    for i in range( len(filename_list) ):
+        
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        
+        keys = list(data['g'].keys())
+        g, txt = get_plot_Gs(x_axis, include_Gs, data, nuc_loop_lists, keys, key)
+        
+        freq = np.squeeze( np.average ( data[(name_list[i],freq_list[i])] , axis = 1))
+        freq_std = np.squeeze( np.std ( data[(name_list[i],freq_list[i])] , axis = 1))
+        title = 'Beta band (12-30 Hz)'
+        if param == "all":
+            y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
+            std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)      
+            ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, capthick = 5, elinewidth = 1.5)
+        else:
+
+            y, std, title_h_l = get_data_low_high_beta(data, name_list, i, y_list)
+    
+            if param == 'high_low':
+                plot_beta_power(ax, g, y, std, 'high' , color_list[i], label_list[i], alpha = 1)
+                plot_beta_power(ax, g, y, std, 'low' , color_list[i], '' , alpha = 0.4)
+                
+            else:
+                plot_beta_power(ax, g, y, std, param , color_list[i], label_list[i], alpha = 1)
+                title = title_h_l[param]
+        axins.errorbar(abs(g), freq, yerr = freq_std,  c = color_list[i], lw = 1, label= label_list[i],zorder=1, capthick = 1, elinewidth = .7)
+
+    set_ax_axins_prop(ax, axins, title, x_label, inset_ylim, double_xaxis, data, key_sec_ax, new_tick_locations, 
+                      second_axis_label, legend_loc, y_line_fix, ylim = ylim)
+
+    
+    if include_Gs:
+        for i in range( len(txt)):
+            plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
+    return fig
+
+def G_product_of_certain_loop(gs, nuc_loop_list):
     g = np.ones( len( list (gs.values()) [0] ))
-    print("Keys in this loop are:")
     for key in list (gs.keys()):
         if set(key).issubset(nuc_loop_list): 
-            print(key)
             g = g *gs[key]
     return g
 
 def derive_G_multi_loop(gs, nuc_loop_lists):
     g = np.zeros( len( list (gs.values()) [0] ))
     for nuc_loop_list in nuc_loop_lists:
-        g = g + multiply_Gs(gs, nuc_loop_list)
-
+        g = g + G_product_of_certain_loop(gs, nuc_loop_list)
     return g
-def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
-                                                    freq_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), 
-                                                    param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
-                                                    include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, 
-                                                    loops = 'single', plot_phase = True):
-    maxs = [] ; mins = []
-    fig, ax = plt.subplots(figsize=[8, 6])
-    # left, bottom, width, height = [0.25, 0.3, 0.2, 0.2]
-    # ax2 = fig.add_axes([left, bottom, width, height])
-    axins = ax.inset_axes(
-        [0.02, 0.3, 0.35, 0.35])
-    vmax = 50; vmin = 0
-    for i in range(len(filename_list)):
-        pkl_file = open(filename_list[i], 'rb')
-        data = pickle.load(pkl_file)
-        keys = list(data['g'].keys())
-        if x_axis == 'multiply':
-            if loops == 'single':
-                g = np.ones( len( list (data ['g'].values()) [0] ))
-                for v in data['g'].values():
-                    g *= v
-            else:
-                g = derive_G_multi_loop(data['g'], nuc_loop_lists)
 
-            x_label = r'$G_{Loop(s)}$'
-            txt = []
-            if include_Gs:
-                for k in keys:
-                    if k in key:
-                        txt.append( _str_G_with_key(k) +'=[' + r"${0}$".format(round(data['g'][k][0],1)) + ',' + r"${0}$".format(round(data['g'][k][-1],1)) + ']')
-                        continue
-                    txt.append( _str_G_with_key(k) +'=' + r"${0}$".format(round(data['g'][k][0],1)))
-                    title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+def multiply_Gs(lists_of_g_series):
+    lists_of_g_series = list(lists_of_g_series)
+    g_multiplication = np.ones( len( lists_of_g_series[0] ) )
+                
+    for v in lists_of_g_series:
+        g_multiplication *= v
+    return g_multiplication
 
-        else:
-            g = data['g'][key]
-            x_label = _str_G_with_key(key)
-            title = ''
-            txt = []
-            for k in keys:
-                if k == key:
-                    continue
-                txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
-                title += ' ' + _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3))
+def plot_beta_power(ax, g, y, std, param , color, label, alpha= 1):
+    ax.errorbar(abs(g), y[param], yerr = std[param], c = color, lw = 3, label= label, zorder=1, capthick = 1, capsize = 3, elinewidth = 1.5, alpha = alpha)
+
+def get_data_low_high_beta(data, name_list, i, y_list):
+    y, std , title = {}, {}, {}
+    y['high'] =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
+    std['high'] = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
+    y['low'] =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
+    std['low'] = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
+    title['high'] = 'High beta band (20-30 Hz)'
+    title['low'] = 'Low beta band (12-30 Hz)'
+    
+    return y, std, title
+def set_ax_axins_prop(ax, axins, title, x_label, inset_ylim, double_xaxis, data, key_sec_ax, new_tick_locations, 
+                      second_axis_label, legend_loc, y_line_fix, ylim = None):
+    if y_line_fix != None:
+        ax.axhline( y_line_fix, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
         
-        if param == "all":
-            y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
-            std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)
-            title = 'Beta band (12-30 Hz)'
-        elif param == 'low':
-            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
-            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,0]
-            title = 'Low beta band (12-30 Hz)'
-        elif param == 'high':
-            y =  np.average ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
-            std = np.std ( data[(name_list[i],y_list[i])] , axis = 1)[:,1]
-            title = 'High beta band (20-30 Hz)'
-        freq = np.squeeze( np.average ( data[(name_list[i],freq_list[i])] , axis = 1))
-        freq_std = np.squeeze( np.std ( data[(name_list[i],freq_list[i])] , axis = 1))
-
-        where_are_NaNs = np.isnan(y)
-        y[where_are_NaNs] = 0
-        # ax.plot(g, y, c = color_list[i], lw = 3, label= label_list[i],zorder=1)
-        ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, capthick = 5, elinewidth = 1.5)
-        axins.errorbar(abs(g), freq, yerr = freq_std,  c = color_list[i], lw = 1, label= label_list[i],zorder=1, capthick = 1, elinewidth = .7)
-        
-
-            
-    ax.axhline( y_line_fix, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
     ax.set_title(title, fontsize = 20)
     ax.set_xlabel(x_label,fontsize = 20)
     ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
     ax_label_adjust(ax, fontsize = 18, nbins = 6)
-    # ax_label_adjust(axins, fontsize=5, nbins=3, ybins=3)
-    # ax_label_adjust(axins, fontsize=10, nbins=3, ybins=3)
-
+    if ylim != None:
+        ax.set_ylim(ylim)
     axins.set_yticklabels(labels = axins.get_yticks().tolist(), fontsize = 12)
     axins.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
     axins.set_ylim(inset_ylim)
     axins.set_ylabel("Frequency (Hz)", fontsize = 10)
     axins.yaxis.set_label_position("right")
     axins.yaxis.tick_right()
-    from matplotlib.ticker import MaxNLocator
     axins.xaxis.set_major_locator(MaxNLocator(5)) 
     axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
     axins.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
     axins.set_xlabel("G", fontsize = 10)
-    axins.axhline(13,  linestyle = '--', c = 'grey', lw=2)
+    
     if double_xaxis:
         ax3 = ax.twiny()
-        
-        new_tick_locations = np.array([0.2, 0.5, 0.8]) #np.array(np.arange(abs(g[0]), abs(g[1]), 6))
-        
-        def tick_function(g_ax_keys, gs):
-            gg = np.ones(len(gs[g_ax_keys[0]]))
-            for k in g_ax_keys:
-                gg = gg * gs[k]
-            return abs(gg)
-        new_x = tick_function(key_sec_ax, data['g'])
-        print(new_x, abs(g))
-        # scale = (new_x[-1] - new_x[0])/ (abs(g[-1]), abs(g[0]))
+        new_x = multiply_Gs(
+            dictfilt(data['g'], key_sec_ax).values())
+
         scale = (new_x[-1] - new_x[0])
-        # print(scale, new_x)
-        # ax3.set_xlim(ax.get_xlim())
         ax3.set_xticks(new_tick_locations)
         ax3.set_xticklabels(["%.1f" % z for z in scale * new_tick_locations + scale*new_x[0]])
-        ax3.set_xlabel(r"$G_{FSI-D2-P}$", loc = 'right', fontsize = 15, labelpad = -20)
+        ax3.set_xlabel(second_axis_label, loc = 'right', fontsize = 15, labelpad = -20)
         # ax3.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        plt.show()
 
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = legend_loc)
     remove_frame(ax)
-    plt.show()
-    for i in range( len(txt)):
-        plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
-    return fig
+def get_plot_Gs(x_axis, include_Gs, data, nuc_loop_lists, keys, key):
+    if x_axis == 'multiply':
+        
+        g = derive_G_multi_loop(data['g'], nuc_loop_lists)
+        x_label = r'$G_{Loop(s)}$'
+        txt = []
+        if include_Gs:
+            
+            for k in keys:
+                if k in key:
+                    txt.append( _str_G_with_key(k) +'=[' + r"${0}$".format(round(data['g'][k][0],1)) +
+                               ',' + r"${0}$".format(round(data['g'][k][-1],1)) + ']')
+                    continue
+                
+                txt.append( _str_G_with_key(k) +'=' + r"${0}$".format(round(data['g'][k][0],1)))
+    
+    else:
+        g = data['g'][key]
+        x_label = _str_G_with_key(key)
+        title = ''
+        txt = []
+        for k in keys:
+            if k == key:
+                continue
+            txt.append( _str_G_with_key(k) +'=' + str(round(data['g'][k][0], 3)))
 
+    return g, txt
 
 def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap = 'hot',
                                                     x_axis = 'multiply',title = "",x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', vline_txt = True):
