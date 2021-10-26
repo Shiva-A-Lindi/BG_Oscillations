@@ -1233,30 +1233,32 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
             if nucleus.neuronal_model == 'rate' and scale_g_with_N:
                 
                 nucleus.scale_synaptic_weight()
-
-            elif nucleus. der_ext_I_from_curve:
+                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
+                                  dt)
+            else:
+                if nucleus. der_ext_I_from_curve:
                 
-                if method == 'collective' and not use_saved_FR_ext:
-                    print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
-                    FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
-                                                                    if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
-                                                                    maxfev = maxfev, c=c, n_FR=n_FR)
-                    print(FR_ext, state)
-                    FR_ext_all_nuclei[nucleus.name] = FR_ext
-                elif method == 'single_neuron':
-                    if nucleus.basal_firing > end_of_nonlinearity:
-                        nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
-                                                                        n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
-                        
-                    else:
-                        nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
-                                                               end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
-                                                               n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
-                elif use_saved_FR_ext:
-                    nucleus.FR_ext = FR_ext_all_nuclei_saved[nucleus.name]
-            if normalize_G_by_N:
-                nucleus.normalize_synaptic_weight_by_N()
-            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
+                    if method == 'collective' and not use_saved_FR_ext:
+                        print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
+                        FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
+                                                                        if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
+                                                                        maxfev = maxfev, c=c, n_FR=n_FR)
+                        print(FR_ext, state)
+                        FR_ext_all_nuclei[nucleus.name] = FR_ext
+                    elif method == 'single_neuron':
+                        if nucleus.basal_firing > end_of_nonlinearity:
+                            nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
+                                                                            n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
+                            
+                        else:
+                            nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
+                                                                   end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
+                                                                   n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
+                    elif use_saved_FR_ext:
+                        nucleus.FR_ext = FR_ext_all_nuclei_saved[nucleus.name]
+                if normalize_G_by_N:
+                    nucleus.normalize_synaptic_weight_by_N()
+                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity[nucleus.name][state])
     if return_saved_FR_ext:
         return receiving_class_dict, FR_ext_all_nuclei
@@ -1301,7 +1303,12 @@ def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, 
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
     return nuclei_dict
 
-
+def set_ext_input_all_nuclei(nuclei_dict, A, A_mvt, D_mvt, t_mvt, t_list,
+                                  dt, end_of_nonlinearity):
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
+                                  dt, end_of_nonlinearity=end_of_nonlinearity)
 def bandpower(f, pxx, fmin, fmax):
     ''' return the average power at the given range of frequency'''
     ind_min = np.argmin(f[f > fmin])
@@ -3145,6 +3152,74 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
     
     return nuclei_dict
 
+def run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+                                                                              A, syn_trans_delay_dict,
+                                                                              t_transient=10, duration=10, ext_inp_dict = None):
+    
+    '''
+    		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation.
+    		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to different nuclei (e.g. MC to STN and MC to D2)
+    '''
+    min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
+    
+    # synaptic trans delay relative to the nucleus with minimum delay.
+    t_start_inp_dict = {k: t_transient + v -
+	    syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()}
+    t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
+
+    start = timeit.default_timer()
+
+    for t in t_list:
+        # if it's the start of external input to (a) nucleus(ei)
+        if t in list(t_start_inp_dict.values()):
+            print( 'STN before', np.average(nuclei_dict['STN'][0].rest_ext_input))
+            print( 'D2 before', np.average(nuclei_dict['D2'][0].rest_ext_input))
+            selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict)
+
+                    
+        # if it's the end of external input to (a) nucleus(ei)
+        if t in list( t_end_inp_dict.values() ):
+            
+            selective_reset_ext_input_collective(nuclei_dict, 
+                                     get_corr_key_to_val(t_end_inp_dict, t), 
+                                     A)
+
+        for nuclei_list in nuclei_dict.values():
+            for k, nucleus in enumerate(nuclei_list):
+                nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k + 1))])
+
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    
+    return nuclei_dict
+
+def cal_average_activity(nuclei_dict, n_run, avg_act):
+    for nuclei_list in nuclei_dict.values():
+            for k,nucleus in enumerate( nuclei_list) :
+                avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
+    return avg_act
+
+def average_multi_run_collective(receiving_class_dict,t_list, dt, nuclei_dict,  A, G, syn_trans_delay_dict, poisson_prop, 
+                       list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None,
+                       ext_inp_dict = None, noise_amplitude = None, noise_variance = None, reset_init_dist = True):
+    avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
+    for i in range(n_run):
+        run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+                                                                              A, syn_trans_delay_dict,
+                                                                              t_transient=10, duration=10, ext_inp_dict = ext_inp_dict)  
+        avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
+                                                  normalize_G_by_N= True) 
+        # receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+#                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+        print(i+1,'from',n_run)
+    return avg_act
+
 def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths,  A,
                       A_trans, list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1, 
                       inp_method = 'reset',  ext_inp_dict = None, transient_init_filepaths = None):
@@ -3174,11 +3249,19 @@ def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_in
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             if nucleus.name in list_of_nuc_with_trans_inp:
+                
                 ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'], ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
                 nucleus.additive_ext_input(ext_inp)
+                print(nucleus.name, np.average(nucleus.rest_ext_input))
 
 def selective_reset_ext_input(nuclei_dict, init_filepaths, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
     set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp =list_of_nuc_with_trans_inp, filepaths = init_filepaths) 
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            if nucleus.name in list_of_nuc_with_trans_inp:
+                nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+
+def selective_reset_ext_input_collective(nuclei_dict, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             if nucleus.name in list_of_nuc_with_trans_inp:
@@ -4011,8 +4094,10 @@ def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, la
         plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
     return fig
 
+import warnings
+warnings.filterwarnings("ignore", message="FixedFormatter should only be used together with FixedLocator")
 
-def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
+def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename, name_list, label_list, color_list,  y_list, 
                                                              freq_list,colormap, x_axis = 'multiply', title = "", x_label = "G", key = (), 
                                                              param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
                                                              include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, 
@@ -4024,11 +4109,10 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename_list, name
     axins = ax.inset_axes(inset_props)
     
     vmax = 50; vmin = 0
+    pkl_file = open(filename, 'rb')
+    data = pickle.load(pkl_file)
     
-    for i in range( len(filename_list) ):
-        
-        pkl_file = open(filename_list[i], 'rb')
-        data = pickle.load(pkl_file)
+    for i in range( len(name_list) ):
         
         keys = list(data['g'].keys())
         g, txt = get_plot_Gs(x_axis, include_Gs, data, nuc_loop_lists, keys, key)
@@ -4122,10 +4206,9 @@ def set_ax_axins_prop(ax, axins, title, x_label, inset_ylim, double_xaxis, data,
         ax3 = ax.twiny()
         new_x = multiply_Gs(
             dictfilt(data['g'], key_sec_ax).values())
-
-        scale = (new_x[-1] - new_x[0])
+        scale = abs(new_x[-1] - new_x[0])
         ax3.set_xticks(new_tick_locations)
-        ax3.set_xticklabels(["%.1f" % z for z in scale * new_tick_locations + scale*new_x[0]])
+        ax3.set_xticklabels(["%.1f" % z for z in scale * new_tick_locations + scale * abs(new_x[0])])
         ax3.set_xlabel(second_axis_label, loc = 'right', fontsize = 15, labelpad = -20)
         # ax3.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
