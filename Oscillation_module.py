@@ -202,9 +202,11 @@ class Nucleus:
             self.normalize_synaptic_weight()
             
     def set_init_distribution(self, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False):
+        
         if self.init_method == 'homogeneous':
             self.initialize_homogeneously(poisson_prop, dt)
             self.FR_ext = 0
+            
         elif self.init_method == 'heterogeneous':
             self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio,
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
@@ -377,13 +379,14 @@ class Nucleus:
         i = 0
         sum_components = np.zeros(self.n)
         for i in range(pre_n_components):
-            self.I_syn[pre_name, pre_num][:, i], self.I_rise[pre_name, pre_num][:, i] = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num],
-                                                                                                                                               I_rise=self.I_rise[pre_name,
-                                                                                                                                                   pre_num][:, i],
-                                                                                                                                               I=self.I_syn[pre_name, pre_num][:, i],
-                                                                                                                                               tau_rise=self.tau[(
-                                                                                                                                                   self.name, pre_name)]['rise'][i],
-                                                                                                                                                tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
+            (self.I_syn[pre_name, pre_num][:, i], 
+             self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num],
+                                                                                                                I_rise=self.I_rise[pre_name,
+                                                                                                                pre_num][:, i],
+                                                                                                                I=self.I_syn[pre_name, pre_num][:, i],
+                                                                                                                tau_rise=self.tau[(
+                                                                                                                    self.name, pre_name)]['rise'][i],
+                                                                                                                tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
             sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i]
@@ -453,10 +456,9 @@ class Nucleus:
 
     def find_spikes(self, t):
 
-        # spiking_ind = np.where(self.mem_potential > self.neuronal_consts['spike_thresh']['mean']) # homogeneous spike thresholds
-        # gaussian distributed spike thresholds
         spiking_ind = np.where(self.mem_potential > self.spike_thresh)
         self.spikes[spiking_ind, t] = 1
+        
         return spiking_ind
 
     def reset_potential(self, spiking_ind):
@@ -546,11 +548,6 @@ class Nucleus:
         self.pop_act[:] = 0
         if self.neuronal_model == 'rate':
 
-            # self.output = {k: np.zeros_like(self.output[k]) for k in self.output.keys()}
-            # self.input = np.zeros_like(self.input)
-            # self.neuron_act = np.zeros_like(self.neuron_act)
-            # self.mvt_ext_input = np.zeros_like(self.mvt_ext_input)
-            # self.external_inp_t_series = np.zeros_like(self.external_inp_t_series)
             for k in self.output.keys():
                 self.output[k][:] = 0
             self.input[:] = 0
@@ -578,16 +575,16 @@ class Nucleus:
             self.spikes[:, :] = 0
 
     def smooth_pop_activity(self, dt, window_ms=5):
+        
         self.pop_act = moving_average_array(self.pop_act, int(window_ms / dt))
 
-    # def average_pop_activity(self, t_list, last_fraction=1/2):
-    #     average = np.average(self.pop_act[int(len(t_list) * last_fraction):])
-    #     std = np.std(self.pop_act[int(len(t_list) * last_fraction):])
-    #     return average, std
+
     def average_pop_activity(self,ind_start, ind_end):
+        
         average = np.average(self.pop_act[ind_start : ind_end])
         std = np.std(self.pop_act[ind_start : ind_end])
         return average, std
+    
     def set_synaptic_weights(self, G):
 
         # filter based on the receiving nucleus
@@ -1218,9 +1215,10 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
                         use_saved_FR_ext = False, return_saved_FR_ext = False, normalize_G_by_N = False, state = 'rest'):
+    
     '''find number of connections and build J matrix, set ext inputs as well
         Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
-    # K = calculate_number_of_connections(N,N_real,K_real)
+
     K = calculate_number_of_connections(N, N_real, K_real)
     receiving_class_dict = create_receiving_class_dict(
         receiving_pop_list, nuclei_dict)
@@ -1411,7 +1409,7 @@ def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name):
     phase_max = find_phase_from_max(x, y)
     
     phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
-    # phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
+    phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
     return phase, fitfunc
 
 def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
@@ -1476,8 +1474,12 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             ax.set_xticks([0,180,360,540,720])
             ax.yaxis.set_major_locator(MaxNLocator(2)) 
             ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-            ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
-                        np.max(phase_hist_mean + phase_hist_std))
+            # ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
+            #             np.max(phase_hist_mean + phase_hist_std))
+            y_max = ( np.min(phase_hist_mean - phase_hist_std) * 0.5 + 
+                     np.max(phase_hist_mean + phase_hist_std) )
+            ax.set_ylim(0, y_max)
+                        
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             remove_frame(ax)
     fig.text(0.5, 0.08, 'phase (deg)', ha='center',
@@ -3146,7 +3148,7 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
             for k, nucleus in enumerate(nuclei_list):
                 k+=1
                 nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))])
-
+    
     stop = timeit.default_timer()
     print("t = ", stop - start)
     
@@ -3166,24 +3168,26 @@ def run_with_transient_external_input_including_transmission_delay_collective(re
     t_start_inp_dict = {k: t_transient + v -
 	    syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()}
     t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
-
     start = timeit.default_timer()
 
     for t in t_list:
         # if it's the start of external input to (a) nucleus(ei)
         if t in list(t_start_inp_dict.values()):
-            print( 'STN before', np.average(nuclei_dict['STN'][0].rest_ext_input))
-            print( 'D2 before', np.average(nuclei_dict['D2'][0].rest_ext_input))
-            selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict)
+            key = get_corr_key_to_val(t_start_inp_dict, t)
 
-                    
+            nuclei_dict = selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict)
+
+            print("stim start at {} for {} average is {}".format(t*dt, key , 
+                                                           np.average(nuclei_dict[key[0]][0].rest_ext_input)))
+
         # if it's the end of external input to (a) nucleus(ei)
         if t in list( t_end_inp_dict.values() ):
-            
-            selective_reset_ext_input_collective(nuclei_dict, 
+            key = get_corr_key_to_val(t_end_inp_dict, t)
+            nuclei_dict = selective_reset_ext_input_collective(nuclei_dict, 
                                      get_corr_key_to_val(t_end_inp_dict, t), 
                                      A)
-
+            print("stim end at {} for {} average is {}".format(t*dt, key , 
+                                                           np.average(nuclei_dict[key[0]][0].rest_ext_input)))
         for nuclei_list in nuclei_dict.values():
             for k, nucleus in enumerate(nuclei_list):
                 nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k + 1))])
@@ -3194,28 +3198,40 @@ def run_with_transient_external_input_including_transmission_delay_collective(re
     return nuclei_dict
 
 def cal_average_activity(nuclei_dict, n_run, avg_act):
+    
     for nuclei_list in nuclei_dict.values():
             for k,nucleus in enumerate( nuclei_list) :
                 avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
     return avg_act
 
-def average_multi_run_collective(receiving_class_dict,t_list, dt, nuclei_dict,  A, G, syn_trans_delay_dict, poisson_prop, 
-                       list_of_nuc_with_trans_inp, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None,
-                       ext_inp_dict = None, noise_amplitude = None, noise_variance = None, reset_init_dist = True):
+def average_multi_run_collective(receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict,  A, G,N,N_real, K_real, syn_trans_delay_dict, poisson_prop, 
+                                 list_of_nuc_with_trans_inp, FR_ext_all_nuclei, n_FR, all_FR_list, end_of_nonlinearity,
+                                 t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None,
+                                 ext_inp_dict = None, noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
+                                 color_dict = None):
+    
     avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
     for i in range(n_run):
-        run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+        nuclei_dict = run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
                                                                               A, syn_trans_delay_dict,
-                                                                              t_transient=10, duration=10, ext_inp_dict = ext_inp_dict)  
+                                                                              t_transient=t_transient, duration=duration, ext_inp_dict = ext_inp_dict)  
+        # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start =0,
+        #     plt_mvt = False, include_FR=False)#, ylim = [0,150])
+
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True) 
-        # receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = 35, 
-#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-#                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+        
+        receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR,  
+                                          end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory = False, method = 'collective', 
+                                          use_saved_FR_ext= True,
+                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei, 
+                                          normalize_G_by_N= False)
+
 
         print(i+1,'from',n_run)
     return avg_act
@@ -3252,7 +3268,7 @@ def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_in
                 
                 ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'], ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
                 nucleus.additive_ext_input(ext_inp)
-                print(nucleus.name, np.average(nucleus.rest_ext_input))
+    return nuclei_dict
 
 def selective_reset_ext_input(nuclei_dict, init_filepaths, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
     set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp =list_of_nuc_with_trans_inp, filepaths = init_filepaths) 
@@ -3266,7 +3282,7 @@ def selective_reset_ext_input_collective(nuclei_dict, list_of_nuc_with_trans_inp
         for nucleus in nuclei_list:
             if nucleus.name in list_of_nuc_with_trans_inp:
                 nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
-
+    return nuclei_dict
 def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
