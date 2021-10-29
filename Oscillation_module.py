@@ -384,7 +384,6 @@ class Nucleus:
 
     def sum_components_of_one_synapse(self, t, pre_name, pre_num, pre_n_components=1):
 
-        i = 0
         sum_components = np.zeros(self.n)
         for i in range(pre_n_components):
             (self.I_syn[pre_name, pre_num][:, i], 
@@ -397,14 +396,12 @@ class Nucleus:
                                                                                                                 tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
-            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i] #* self.syn_component_weight[pre_name, pre_num][:, i]
-            i += 1
+            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i] * self.syn_component_weight[self.name, pre_name][i]
         return sum_components
 
     def sum_components_of_one_synapse_one_step_ahead_with_no_spikes(self, pre_name, pre_num, pre_n_components=1):
         '''Calculate I_syn(t+dt) assuming that there are no spikes between time t and t+dt '''
 
-        i = 0
         sum_components = np.zeros(self.n)
         for i in range(pre_n_components):
 
@@ -414,8 +411,7 @@ class Nucleus:
                                                 tau_rise=self.tau[(self.name, pre_name)]['rise'][i],
                                                 tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
 
-            sum_components = sum_components + I_syn_next_dt
-            i += 1
+            sum_components = sum_components + I_syn_next_dt * self.syn_component_weight[self.name, pre_name][i]
         return sum_components
 
     def solve_IF_without_syn_input(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
@@ -604,8 +600,10 @@ class Nucleus:
             k: v for k, v in synaptic_time_constant.items() if k[1] == self.name}
 
     def incoming_rest_I_syn(self, proj_list, A):
+        # I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * self.K_connections[self.name, proj]
+        #                * len(self.tau[self.name, proj]['rise']) for proj in proj_list])*self.membrane_time_constant
         I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * self.K_connections[self.name, proj]
-                       * len(self.tau[self.name, proj]['rise']) for proj in proj_list])*self.membrane_time_constant
+                       * np.sum(self.syn_component_weight[self.name, proj]) for proj in proj_list])*self.membrane_time_constant
 
         return I_syn
 
