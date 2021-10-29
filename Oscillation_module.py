@@ -87,7 +87,7 @@ class Nucleus:
         synaptic_time_constant, receiving_from_list, smooth_kern_window, oscil_peak_threshold, syn_input_integ_method='exp_rise_and_decay', neuronal_model='rate',
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
         spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, set_input_from_response_curve=True,
-        set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True):
+        set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None):
 
         if set_random_seed:
             self.random_seed = 1996
@@ -133,7 +133,9 @@ class Nucleus:
         self.pop_act = np.zeros((n_timebins))  # time series of population activity
         self.external_inp_t_series = np.zeros((n_timebins))
         self.t_sim = t_sim
+        
         if neuronal_model == 'rate':
+            
             self.output = {k: np.zeros(
                 (self.n, int(T[k[0], self.name]/dt))) for k in self.sending_to_dict}
             self.input = np.zeros((self.n))
@@ -144,12 +146,16 @@ class Nucleus:
             self.noise_induced_basal_firing = None
             self.oscil_peak_threshold = oscil_peak_threshold[self.name]
             self.scale_g_with_N = scale_g_with_N
+            
         if neuronal_model == 'spiking':
+            
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             # dt incorporated in tau for efficiency
             # filter based on the receiving nucleus
             self.tau = {k: {kk: np.array(
                 vv)/dt for kk, vv in tau[k].items()} for k, v in tau.items() if k[0] == name}
+            self.syn_component_weight = {k: {kk: np.array(
+                vv)/dt for kk, vv in syn_component_weight[k].items()} for k, v in syn_component_weight.items() if k[0] == name}
             # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
             self.I_rise = {k: np.zeros((self.n, len(
                 self.tau[self.name, k[0]]['decay']))) for k in self.receiving_from_list}
@@ -389,7 +395,7 @@ class Nucleus:
                                                                                                                 tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
-            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i]
+            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i] * self.syn_component_weight[pre_name, pre_num][:, i]
             i += 1
         return sum_components
 

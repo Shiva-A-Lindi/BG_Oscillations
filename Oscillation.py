@@ -223,11 +223,19 @@ tau = {
        ('Arky', 'Proto') : {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
        ('D2','Arky'): {'rise':[4],'decay':[28]} # Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
       }
+
+syn_component_weight = {
+                        ('D2','FSI'):[1],
+                        ('STN','Proto'): [1, 5], # the relative weight of the GABA-a and GABA-b components
+                        ('Proto','STN'): [1],
+                        ('Proto','Proto'): [1, 5],
+                        ('Proto','D2'): [1],
+                        ('FSI','Proto'): [1],
+                        ('Arky', 'Proto') : [1, 5],
+                        ('D2','Arky'): [1]
+                            }
 tau_DD = {('STN','Proto'): {'rise':[0.1],'decay':[7.78]}} # Fan et. al 2012}
-G_DD = {('STN', 'Proto'): -3 ,
-      ('Proto', 'STN'): 0.8 , 
-      ('Proto', 'Proto'): 0, # become stronger (Bugaysen et al., 2013) 
-      ('Str', 'Ctx'): 0,
+G_DD = {
       ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
 
 color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'darkorange'}
