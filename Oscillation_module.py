@@ -154,8 +154,10 @@ class Nucleus:
             # filter based on the receiving nucleus
             self.tau = {k: {kk: np.array(
                 vv)/dt for kk, vv in tau[k].items()} for k, v in tau.items() if k[0] == name}
-            self.syn_component_weight = {k: {kk: np.array(
-                vv)/dt for kk, vv in syn_component_weight[k].items()} for k, v in syn_component_weight.items() if k[0] == name}
+            
+            if syn_component_weight != None:
+                self.syn_component_weight = {k: v for k, v in syn_component_weight.items() if k[0] == name}
+                
             # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
             self.I_rise = {k: np.zeros((self.n, len(
                 self.tau[self.name, k[0]]['decay']))) for k in self.receiving_from_list}
@@ -395,7 +397,7 @@ class Nucleus:
                                                                                                                 tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
-            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i] * self.syn_component_weight[pre_name, pre_num][:, i]
+            sum_components = sum_components + self.I_syn[pre_name, pre_num][:, i] #* self.syn_component_weight[pre_name, pre_num][:, i]
             i += 1
         return sum_components
 
@@ -976,7 +978,7 @@ class Nucleus:
     def butter_bandpass_filter_pop_act_not_modify(self, dt, low, high, order=6):
         
         return butter_bandpass_filter(
-            self.pop_act, low, high, 1 / (dt / 1000), order=order)
+            self.pop_act.copy(), low, high, 1 / (dt / 1000), order=order)
 
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
@@ -2292,13 +2294,13 @@ def get_axes(ax, figsize=(6, 5)):
 
 
 def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, labelsize=10, title_fontsize=15, linelengths=2.5, lw=3, xlim=None,
-                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue'):
+                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal'):
     fig, ax = get_axes(ax)
     c_dict = color_dict.copy()
     c_to_ch = {v: k for k, v in c_dict.items()}['grey']
     c_dict[c_to_ch] = 'k'
     ax.eventplot(spikes_sparse, colors=c_dict[name],
-                 linelengths=linelengths, lw=lw, orientation='horizontal')
+                 linelengths=linelengths, lw=lw, orientation= orientation)
     ax.tick_params(axis='both', labelsize=labelsize)
     ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
     if axvspan:
@@ -3354,7 +3356,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
          ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
-         low_f = 10, high_f = 30, filter_order = 6):    
+         low_f = 8, high_f = 30, filter_order = 6):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
