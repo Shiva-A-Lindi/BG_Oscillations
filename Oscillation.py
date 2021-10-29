@@ -251,7 +251,7 @@ FR_ext_range = {'Proto': {'rest': [4/300, 9/300], 'DD':[1.8/300, 4.5/300], 'mvt'
                 'D2': {'rest': [0.2/300 , 1.5/300] ,  'DD':[0.2/300 , 3/300], 'mvt':[0.8/300 , 2.5/300]}, #u_rest variance ~15
                 'FSI': {'rest': [ 8/300, 10.2/300 ],  'DD': [ 8.7/300, 10.2/300 ], 'mvt':[9.3/300, 10.7/300]},
                 'Arky': {'rest': [0.8/300, 1.8/300], 'DD':[0.9/300, 2/300], 'mvt':[2/300, 3.3/300]}}
-FR_ext_range ['D2'] = {'rest': [1.5/300 , 3.15/300] ,  'DD':[2.9/300 , 3.6/300], 'mvt':[2/300 , 3.6/300]}#u_rest variance ~0.1 to 1
+FR_ext_range ['D2'] = {'rest': [1.5/300 , 3.15/300] ,  'DD':[2.9/300 , 4.5/300], 'mvt':[2.5/300 , 4.3/300]}#u_rest variance ~0.1 to 1
 
 noise_variance = {'Proto' : 100, 
                   'STN': 10, 
@@ -605,7 +605,7 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 # np.random.seed(1006)
 # plt.close('all')
 name = 'D2'
-state = 'rest'
+state = 'mvt'
 N_sim = 2000
 N = dict.fromkeys(N, N_sim)
 dt = 0.25
@@ -2286,7 +2286,7 @@ g = -0.004
 (G[(name2, name1)], G[(name3, name2)], 
  G[(name1, name3)], G[(name2, name4)], 
  G[(name4, name3)], G[(name3, name5)], 
- G[(name5, name3)], G[(name3, name3)]) = g*1.5, g, g, g, g, -g * 3, g*3 ,g * 0.1
+ G[(name5, name3)], G[(name3, name3)]) = g*1.1 , g*1.8, g, g, g, -g * 3.2, g*3.5 ,g * 0.1
 # g, g*1.1 , g, g, g , -g * 3, g * 3 ,g * 0.1
 
 ##### D2 RMP var = 14
@@ -3574,7 +3574,7 @@ all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys
 # pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_STN-Proto-Arky-D2-FSI.pkl'))
 
 
-## Run on previously saved data
+# Run on previously saved data
 FR_ext_all_nuclei_rest  = load_pickle( os.path.join(path, 'FR_ext_STN-Proto-Arky-D2-FSI.pkl'))
 receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
@@ -3582,28 +3582,28 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_rest, normalize_G_by_N=True)
 
 all_FR_list = {name: FR_ext_range[name]['DD'] for name in list(nuclei_dict.keys()) } 
-# change_basal_firing_all_nuclei(Act['DD'], nuclei_dict)
-# receiving_class_dict , FR_ext_all_nuclei_DD = set_connec_ext_inp(Act['DD'], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real_DD, receiving_pop_list, nuclei_dict,t_list, 
-#                                                                  all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-#                                                                  set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
-#                                                                  use_saved_FR_ext= False, normalize_G_by_N = False, state = 'DD')
+change_basal_firing_all_nuclei(Act['DD'], nuclei_dict)
+receiving_class_dict , FR_ext_all_nuclei_DD = set_connec_ext_inp(Act['DD'], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real_DD, receiving_pop_list, nuclei_dict,t_list, 
+                                                                  all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                                                  set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+                                                                  use_saved_FR_ext= False, normalize_G_by_N = False, state = 'DD')
 
-# pickle_obj(FR_ext_all_nuclei_DD, os.path.join(path, 'FR_ext_STN-Proto-Arky-D2-FSI_DD.pkl'))
+pickle_obj(FR_ext_all_nuclei_DD, os.path.join(path, 'FR_ext_STN-Proto-Arky-D2-FSI_DD.pkl'))
 
 
 ## Run on previously saved data
 FR_ext_all_nuclei_DD  = load_pickle( os.path.join(path, 'FR_ext_STN-Proto-Arky-D2-FSI_DD.pkl'))
-# change_basal_firing_all_nuclei(Act['rest'], nuclei_dict)
-# nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, Act['rest'],
-#                                       A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-#                                       reset_init_dist= True, poisson_prop = poisson_prop, 
-#                                       normalize_G_by_N= True)  
+change_basal_firing_all_nuclei(Act['rest'], nuclei_dict)
+nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, Act['rest'],
+                                      A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                      reset_init_dist= True, poisson_prop = poisson_prop, 
+                                      normalize_G_by_N= True)  
 
-# receiving_class_dict = set_connec_ext_inp(Act['rest'], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-#                                           set_FR_range_from_theory = False, method = 'collective', use_saved_FR_ext= True,
-#                                           FR_ext_all_nuclei_saved = FR_ext_all_nuclei_rest, 
-#                                           return_saved_FR_ext= False, normalize_G_by_N= False)
+receiving_class_dict = set_connec_ext_inp(Act['rest'], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory = False, method = 'collective', use_saved_FR_ext= True,
+                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei_rest, 
+                                          return_saved_FR_ext= False, normalize_G_by_N= False)
 # nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 nuclei_dict = run_transition_to_DA_depletion_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
                                                       FR_ext_all_nuclei_DD, K_real_DD, N, N_real, Act['DD'],
@@ -4490,8 +4490,8 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
-n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-# n_run = 6; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = False
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+n_run = 6; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = False
 # save_figures = True ; save_pkl = True
 round_dec = 1 ; include_std = False
 plot_start =  int(t_sim * 3/4)
@@ -4559,7 +4559,7 @@ figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict, filepath, durat
                                                     state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
                                                     receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
                                                     use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
-                                                    find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 70, 
+                                                    find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 35, 
                                                     n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = 'D2',save_pxx = save_pxx,
                                                     plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, nuc_order = nuc_order)
 

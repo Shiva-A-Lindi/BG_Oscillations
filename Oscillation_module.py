@@ -2322,7 +2322,7 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
     outer_generated = False
     if fig == None:
         fig_generated = True
-        fig = plt.figure(figsize=(10, 8))
+        fig = plt.figure(figsize=(5, 8))
     if outer == None:
         outer_generated = True
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
