@@ -4228,27 +4228,27 @@ legend_loc = 'center right'
 x = np.array([ .1, 1.1, 2.3])
 x = np.array([0.1, 0.75, 1.5])
 
-x = np.linspace(.1, 1.5, 4)
+x = np.linspace(.1, 1.5, 10)
 
 n = len(x)
 
 g = -0.004  # start
 
-  # 0.0045, 2.5, 0.5, 0.5 ,x = 1.5
-# G_dict = {(name2, name1) : np.array([g * 2]* (n)) ,
-#           (name3, name2): g * x , 
-#           (name1, name3) :  np.array( [g * 0.5]* (n)) }
-# filename = 'D2_Proto_FSI_N_1000_T_5000_G_D2_Proto_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+#### 0.0045, 2.5, 0.5, 0.5 ,x = 1.5
+G_dict = {(name2, name1) : np.array([g * 2]* (n)) ,
+          (name3, name2): g * x , 
+          (name1, name3) :  np.array( [g * 0.5]* (n)) }
+filename = 'D2_Proto_FSI_N_1000_T_5000_G_D2_Proto_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
 # G_dict = {(name2, name1) :  g * 2 * x ,
 #           (name3, name2): np.array([g ]* (n)) , 
 #           (name1, name3) :  np.array( [g * 0.5]* (n)) }
 # filename = 'D2_Proto_FSI_N_1000_T_5000_G_FSI_D2_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
-G_dict = {(name2, name1) : np.array([g*2]* (n)) ,
-          (name3, name2): np.array( [g]* (n)) , 
-          (name1, name3) : g * 0.5 * x  }
-filename = 'D2_Proto_FSI_N_1000_T_5000_G_Proto_FSI_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+# G_dict = {(name2, name1) : np.array([g*2]* (n)) ,
+#           (name3, name2): np.array( [g]* (n)) , 
+#           (name1, name3) : g * 0.5 * x  }
+# filename = 'D2_Proto_FSI_N_1000_T_5000_G_Proto_FSI_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
 # G_dict = {(name2, name1): g * x ,
 #           (name3, name2): g * x , 
