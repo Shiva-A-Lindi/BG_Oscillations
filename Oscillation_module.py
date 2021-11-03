@@ -1461,7 +1461,7 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name, shift_phase 
             data[(nucleus.name, 'rel_phase')][i,j],_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
           
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
-                  n = 1000, set_ylim = True, shift_phase = None):
+                  n = 1000, set_ylim = True, shift_phase = None, y_max_series = None):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
@@ -1483,29 +1483,30 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             plot_mean_phase_plus_std(phase_hist_mean, phase_hist_std, name, n_g, ax, color_dict, centers)
 
             phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = shift_phase)
-            if name == 'Proto':
-                print(phases)
-            boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name)
+            box_width = y_max_series[name] / 5
+            box_y = y_max_series[name] / 3
+            boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name, box_width, box_y, y_max_series[name])
             ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
-            ax.annotate(name, xy=(0.85,0.2),xycoords='axes fraction', color = color_dict[name],
-             fontsize=18)
+            ax.annotate(name, xy=(0.8,0.3),xycoords='axes fraction', color = color_dict[name],
+             fontsize=22)
             fig.add_subplot(ax)
             ax.set_xticks([0,180,360,540,720])
             ax.yaxis.set_major_locator(MaxNLocator(2)) 
+            
             ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
             # ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
             #             np.max(phase_hist_mean + phase_hist_std))
             y_max = ( np.min(phase_hist_mean - phase_hist_std) * 0.5 + 
                      np.max(phase_hist_mean + phase_hist_std) )
             if set_ylim:
-                ax.set_ylim(0, y_max)
+                ax.set_ylim(0, y_max_series[name])
                         
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             remove_frame(ax)
     fig.text(0.5, 0.08, 'phase (deg)', ha='center',
-                 va='center', fontsize=15)
-    fig.text(0.005, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
-                 rotation='vertical', fontsize=18)
+                 va='center', fontsize=25)
+    fig.text(-0.05, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
+                 rotation='vertical', fontsize=25)
     return fig
 
 def save_pdf_png(fig, figname, size = (8,6)):
@@ -1515,7 +1516,8 @@ def save_pdf_png(fig, figname, size = (8,6)):
     fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-def PSD_summary(filename, name_list, color_dict, n_g_list):
+def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_props = [0.65, 0.6, 0.3, 0.3],
+                inset_yaxis_loc = 'right'):
     fig = plt.figure()    
     data = load_pickle(filename)
     
@@ -1535,21 +1537,29 @@ def PSD_summary(filename, name_list, color_dict, n_g_list):
                             pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
             ax.axvline(f_mean[np.argmax(pxx_mean)], linestyle = '--', color = color_dict[name])
             if name == 'D2':
-                plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2')
+                plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
+                                 inset_props = inset_props, inset_yaxis_loc = inset_yaxis_loc)
             max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
         ax.set_ylim(-0.1, max_pxx)
+        ax.yaxis.set_major_locator(MaxNLocator(4)) 
         rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
-        ax.set_xlim(8,60)
+        if xlim == None:
+            ax.set_xlim(8,60)
+        else:
+            ax.set_xlim(xlim)
         ax.legend(fontsize = 15, loc = 'upper left',  framealpha = 0.1, frameon = False)
 
-    fig.text(0.5, 0.03, 'Frequency (Hz)', ha='center',
+    fig.text(0.5, 0.01, 'Frequency (Hz)', ha='center',
                  va='center', fontsize=15)
-    fig.text(0.02, 0.5, 'PSD', ha='center', va='center',
+    fig.text(0.03, 0.5, 'PSD', ha='center', va='center',
                  rotation='vertical', fontsize=15)
     return fig
-def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2'):
+
+def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
+                     inset_props = [0.65, 0.6, 0.3, 0.3], inset_yaxis_loc = 'right'):
+    
         axins = ax.inset_axes(
-                    [0.65, 0.6, 0.3, 0.3])
+                   inset_props )
         axins.plot(f_mean, pxx_mean, color = color_dict[name], label = name)
         axins.fill_between(f_mean, pxx_mean - pxx_std ,
                             pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
@@ -1557,6 +1567,7 @@ def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2'):
         axins.xaxis.set_major_locator(MaxNLocator(3)) 
         axins.set_yticklabels(labels = axins.get_yticks().tolist(), fontsize = 12)
         axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
+        axins.yaxis.set_label_position(inset_yaxis_loc)
 
 
 
@@ -1581,20 +1592,21 @@ def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name
         phases[run], fitfunc = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
     return phases
 
-def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name):
+def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name, box_width, box_y, max_y):
     
     highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
     lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
     middle = ( highest_point + lowest_point ) / 2
     width = ( highest_point - lowest_point)
-    bp = ax.boxplot(phases, positions = [middle], vert=False,
-                sym = '', widths = 0.3 * width )
+    width = max_y
+    bp = ax.boxplot(phases, positions = [box_y], vert=False,
+                sym = '', widths = box_width )
     if np.average(phases) < 100:
         ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                xy=(np.average(phases), middle - 0.38 * width), color = color_dict[name], fontsize = 18)
+                xy=(np.average(phases), box_y -box_width), color = color_dict[name], fontsize = 22)
     else:
         ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                    xy=(np.average(phases) - 100, middle - 0.38 * width), color = color_dict[name], fontsize = 18)
+                    xy=(np.average(phases) - 100, box_y - box_width), color = color_dict[name], fontsize = 22)
 
     # for patch, color in zip(bp['boxes'], colors): 
     #     patch.set_facecolor(color) 
@@ -4207,7 +4219,7 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename, name_list
                 
                 ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, 
                             capthick = 5, elinewidth = 1.5, markersize= markersize, marker = 'o')
-
+                ax.axhline(0, xmin = min(abs(g)), xmax = max(abs(g)), linestyle = '--', color = 'k')
         if plot_inset:
             axins.errorbar(abs(g), freq, yerr = freq_std,  c = color_list[i], lw = 1, label= label_list[i],zorder=1, 
                            capthick = 1, elinewidth = .7)
@@ -4221,6 +4233,72 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename, name_list
         for i in range( len(txt)):
             plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
     return fig
+# from scipy.stats import pearsonr
+# def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset_correlation(filename, name_list, label_list, color_list,  y_list, 
+#                                                              freq_list,colormap, x_axis = 'multiply', title = "", x_label = "G", key = (), 
+#                                                              param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
+#                                                              include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, 
+#                                                              loops = 'single', plot_phase = True, new_tick_locations = np.array([0.2, 0.5, 0.8]),
+#                                                              second_axis_label = r"$G_{FSI-D2-P}$", inset_props = [0.02, 0.3, 0.35, 0.35],
+#                                                              ylim = None, plot_inset = True, markersize = 8):
+#     maxs = [] ; mins = []
+#     fig, ax = plt.subplots(figsize=[8, 6])
+#     if plot_inset:
+#         axins = ax.inset_axes(inset_props)
+#     else:
+#         axins = None
+#     vmax = 50; vmin = 0
+#     pkl_file = open(filename, 'rb')
+#     data = pickle.load(pkl_file)
+#     y_dict = {}
+#     for i in range( len(name_list) ):
+        
+#         keys = list(data['g'].keys())
+#         g, txt = get_plot_Gs(x_axis, include_Gs, data, nuc_loop_lists, keys, key)
+        
+#         freq = np.squeeze( np.average ( data[(name_list[i],freq_list[i])] , axis = 1))
+#         freq_std = np.squeeze( np.std ( data[(name_list[i],freq_list[i])] , axis = 1))
+#         title = 'Beta band (12-30 Hz)'
+#         beta_separate = beta_separate_or_not(data, name_list[i],y_list[i])
+#         if param == "all" and not beta_separate:
+            
+#             y =  np.squeeze( np.average ( data[(name_list[i],y_list[i])] , axis = 1))
+#             std =  np.std ( data[(name_list[i],y_list[i])] , axis = 1)      
+#             ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, 
+#                         capthick = 5, elinewidth = 1.5, markersize = markersize,  marker = 'o')
+        
+#         else:
+
+#             y, std, title_h_l = get_data_low_high_beta(data, name_list, i, y_list)
+    
+#             if param == 'high_low':
+#                 plot_beta_power(ax, g, y, std, 'high' , color_list[i], label_list[i], alpha = 1, markersize = markersize)
+#                 plot_beta_power(ax, g, y, std, 'low' , color_list[i], '' , alpha = 0.4,  markersize = markersize)
+                
+#             elif param == 'high' or param == 'low':
+#                 plot_beta_power(ax, g, y, std, param , color_list[i], label_list[i], alpha = 1, markersize = markersize)
+#                 title = title_h_l[param]
+                
+#             else: ## beta is saved separatly but needs to be shown as summed
+#                 y, std, title = sum_data_low_high_beta(data, name_list, i, y_list)
+#                 y_dict[name] = y
+#                 ax.errorbar(abs(g), y, yerr = std, c = color_list[i], lw = 3, label= label_list[i], zorder=1, 
+#                             capthick = 5, elinewidth = 1.5, markersize= markersize, marker = 'o')
+#                 ax.axhline(0, xmin = min(abs(g)), xmax = max(abs(g)), linestyle = '--', color = 'k')
+#         if plot_inset:
+#             axins.errorbar(abs(g), freq, yerr = freq_std,  c = color_list[i], lw = 1, label= label_list[i],zorder=1, 
+#                            capthick = 1, elinewidth = .7)
+    
+    
+#     set_ax_axins_prop(ax, title, x_label, inset_ylim, double_xaxis, data, key_sec_ax, new_tick_locations, 
+#                       second_axis_label, legend_loc, y_line_fix, ylim = ylim, plot_inset = plot_inset, axins = axins)
+
+#     print(filename, pearsonr(y))
+    
+#     if include_Gs:
+#         for i in range( len(txt)):
+#             plt.gcf().text(0.5, 0.8- i*0.05,txt[i], ha='center',fontsize = 13)
+#     return fig
 
 def beta_separate_or_not(data, name, param):
     ''' if there is another dimension other than n_iter and n_run, the beta powers are saved separately'''
@@ -4267,10 +4345,10 @@ def get_data_low_high_beta(data, name_list, i, y_list):
 
 def sum_data_low_high_beta(data, name_list, i, y_list):
     
-    y_sum  = np.sum( data[(name_list[i],y_list[i])] , 
+    yy  = np.sum( data[(name_list[i],y_list[i])] , 
                  axis = 2)
-    yy = test(y_sum)
-    print(yy.shape)
+    yy = test(yy)
+    
     y =  np.average ( yy ,
                     axis = 1)
     std = np.std ( yy ,
@@ -4285,7 +4363,7 @@ def set_ax_axins_prop(ax, title, x_label, inset_ylim, double_xaxis, data, key_se
         ax.axhline( y_line_fix, linestyle = '--', c = 'grey', lw=2)  # to get the circuit g which is the muptiplication
         
     ax.set_title(title, fontsize = 20)
-    ax.set_xlabel(x_label,fontsize = 20)
+    ax.set_xlabel(r"$\mid G \mid$",fontsize = 20)
     ax.set_ylabel('Beta Power (W/Hz)',fontsize=20)
     ax_label_adjust(ax, fontsize = 18, nbins = 6)
     if ylim != None:
@@ -4300,7 +4378,7 @@ def set_ax_axins_prop(ax, title, x_label, inset_ylim, double_xaxis, data, key_se
         axins.xaxis.set_major_locator(MaxNLocator(5)) 
         axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
         axins.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        axins.set_xlabel("G", fontsize = 10)
+        axins.set_xlabel(r"$\midG\mid$", fontsize = 10)
     
     if double_xaxis:
         ax3 = ax.twiny()
