@@ -2818,6 +2818,146 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 500, facecolor
 # fig.savefig(os.path.join(path, 'SNN_spectrum_mvt_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
+#%% effect of transient increase in STN activity onto GPe (with/without GABA-B) collectuve\
+#%% effect of transient increase in STN activity onto GPe (with/without GABA-B) collective
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.25
+t_sim = 900; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+name1 = 'Proto' # projecting
+name2 = 'STN' # recieving
+state = 'rest'
+name_list = [name1, name2]
+g = -0.005
+G = {}; g_ext =  0.01
+
+# A['Proto'] = 28
+# Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
+# FR_ext_range['Proto']= {'rest': [1.5/300, 4.5/300], 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]}
+# tau[('STN','Proto')] =  {'rise':[1.1, 40],'decay':[15, 200]}
+# tau [('Proto','STN')]  = {'rise':[0.2],'decay':[20]} # Glut estimate]
+
+syn_coef_GABA_b = 1
+syn_component_weight = {
+                        ('D2','FSI'):[1],
+                        ('STN','Proto'): [1, syn_coef_GABA_b], # the relative weight of the GABA-a and GABA-b components
+                        ('Proto','STN'): [1],
+                        ('Proto','Proto'): [1, syn_coef_GABA_b],
+                        ('Proto','D2'): [1],
+                        ('FSI','Proto'): [1],
+                        ('Arky', 'Proto') : [1, syn_coef_GABA_b],
+                        ('D2','Arky'): [1]
+                        }
+
+plot_start = 750
+plot_start_raster = 500
+G[(name2, name1)] , G[(name1, name2)] ,   G[(name1, name1)]  = -0.00, 0.005, -0.000 # same strength GABA_a and b
+# G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)],  G[(name1, name1)]  = -0.002, 0.005, -0.0005, -0.0001
+
+G = { k: v * K[k] for k, v in G.items()}
+
+poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1')],#, (name1, '1')],
+                      (name2, '1'): [(name1,'1')]
+
+                      }
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking', 
+               set_input_from_response_curve = set_input_from_response_curve, poisson_prop =poisson_prop,init_method = init_method, 
+               der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t, 
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, 
+               save_init = save_init, syn_component_weight =syn_component_weight ) for i in pop_list] for name in name_list}
+
+
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
+# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity =end_of_nonlinearity, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
+# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_STN-Proto.pkl'))
+
+
+# Run on previously saved data
+FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_STN-Proto.pkl'))
+receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+
+t_transient = 800 # ms
+duration = 5
+n_run = 10
+duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
+
+list_of_nuc_with_trans_inp = ['STN']
+coef_trans_inp = {'STN': 0.5} # for equal GABA strengths
+# coef_trans_inp = {'STN': 0.5, 'D2': 2.5}
+
+ext_inp_dict = {}
+for name in list_of_nuc_with_trans_inp:
+    nucleus = nuclei_dict[name][0]
+    val = coef_trans_inp[name] * nucleus.FR_ext[0] * nucleus.syn_weight_ext_pop * \
+                                    nucleus.n_ext_population * nucleus.neuronal_consts['membrane_time_constant']['mean']
+    ext_inp_dict [ nucleus.name] = { 'mean': val , 
+                                    'sigma' : 0.1 * val }
+    
+
+syn_trans_delay_dict = {k[0]: v for k,v in T.items() if k[0] == 'STN' and k[1] == 'Ctx'}
+
+
+
+# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
+# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
+
+avg_act = average_multi_run_collective(receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict,  A, G, N,N_real, K_real, syn_trans_delay_dict, poisson_prop, 
+                       list_of_nuc_with_trans_inp,FR_ext_all_nuclei, n_FR, all_FR_list, end_of_nonlinearity,
+                       t_transient = int (t_transient/dt ), duration = int( duration/dt ) ,n_run = n_run, A_mvt = None, D_mvt = 0, t_mvt = t_mvt,
+                       ext_inp_dict = ext_inp_dict, noise_amplitude = None, noise_variance = None, reset_init_dist = True, color_dict=color_dict)
+
+for nuclei_list in nuclei_dict.values():
+    for k,nucleus in enumerate( nuclei_list) :
+        nucleus.pop_act = avg_act[nucleus.name][:,k]
+    
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+status = 'STN_GPe_D2_Proto_trans_Ctx_' + str(n_run) + '_run_'
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start = plot_start,
+            title = "", plt_mvt = False, include_FR=False)#, ylim = [0,150])
+# fig.set_size_inches((15, 7), forward=False)
+plt.axvspan(t_transient , (t_transient + duration) , alpha=0.2, color='yellow')
+# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 500, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig, ax = plt.subplots(1,1)
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+find_freq_SNN_not_saving(dt, nuclei_dict, duration_fft, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
+                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
+fig.set_size_inches((6, 5), forward=False)
+# x_l = 0.75
+# ax.axhline(x_l, ls = '--', c = 'grey')
+ax.set_xlim(0,70)
+
 
 #%% effect of MC-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays of MC-STR and MC-STN single neuron
 
@@ -2957,6 +3097,18 @@ G = {}; g_ext =  0.01
 # tau[('STN','Proto')] =  {'rise':[1.1, 40],'decay':[15, 200]}
 # tau [('Proto','STN')]  = {'rise':[0.2],'decay':[20]} # Glut estimate]
 
+syn_coef_GABA_b = 5
+syn_component_weight = {
+                        ('D2','FSI'):[1],
+                        ('STN','Proto'): [1, syn_coef_GABA_b], # the relative weight of the GABA-a and GABA-b components
+                        ('Proto','STN'): [1],
+                        ('Proto','Proto'): [1, syn_coef_GABA_b],
+                        ('Proto','D2'): [1],
+                        ('FSI','Proto'): [1],
+                        ('Arky', 'Proto') : [1, syn_coef_GABA_b],
+                        ('D2','Arky'): [1]
+                        }
+
 plot_start = 750
 plot_start_raster = 500
 G[(name2, name1)] , G[(name1, name2)] ,  G[(name1, name3)], G[(name1, name1)]  = -0.005, 0.0035, -0.001, -0.0001 # same strength GABA_a and b
@@ -2977,7 +3129,6 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
@@ -3011,7 +3162,7 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
 
 t_transient = 800 # ms
 duration = 5
-n_run = 1
+n_run = 10
 duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
 
 list_of_nuc_with_trans_inp = ['STN', 'D2']
