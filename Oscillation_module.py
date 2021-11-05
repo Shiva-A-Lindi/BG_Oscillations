@@ -3978,12 +3978,16 @@ def reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return nuclei_dict
 
-def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
+def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+                      syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
+                      t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
+    
     def set_time_scale( nuclei_dict, synaptic_time_constant):
         for nucleus_list in nuclei_dict.values():
             for nucleus in nucleus_list:
                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
         return nuclei_dict
+    
     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
     data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
     count =0 ; i=0
@@ -4011,12 +4015,14 @@ def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict,
                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
             
             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
+            
                 for k,g_ratio in G_ratio_dict.items():
-                    G[k] = g_stable*g_ratio
+                    G[k] = g_stable * g_ratio
                 # G[('STN','Proto')] = g_stable
                 # G[('Proto','Proto')] = g_stable * g_ratio
                 nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
                 run(receiving_class_dict,t_list, dt, nuclei_dict)
+                
                 for nucleus in nucleus_list:
                     _,_, data[nucleus.name,'stable_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
                     _,_, data[nucleus.name,'stable_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
