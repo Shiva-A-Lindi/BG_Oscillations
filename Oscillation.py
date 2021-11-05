@@ -1,9 +1,13 @@
 #%% Constants 
-path = '/home/shiva/BG_Oscillations/Outputs_SNN'
-# path = r"C:/Users/azizp/BG_Oscillations/Outputs_SNN"
-# path = '/Users/apple/BG_Oscillations/Outputs_SNN'
-path_rate = '/home/shiva/BG_Oscillations/Outputs_rate_model'
+import os
+
 root = '/home/shiva/BG_Oscillations'
+root =  r"C:/Users/azizp/BG_Oscillations"
+# root = '/Users/apple/BG_Oscillations'
+
+path = os.path.join(root, 'Outputs_SNN')
+path_rate = os.path.join(root, 'Outputs_rate_model')
+
     
 from sklearn.linear_model import LinearRegression
 import numpy as np
@@ -7432,7 +7436,9 @@ fig.savefig('STN_GPe_timescale_inh_excit_3d.png',dpi = 300)
 fig.savefig('STN_GPe_timescale_inh_excit_3d.pdf',dpi = 300)
 #%% Plot different sets of parameters for timescale plot
 #################### All circuits
-filename_list = ['data_STN_GPe_syn_t_scale_g_ratio_1.pkl','data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_1_0-5.pkl']
+filename_list = ['data_STN_GPe_syn_t_scale_g_ratio_1.pkl',
+                 'data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl',
+                 'data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_1_0-5.pkl']
 figname = 'All_circuits_timescale'
 label_list = [r'$STN-Proto \; with \; Proto-Proto$',r'$FSI-D2-Proto$',r'$Arky-D2-Proto$']
 g_tau_2_ind = 0; g_ratio_list = [1,1,1]
@@ -7477,6 +7483,8 @@ g_tau_2_ind = 0; g_ratio_list = [1,1,1]
 # g_tau_2_ind = 0 
 
 filename_list = ['data_Arky_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
+
 label_list = [r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{2}$',r'$\tau_{PA}=\tau_{DP}=\tau_{AD}$']
 figname = 'Arky-D2-Proto_timescale_g_stable'
 x_label = r'$\tau_{PA/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label; title = ''
@@ -7501,8 +7509,10 @@ fig.savefig(figname+'.pdf',dpi = 300)
 
 g_tau_2_ind = 0 
 
-filename_list = ['data_Arky_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
-filename_list = [os.path.join(root, file) for file in filename_list]
+filename_list = ['data_Arky_D2_Proto_syn_t_scale_tau_3_1_1.pkl',
+                 'data_Arky_D2_Proto_syn_t_scale_tau_2_1_1.pkl',
+                 'data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
 label_list = [r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{3}$',r'$\tau_{PA}=\tau_{DP}=\dfrac{\tau_{AD}}{2}$',r'$\tau_{PA}=\tau_{DP}=\tau_{AD}$']
 figname = 'Arky-D2-Proto_timescale_g_stable'
 x_label = r'$\tau_{PA/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label; title = ''
@@ -7516,8 +7526,10 @@ fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list
                                     g_tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = ax)
 
 
-filename_list = ['data_FSI_D2_Proto_syn_t_scale_tau_3_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_2_1_1.pkl','data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
-filename_list = [os.path.join(root, file) for file in filename_list]
+filename_list = ['data_FSI_D2_Proto_syn_t_scale_tau_3_1_1.pkl', 
+                 'data_FSI_D2_Proto_syn_t_scale_tau_2_1_1.pkl', 
+                 'data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
 label_list = [r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{3}$',r'$\tau_{PF}=\tau_{DP}=\dfrac{\tau_{FD}}{2}$',r'$\tau_{PF}=\tau_{DP}=\tau_{FD}$']
 figname = 'FSI-D2-Proto_timescale_tau_g_stable'
 x_label = r'$\tau_{PF/DP}^{decay}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label; title = ''
@@ -7530,7 +7542,7 @@ ax.legend(fontsize = 10)
 
 fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
-#%% three circuits rate model dependency on tau
+#%% three circuits rate model dependency on tau_inhibition
 ###################3 The idiot that I am saved the pickles without instruction. Here I guess the excitatory time scale is set to 6 while changing the inhibition decay time
 
 plt.close('all')
@@ -7538,8 +7550,8 @@ plt.close('all')
                  # 'data_FSI_D2_Proto_syn_t_scale_G_ratios_1_1_0-5.pkl','data_Arky_D2_Proto_syn_t_scale_G_ratios_0-2_1_0-5.pkl']
 filename_list = [os.path.join(path_rate,'data_STN_GPe_with_GP_GP_syn_t_scale_N_100_T_800_dt_0-1_K_scaled.pkl'),
                  os.path.join(path_rate, 'data_STN_GPe_without_GP_GP_syn_t_scale_g_ratio_1_N_100_T_800_dt_0-1_STN_chaning_npop_2.pkl'),
-                 os.path.join(root,'data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl'),
-                 os.path.join(root,'data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl')]
+                 os.path.join(path_rate,'data_FSI_D2_Proto_syn_t_scale_tau_1_1_1.pkl'),
+                 os.path.join(path_rate,'data_Arky_D2_Proto_syn_t_scale_tau_1_1_1.pkl')]
 figname = 'All_circuits_timescale'
 label_list = [r'$STN-Proto + Proto-Proto$', r'$STN-Proto$',  r'$FSI-D2-Proto$',r'$Arky-D2-Proto$']
 g_tau_2_ind = 0
