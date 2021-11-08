@@ -3513,6 +3513,7 @@ def scatter_2d_plot(x,y,c, title, label, limits = None,label_fontsize = 15, cmap
     ax_label_adjust(ax)   
     remove_frame(ax) 
     return fig
+
 def scatter_3d_plot(x,y,z,c, title, c_upper_limit, c_lower_limit, label, limits = None):
 
     ind = np.logical_and(c<=c_upper_limit, c>=c_lower_limit)
@@ -3729,15 +3730,18 @@ def trim_start_end_sig_rm_offset(sig,start, end, cut_plateau_epsilon = 0.1, meth
         else:
             return(trimmed[max_point:] - np.average(trimmed[max_point:]))
         
-def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , check_stability = False, cut_plateau_epsilon = 0.1):
+def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , 
+                                     check_stability = False, cut_plateau_epsilon = 0.1):
+    
     ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
     the plateau and in case it is oscillation determine the frequency '''
     sig = trim_start_end_sig_rm_offset(nucleus.pop_act,start, end)
     cut_sig_ind = cut_plateau( sig, epsilon= cut_plateau_epsilon)
     plateau_y = find_mean_of_signal(sig, cut_sig_ind)
-    # plt.plot(sig - plateau_y)
-    # plt.axhline(plateau_y)
-    # plt.plot(sig[cut_sig_ind])
+    # fig, ax = plt.subplots()
+    # ax.plot(sig - plateau_y)
+    # ax.axhline(plateau_y)
+    # ax.plot(sig[cut_sig_ind])
     if_stable = False
     if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
         sig = sig - plateau_y
@@ -3753,6 +3757,7 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
         if freq != 0: # then check if there's oscillations
             perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
             if check_stability:
+                print('check stability')
                 if_stable = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05)
             return n_half_cycles, perc_oscil, freq, if_stable
         else:
@@ -3760,22 +3765,24 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
     else:
         return 0,0,0, False
 
-def if_stable_oscillatory(sig,x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.1]):
+def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, 
+                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.1]):
+    
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
-    # if len(sig) <= (x_plateau +2) and len(sig) >= (x_plateau-2) : # if the whole signal is oscillatory
-    if  x_plateau > len(sig)*oscil_perc_as_stable : # if the whole signal is oscillatory
+    if  x_plateau > len(sig) * oscil_perc_as_stable : # if the whole signal is oscillatory
 
-        sig = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
-        peaks,properties = signal.find_peaks(sig, height = peak_threshold)
+        # sig = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
+        peaks, properties = signal.find_peaks(sig, height = peak_threshold)
         # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
         # if len(peaks)-1 == 0: # if no peaks are found error will be raised, so we might as well plot to see the reason
             # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
-            # plt.figure()
-            # plt.plot(sig)
+        # plt.figure()
+        # plt.plot(sig)
+        # plt.plot(peaks, sig[peaks], 'x')
             # plt.axhline(np.average(sig))
         # relative first and last peak ratio thresholding
-        if len(peaks)>1 : 
-            last_first_peak_ratio = sig[peaks[-1]]/sig[peaks[1]]
+        if len(peaks) > 1 : 
+            last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[1]]
             print('last_first_peak_ratio = ', last_first_peak_ratio)
         else: return False
         if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
@@ -3820,12 +3827,16 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
         return False
     
 
-def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, color_dict, if_plot = False, G_ratio_dict = None, plt_start = 0):
+def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
+                                      G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, 
+                                      color_dict, if_plot = False, G_ratio_dict = None, plt_start = 0):
+    
     list_1  = list(G_dict.values())[0] ; list_2  = list(G_dict.values())[1]
     n = len(list_1) ;m = len(list_2)
-    print(n,m)
     data = {} 
+    
     for nucleus_list in nuclei_dict.values():
+        
         nucleus = nucleus_list[0] # get only on class from each population
         data[(nucleus.name, 'mvt_freq')] = np.zeros((n,m))
         data[(nucleus.name, 'base_freq')] = np.zeros((n,m))
@@ -3836,28 +3847,38 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
         data[(nucleus.name,'g_transient_boundary')] = []
         data[(nucleus.name,'g_stable_boundary')] = []
     data['g'] = np.zeros((n,m,2))
+    
     count  = 0
-    i = 0 
+    
     if_stable_plotted = False
     if_trans_plotted = False
+    
     if if_plot:
         fig = plt.figure()
-    if np.average(list_1) < 0: list_1_copy = reversed(list_1) # to approach the boundary form the steady state
-    for g_1 in list_1:
-        j = 0
+        
+
+    for i, g_1 in enumerate( sorted(list_1, key=abs) ):
+        
+        
         found_g_transient = {k: False for k in nuclei_dict.keys()}
         found_g_stable = {k: False for k in nuclei_dict.keys()}
-        if np.average(list_2) < 0: list_2_copy = reversed(list_2)
-        for g_2 in list_2_copy:
+        
+
+        for j, g_2 in enumerate( sorted(list_2, key=abs) ):
+            
             G[(tuple(G_dict.keys())[0])] = g_1 # returns keys as list, tuple is needed 
             G[(tuple(G_dict.keys())[1])] = g_2
+            
             if G_ratio_dict != None: # if the circuit has more than 2 members
-                for k,g_ratio in G_ratio_dict.items():
-                    G[k] = g_2*g_ratio
+                for k, g_ratio in G_ratio_dict.items():
+                    G[k] = g_2  * g_ratio
+                    print(k, G[k])
+                    
             nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             run(receiving_class_dict,t_list, dt, nuclei_dict)
             data['g'][i,j,:] = [g_1, g_2]
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
+            
             for nucleus in nucleus_list:
 
                 (data[(nucleus.name, 'n_half_cycles_mvt')][i,j],
@@ -3865,6 +3886,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 data[(nucleus.name,'mvt_freq')][i,j],
                 if_stable_mvt )= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, 
                                                                 smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
+                                                                  
                 (data[(nucleus.name, 'n_half_cycles_base')][i,j],
                     data[(nucleus.name,'perc_t_oscil_base')][i,j], 
                     data[(nucleus.name,'base_freq')][i,j],
@@ -3873,37 +3895,45 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                 print(nucleus.name,' g1 = ', round(g_1,2), ' g2 = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
 
                 if not found_g_transient[nucleus.name]  and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
-                    data[(nucleus.name,'g_transient_boundary')].append([g_1,g_2]) # save the the threshold g to get transient oscillations
+                    
+                    data[(nucleus.name,'g_transient_boundary')].append([g_1, g_2]) # save the the threshold g to get transient oscillations
                     found_g_transient[nucleus.name] = True
 
                 if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
+                    
                     if_trans_plotted = True
                     print("transient plotted")
-                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = plt_start, legend_loc = 'upper left',title_fontsize = 15,
-                        title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)),
-                        ax = None)
+                                      
+                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
+                                     include_FR = False, plot_start = plt_start, legend_loc = 'upper left',
+                                     title_fontsize = 15, title = G_sweep_title(G_dict, g_1, g_2), ax = None)
                 
                 if not found_g_stable[nucleus.name] and if_stable_mvt: 
                     found_g_stable[nucleus.name] = True
                     data[(nucleus.name,'g_stable_boundary')].append([g_1,g_2])
 
                 if not if_stable_plotted and if_stable_mvt:
+                    
                     if_stable_plotted = True
                     print("stable plotted")
-                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, include_FR = False, plot_start = plt_start, legend_loc = 'upper left', title_fontsize = 15,
-                        title = r"$G_{"+list(G_dict.keys())[0][1]+"-"+list(G_dict.keys())[0][0]+"}$ = "+ str(round(g_1,2))+r"$\; G_{"+list(G_dict.keys())[1][1]+"-"+list(G_dict.keys())[1][0]+"}$ ="+str(round(g_2,2)), 
-                        ax = None)
+                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
+                                      include_FR = False, plot_start = plt_start, legend_loc = 'upper left', 
+                                      title_fontsize = 15, title = G_sweep_title(G_dict, g_1, g_2), ax = None)
+                    
             if if_plot:
-                ax = fig.add_subplot(n,m,count+1)
-                plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), n_subplots = int(n*m))
-                plt.title( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)), fontsize = 10)    
-                plt.xlabel("", fontsize = 10)
-                plt.ylabel("", fontsize = 5)
-                plt.legend(fontsize = 10)
+                
+                title = ( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)) )
+                ax = fig.add_subplot(n, m, count + 1)
+                plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = '', n_subplots = int(n*m))
+                ax.set_title(title, fontsize = 10)    
+                ax.set_xlabel("", fontsize = 10)
+                ax.set_ylabel("", fontsize = 5)
+                ax.legend(fontsize = 10)
+                
             count +=1
-            j+=1
-            print(count, "from", int(m*n))
-        i+=1
+            print(count, "from", int(m * n))
+
+        
     if if_plot:
         fig.text(0.5, 0.01, 'time (ms)', ha='center')
         fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
@@ -3914,6 +3944,13 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
     output.close()
     return fig_trans, fig_stable
 
+def G_sweep_title(G_dict, g_1, g_2):
+    title = ( r"$G_{" + list(G_dict.keys())[0][1] + "-" + 
+                        list(G_dict.keys())[0][0] + "}$ = " + str(round(g_1, 2)) + r"$\; G_{" +
+                        list(G_dict.keys())[1][1] + "-" +
+                        list(G_dict.keys())[1][0] + "}$ =" + str(round(g_2, 2))
+            )
+    return title
 # def run_specific_g
 def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
     ''' make a list of classes that project to one class form the given list'''
