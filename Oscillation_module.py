@@ -3757,7 +3757,7 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
         if freq != 0: # then check if there's oscillations
             perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
             if check_stability:
-                print('check stability')
+                # print('check stability')
                 if_stable = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05)
             return n_half_cycles, perc_oscil, freq, if_stable
         else:
@@ -3783,7 +3783,7 @@ def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, am
         # relative first and last peak ratio thresholding
         if len(peaks) > 1 : 
             last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[1]]
-            print('last_first_peak_ratio = ', last_first_peak_ratio)
+            # print('last_first_peak_ratio = ', last_first_peak_ratio)
         else: return False
         if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
             # plt.figure()
@@ -3826,114 +3826,142 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
     else:
         return False
     
-
-def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
-                                      G_dict, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, 
-                                      color_dict, if_plot = False, G_ratio_dict = None, plt_start = 0):
-    
-    list_1  = list(G_dict.values())[0] ; list_2  = list(G_dict.values())[1]
-    n = len(list_1) ;m = len(list_2)
+def create_data_dict_G_sweep(nuclei_dict, G, n):
     data = {} 
     
     for nucleus_list in nuclei_dict.values():
         
         nucleus = nucleus_list[0] # get only on class from each population
-        data[(nucleus.name, 'mvt_freq')] = np.zeros((n,m))
-        data[(nucleus.name, 'base_freq')] = np.zeros((n,m))
-        data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros((n,m))
-        data[(nucleus.name, 'perc_t_oscil_base')] =np.zeros((n,m))
-        data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros((n,m))
-        data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n,m))
-        data[(nucleus.name,'g_transient_boundary')] = []
-        data[(nucleus.name,'g_stable_boundary')] = []
-    data['g'] = np.zeros((n,m,2))
+        data[(nucleus.name, 'mvt_freq')] = np.zeros(n)
+        data[(nucleus.name, 'base_freq')] = np.zeros(n)
+        data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros(n)
+        data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros(n)
+        data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros(n)
+        data[(nucleus.name, 'n_half_cycles_base')] = np.zeros(n)
+        data[(nucleus.name,'g_transient')] = []
+        data[(nucleus.name,'g_stable')] = []
+        
     
-    count  = 0
+    data['g'] = {}    
     
+    for k in list(G.keys()):
+        
+        data['g'][k] = np.zeros(n)
+    return data
+def save_freq_analysis_to_df(data, state, i, nucleus, dt, duration):
+    
+    (data[(nucleus.name, 'n_half_cycles_' + state)][i],
+    data[(nucleus.name,'perc_t_oscil_' + state)][i], 
+    data[(nucleus.name, state + '_freq')][i],
+    if_stable )= find_freq_of_pop_act_spec_window(nucleus,*duration,dt, peak_threshold =nucleus.oscil_peak_threshold, 
+                                                    smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
+    return data, if_stable
+
+def Product_G(data):
+    
+    g_keys = list( 
+                data['g'].keys()
+                )
+    g = np.ones(
+            len(data['g'][g_keys[0]])
+                )
+    for k in g_keys:
+        g = g * data['g'][k]
+    return g
+
+def multiply_values_of_dict(dictionary):
+    product = 1
+    for val in dictionary.values():
+        product = product * val
+    return product
+
+def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
+                                      G_list, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, 
+                                      color_dict, if_plot = False, G_ratio_dict = None, plot_start_trans = 0, 
+                                      plot_start_stable = 0, plot_duration = 600,
+                                      legend_loc = 'upper left', vspan_stable = False):
+    
+    
+    n = len(G_list)
+    data = create_data_dict_G_sweep(nuclei_dict, G, n)
     if_stable_plotted = False
     if_trans_plotted = False
     
     if if_plot:
         fig = plt.figure()
         
+    found_g_transient = {k: False for k in nuclei_dict.keys()}
+    found_g_stable = {k: False for k in nuclei_dict.keys()}
 
-    for i, g_1 in enumerate( sorted(list_1, key=abs) ):
-        
-        
-        found_g_transient = {k: False for k in nuclei_dict.keys()}
-        found_g_stable = {k: False for k in nuclei_dict.keys()}
-        
+    for i, g in enumerate( sorted(G_list, key=abs) ):
 
-        for j, g_2 in enumerate( sorted(list_2, key=abs) ):
+        for k, g_ratio in G_ratio_dict.items():
+            G[k] = g  * g_ratio
+            print(k, G[k])
+            data['g'][k][i] = G[k]
             
-            G[(tuple(G_dict.keys())[0])] = g_1 # returns keys as list, tuple is needed 
-            G[(tuple(G_dict.keys())[1])] = g_2
-            
-            if G_ratio_dict != None: # if the circuit has more than 2 members
-                for k, g_ratio in G_ratio_dict.items():
-                    G[k] = g_2  * g_ratio
-                    print(k, G[k])
-                    
-            nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
-            run(receiving_class_dict,t_list, dt, nuclei_dict)
-            data['g'][i,j,:] = [g_1, g_2]
-            nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
-            
-            for nucleus in nucleus_list:
+        nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+        run(receiving_class_dict,t_list, dt, nuclei_dict)
+        
+        nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
+        
+        for nucleus in nucleus_list:
 
-                (data[(nucleus.name, 'n_half_cycles_mvt')][i,j],
-                data[(nucleus.name,'perc_t_oscil_mvt')][i,j], 
-                data[(nucleus.name,'mvt_freq')][i,j],
-                if_stable_mvt )= find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, 
-                                                                smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
-                                                                  
-                (data[(nucleus.name, 'n_half_cycles_base')][i,j],
-                    data[(nucleus.name,'perc_t_oscil_base')][i,j], 
-                    data[(nucleus.name,'base_freq')][i,j],
-                    if_stable_base ) = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold =nucleus.oscil_peak_threshold, 
-                                                                        smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
-                print(nucleus.name,' g1 = ', round(g_1,2), ' g2 = ', round(g_2,2), 'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i,j],round(data[(nucleus.name, 'perc_t_oscil_mvt')][i,j],2),'%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i,j],2) )
 
-                if not found_g_transient[nucleus.name]  and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
-                    
-                    data[(nucleus.name,'g_transient_boundary')].append([g_1, g_2]) # save the the threshold g to get transient oscillations
-                    found_g_transient[nucleus.name] = True
+            data, if_stable_mvt = save_freq_analysis_to_df(data, 'mvt', i, nucleus, dt, duration_mvt) 
+            data, if_stable_base = save_freq_analysis_to_df(data, 'base', i, nucleus, dt, duration_base)
+                                                  
 
-                if not if_trans_plotted and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]> lim_n_cycle[0] and data[(nucleus.name, 'n_half_cycles_mvt')][i,j]< lim_n_cycle[1]:
-                    
+            print(nucleus.name,' g = ', round(g,2), 
+                  'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i],
+                  round(data[(nucleus.name, 'perc_t_oscil_mvt')][i],2),
+                  '%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i],2) )
+
+            if ( not found_g_transient[nucleus.name]  and 
+                data[(nucleus.name, 'n_half_cycles_mvt')][i] > lim_n_cycle[0] and 
+                data[(nucleus.name, 'n_half_cycles_mvt')][i]< lim_n_cycle[1] ):
+                
+                data[(nucleus.name,'g_transient')] = abs(g) # save the the threshold g to get transient oscillations
+                found_g_transient[nucleus.name] = True
+                data['g_loop_transient'] =  abs( multiply_values_of_dict(G) )
+                
+                if not if_trans_plotted:
+                
                     if_trans_plotted = True
                     print("transient plotted")
                                       
-                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
-                                     include_FR = False, plot_start = plt_start, legend_loc = 'upper left',
-                                     title_fontsize = 15, title = G_sweep_title(G_dict, g_1, g_2), ax = None)
+                    fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
+                                     include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc,
+                                     title_fontsize = 15, title = 'Transient Oscillation', ax = None, continuous_firing_base_lines = False,
+                                     vspan = True)
+                    
+            if found_g_stable[nucleus.name] == False and if_stable_mvt: 
+                found_g_stable[nucleus.name] = True
+                data[(nucleus.name,'g_stable')] = abs(g)
+                data['g_loop_stable'] =  abs( multiply_values_of_dict(G) )
                 
-                if not found_g_stable[nucleus.name] and if_stable_mvt: 
-                    found_g_stable[nucleus.name] = True
-                    data[(nucleus.name,'g_stable_boundary')].append([g_1,g_2])
-
-                if not if_stable_plotted and if_stable_mvt:
+                if not if_stable_plotted :
                     
                     if_stable_plotted = True
                     print("stable plotted")
-                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
-                                      include_FR = False, plot_start = plt_start, legend_loc = 'upper left', 
-                                      title_fontsize = 15, title = G_sweep_title(G_dict, g_1, g_2), ax = None)
-                    
+                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_stable + plot_duration,
+                                      include_FR = False, plot_start = 0, legend_loc = legend_loc, 
+                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                                     vspan = vspan_stable )
+                        
             if if_plot:
                 
-                title = ( r"$G_{STN-Proto}$ = "+ str(round(g_1,2))+r' $G_{Proto-Proto}$ ='+str(round(g_2,2)) )
-                ax = fig.add_subplot(n, m, count + 1)
-                plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = '', n_subplots = int(n*m))
-                ax.set_title(title, fontsize = 10)    
+                ax = fig.add_subplot(n, 1, i + 1)
+                plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,[fig, ax], title = '', n_subplots = int(n))
+                ax.set_title('', fontsize = 10)    
                 ax.set_xlabel("", fontsize = 10)
                 ax.set_ylabel("", fontsize = 5)
                 ax.legend(fontsize = 10)
                 
-            count +=1
-            print(count, "from", int(m * n))
+            print(i, "from", n)
 
-        
+
+    data['G_ratio'] = G_ratio_dict 
     if if_plot:
         fig.text(0.5, 0.01, 'time (ms)', ha='center')
         fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
@@ -4015,7 +4043,113 @@ def reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return nuclei_dict
 
-def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+# def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+#                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
+#                       t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
+    
+#     def set_time_scale( nuclei_dict, synaptic_time_constant):
+#         for nucleus_list in nuclei_dict.values():
+#             for nucleus in nucleus_list:
+#                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
+#         return nuclei_dict
+    
+#     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
+#     data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
+#     count =0 ; i=0
+#     for t_decay_1 in t_decay_series_1:
+#         j = 0
+#         for t_decay_2 in t_decay_series_2:
+
+            # synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
+#             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
+#             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
+
+#             run(receiving_class_dict,t_list, dt, nuclei_dict)
+#             data['tau'][i,j,:] = [t_decay_1,t_decay_2]
+            
+#             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
+#     #                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+#             for nucleus in nucleus_list:
+#                 data[(nucleus.name, 'g_transient')][i,j] = g_transient
+#                 data[(nucleus.name, 'g_stable')][i,j] = g_stable
+#                 data[(nucleus.name,'trans_n_half_cycle')][i,j] = n_half_cycle
+#                 data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
+#                 _,_, data[nucleus.name,'trans_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+            
+#             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
+            
+#                 for k,g_ratio in G_ratio_dict.items():
+#                     G[k] = g_stable * g_ratio
+#                 # G[('STN','Proto')] = g_stable
+#                 # G[('Proto','Proto')] = g_stable * g_ratio
+#                 nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#                 run(receiving_class_dict,t_list, dt, nuclei_dict)
+                
+#                 for nucleus in nucleus_list:
+#                     _,_, data[nucleus.name,'stable_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                     _,_, data[nucleus.name,'stable_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+
+#             count +=1
+#             print(count, "from ", len(t_decay_series_1)*len(t_decay_series_2))
+#             j+=1
+#         i +=1
+#     output = open(filename, 'wb')
+#     pickle.dump(data, output)
+#     output.close()
+    
+# def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebins):
+#     '''build a data dictionary'''
+    
+#     data = {} ; dimensions = iter_param_length_list.copy() ;
+#     print(n_timebins, dimensions) 
+#     pop_act_size = tuple(dimensions + [n_timebins])
+#     for nucleus_list in nuclei_dict.values():
+#         nucleus = nucleus_list[0] # get only on class from each population
+#         data[(nucleus.name, 'trans_mvt_freq')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'trans_base_freq')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'stable_mvt_freq')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'stable_base_freq')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'trans_n_half_cycle')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'g_stable')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'g_transient')] = np.zeros(tuple(iter_param_length_list))
+#         data[(nucleus.name, 'trans_pop_act')] = np.zeros(pop_act_size)
+#     data['tau'] = np.zeros(tuple(iter_param_length_list+[n_time_scale]))
+#     return data
+
+def create_data_dict_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time_scale, n_timebins):
+    '''build a data dictionary'''
+    
+    data = {} ; 
+    # dimensions = iter_param_length_list.copy() ;
+    # pop_act_size = tuple(dimensions + [n_timebins])
+    for nucleus_list in nuclei_dict.values():
+        nucleus = nucleus_list[0] # get only on class from each population
+        data[(nucleus.name, 'trans_mvt_freq')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'trans_base_freq')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'stable_mvt_freq')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'stable_base_freq')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'trans_n_half_cycle')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'g_stable')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'g_transient')] = np.zeros(iter_param_length_list)
+        # data[(nucleus.name, 'trans_pop_act')] = np.zeros(pop_act_size)
+    data['tau'] = {}
+    for k in list(G.keys()):
+        data['tau'][k] = np.zeros(iter_param_length_list)
+    return data
+
+def extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2):
+    
+    for key,v in syn_decay_dict['tau_1']['tau_ratio'].items():    
+        synaptic_time_constant[key] = [syn_decay_dict['tau_1']['tau_ratio'][key] * t_decay_1]
+        
+    for key,v in syn_decay_dict['tau_2']['tau_ratio'].items():    
+        synaptic_time_constant[key] = [syn_decay_dict['tau_2']['tau_ratio'][key] * t_decay_2]
+        
+    return synaptic_time_constant
+
+def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
                       t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
     
@@ -4025,35 +4159,42 @@ def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict,
                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
         return nuclei_dict
     
-    t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
-    data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
-    count =0 ; i=0
-    for t_decay_1 in t_decay_series_1:
-        j = 0
-        for t_decay_2 in t_decay_series_2:
+    t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) 
+    t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
+    
+    data  = create_data_dict_tau_sweep_2d(nuclei_dict, G, (len(t_decay_series_1), len(t_decay_series_2)), 2, len(t_list))    
+    
+    count =0 
+    
+    for i, t_decay_1 in enumerate( t_decay_series_1 ) :
+        
+        for j, t_decay_2 in enumerate( t_decay_series_2 ) :
+            
+            synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
 
-            for key,v in syn_decay_dict['tau_1']['tau_ratio'].items():    synaptic_time_constant[key] = [syn_decay_dict['tau_1']['tau_ratio'][key] * t_decay_1]
-            for key,v in syn_decay_dict['tau_2']['tau_ratio'].items():    synaptic_time_constant[key] = [syn_decay_dict['tau_2']['tau_ratio'][key] * t_decay_2]
             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
 
             run(receiving_class_dict,t_list, dt, nuclei_dict)
-            data['tau'][i,j,:] = [t_decay_1,t_decay_2]
+            
+            for k in list(G.keys()):
+                
+                data['tau'][k][i,j] = synaptic_time_constant[k][0]
             
             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
-    #                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+            
             for nucleus in nucleus_list:
                 data[(nucleus.name, 'g_transient')][i,j] = g_transient
                 data[(nucleus.name, 'g_stable')][i,j] = g_stable
                 data[(nucleus.name,'trans_n_half_cycle')][i,j] = n_half_cycle
-                data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
+                # data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
                 _,_, data[nucleus.name,'trans_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
             
             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
             
-                for k,g_ratio in G_ratio_dict.items():
+                for k, g_ratio in G_ratio_dict.items():
                     G[k] = g_stable * g_ratio
                 # G[('STN','Proto')] = g_stable
                 # G[('Proto','Proto')] = g_stable * g_ratio
@@ -4066,11 +4207,11 @@ def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict,
 
             count +=1
             print(count, "from ", len(t_decay_series_1)*len(t_decay_series_2))
-            j+=1
-        i +=1
+            
     output = open(filename, 'wb')
     pickle.dump(data, output)
     output.close()
+    
 
 def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
@@ -4111,24 +4252,7 @@ def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_lis
         a = 1/0 # to bump a division zero error showing that oscillation couldn't be found in the g range
     return n_half_cycles,g_transient,g_stable, nuclei_dict,if_stable_mvt
 
-def create_data_dict(nuclei_dict, iter_param_length_list, n_time_scale,n_timebins):
-    '''build a data dictionary'''
-    
-    data = {} ; dimensions = iter_param_length_list.copy() ;
-    print(n_timebins, dimensions) 
-    pop_act_size = tuple(dimensions + [n_timebins])
-    for nucleus_list in nuclei_dict.values():
-        nucleus = nucleus_list[0] # get only on class from each population
-        data[(nucleus.name, 'trans_mvt_freq')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'trans_base_freq')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'stable_mvt_freq')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'stable_base_freq')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'trans_n_half_cycle')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'g_stable')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'g_transient')] = np.zeros(tuple(iter_param_length_list))
-        data[(nucleus.name, 'trans_pop_act')] = np.zeros(pop_act_size)
-    data['tau'] = np.zeros(tuple(iter_param_length_list+[n_time_scale]))
-    return data
+
 def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
                                                     c_list,colormap,x_axis = 'multiply',title = "",x_label = "G", key = (), 
                                                     param = 'all', y_line_fix = 4, clb_lower_lim = 0, clb_higher_lim = 50, 
@@ -4463,66 +4587,183 @@ def get_plot_Gs(x_axis, include_Gs, data, nuc_loop_lists, keys, key):
 
     return g, txt
 
-def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, c_list,colormap = 'hot',
-                                                    x_axis = 'multiply',title = "",x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', vline_txt = True):
+def get_extremes_from_all_dfs(filename_list, name_list, c_list):
     maxs = [] ; mins = []
-    fig = plt.figure(figsize=(8,7))
-    ax = fig.add_subplot(111)
     for i in range(len(filename_list)):
+        
         pkl_file = open(filename_list[i], 'rb')
         data = pickle.load(pkl_file)
         pkl_file.close()
+        
         maxs.append(np.max(data[name_list[i],c_list[i]]))
         mins.append(np.min(data[name_list[i],c_list[i]]))
     vmax = max(maxs) ; vmin = min(mins)
+    return vmax, vmin
+
+def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, 
+                                                 y_list,  marker_c_list = None,  colormap = 'hot', x_axis = 'multiply', title = "", 
+                                                 x_label = "G",  leg_loc = 'upper right', g_key = None,
+                                                 vline_txt = True, colorbar = True, ylabel = 'frequency(Hz)'):
+    
+    
+    fig = plt.figure(figsize=(8,7))
+    ax = fig.add_subplot(111)
+    
+    if colorbar:
+        vmax, vmin = get_extremes_from_all_dfs(filename_list, name_list, marker_c_list)
+    
     for i in range(len(filename_list)):
+        
         pkl_file = open(filename_list[i], 'rb')
         data = pickle.load(pkl_file)
+        
         if x_axis == 'multiply':
-            g = np.squeeze(data['g'][:,:,0]*data['g'][:,:,1])
-            g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
-            g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_stable_boundary'][0][g_cte_ind[i]] 
+            
+            g = abs(Product_G(data))
+            g_transient =  data['g_loop_transient']
+            g_stable = data['g_loop_stable']
             x_label = r'$G_{Loop}$'
+            
         else:
-            g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
-            g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
-            print(data[name_list[i],'g_stable_boundary'])
-            g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]
+            g = data['g'][g_key]
+            g_transient = data[name_list[i],'g_transient'] * data['G_ratio'][g_key]
+            g_stable = data[name_list[i],'g_stable'] * data['G_ratio'][g_key]
 
-        # ax.plot(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 1, label= label_list[i])
-        # img = ax.scatter(np.squeeze(data['g'][:,:,g_ch_ind[i]]), np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=colormap,lw = 1,edgecolor = 'k')
-        # plt.axvline(g_transient[g_ind[i]], c = color_list[i])
-        ax.plot(g * x_scale_factor, np.squeeze(data[(name_list[i],y_list[i])]),c = color_list[i], lw = 3, label= label_list[i],zorder=1)
-        img = ax.scatter(g * x_scale_factor, np.squeeze(data[(name_list[i],y_list[i])]),vmin = vmin, vmax = vmax, c=data[(name_list[i],c_list[i])], cmap=plt.get_cmap(colormap),lw = 1,edgecolor = 'k',zorder=2,s=80)
-        ax.axvline(g_transient * x_scale_factor, linestyle = '-.',c = color_list[i],alpha = 0.3,lw=2)  # to get the circuit g which is the muptiplication
-        ax.axvline(g_stable * x_scale_factor, c = color_list[i],lw=2)  # to get the circuit g which is the muptiplication
+        ax.plot(g , 
+                np.squeeze(data[(name_list[i],y_list[i])]),
+                c = color_list[i], lw = 3, 
+                label= label_list[i], zorder=1)
+        
+        if colorbar:
+            img = ax.scatter(g , 
+                             np.squeeze(data[(name_list[i],y_list[i])]),
+                             vmin = vmin, vmax = vmax, 
+                             c=data[(name_list[i], marker_c_list[i])], 
+                             cmap=plt.get_cmap(colormap), lw = 1, 
+                             edgecolor = 'k', zorder = 2, s = 80)
+        else:
+            img = ax.scatter(g , 
+                             np.squeeze(data[(name_list[i],y_list[i])]),
+                             c = color_list[i],  lw = 1, 
+                              s = 80)
+        ax.axvline(g_transient , 
+                   linestyle = '-.', c = color_list[i],
+                   alpha = 0.3, lw = 2) 
+        
+        ax.axvline(g_stable , 
+                   c = color_list[i], lw = 2) 
+        
     if vline_txt :
-        ax.text(g_stable * x_scale_factor-0.5, 0.6, 'Stable oscillations',fontsize=18, rotation = -90)
-        ax.text(g_transient * x_scale_factor, 0.6, 'Oscillation appears',fontsize=18, rotation = -90)
+        ax.text(g_stable - 0.5, 0.6, 
+                'Stable oscillation',
+                fontsize=18, rotation = -90)
+        ax.text(g_transient , 0.6, 
+                'Transient Oscillation', 
+                fontsize=18, rotation = -90)
+        
     ax.set_xlabel(x_label,fontsize = 20)
-    ax.set_ylabel('frequency(Hz)',fontsize=20)
+    ax.set_ylabel(ylabel,fontsize=20)
     ax.set_title(title,fontsize=20)
     ax_label_adjust(ax, fontsize = 18, nbins = 8)
-
-    # ax.set_xlim(limits['x'])
-    # ax.set_ylim(limits['y'])
-    axins1 = inset_axes(ax,
-                    width="5%",  # width = 50% of parent_bbox width
-                    height="70%",  # height : 5%
-                    loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
-    clb = fig.colorbar(img, cax=axins1, orientation="vertical")
-    clb.ax.locator_params(nbins=4)
-    clb.set_label('% Oscillation', labelpad=20, y=.5, rotation=-90,fontsize=15)
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
     remove_frame(ax)
-
+    
+    if colorbar:
+        
+        axins1 = inset_axes(ax,
+                        width="5%",  # width = 50% of parent_bbox width
+                        height="70%",  # height : 5%
+                        loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+        clb = fig.colorbar(img, cax=axins1, orientation="vertical")
+        clb.ax.locator_params(nbins=4)
+        clb.set_label('% Oscillation', 
+                      labelpad=20, y=.5, 
+                      rotation=-90,fontsize=15)
+    
     return fig
+# def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, 
+#                                                  y_list, c_list, colormap = 'hot', x_axis = 'multiply', title = "", 
+#                                                  x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', 
+#                                                  vline_txt = True, colorbar = True):
+    
+    
+#     fig = plt.figure(figsize=(8,7))
+#     ax = fig.add_subplot(111)
+    
+#     vmax, vmin = get_extremes_from_all_dfs(filename_list, name_list, c_list)
+    
+#     for i in range(len(filename_list)):
+        
+#         pkl_file = open(filename_list[i], 'rb')
+#         data = pickle.load(pkl_file)
+        
+#         if x_axis == 'multiply':
+            
+#             g = np.squeeze(data['g'][:,:,0] * 
+#                            data['g'][:,:,1])
+#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
+#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_stable_boundary'][0][g_cte_ind[i]] 
+#             x_label = r'$G_{Loop}$'
+            
+#         else:
+#             g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
+#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
+#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]
+
+#         ax.plot(g * x_scale_factor, 
+#                 np.squeeze(data[(name_list[i],y_list[i])]),
+#                 c = color_list[i], lw = 3, 
+#                 label= label_list[i], zorder=1)
+        
+#         img = ax.scatter(g * x_scale_factor, 
+#                          np.squeeze(data[(name_list[i],y_list[i])]),
+#                          vmin = vmin, vmax = vmax, 
+#                          c=data[(name_list[i],c_list[i])], 
+#                          cmap=plt.get_cmap(colormap), lw = 1, 
+#                          edgecolor = 'k', zorder = 2, s = 80)
+        
+#         ax.axvline(g_transient * x_scale_factor, 
+#                    linestyle = '-.', c = color_list[i],
+#                    alpha = 0.3, lw = 2) 
+        
+#         ax.axvline(g_stable * x_scale_factor, 
+#                    c = color_list[i], lw = 2) 
+        
+#     if vline_txt :
+#         ax.text(g_stable * x_scale_factor-0.5, 0.6, 
+#                 'Stable oscillation',
+#                 fontsize=18, rotation = -90)
+#         ax.text(g_transient * x_scale_factor, 0.6, 
+#                 'Transient Oscillation', 
+#                 fontsize=18, rotation = -90)
+        
+#     ax.set_xlabel(x_label,fontsize = 20)
+#     ax.set_ylabel('frequency(Hz)',fontsize=20)
+#     ax.set_title(title,fontsize=20)
+#     ax_label_adjust(ax, fontsize = 18, nbins = 8)
+#     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
+#     remove_frame(ax)
+    
+#     if colorbar:
+        
+#         axins1 = inset_axes(ax,
+#                         width="5%",  # width = 50% of parent_bbox width
+#                         height="70%",  # height : 5%
+#                         loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+#         clb = fig.colorbar(img, cax=axins1, orientation="vertical")
+#         clb.ax.locator_params(nbins=4)
+#         clb.set_label('% Oscillation', 
+#                       labelpad=20, y=.5, 
+#                       rotation=-90,fontsize=15)
+    
+#     return fig
 
 def multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
                                     g_tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
     fig, ax = get_axes (ax)
     
     for i in range(len(filename_list)):
+        # i=0
         pkl_file = open(filename_list[i], 'rb')
         data = pickle.load(pkl_file)
         x_spec =  data['tau'][:,:,0][:,0]
@@ -4671,92 +4912,31 @@ def save_figs(nuclei_dict, figs, G, noise_variance, path, fft_method, pre_prefix
         figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename):
+def set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = [100, 100], ymin = [-4, -4]):
+    
+    for i, fig in enumerate( [fig_trans, fig_stable] ) :
+    
+        ax = fig.axes
+        ax[0].set_ylim(ymin[i], ymax[i])
+    
+    return fig_trans , fig_stable
+
+def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5)):
+    
+    fig_trans.set_size_inches(figsize, forward=False)
+    fig_stable.set_size_inches(figsize, forward=False)
+    
     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# def find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, G, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
-#     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
-#     got_it = False ;g_stable = None; g_transient = None
-#     Proto = nuclei_dict['Proto']; D2 = nuclei_dict['D2']; FSI = nuclei_dict['FSI']; 
-#     for g in reversed(g_list):
-#         G[('Proto','D2')] =  0
-#         G[('D2', 'FSI')] =  -1
-#         G[('FSI', 'Proto')] = -1
-#         G[('Proto', 'Proto')] = -1
-#         nuclei_dict = reinitialize_nuclei(nuclei_dict,G,A, A_mvt, D_mvt,t_mvt, t_list, dt)
-#         run(receiving_class_dict,t_list, dt, nuclei_dict)
-#         test_1 = nuclei_dict['Proto'][0] ; test = nuclei_dict['D2'][0]
-#         n_half_cycles_mvt,perc_oscil_mvt, f_mvt, if_stable_mvt = find_freq_of_pop_act_spec_window(test,*duration_mvt,dt, peak_threshold =test.oscil_peak_threshold, smooth_kern_window = test.smooth_kern_window, check_stability= find_stable_oscill)
-#         n_half_cycles_base, perc_oscil_base, f_base, if_stable_base = find_freq_of_pop_act_spec_window(test,*duration_base,dt, peak_threshold =test.oscil_peak_threshold, smooth_kern_window = test.smooth_kern_window, check_stability= find_stable_oscill)
-#         print('g=',round(g,1), g_ratio,round(f_base,1),n_half_cycles_base, round(f_mvt,1), n_half_cycles_mvt)
-#         if len(np.argwhere(test_1.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2 or len(np.argwhere(test.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2:
-#             print('zero activity')
-
-#         if n_half_cycles_mvt >= lim_n_cycle[0] and n_half_cycles_mvt <= lim_n_cycle[1]:
-# #            plot(nuclei_dict['Proto'], nuclei_dict['STN'], dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
-#             got_it = True
-            
-#             if g_transient ==None:
-#                 g_transient = g ; n_half_cycles = n_half_cycles_mvt
-#                 print("Gotcha transient!")
-#             if  not find_stable_oscill:
-#                 break
-#         if if_stable_mvt and find_stable_oscill:
-#             got_it = True
-#             g_stable = g
-#             #print('trans', g_transient)
-#             nuclei_dict = initialize_pallidostriatal(nuclei_dict, g_transient,g_ratio,A, A_mvt, D_mvt,t_mvt, t_list, dt)
-#             break
-            
-#     if not got_it:
-#         a = 1/0 # to bump a division zero error showing that oscillation couldn't be found in the g range
-#     return n_half_cycles,g_transient,g_stable, nuclei_dict,if_stable_mvt
-
-# def find_oscillation_boundary_STN_GPe(g_list,g_ratio,nuclei_dict, G,A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
-#     ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
-#     got_it = False ;g_stable = None; g_transient = None
-#     if np.average(g_list) < 0 : g_list = reversed(g_list)
-#     for g in g_list:
-#         G[('STN','Proto')] = g
-#         G[('Proto','Proto')] = g * g_ratio
-#         nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
-
-#         run(receiving_class_dict,t_list, dt, nuclei_dict)
-#         Proto_test = nuclei_dict['Proto'][0] ; STN_test = nuclei_dict['STN'][0]
-#         n_half_cycles_mvt,perc_oscil_mvt, f_mvt, if_stable_mvt = find_freq_of_pop_act_spec_window(STN_test,*duration_mvt,dt, peak_threshold =STN_test.oscil_peak_threshold, smooth_kern_window = STN_test.smooth_kern_window, check_stability= find_stable_oscill)
-#         n_half_cycles_base, perc_oscil_base, f_base, if_stable_base = find_freq_of_pop_act_spec_window(STN_test,*duration_base,dt, peak_threshold =STN_test.oscil_peak_threshold, smooth_kern_window = STN_test.smooth_kern_window, check_stability= find_stable_oscill)
-#         print('g=',round(g,1), round(Proto_test.synaptic_weight['Proto','STN'],2),round(f_base,1),n_half_cycles_base, round(f_mvt,1), n_half_cycles_mvt)
-#         if len(np.argwhere(Proto_test.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2 or len(np.argwhere(STN_test.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2:
-#             print('zero activity')
-       
-#         if n_half_cycles_mvt >= lim_n_cycle[0] and n_half_cycles_mvt <= lim_n_cycle[1]:
-# #            plot(nuclei_dict['Proto'], nuclei_dict['STN'], dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
-#             got_it = True
-            
-#             if g_transient ==None:
-#                 g_transient = g ; n_half_cycles = n_half_cycles_mvt
-#                 print("Gotcha transient!")
-#             if  not find_stable_oscill:
-#                 break
-#         if if_stable_mvt and find_stable_oscill:
-#             got_it = True
-#             g_stable = g
-#             print("Gotcha stable!")
-#             #print('trans', g_transient)
-#             G[('STN','Proto')] = g_transient
-#             G[('Proto','Proto')] = g_transient * g_ratio
-#             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt) # return the nuclei at the oscillation boundary state
-#             break
-            
-#     if not got_it:
-#         a = 1/0 # to throw a division zero error showing that oscillation couldn't be found in the g range
-#     return n_half_cycles,g_transient,g_stable, nuclei_dict,if_stable_mvt
 
 # def sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, filename, G, A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill):
 

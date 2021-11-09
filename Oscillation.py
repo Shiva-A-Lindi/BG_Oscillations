@@ -245,7 +245,7 @@ tau_DD = {('STN','Proto'): {'rise':[0.1],'decay':[7.78]}} # Fan et. al 2012}
 G_DD = {
       ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
 
-color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'grey','Arky':'darkorange'}
+color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g','Arky':'darkorange'}
 noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 I_ext_range = {'Proto' : [0.175*100, 0.185*100], 
                'STN': [0.012009 * 100, 0.02 * 100], 
@@ -6494,17 +6494,16 @@ plt.xlabel(r'$G\times FR (Spk/ms)$')
 
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
-n = 20 ; if_plot = False
+n = 10 ; if_plot = False
 dt = 0.5
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-t_mvt = 1000 ; D_mvt = t_sim - t_mvt
+t_sim = 1400; t_list = np.arange(int(t_sim/dt))
+t_mvt = 700 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
 
 name1 = 'Proto'
 name_list = [name1]
 
-g_1_list = [1] #np.linspace(-2, 0, n, endpoint = True)
-g_2_list = np.linspace(-6, 0, n, endpoint = True)
+G_list = np.linspace(-5, 1, n, endpoint = True)
 
 synaptic_time_constant[('Proto', 'Proto')] = [10]
 
@@ -6512,10 +6511,11 @@ G = {
      (name1 , name1) : -1
      }
 
+G_ratio_dict = {
+     (name1 , name1) : 1
+     }
 receiving_pop_list = {('Proto','1') : [('Proto', '1')]}
 
-G_dict = {('STN', 'Proto') : g_1_list, ### not used here
-          ('Proto', 'Proto') : g_2_list}
 
 lim_n_cycle = [6,10]
 pop_list = [1]  
@@ -6526,46 +6526,49 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
 
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
-run(receiving_class_dict,t_list, dt, nuclei_dict)
-plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
-                                      include_FR = False, plot_start = 0, legend_loc = 'upper left',
-                                      title_fontsize = 15, ax = None)
+# run(receiving_class_dict,t_list, dt, nuclei_dict)
+# plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
+#                                       include_FR = False, plot_start = 0, legend_loc = 'upper left',
+#                                       title_fontsize = 15, ax = None)
 
 filename = os.path.join( path_rate,
                         ( 'G_sweep_Proto-Proto' + '_tau_' + 
-                         str(synaptic_time_constant[(name1 , name1)][0]) + '.pkl' )
+                         str(synaptic_time_constant[(name1 , name1)][0]) + '_n_' + str(n) + '.pkl' )
                         )
 
 fig_trans , fig_stable = synaptic_weight_space_exploration(G.copy(), A, A_mvt, D_mvt, t_mvt, t_list, dt,  filename, 
-                                                           lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, 
-                                                           receiving_class_dict,color_dict, 
-                                                           if_plot = if_plot, plt_start = 500)
+                                                           lim_n_cycle, G_list, nuclei_dict, duration_mvt, duration_base, 
+                                                           receiving_class_dict,color_dict, G_ratio_dict = G_ratio_dict,
+                                                           if_plot = if_plot, plt_start = 500, legend_loc= 'upper right')
 
-save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename)
-
-pkl_file = open(filename, 'rb')
+fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = 100, ymin = -4)
+save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5))
+pkl_file = open(filename , 'rb')
 data = pickle.load(pkl_file)
 pkl_file.close()
+
 name = 'Proto'
 color = 'perc_t_oscil_mvt' #mvt_f'
-param = 'mvt_freq'
-g_transient = data[name,'g_transient_boundary'][0]
-# scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
+param = 'perc_t_oscil_mvt'
+
+xlabel = r'$G_{Loop}$'
 
 
-fig = scatter_2d_plot(np.squeeze(data['g'][:,:,1]),
+g = Product_G(data)
+fig = scatter_2d_plot(abs(g),
                 np.squeeze(data[(name,param)]),
-                np.squeeze(data[(name,color)]),
-                'GPe-GPe ',  
-                ['G(Proto-Proto)', param, color] )
+                np.squeeze(data[(name,color)]), 
+                name + ' in GPe-GPe circuit' , 
+                [xlabel, param, color] )
 
-plt.axvline(g_transient[1], c = 'k')
+plt.axvline(data['g_loop_stable'], c = 'k')
+plt.axvline(data['g_loop_transient'], c = 'grey', linestyle = '--')
 save_pdf_png(fig, os.path.join(path_rate, filename).split('.')[0], size = (8,6))
-#%% RATE MODEL : STN-GPe without GPe-GPe G-sweep
+
 #%% RATE MODEL : STN-GPe without GPe-GPe G-sweep
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
-n = 20 ; if_plot = False
+n = 10 ; if_plot = False
 dt = 0.5
 t_sim = 1400; t_list = np.arange(int(t_sim/dt))
 t_mvt = 700 ; D_mvt = t_sim - t_mvt
@@ -6575,8 +6578,7 @@ name1 = 'Proto'
 name2 = 'STN'
 name_list = [name1, name2]
 
-g_1_list = [1] #np.linspace(-2, 0, n, endpoint = True)
-g_2_list = np.linspace(-3, 0, n, endpoint = True)
+G_list = np.linspace(-3, 0, n, endpoint = True)
 
 (synaptic_time_constant[(name2, name1)],
  synaptic_time_constant[(name1, name2)] )  =  [10], [6]
@@ -6594,8 +6596,6 @@ G_ratio_dict = {
                 (name1 , name2) : -1
                 }
 
-G_dict = {('Proto', 'Proto') : g_1_list, 
-          ('STN', 'Proto') : g_2_list}
 
 lim_n_cycle = [6,10]
 pop_list = [1]  
@@ -6614,38 +6614,37 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 filename = os.path.join(path_rate, 
                         ( 'G_sweep_STN-GPe' + '_tau_' + name1[0] + name2[0] + '_' +
                          str( synaptic_time_constant[(name2, name1)][0]) + '_' + name2[0] + name1[0] + '_' +
-                         str( synaptic_time_constant[(name1, name2)][0]) +  '.pkl' ) 
+                         str( synaptic_time_constant[(name1, name2)][0])  + '_n_' + str(n) +  '.pkl' ) 
                         )
 
 fig_trans , fig_stable = synaptic_weight_space_exploration(G.copy(), A, A_mvt, D_mvt, t_mvt, t_list, dt, filename, 
-                                                            lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, 
+                                                            lim_n_cycle, G_list, nuclei_dict, duration_mvt, duration_base, 
                                                             receiving_class_dict,color_dict, G_ratio_dict = G_ratio_dict,
                                                             if_plot = if_plot, plt_start = 500)
 
 
-
-save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename)
-pkl_file = open(filename + '.pkl', 'rb')
+fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = 100, ymin = -4)
+save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5))
+pkl_file = open(filename , 'rb')
 data = pickle.load(pkl_file)
 pkl_file.close()
 
-name = 'STN'
+name = 'Proto'
 color = 'perc_t_oscil_mvt' #mvt_f'
-param = 'mvt_freq'
+param = 'perc_t_oscil_mvt'
 
-xlabel = 'G(Proto-Proto)'
-# scatter_3d_wireframe_plot(data['g'][:,:,0],data['g'][:,:,1],data[(name,param)],data[(name,color)], name, ['STN-Proto', 'Proto-Proto', param,  color])
+xlabel = r'$G_{Loop}$'
 
-fig = scatter_2d_plot(np.squeeze(data['g'][:,:,1]),
+
+g = Product_G(data)
+fig = scatter_2d_plot(abs(g),
                 np.squeeze(data[(name,param)]),
                 np.squeeze(data[(name,color)]), 
                 name + ' in STN-GPe circuit' , 
                 [xlabel, param, color] )
 
-g_transient = data[(name,'g_transient_boundary')][0]
-g_stable = data[(name,'g_stable_boundary')][0]
-plt.axvline(g_transient[1], c = 'k')
-plt.axvline(g_stable[1], c = 'grey')
+plt.axvline(data['g_loop_stable'], c = 'k')
+plt.axvline(data['g_loop_transient'], c = 'grey', linestyle = '--')
 save_pdf_png(fig, os.path.join(path_rate, filename).split('.')[0], size = (8,6))
 
 #%% RATE MODEL : STN-GPe without GPe-GPe tau-sweep ( GABA and glut)
@@ -6661,7 +6660,7 @@ name1 = 'Proto'
 name2 = 'STN'
 name_list = [name1, name2]
 
-g_list = np.linspace(-5,-0.01, 150); g_ratio = 2
+g_list = np.linspace(-5,-0.5, 150); g_ratio = 2
 
 
 (synaptic_time_constant[(name2, name1)],
@@ -6687,7 +6686,7 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, 
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
-n = 10;
+n = 2;
 syn_decay_dict = {'tau_1': 
                           {
                            'tau_ratio':{ ('STN', 'Proto'): 1
@@ -6702,8 +6701,8 @@ syn_decay_dict = {'tau_1':
 filename = ( 'Tau_sweep_STN-GPe_tau_ratio_' + name1[0] + name2[0] + '_' +
             str(syn_decay_dict['tau_1']['tau_ratio'][(name2 , name1)]) + '_' + name2[0] + name1[0] + '_' +
             str(syn_decay_dict['tau_2']['tau_ratio'][(name1 , name2)]) +  '_G_ratio_' + name1[0] + name2[0] + '_' +
-            str(G_ratio_dict[(name2 , name1)]) + '_' + name2[0] + name1[0] + '_' +
-            str(G_ratio_dict[(name1 , name2)]) + '_n_' + str(n)  )
+            str( abs(G_ratio_dict[(name2 , name1)]) ) + '_' + name2[0] + name1[0] + '_' +
+            str( abs(G_ratio_dict[(name1 , name2)]) ) + '_n_' + str(n)  )
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -6713,19 +6712,24 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 
 find_stable_oscill = True # to find stable oscillatory regime
 
-sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
+sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
                   G.copy(),A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, 
                   lim_n_cycle,find_stable_oscill)
 
 pkl_file = open( filename, 'rb')
 data = pickle.load(pkl_file)
 pkl_file.close()
-name = 'STN' ; color = 'trans_n_half_cycle'
+
+name = 'Proto' ; 
+color = 'trans_n_half_cycle'
 color = 'freq'
+
 g_transient = data[(name,'g_transient')]
 g_transient = data[(name,'g_stable')]
-x = data['tau'][:,:,0]
-y = data['tau'][:,:,1]
+
+x = data['tau'][(name2, name1)]
+y = data['tau'][(name1, name2)]
+
 z_transient = data[(name,'trans_mvt_freq')]
 z_stable = data[(name, 'stable_mvt_freq')]
 c = data[(name, 'trans_n_half_cycle')]
@@ -6733,20 +6737,25 @@ c = data[(name, 'trans_n_half_cycle')]
 xlabel = r'$\tau_{decay}^{inhibition}(ms)$'
 ylabel = r'$\tau_{decay}^{excitaion}(ms)$'
 
+def highlight_middle_glut(ax, y, ind = 3):
+
+    x_spec =  data['tau'][(name2, name1)][:,0]
+    y_spec = data[(name, 'stable_mvt_freq')][:,ind]
+    
+    ax.scatter(x_spec,np.ones_like(x_spec)* y[0,ind], 
+               y_spec, c = ['k'] * len(y_spec), s = 80)
+    
 fig, ax = scatter_3d_wireframe_plot(x,y,z_stable, z_stable, 
                                    name +' in STN-GPe circuit',
                                    [xlabel, ylabel,'frequency(Hz)','frequency(Hz)'])
+highlight_middle_glut(ax, y, ind = 3)
 
-param = 'stable_mvt_freq'
-x_spec =  data['tau'][:,:,0][:,0]
-y_spec = data[(name, 'stable_mvt_freq')][:,3]
-
-ax.scatter(x_spec,np.ones_like(x_spec)* y[0,3], 
-           y_spec, c = ['k'] * len(y_spec), s = 80)
-# scatter_2d_plot(x_spec,y_spec,y_spec, 
-                    # name +' in STN-GP circuit', 
-                    # [xlabel, 'Frequency(Hz)', 'Frequency(Hz)'] )
-# plt.axvline(g_transient[1], c = 'k')
+# ind = 0
+# scatter_2d_plot(data['tau'][(name2, name1)][:,0],
+#                 data[(name, 'stable_mvt_freq')][:,ind],
+#                 data[(name, 'stable_mvt_freq')][:,ind], 
+#                     name +' in STN-GP circuit', 
+#                     [xlabel, 'Frequency(Hz)', 'Frequency(Hz)'] )
 save_pdf_png(fig, 'STN_GPe_timescale_inh_excit_3d.png', size = (8,6))
 #%% RATE MODEL : STN-GPe with GPe-GPe tau-sweep ( GABA and glut)
 
@@ -7061,10 +7070,12 @@ temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*
 
 #%% RATE MODEL : Any Pallidostriatal tau-sweep
 
-n = 5 ; if_plot = False
+N_sim = 100
+N = dict.fromkeys(N, N_sim)
+n = 30 ; if_plot = False
 dt = 0.5
-t_sim = 1400; t_list = np.arange(int(t_sim/dt))
-t_mvt = 700 ; D_mvt = t_sim - t_mvt
+t_sim = 4000; t_list = np.arange(int(t_sim/dt))
+t_mvt = 400 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
 
 
@@ -7103,11 +7114,6 @@ G_ratio_dict = {
 #                 ('Proto', 'D2'): 0.5
 #                 }
 
-G_dict = {
-        ('Proto','Proto'): g_1_list, 
-          (name2, name3) : g_2_list
-          }
-
 
 nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude,
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, 
@@ -7120,7 +7126,7 @@ syn_decay_dict = {'tau_1': {
                             'tau_ratio':{ (name2 , name3) : 1,
                                          (name3 , name1) : 1, 
                                          (name1 , name2): 1},
-                            'tau_list': np.linspace( 5, 15, n)
+                            'tau_list': np.linspace( 5, 20, n)
                             },
                 'tau_2':{
                         'tau_ratio':{('Proto', 'Proto'): 1},
@@ -7141,26 +7147,29 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 g_list = np.linspace(-5,-0, 250); 
 find_stable_oscill = True # to find stable oscillatory regime
 
-sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
+sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
                   G.copy(),A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, 
                   lim_n_cycle,find_stable_oscill)
 #%% RATE MODEL : Any Pallidostriatal without GPe-GPe G-sweep
+plt.close('all')
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
-n = 20 ; if_plot = False
+n = 40 ; if_plot = False
 dt = 0.5
-t_sim = 1400; t_list = np.arange(int(t_sim/dt))
-t_mvt = 700 ; D_mvt = t_sim - t_mvt
+t_sim = 4000; t_list = np.arange(int(t_sim/dt))
+t_mvt = 600 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
+plot_start_trans = t_mvt - 200 ; plot_duration = 600
+plot_start_stable = 0
 
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI' 
-# name3 = 'Arky'
+name3 = 'Arky'
+
 name_list = {name1, name2, name3}
 
-g_1_list = [1] #np.linspace(-2, 0, n, endpoint = True)
-g_2_list = np.linspace(-2, -0, n, endpoint = True)
+G_list = spacing_with_high_resolution_in_the_middle(n, -1.59, -0.1).reshape(-1,) # np.linspace(-1.5, -0.7, n, endpoint = True)
 
 receiving_pop_list = {(name3,'1') : [(name1, '1')], 
                       (name1,'1') : [(name2, '1')],
@@ -7191,10 +7200,6 @@ G_ratio_dict = {
 #                 ('Proto', 'D2'): 0.5
 #                 }
 
-G_dict = {
-        ('Proto','Proto'): g_1_list, 
-          (name2, name3) : g_2_list
-          }
 
 lim_n_cycle = [6,10]
 pop_list = [1]  
@@ -7209,9 +7214,9 @@ filename = ( 'G_sweep_D2-P-' + name3[0] + '_tau_' + name3[0] + name2[0] + '_' +
             str(synaptic_time_constant[(name2 , name3)][0]) + '_' +  name3[0] + name1[0] + '_' +
             str(synaptic_time_constant[(name3 , name1)][0]) + '_' + name2[0] + name1[0] + '_' +
             str(synaptic_time_constant[(name1 , name2)][0]) + '_G_ratio_' + name3[0] + name2[0] + '_' +
-            str(G_ratio_dict[(name2 , name3)]) + '_' + name3[0] + name1[0] + '_' +
-            str(G_ratio_dict[(name3 , name1)]) + '_' + name2[0] + name1[0] + '_' +
-            str(G_ratio_dict[(name1 , name2)]) + '_n_' +
+            str( abs(G_ratio_dict[(name2 , name3)]) ) + '_' + name3[0] + name1[0] + '_' +
+            str( abs(G_ratio_dict[(name3 , name1)])) + '_' + name2[0] + name1[0] + '_' +
+            str( abs(G_ratio_dict[(name1 , name2)])) + '_n_' +
             str(n) )
 
 filename = os.path.join(path_rate, 
@@ -7224,35 +7229,35 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_
 #       title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
 
 fig_trans , fig_stable = synaptic_weight_space_exploration(G.copy(), A, A_mvt, D_mvt, t_mvt, t_list, dt,  filename, 
-                                                           lim_n_cycle, G_dict, nuclei_dict, duration_mvt, duration_base, 
+                                                           lim_n_cycle, G_list, nuclei_dict, duration_mvt, duration_base, 
                                                            receiving_class_dict,color_dict, G_ratio_dict=G_ratio_dict,
-                                                           if_plot = if_plot, plt_start = 500)
+                                                           if_plot = if_plot, plot_start_trans = plot_start_trans,
+                                                           plot_start_stable = plot_start_stable, plot_duration = plot_duration)
 
-save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename)
+
+fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = [75, 75], ymin = [-4, -4])
+save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5))
 pkl_file = open(filename , 'rb')
 data = pickle.load(pkl_file)
 pkl_file.close()
 
 name = 'Proto'
-color = 'n_half_cycles_mvt' #mvt_f'
-param = 'mvt_freq'
-g_transient = data[(name,'g_transient_boundary')][0] # 
-g_stable = data[(name,'g_stable_boundary')][0] # 
+color = 'perc_t_oscil_mvt' #mvt_f'
+param = 'perc_t_oscil_mvt'
 
-xlabel = r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$' 
-xlabel = r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$' 
+xlabel = r'$G_{Loop}$'
 
-fig = scatter_2d_plot(np.squeeze(data['g'][:,:,1]),
-                      np.squeeze(data[(name,param)]),
-                      np.squeeze(data[(name,color)]), 
-                      name + ' in Pallidostriatal',  
-                      [xlabel, param, color] )
 
-plt.axvline(g_transient[1],linestyle ='-.', c = 'g')
-plt.axvline(g_stable[1], c = 'g')
+g = Product_G(data)
+fig = scatter_2d_plot(abs(g),
+                np.squeeze(data[(name,param)]),
+                np.squeeze(data[(name,color)]), 
+                name + ' Pallidostriatal' , 
+                [xlabel, param, color] )
 
+plt.axvline(data['g_loop_stable'], c = 'k')
+plt.axvline(data['g_loop_transient'], c = 'grey', linestyle = '--')
 save_pdf_png(fig, os.path.join(path_rate, filename).split('.')[0], size = (8,6))
-# find_oscillation_boundary_Pallidostriatal(g_list,g_loop, g_ratio, nuclei_dict, A, A_mvt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False)
 #%% RATE MODEL : Any Pallidostriatal with GPe-GPe G-sweep
 
 n = 15 ; if_plot = False
@@ -7384,46 +7389,42 @@ x_label = r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$'
 synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
                                              color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,
                                              'jet',x_axis = 'g_2',x_label = x_label)
-#%% RATE MODEL : frequency vs. G ( FSI loop)
-g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
-nucleus_name_list = ['FSI', 'Proto','D2']
-####### with GP-GP
-# filename_list = 3*['data_synaptic_weight_Pallidostriatal_with_P_P_tau_30_6_10_10.pkl']
-# filename_list = [os.path.join(path_rate, file) for file in filename_list]
+#%% RATE MODEL : frequency vs. G ( FSI loop) 
 
-# title = r'$\tau_{D2-FSI}=30$ $\tau_{FSI-P}=6$ $\tau_{P-D2}=10$ $\tau_{P-P}=10$'
-####### without GP-GP
-filename_list = 3*['data_synaptic_weight_Pallidostriatal_tau_30_6_10.pkl']
+nucleus_name_list = ['Proto']
+n = len(nucleus_name_list)
+
+filename_list = n * ['G_sweep_D2-P-F_tau_FD_10_FP_10_DP_10_G_ratio_FD_1_FP_1_DP_1_n_20.pkl']
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 
-title = r'$\tau_{D2-FSI}=30$ $\tau_{FSI-P}=6$ $\tau_{P-D2}=10$'
+title = r'$\tau_{D2-FSI}=\tau_{FSI-Proto}=\tau_{Proto-D2}=10 \: ms$'
 legend_list = nucleus_name_list
-color_list = [color_dict[name] for name in nucleus_name_list]
-param_list = 3*['mvt_freq']
-color_param_list = 3* ['perc_t_oscil_mvt']
-x_label = r'$G_{D2-FSI}=G_{FSI-P}=\frac{G_{P-D2}}{2}$'
-synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
-                                             color_list,g_cte_ind,g_ch_ind,param_list,color_param_list,'hot',
-                                             x_axis = 'g_2',title = title,x_label = x_label)
+# color_list = [color_dict[name] for name in nucleus_name_list] ## if all nuclei are plotted
+color_list = [color_dict['FSI']]
+param_list = n * ['perc_t_oscil_mvt']
+x_label = r'$G_{Loop}$'
+fig = synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
+                                             color_list, param_list, colormap = 'hot', colorbar = False, marker_c_list = None,
+                                             x_axis = 'multiply', ylabel= '% Oscillation', title = title,x_label = x_label)
+save_pdf_png(fig, filename_list[0].split('.')[0], size = (15,6))
 #%% RATE MODEL : frequency vs. G ( Arky loop )
-g_cte_ind = [0,0,0]; g_ch_ind = [1,1,1]
-nucleus_name_list = ['Arky', 'Proto','D2']
-####### with GP-GP
-filename_list = 3*[os.path.join(path_rate, 'data_synaptic_weight_D2-P-A_with_P_P_tau_-1_30_6_10_10.pkl')]
-# filename_list = 3*['data_synaptic_weight_D2-P-A_tau_30_6_10.pkl']
-title = r'$\tau_{D2-Arky}=30$ $\tau_{Arky-P}=6$ $\tau_{P-D2}=10$ $\tau_{P-P}=10$'
-####### without GP-GP
-# filename_list = 3*['data_synaptic_weight_Pallidostriatal_tau_30_6_10.pkl']
-# title = r'$\tau_{D2-FSI}=30$ $\tau_{FSI-P}=6$ $\tau_{P-D2}=10$'
+
+nucleus_name_list = [ 'Proto']
+n = len(nucleus_name_list)
+
+filename_list = n * ['G_sweep_D2-P-A_tau_AD_10_AP_10_DP_10_G_ratio_AD_1_AP_1_DP_1_n_30.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
+
+title = r'$\tau_{D2-Arky}=\tau_{Arky-Proto}=\tau_{Proto-D2}=10 \: ms$'
 legend_list = nucleus_name_list
-color_list = [color_dict[name] for name in nucleus_name_list]
-param_list = 3*['mvt_freq']
-color_param_list = 3* ['perc_t_oscil_mvt']
-x_label = r'$G_{Arky-P}=5\times G_{D2-Arky}=2\times G_{P-D2}$'
-synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list, 
-                                             color_list, g_cte_ind,
-                                             g_ch_ind, param_list,color_param_list,
-                                             'hot', x_axis = 'g_2', title = title, x_label = x_label)
+# color_list = [color_dict[name] for name in nucleus_name_list] ## if all nuclei are plotted
+color_list = [color_dict['Arky']]
+param_list = n * ['perc_t_oscil_mvt']
+x_label = r'$G_{Loop}$'
+fig = synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list,
+                                             color_list, param_list, colormap = 'hot', colorbar = False, marker_c_list = None,
+                                             x_axis = 'multiply', ylabel= '% Oscillation', title = title,x_label = x_label)
+save_pdf_png(fig, filename_list[0].split('.')[0], size = (15,6))
 #%% RATE MODEL : STN-Proto network
 plt.close('all')
 N_sim = 100
@@ -7468,41 +7469,43 @@ temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt
 # temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt,*duration_base)
 # temp_oscil_check(nuclei_dict['Proto'][0].pop_act,oscil_peak_threshold['Proto'], 3,dt,*duration_mvt)
 #plt.title(r"$\tau_{GABA_A}$ = "+ str(round(x[n_plot],2))+r' $\tau_{GABA_B}$ ='+str(round(y[n_plot],2))+ r' $\tau_{Glut}$ ='+str(round(z[n_plot],2))+' f ='+str(round(c[n_plot],2)) , fontsize = 10)
-#%% RATE MODEL : frequency vs. G ( STN-GP and GP-GP )
-plt.close('all')
-g_cte_ind = [0,0]; g_ch_ind = [1,1]
-# color_list = [color_dict[name] for name in nucleus_name_list]
-fig = synaptic_weight_transition_multiple_circuits(['data_synaptic_weight_STN_GP_only_STN.pkl','data_synaptic_weight_GP_only_T_5.pkl'], 
-                                                  ['STN', 'Proto'], ['STN-GPe', 'GPe-GPe'], ['k','r'],g_cte_ind,g_ch_ind,2*['mvt_freq'],
-                                                  2* ['perc_t_oscil_mvt'],colormap = 'YlOrBr',x_axis='', x_label = r'$G_{Proto-Projection}$')
-# fig = synaptic_weight_transition_multiple_circuits(['data_synaptic_weight_GP_only_T_2.pkl','data_synaptic_weight_GP_only_T_5.pkl'], 
-#                                                  ['Proto', 'Proto'], ['GP-GP (2ms)', 'GP-GP (5ms)'], ['k','r'],g_cte_ind,g_ch_ind,2*['mvt_freq'],2* ['perc_t_oscil_mvt'],'jet',x_axis='g_2')
-filename = 'STN_GPe_with_GPe_GPe_synaptic_weight.png'
-fig.savefig(os.path.join(path_rate, filename),dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path_rate, filename.replace('.png','.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                            orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-#%% RATE MODEL : frequency vs. G ( FSI and Arky loops)
+#%% RATE MODEL : frequency vs. G ( STN-GP )
 
-plt.close('all')
-g_cte_ind = [0,0]; g_ch_ind = [1,1]
-# color_list = [color_dict[name] for name in nucleus_name_list]
-filename_list = ['data_synaptic_weight_Pallidostriatal_tau_15_6_10.pkl',
-                 'data_synaptic_weight_D2-P-A_tau_15_6_10.pkl']
-n = len(filename_list)
-filename_list = ['G_sweep_D2-P-F_tau_FD_10_FP_10_DP_10_G_ratio_FD_1_FP_1_DP_1_n_20.pkl']
-filename_list = [os.path.join(path_rate, filename) for filename in filename_list]
-fig = synaptic_weight_transition_multiple_circuits(filename_list, 
-                                                  ['Proto', 'Proto'], ['FSI-D2-Proto','Arky-D2-Proto'], ['g','darkorange'],
-                                                  g_cte_ind, g_ch_ind, n * ['mvt_freq'],
-                                                  n * ['perc_t_oscil_mvt'], 
-                                                  colormap = 'YlOrBr',x_axis='', x_label = r'$G_{D2-Proto}$', 
-                                                  x_scale_factor = 0.5, vline_txt = False, leg_loc = 'lower left')
-filename = 'f_vs_g_Two_Pallidostriatal.png'
-fig.savefig(os.path.join(path_rate, filename),dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path_rate, filename.replace('.png','.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+nucleus_name_list = [ 'Proto']
+n = len(nucleus_name_list)
+
+filename_list = n * ['G_sweep_STN-GPe_tau_PS_10_SP_6_n_10.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
+
+title = r'$\tau_{STN-Proto}=10\: ms \; , \tau_{Proto-STN}= 6 \: ms$'
+legend_list = nucleus_name_list
+# color_list = [color_dict[name] for name in nucleus_name_list] ## if all nuclei are plotted
+color_list = [color_dict['STN']]
+param_list = n * ['perc_t_oscil_mvt']
+x_label = r'$G_{Loop}$'
+fig = synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list,
+                                             color_list, param_list, colormap = 'hot', colorbar = False, marker_c_list = None,
+                                             x_axis = 'multiply', ylabel= '% Oscillation', title = title,x_label = x_label)
+save_pdf_png(fig, filename_list[0].split('.')[0], size = (15,6))
+
+#%% RATE MODEL : frequency vs. G ( GP-GP )
+
+nucleus_name_list = [ 'Proto']
+n = len(nucleus_name_list)
+
+filename_list = n * ['G_sweep_Proto-Proto_tau_10_n_10.pkl']
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
+
+title = r'$\tau_{Proto-Proto}=10 \: ms$'
+legend_list = nucleus_name_list
+# color_list = [color_dict[name] for name in nucleus_name_list] ## if all nuclei are plotted
+color_list = [color_dict['STN']]
+param_list = n * ['perc_t_oscil_mvt']
+x_label = r'$G_{Loop}$'
+fig = synaptic_weight_transition_multiple_circuits(filename_list, nucleus_name_list, legend_list,
+                                             color_list, param_list, colormap = 'hot', colorbar = False, marker_c_list = None,
+                                             x_axis = 'multiply', ylabel= '% Oscillation', title = title,x_label = x_label)
+save_pdf_png(fig, filename_list[0].split('.')[0], size = (15,6))
 #%% RATE MODEL : frequency vs. G ( STN-GP and GP-GP ) - multiple GP-GP GP-STN G-ratios
 
 filename_list = ['data_STN_GPe_with_GP_GP_syn_t_scale_g_ratio_2_N_100_T_800_dt_0-1.pkl', 
@@ -7581,7 +7584,7 @@ ax.legend(fontsize = 10)
 fig.savefig(figname+'.png',dpi = 300)
 fig.savefig(figname+'.pdf',dpi = 300)
 
-#%% RATE MODEL : frequency vs. tau_inhibition 
+#%% RATE MODEL : frequency vs. tau_inhibition test
 
 
 g_tau_2_ind = 0 
