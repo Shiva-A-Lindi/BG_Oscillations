@@ -3766,7 +3766,7 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
         return 0,0,0, False
 
 def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, 
-                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.1]):
+                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.08]):
     
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
     if  x_plateau > len(sig) * oscil_perc_as_stable : # if the whole signal is oscillatory
@@ -4759,40 +4759,32 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
 #     return fig
 
 def multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
-                                    g_tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
+                                   key = None, tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
     fig, ax = get_axes (ax)
     
     for i in range(len(filename_list)):
-        # i=0
+
         pkl_file = open(filename_list[i], 'rb')
         data = pickle.load(pkl_file)
-        x_spec =  data['tau'][:,:,0][:,0]
+        x_spec =  data['tau'][key][:, tau_2_ind]
 
-        y_spec = data[(name_list[i], y_list[i])][:,g_tau_2_ind]. reshape(-1,)
-        print(x_spec.shape, y_spec.shape)
+        y_spec = data[(name_list[i], y_list[i])][:,tau_2_ind]. reshape(-1,)
         ax.plot(x_spec,y_spec, '-o', c = color_list[i], lw = 3, label= label_list[i],zorder = 1)#, path_effects=[pe.Stroke(linewidth=1, foreground='k'), pe.Normal()])
         ax.set_xlabel(x_label,fontsize = 20)
         ax.set_ylabel(y_label,fontsize = 20,labelpad=ylabelpad)
         ax.set_title(title,fontsize = 20)
-        # ax.set_xlim(limits['x'])
-        # ax.set_ylim(limits['y'])
         ax_label_adjust(ax, fontsize = 20)
         remove_frame(ax)
     plt.legend(fontsize = 20)
     plt.show()
     return fig, ax
+
 def multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list, c_list, label_list,name_list,filename_list,x_label,y_label, 
                                     g_tau_2_ind = None, g_ratio_list = [], ylabelpad = -5, colormap = 'hot', title = '', c_label = ''):
-    maxs = [] ; mins = []
+    
     fig = plt.figure(figsize = (10,8))
     ax = fig.add_subplot(111)
-    for i in range(len(filename_list)):
-        pkl_file = open(filename_list[i], 'rb')
-        data = pickle.load(pkl_file)
-        pkl_file.close()
-        maxs.append(np.max(data[name_list[i],c_list[i]]))
-        mins.append(np.min(data[name_list[i],c_list[i]]))
-    vmax = max(maxs) ; vmin = min(mins)
+    vmin, vmax = get_extremes_from_all_dfs(filename_list, name_list, c_list)
     
     for i in range(len(filename_list)):
         pkl_file = open(filename_list[i], 'rb')
