@@ -3944,10 +3944,18 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                     
                     if_stable_plotted = True
                     print("stable plotted")
-                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_stable + plot_duration,
+                    fig_stable1 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_stable + plot_duration,
                                       include_FR = False, plot_start = 0, legend_loc = legend_loc, 
                                       title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
-                                     vspan = vspan_stable )
+                                      vspan = vspan_stable )
+                    fig_stable2 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
+                                      include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc, 
+                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                                      vspan = vspan_stable )
+                    fig_stable3 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = t_mvt + 200 + plot_duration,
+                                      include_FR = False, plot_start =t_mvt + 200, legend_loc = legend_loc, 
+                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                                      vspan = vspan_stable )
                         
             if if_plot:
                 
@@ -3970,7 +3978,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
     output = open(filename, 'wb')
     pickle.dump(data, output)
     output.close()
-    return fig_trans, fig_stable
+    return fig_trans, [fig_stable1, fig_stable2, fig_stable3]
 
 def G_sweep_title(G_dict, g_1, g_2):
     title = ( r"$G_{" + list(G_dict.keys())[0][1] + "-" + 
@@ -4913,22 +4921,45 @@ def set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = [100, 100], ymin = 
     
     return fig_trans , fig_stable
 
-def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5)):
+# def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5)):
     
+#     fig_trans.set_size_inches(figsize, forward=False)
+        
+#     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+#     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+#     fig_stable.set_size_inches(figsize, forward=False)
+    
+#     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+#     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+def save_trans_stable_figs(fig_trans, fig_stable_list, path_rate, filename, figsize = (10,5), ymax = [100, 100], ymin = [-4, -4]):
+    
+
     fig_trans.set_size_inches(figsize, forward=False)
-    fig_stable.set_size_inches(figsize, forward=False)
     
-    fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
-                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    for i, fig_stable in enumerate(fig_stable_list):
+        fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = ymax, ymin = ymin)
+        fig_stable.set_size_inches(figsize, forward=False)
+
+        fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.png')),dpi = 300, facecolor='w', edgecolor='w',
+                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        
+        fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
     
-    fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-    
-    fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
-                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-    
-    fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        
+        fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        
 
 # def sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, filename, G, A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill):
 
