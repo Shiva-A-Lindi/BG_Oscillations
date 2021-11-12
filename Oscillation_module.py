@@ -9,7 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as pe
-from matplotlib.ticker import FormatStrFormatter, MaxNLocator
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
@@ -2625,6 +2625,23 @@ def possion_spike_generator(n_pop, n_sending, r, dt):
 	# x[~spikes] = 0
 	return x.astype(int)
 
+def pad_high_res_spacing_with_linspace(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_high_res):
+    linspace_before = np.linspace(start_before, mid_start, n_before)
+    linspace_after = np.linspace(mid_end, end_after, n_after)
+    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
+
+def pad_high_res_spacing_with_arange(start_before, mid_start, bin_before, mid_end, end_after,  bin_after, n_high_res):
+    linspace_before = np.linspace(start_before, mid_start, int( ( mid_start - start_before) / bin_before) )
+    linspace_after = np.linspace(mid_end, end_after, int( ( end_after - mid_end) / bin_after) )
+    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
+
+def three_different_linspace_arrays(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_mid):
+    linspace_before = np.linspace(start_before, mid_start, n_before)
+    linspace_after = np.linspace(mid_end, end_after, n_after)
+    linspace_mid = np.linspace(mid_start, mid_end, n_mid)
+    return np.concatenate((linspace_before, linspace_mid, linspace_after), axis  = 0)
 
 def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	'''return a series with lower spacing and higher resolution in the middle'''
@@ -3398,7 +3415,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
          ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
-         low_f = 8, high_f = 30, filter_order = 6, vspan = False):    
+         low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
@@ -3455,8 +3472,10 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-
     ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
+    
+    ax.tick_params(axis='y', length = tick_length)
+    ax.tick_params(axis='x', length = tick_length)
     if ylim != None:
         ax.set_ylim(ylim)
     remove_frame(ax)
@@ -3757,7 +3776,6 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
         if freq != 0: # then check if there's oscillations
             perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
             if check_stability:
-                # print('check stability')
                 if_stable = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05)
             return n_half_cycles, perc_oscil, freq, if_stable
         else:
@@ -3766,7 +3784,7 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
         return 0,0,0, False
 
 def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, 
-                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.92,1.08]):
+                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.95,1.05]):
     
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
     if  x_plateau > len(sig) * oscil_perc_as_stable : # if the whole signal is oscillatory
@@ -3781,9 +3799,9 @@ def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, am
         # plt.plot(peaks, sig[peaks], 'x')
             # plt.axhline(np.average(sig))
         # relative first and last peak ratio thresholding
-        if len(peaks) > 1 : 
-            last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[1]]
-            # print('last_first_peak_ratio = ', last_first_peak_ratio)
+        if len(peaks) > 5 : 
+            last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[5]]
+            print('last_first_peak_ratio = ', last_first_peak_ratio)
         else: return False
         if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
             # plt.figure()
@@ -3951,11 +3969,11 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
                     fig_stable2 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
                                       include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc, 
                                       title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
-                                      vspan = vspan_stable )
+                                      vspan = True )
                     fig_stable3 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = t_mvt + 200 + plot_duration,
                                       include_FR = False, plot_start =t_mvt + 200, legend_loc = legend_loc, 
                                       title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
-                                      vspan = vspan_stable )
+                                      vspan = True )
                         
             if if_plot:
                 
@@ -4221,44 +4239,63 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
     output.close()
     
 
-def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
-    ''' find the synaptic strength for a given set of parametes where you oscillations appear after increasing external input'''
+def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_list,dt, receiving_class_dict, 
+                              D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], find_stable_oscill = False):
+    
+    ''' find the synaptic strength for a given set of parametes where you oscillations 
+    appear after increasing external input'''
+    
     got_it = False ;g_stable = None; g_transient = None
-    if np.average(g_list) < 0 : g_list = reversed(g_list) # always approach from low connection strength, no matter inhibitory or excitatory
-    for g in g_list:
-        for k,v in G_ratio_dict.items(): G[k] = g*v
+    
+    for g in sorted(g_list, key=abs):
+        
+        for k,v in G_ratio_dict.items(): G[k] = g * v
+        
         nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
 
         run(receiving_class_dict,t_list, dt, nuclei_dict)
-        test_1 = list(nuclei_dict.values())[0][0] ;  test = list(nuclei_dict.values())[0][0]#test = nuclei_dict['D2'][0]
+        
+        test_1 = list(nuclei_dict.values())[0][0] 
+        test = list(nuclei_dict.values())[0][0]#test = nuclei_dict['D2'][0]
+        
         n_half_cycles_mvt,perc_oscil_mvt, f_mvt, if_stable_mvt = find_freq_of_pop_act_spec_window(test,*duration_mvt,dt, peak_threshold =test.oscil_peak_threshold, smooth_kern_window = test.smooth_kern_window, check_stability= find_stable_oscill)
         n_half_cycles_base, perc_oscil_base, f_base, if_stable_base = find_freq_of_pop_act_spec_window(test,*duration_base,dt, peak_threshold =test.oscil_peak_threshold, smooth_kern_window = test.smooth_kern_window, check_stability= find_stable_oscill)
-        print('g=',round(g,1),round(f_base,1),n_half_cycles_base, round(f_mvt,1), n_half_cycles_mvt)
-        if len(np.argwhere(test_1.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2 or len(np.argwhere(test.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2:
+        
+        print('g = {}, f_base = {}, {} %, f_mvt ={}, {} %'.format( round(g,1), 
+                                                                  round(f_base,1),
+                                                                  perc_oscil_base, 
+                                                                  round(f_mvt , 1), 
+                                                                  round(perc_oscil_mvt, 1) 
+                                                                  )
+              )
+        
+        if len(np.argwhere(test_1.pop_act[duration_mvt[0]:duration_mvt[1]] == 0 )) > (duration_mvt[1]-duration_mvt[0])/2 or len(np.argwhere(test.pop_act[duration_mvt[0]:duration_mvt[1]] ==0 )) > (duration_mvt[1]-duration_mvt[0])/2:
             print('zero activity')
        
-        if n_half_cycles_mvt >= lim_n_cycle[0] and n_half_cycles_mvt <= lim_n_cycle[1]:
-#            plot(nuclei_dict['Proto'], nuclei_dict['STN'], dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None)
+        if lim_n_cycle[0] <= n_half_cycles_mvt <= lim_n_cycle[1]:
+            
             got_it = True
             
-            if g_transient ==None:
+            if g_transient == None:
                 g_transient = g ; n_half_cycles = n_half_cycles_mvt
                 print("Gotcha transient!")
             if  not find_stable_oscill:
                 break
+            
         if if_stable_mvt and find_stable_oscill:
             got_it = True
             g_stable = g
             print("Gotcha stable!")
             for k,v in G_ratio_dict.items(): 
                 print(g_transient)
-                G[k] = g_transient*v
+                G[k] = g_transient * v
             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt) # return the nuclei at the oscillation boundary state
             break
             
     if not got_it:
-        a = 1/0 # to bump a division zero error showing that oscillation couldn't be found in the g range
-    return n_half_cycles,g_transient,g_stable, nuclei_dict,if_stable_mvt
+        raise(" oscillation couldn't be found in the given <g> range" )
+        
+    return n_half_cycles, g_transient, g_stable, nuclei_dict, if_stable_mvt
 
 
 def synaptic_weight_transition_multiple_circuit_SNN(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, y_list, 
@@ -4344,6 +4381,7 @@ def test(y):
     for i in range(y.shape[1]): # iterate over runs
         yy[:,i] = np.append(0, np.diff(y[:,i])) / y[:,i]
     return yy
+
 def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename, name_list, label_list, color_list,  y_list, 
                                                              freq_list,colormap, x_axis = 'multiply', title = "", x_label = "G", key = (), 
                                                              param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
@@ -4609,9 +4647,12 @@ def get_extremes_from_all_dfs(filename_list, name_list, c_list):
     return vmax, vmin
 
 def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, 
-                                                 y_list,  marker_c_list = None,  colormap = 'hot', x_axis = 'multiply', title = "", 
+                                                 y_list,  marker_c_list = None,  colormap = 'hot', 
+                                                 x_axis = 'multiply', title = "", edgecolor = 'k',
                                                  x_label = "G",  leg_loc = 'upper right', g_key = None,
-                                                 vline_txt = True, colorbar = True, ylabel = 'frequency(Hz)'):
+                                                 vline_txt = True, colorbar = True, ylabel = 'frequency(Hz)',
+                                                 vline_width = 2, lw = 1, xlim = None, markersize = 80,
+                                                 alpha_transient = 1):
     
     
     fig = plt.figure(figsize=(8,7))
@@ -4630,7 +4671,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
             g = abs(Product_G(data))
             g_transient =  data['g_loop_transient']
             g_stable = data['g_loop_stable']
-            x_label = r'$G_{Loop}$'
+            x_label = r'$\vert G_{Loop} \vert$'
             
         else:
             g = data['g'][g_key]
@@ -4639,7 +4680,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
 
         ax.plot(g , 
                 np.squeeze(data[(name_list[i],y_list[i])]),
-                c = color_list[i], lw = 3, 
+                c = color_list[i], lw = lw, 
                 label= label_list[i], zorder=1)
         
         if colorbar:
@@ -4648,25 +4689,26 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
                              vmin = vmin, vmax = vmax, 
                              c=data[(name_list[i], marker_c_list[i])], 
                              cmap=plt.get_cmap(colormap), lw = 1, 
-                             edgecolor = 'k', zorder = 2, s = 80)
+                             edgecolor = edgecolor, zorder = 2, s = markersize)
         else:
             img = ax.scatter(g , 
                              np.squeeze(data[(name_list[i],y_list[i])]),
                              c = color_list[i],  lw = 1, 
-                              s = 80)
-        ax.axvline(g_transient , 
+                              s = markersize, edgecolor = 'k')
+        ax.axvline(g_transient , alpha = alpha_transient,
                    linestyle = '-.', c = color_list[i],
-                   alpha = 0.3, lw = 2) 
+                    lw = vline_width) 
         
         ax.axvline(g_stable , 
-                   c = color_list[i], lw = 2) 
+                   c = color_list[i], lw = vline_width) 
         
     if vline_txt :
-        ax.text(g_stable - 0.5, 0.6, 
-                'Stable oscillation',
+        shift = (g[-1] - g[0])/20
+        ax.text(g_stable - shift, 0.6, 
+                'Stable',
                 fontsize=18, rotation = -90)
-        ax.text(g_transient , 0.6, 
-                'Transient Oscillation', 
+        ax.text(g_transient- shift , 0.6, 
+                'Transient', 
                 fontsize=18, rotation = -90)
         
     ax.set_xlabel(x_label,fontsize = 20)
@@ -4674,14 +4716,24 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     ax.set_title(title,fontsize=20)
     ax_label_adjust(ax, fontsize = 18, nbins = 8)
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
+    ax.tick_params(axis='x', length = 10)
+    ax.tick_params(axis='y', length = 8)
+    # ax.yaxis.set_major_locator(MaxNLocator(3)) 
+    # ax.set_yticklabels(labels = [0, 50, 100], fontsize = 12)
+    y_formatter = FixedFormatter(['0', '50', '100'])
+    y_locator = FixedLocator([0, 50, 100])
+    ax.yaxis.set_major_formatter(y_formatter)
+    ax.yaxis.set_major_locator(y_locator)
     remove_frame(ax)
-    
+    if xlim != None:
+        ax.set_xlim(xlim)
     if colorbar:
         
         axins1 = inset_axes(ax,
                         width="5%",  # width = 50% of parent_bbox width
                         height="70%",  # height : 5%
-                        loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+                        loc='center right', 
+                        borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
         clb = fig.colorbar(img, cax=axins1, orientation="vertical")
         clb.ax.locator_params(nbins=4)
         clb.set_label('% Oscillation', 
