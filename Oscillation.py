@@ -3860,7 +3860,7 @@ fig.savefig(os.path.join(path, 'SNN_spectrum_basal_'+status+'.pdf'), dpi = 300, 
 
 
 
-#%% Transition to activated state FSI-D2-GPe+ Arky-D2-GPe + STN-GPe collective
+#%% Transition to activated state FSI-D2-GPe + Arky-D2-GPe + STN-GPe collective
 
 plt.close('all')
 N_sim = 1000
@@ -6934,19 +6934,20 @@ N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
 dt = 0.5
-t_sim = 2500; t_list = np.arange(int(t_sim/dt))
-t_mvt = 500 ; D_mvt = t_sim - t_mvt
+t_sim = 10000; t_list = np.arange(int(t_sim/dt))
+t_mvt = 400 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
 
 name1 = 'Proto'
 name2 = 'STN'
 name_list = [name1, name2]
 
-g_list = np.linspace(-5,-0.01, 150)
+g_list = np.linspace(-10,-0.01, 150)
 
 
 (synaptic_time_constant[(name2, name1)],
- synaptic_time_constant[(name1, name2)] )  =  [10], [6]
+ synaptic_time_constant[(name1, name1)],
+ synaptic_time_constant[(name1, name2)] )  =  [10], [10], [6]
 
 G = {
      (name2 , name1) : -1,
@@ -6954,7 +6955,7 @@ G = {
      (name1 , name1) : -1}
 
 receiving_pop_list = {('STN', '1') : [('Proto', '1')],
-                      ('Proto', '1') : [('STN', '1')] }
+                      ('Proto', '1') : [('STN', '1'), ('Proto', '1')] }
 
 G_ratio_dict = { 
                 ('Proto', 'Proto'): 1, 
@@ -6987,7 +6988,7 @@ filename = ( 'Tau_sweep_STN-GPe-GPe_tau_ratio_' + name2[0] + name1[0] + '_' +
             str(syn_decay_dict['tau_2']['tau_ratio'][(name1 , name2)]) +'_G_ratio_' + name2[0] + name1[0] + '_' +
             str(abs(G_ratio_dict[(name2 , name1)])) + '_' + name1[0] + name1[0] + '_' +
             str(abs(G_ratio_dict[(name1 , name1)])) + '_' +  name1[0] + name2[0] + '_' +
-            str(abs(G_ratio_dict[(name1 , name2)])) + '_n_' + str(n) )
+            str(abs(G_ratio_dict[(name1 , name2)])) + '_n_' + str(n) + '_T_' + str(t_sim))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -7680,27 +7681,71 @@ filename_list = ['data_STN_GPe_with_GP_GP_syn_t_scale_g_ratio_2_N_100_T_800_dt_0
                   'data_STN_GPe_with_GP_GP_syn_t_scale_g_ratio_1_N_100_T_800_dt_0-1_STN_changing.pkl',  ## STN weight is equal the inhibition
                   'data_STN_GPe_with_GP_GP_syn_t_scale_g_ratio_0-5_N_100_T_800_dt_0-1_STN_changing.pkl']
 figname = 'STN_GPe_with_GP_GP_f_vs_tau_inh_different_P_proj_G_ratios_STN_changing'
+
+filename_list = ['Tau_sweep_STN-GPe-GPe_tau_ratio_SP_1_PP_1_PS_1_G_ratio_SP_2_PP_1_PS_1_n_30_T_10000.pkl',
+                 'Tau_sweep_STN-GPe-GPe_tau_ratio_SP_1_PP_1_PS_1_G_ratio_SP_1_PP_1_PS_1_n_30_T_10000.pkl',
+                 'Tau_sweep_STN-GPe-GPe_tau_ratio_SP_1_PP_1_PS_1_G_ratio_SP_1_PP_2_PS_1_n_30_T_10000.pkl']
+
+pkl_file = open( os.path.join(path_rate, filename_list[0]) , 'rb')
+data = pickle.load(pkl_file)
+pkl_file.close()
+
 filename_list = [os.path.join(path_rate, filename) for filename in filename_list]
-
+n = len(filename_list)
 x_label = r'$\tau_{decay}^{inhibition}(ms)$' ; y_label = 'frequency(Hz)' ; c_label = y_label
-label_list = [r'$G_{PS}=2\times G_{PP}$',r'$G_{PS}=G_{PP}$',r'$G_{PS}=\dfrac{G_{PP}}{2}$']
+label_list = [r'$G_{SP}=2\times G_{PP}$',r'$G_{SP}=G_{PP}$',r'$G_{SP}=\dfrac{G_{PP}}{2}$']
+key_list = n * [('STN', 'Proto')]
 title = ''
-g_ratio_list = [1,1,1]
-g_tau_2_ind = 0 
-name_list = ['Proto']*3
 
-color_list = ['k','grey','lightgrey']
-c_list = ['stable_mvt_freq']*3
+name_list = n * ['Proto']
+
+
+c_list = n * ['stable_mvt_freq']
 y_list = c_list
 colormap = 'Y'
 title = ''
 c_label = 'frequency (Hz)'
-fig = multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list,c_list,  label_list,name_list,filename_list,x_label,y_label,colormap = 'YlOrBr',
-                                                   c_label = c_label,ylabelpad = 0, g_ratio_list=g_ratio_list, g_tau_2_ind = g_tau_2_ind, title = title)
-plt.ylim(28, 59)
-plt.xlim(4, 32)
-fig.savefig(os.path.join(path_rate,figname+'.png'),dpi = 300)
-fig.savefig(os.path.join(path_rate,figname+'.pdf'),dpi = 300)         
+# fig = multi_plot_as_f_of_timescale_shared_colorbar(y_list, color_list,c_list,  label_list,name_list,filename_list,x_label,y_label,colormap = 'YlOrBr',
+                                                   # c_label = c_label,ylabelpad = 0, g_ratio_list=g_ratio_list, g_tau_2_ind = g_tau_2_ind, title = title)
+# plt.ylim(28, 59)
+# plt.xlim(4, 32)
+
+
+
+markerstyle = ['s', 'o', '^']
+color_list = ['k','maroon','red']
+fig, ax2 = plt.subplots(1, 1, sharex=True, figsize =(6,5))
+i = 0
+def plot__(ax):
+    for i in range(len(filename_list)):
+        # i = 0; filename_list[i] = 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl'
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        x_spec =  data['tau'][key_list[i]][:,0]
+        print(data[(name_list[i], y_list[i])].shape)
+        y_spec = data[(name_list[i], y_list[i])][:,0]
+        c_spec = data[(name_list[i], c_list[i])][:,0]
+        # ax.plot(x_spec,y_spec, marker = markerstyle[i], c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = color_list[i])
+        ax.scatter(x_spec,y_spec, marker = markerstyle[i], c = color_list[i], label= label_list[i])
+
+plot__(ax2)
+
+
+ax2.set_xlabel(r'$\tau_{decay}^{inhibition}$',fontsize = 20)
+ax2.set_ylabel( 'Frequency (Hz)',  fontsize = 20)
+
+# fig.text( -0.01, 0.5, 'Frequency (Hz)', va='center', rotation='vertical', fontsize = 18)
+y_formatter = FixedFormatter(['40', '55',   '70'])
+y_locator = FixedLocator([ 40, 55,  70])
+ax2.yaxis.set_major_formatter(y_formatter)
+ax2.yaxis.set_major_locator(y_locator)
+
+remove_frame(ax2)
+ax2.set_xlim(4,26)
+ax2.set_ylim(38,70)
+ax2.legend(fontsize = 12, frameon = False, framealpha = 0.1, bbox_to_anchor=(.5, 0.85), bbox_transform=ax2.transAxes)
+save_pdf_png(fig, os.path.join(path_rate, 'F_vs_tau_Multiple_g_ratios_STN-GPe-GPe'), size = (5,6))
+
 #%% RATE MODEL : frequency vs. tau_inhibition (FSI and Arky loops) - multiple tau ratios
 
 
@@ -7799,7 +7844,7 @@ fig,ax = plt.subplots(1,1)
 color_list = [color_dict['STN']]
 fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
                                     tau_2_ind = 0, ylabelpad = -5, title = '', c_label = '', ax = ax, key = ('STN', 'Proto'))
-#%% RATE MODEL : frequency vs. tau_inhibition (STN-GPe Loop) new
+#%% RATE MODEL : frequency vs. tau_inhibition (All Loops) new
 plt.close('all')
 filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000.pkl',
                  'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000.pkl',
@@ -7821,7 +7866,7 @@ c_label = 'frequency (Hz)'
 name_list = ['Proto'] * len(filename_list)
 markerstyle = ['+', 's', 'o', '^']
 fig, ax2 = plt.subplots(1, 1, sharex=True, figsize =(6,5))
-
+i= 1
 def plot__(ax):
     for i in range(len(filename_list)):
         # i = 0; filename_list[i] = 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl'
@@ -7831,7 +7876,8 @@ def plot__(ax):
         print(data[(name_list[i], y_list[i])].shape)
         y_spec = data[(name_list[i], y_list[i])][:,0]
         c_spec = data[(name_list[i], c_list[i])][:,0]
-        ax.plot(x_spec,y_spec, marker = 's', c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = 'k')
+        # ax.plot(x_spec,y_spec, marker = 's', c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = 'k')
+        ax.scatter(x_spec,y_spec, marker = 's', c = color_list[i], lw = 0.2, label= label_list[i],zorder = 1, s = 20,  ec = 'k')
         
 plot__(ax2)
 
@@ -7849,8 +7895,64 @@ remove_frame(ax2)
 ax2.set_xlim(4,26)
 ax2.set_ylim(5,80)
 ax2.legend(fontsize = 12, frameon = False, framealpha = 0.1, bbox_to_anchor=(.2, 0.5), bbox_transform=ax2.transAxes)
-ax2.axhspan(13,30, color = 'lightgrey', alpha = 0.5)
+ax2.axhspan(13,30, color = 'lightgrey', alpha = 0.5, zorder = 0)
 
+save_pdf_png(fig, os.path.join(path_rate, figname), size = (5,6))
+#%% RATE MODEL : G vs. tau_inhibition (All Loops) 
+plt.close('all')
+filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000.pkl',
+                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000.pkl',
+                'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_30_T_10000.pkl',
+                'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000.pkl']
+
+filename_list = [os.path.join(path_rate, file) for file in filename_list]
+label_list = ['Proto-Proto', 'STN-Proto',  'FSI-D2-Proto','Arky-D2-Proto']
+g_tau_2_ind = 0
+color_list =  create_color_map(len(filename_list), colormap = plt.get_cmap('viridis'))
+color_list = [color_dict['Proto'], color_dict['STN'], color_dict['FSI'], color_dict['Arky']]
+key_list = [('Proto', 'Proto'), ('STN', 'Proto'), ('Proto', 'D2'), ('Proto', 'D2')]
+c_list = ['stable_mvt_freq'] * len(filename_list)
+y_list = c_list
+colormap = 'hot'
+title = ''
+c_label = 'frequency (Hz)'
+name_list = ['Proto'] * len(filename_list)
+markerstyle = ['+', 's', 'o', '^']
+fig, ax2 = plt.subplots(1, 1, sharex=True, figsize =(6,5))
+i= 1
+
+def get_g_stable_loop(data):
+    g_stables = {k: v for k, v in data.items() if k[1] == 'g_stable'}
+    n = len( list(g_stables.values()) [0])
+    gg = np.ones((n,1))
+    for k, v in g_stables.items():
+        gg = gg * v
+    return abs(gg)   
+ 
+def plot__(ax, y = None):
+    for i in range(len(filename_list)):
+        # i = 0; filename_list[i] = 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl'
+        pkl_file = open(filename_list[i], 'rb')
+        data = pickle.load(pkl_file)
+        x_spec =  data['tau'][key_list[i]][:,0]
+        y_spec = get_g_stable_loop(data)
+        c_spec = data[(name_list[i], c_list[i])][:,0]
+        ax.scatter(x_spec,y_spec, marker = 's', c = color_list[i], lw = 0.2, label= label_list[i],zorder = 1, s = 20,  ec = 'k')
+    
+
+
+plot__(ax2, y = 'g_stable')
+figname = 'All_circuits_G_vs_tau_inhibition'
+ax2.set_ylabel( r'$|G_{Loop}|$',  fontsize = 20)
+ax2.set_xlabel(r'$\tau_{decay}^{inhibition}$',fontsize = 20)
+y_formatter = FixedFormatter(['0', '2', '4', '6',  '8', '10'])
+y_locator = FixedLocator([0, 2, 4, 6, 8, 10])
+ax2.yaxis.set_major_formatter(y_formatter)
+ax2.yaxis.set_major_locator(y_locator)
+ax2.set_xlim(4,26)
+ax2.set_ylim(0,10)
+remove_frame(ax2)
+ax2.legend(fontsize = 12, frameon = False, framealpha = 0.1, bbox_to_anchor=(.5, 0.75), bbox_transform=ax2.transAxes)
 save_pdf_png(fig, os.path.join(path_rate, figname), size = (5,6))
 
 #%% RATE MODEL : frequency vs. tau_inhibition (all loops)
