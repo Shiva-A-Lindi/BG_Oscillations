@@ -1686,7 +1686,9 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     if plot_phase:
         fig_phase = plt.figure()
         outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+        
     for i in range(n_iter):
+        
         start = timeit.default_timer()
         for k, values in G_dict.items():
             G[k] = values[i]
@@ -1700,7 +1702,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
         title = _get_title(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
-
+            
+            print(' {} from {} runs'.format(j + 1 , n_run))
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
@@ -1733,11 +1736,13 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
                                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
+                
             if plot_phase:
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
-                                          projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', tick_label_fontsize=18,
-                                           labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=True, nuc_order = nuc_order)
+                                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                                          projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
+                                                          tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
+                                                          include_title=True, ax_label=True, nuc_order = nuc_order)
         if plot_spectrum:
             if fft_method == 'rfft':
                 x_l = 10**9
@@ -2831,14 +2836,19 @@ def check_significance_neuron_autc_PSD(signif_thresh, f, pxx, n, n_pts_above_thr
 
 
 def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3):
-    ''' Check significance of a peak in PSD by checking if the peak exceeds n_std times the std of the rest of the PSD'''
+    ''' Check significance of a peak in PSD by checking if the 
+        <n_pts_above_thresh> consecutive points exceeds <n_std> 
+        times the std of the rest of the PSD '''
+    
     f, pxx = cut_PSD_1d(f, pxx, max_f = max_f)
     signif_thresh = cal_sig_thresh(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
     above_thresh_ind = np.where(pxx >= signif_thresh.reshape(-1,1))[0]
     n_above_thresh = np.bincount(above_thresh_ind)
-    longest_seq_abv_thresh =longest_consecutive_chain_of_numbers( above_thresh_ind)
+    longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
+    
     if len(longest_seq_abv_thresh) >= n_pts_above_thresh:
         return True
+    
     else:
         return False
     
