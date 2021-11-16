@@ -1178,364 +1178,6 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
 # write_obj_to_json(nuclei_dict, json_name)
 save_all_mem_potential(nuclei_dict, path)
 plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
-
-#%% STN-GPe
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-K = calculate_number_of_connections(N, N_real, K_real)
-
-dt = 0.25
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
-name1 = 'STN'
-name2 = 'Proto'
-name_list = [name1, name2]
-g = -0.011; g_ext =  0.01
-G = {}
-plot_start = int(t_sim/2)
-plot_start_raster = int(t_sim/2)
-
-# G[(name1, name2)] , G[(name2, name1)] , G[(name2, name2)]= g , -g, g
-G[(name1, name2)] , G[(name2, name1)] = g , -g
-G = { k: v * K[k] for k, v in G.items()}
-
-
-poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
-                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
-
-receiving_pop_list = {(name1,'1') :  [(name2,'1')],
-                      (name2, '1'): [(name1,'1')]}
-                      # (name2, '1'): [(name1,'1'), (name2,'1')]}
-
-pop_list = [1]  
-init_method = 'heterogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
-keep_mem_pot_all_t = False
-set_input_from_response_curve = True
-der_ext_I_from_curve = True
-save_init = False
-
-
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init,
-               syn_component_weight=syn_component_weight) for i in pop_list] for name in name_list}
-
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-
-# filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
-#              'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl' ,
-#             # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
-#             'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
-
-# set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
-n_FR = 20
-all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
-
-# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
-#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
-# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-STN.pkl'))
-
-
-# Run on previously saved data
-FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-STN.pkl'))
-receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
-
-nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
-
-smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-status = 'STN-GPe'
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
-
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
-plt.gca().set_ylim(-10,100)
-
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.set_size_inches((10, 6), forward=False)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, include_title = True, set_xlim=True)
-# fig_.set_size_inches((11, 7), forward=False)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
-# # x_l = 0.75
-# # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,70)
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
-
-#### To see how removing the so-called non-entrained neurons will change the population mean firing rate
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-#         print(nucleus.name, len(entrained_ind))
-#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
-
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
-ref_nuc_name = 'Proto'; low_f, high_f = 8, 70
-find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
-                                  height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
-                                  only_entrained_neurons =False)
-fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                    density = False, ref_nuc_name = ref_nuc_name, total_phase = 720, projection = None,
-                                    outer=None, fig=None,  title='', tick_label_fontsize=18,
-                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False)
-#%% GPe-GPe
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-K = calculate_number_of_connections(N, N_real, K_real)
-
-dt = 0.25
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
-t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
-name1 = 'Proto'
-name_list = [name1]
-g = -0.005; g_ext =  0.01
-G = {}
-plot_start = int(t_sim/2)
-plot_start_raster = int(t_sim/2)
-
-G[(name1, name1)] = g
-G = { k: v * K[k] for k, v in G.items()}
-
-
-poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
-
-receiving_pop_list = {(name1,'1') :  [(name1,'1')]}
-                   
-pop_list = [1]  
-init_method = 'heterogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-keep_mem_pot_all_t = False
-set_input_from_response_curve = True
-der_ext_I_from_curve = True
-save_init = False
-
-
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init,
-               syn_component_weight=syn_component_weight) for i in pop_list] for name in name_list}
-
-# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-
-# filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
-#              'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl' ,
-#             # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
-#             'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
-
-# set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
-n_FR = 20
-all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
-
-# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
-#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
-# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
-
-
-# Run on previously saved data
-FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
-receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
-
-nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
-
-smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-status = 'GPe-GPe'
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
-
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
-plt.gca().set_ylim(-10,100)
-
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.set_size_inches((10, 6), forward=False)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, include_title = True, set_xlim=True)
-# fig_.set_size_inches((11, 7), forward=False)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
-# # x_l = 0.75
-# # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,70)
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
-
-#### To see how removing the so-called non-entrained neurons will change the population mean firing rate
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-#         print(nucleus.name, len(entrained_ind))
-#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
-
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
-ref_nuc_name = 'Proto'; low_f, high_f = 8, 70
-find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
-                                  height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
-                                  only_entrained_neurons =False)
-fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                    density = False, ref_nuc_name = ref_nuc_name, total_phase = 720, projection = None,
-                                    outer=None, fig=None,  title='', tick_label_fontsize=18,
-                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False)
-
-#%% STN-GPe + GP-GP
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-dt = 0.25
-t_sim = 1000; t_list = np.arange(int(t_sim/dt))
-t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
-name1 = 'Proto' # projecting
-name2 = 'STN' # recieving
-g = -0.003; g_ext =  0.01
-G = {}
-plot_start = 0
-plot_start_raster = 500
-G[(name2, name1)] , G[(name1, name2)] , G[(name1, name1)]  = g, -g, g
-
-poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
-                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
-
-receiving_pop_list = {(name1,'1') :  [(name2,'1'), (name1,'1') ],
-                      (name2, '1'): [(name1,'1')]}
-
-pop_list = [1]  
-init_method = 'heterogeneous'
-# init_method = 'homogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
-keep_mem_pot_all_t = False
-
-set_input_from_response_curve = True
-save_init = False
-noise_variance = {name1 : 0.1, name2: 0.1, name3 : 15}
-noise_amplitude = {name1 : 1, name2: 1, name3: 1}
-
-nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
-nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt, 
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t = keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
-nuclei_dict = {name1: nuc1, name2: nuc2}
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
-
-# filepaths = {name1: name1+ '_N_'+str(N_sim) +'_T_2000.pkl',
-#              name2:name2 + '_N_'+str(N_sim) +'_T_2000.pkl',
-#             name3: name3 + '_N_'+str(N_sim) +'_T_2000_noise_var_15.pkl'}
-# filepaths = {'FSI': 'FSI_A_12-5_N_1000_T_2000_noise_var_0-1.pkl' ,
-#              'D2': 'D2_A_1-1_N_1000_T_2000_noise_var_0-1.pkl' ,
-#             'Proto': 'Proto_A_45_N_1000_T_2000_noise_var_15.pkl'}
-filepaths = {'STN':'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
-            # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
-            'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
-
-set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
-nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
-                                      t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
-
-nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
-# save_all_mem_potential(nuclei_dict, path)
-# fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
-# fig.savefig(os.path.join(path, 'V_m_Distribution_STN_GPe_'+mem_pot_init_method+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'V_m_Distribution_STN_GPe_'+mem_pot_init_method+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-state = 'STN_GPe_GPe-GPe_Real_tau_Proto_13_'
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = init_method)
-fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 60, include_title = True, set_xlim=True)
-fig_.set_size_inches((11, 7), forward=False)
-fig_.savefig(os.path.join(path, 'SNN_raster_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_.savefig(os.path.join(path, 'SNN_raster_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-# x_l = 0.75
-# ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,65)
-ax.axvspan(0,65, alpha = 0.2, color = 'lightskyblue')
-fig.savefig(os.path.join(path, 'SNN_spectrum_mvt_'+state+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path, 'SNN_spectrum_mvt_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 #%% Effect of proto tau_m on STN-GPe-GPe frequency
 
 # plt.close('all')
@@ -2129,8 +1771,417 @@ plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filt
 low_f = 8 ; high_f = 20
 plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, height = 0, density = False, n_bins = 20,
                             start = int(t_sim/dt/2), projection = None, total_phase = 720, ref_nuc_name = 'Proto')
+#%% STN-GPe
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
 
+dt = 0.25
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration = [int(t_sim/dt/2), int(t_sim/dt)]
+name1 = 'STN'
+name2 = 'Proto'
+state = 'rest'
+name_list = [name1, name2]
+g = -0.011; g_ext =  0.01
+G = {}
+plot_start = 1400
+plot_start_raster = 1400
+
+# G[(name1, name2)] , G[(name2, name1)] , G[(name2, name2)]= g , -g, g
+G[(name1, name2)] , G[(name2, name1)] = g , -g
+G = { k: v * K[k] for k, v in G.items()}
+
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1')],
+                      (name2, '1'): [(name1,'1')]}
+                      # (name2, '1'): [(name1,'1'), (name2,'1')]}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+# mem_pot_init_method = 'uniform'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init,
+               syn_component_weight=syn_component_weight) for i in pop_list] for name in name_list}
+
+# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+# filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
+#              'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl' ,
+#             # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
+#             'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
+
+# set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
+# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
+# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+
+
+# Run on previously saved data
+FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+
+status = 'STN-GPe'
+
+n_neuron = 20
+fig_sizes = {'firing': (10,6),
+             'raster': (11,7),
+             'spectrum': (6, 5)}
+
+firing_fig_ylims = [0, 60]
+three_nuc_raster_y = (60 + 5) * 0.05
+fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'raster': (5, three_nuc_raster_y/3 * 2),
+             'spectrum': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05)}
+
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+fig = remove_all_x_labels(fig)
+fig.axes[0].set_ylim(firing_fig_ylims)
+fig = set_y_ticks(fig, [0, 60])
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = fig_sizes['firing'])
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
+                                    include_title = True, set_xlim=True)
+
+fig_raster = remove_all_x_labels(fig_raster)
+fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = fig_sizes['raster'])
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
+fig_spec, ax = plt.subplots(1,1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
+fig_spec = remove_all_x_labels(fig_spec)
+
+# x_l = 0.75
+# ax.axhline(x_l, ls = '--', c = 'grey')
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+
+ax.set_xlim(0,70)
+# ax.yaxis.set_major_locator(MaxNLocator(2)) 
+save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = fig_sizes['spectrum'])
+
+#### To see how removing the so-called non-entrained neurons will change the population mean firing rate
+# for nuclei_list in nuclei_dict.values():
+#     for nucleus in nuclei_list:
+#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
+#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
+#         print(nucleus.name, len(entrained_ind))
+#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
+#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim =None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
+#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+ref_nuc_name = 'Proto'; low_f, high_f = 8, 70
+find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
+                                  height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
+                                  only_entrained_neurons =False)
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
+                                    density = False, ref_nuc_name = ref_nuc_name, total_phase = 720, projection = None,
+                                    outer=None, fig=None,  title='', tick_label_fontsize=18,
+                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False)
+
+#%% GPe-GPe
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.25
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+name1 = 'Proto'
+name_list = [name1]
+g = -0.005; g_ext =  0.01
+G = {}
+plot_start = 1400
+plot_start_raster = 1400
+
+G[(name1, name1)] = g
+G = { k: v * K[k] for k, v in G.items()}
+
+
+poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
+
+receiving_pop_list = {(name1,'1') :  [(name1,'1')]}
+                   
+pop_list = [1]  
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init,
+               syn_component_weight=syn_component_weight) for i in pop_list] for name in name_list}
+
+# receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+# filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
+#              'D2': 'tau_m_13_D2_A_1-1_N_1000_T_2000_noise_var_3.pkl' ,
+#             # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
+#             'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
+
+# set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
+# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
+# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
+
+
+# Run on previously saved data
+FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-Proto.pkl'))
+receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+status = 'GPe-GPe'
+
+fig_sizes = {'firing': (10,6),
+             'raster': (11,7),
+             'spectrum': (6, 5)}
+
+n_neuron = 20
+include_nuc_name = False
+firing_fig_ylims = [20, 60]
+three_nuc_raster_y = (60 + 5) * 0.05
+fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'raster': (5, three_nuc_raster_y/3),
+             'spectrum': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05)}
+
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+fig = remove_all_x_labels(fig)
+fig.axes[0].set_ylim(firing_fig_ylims)
+fig = set_y_ticks(fig, [20, 60])
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = fig_sizes['firing'])
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
+                                    include_nuc_name = include_nuc_name, set_xlim=True)
+
+fig_raster = remove_all_x_labels(fig_raster)
+fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = fig_sizes['raster'])
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
+fig_spec, ax = plt.subplots(1,1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0, 2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
+fig_spec = remove_all_x_labels(fig_spec)
+
+# x_l = 0.75
+# ax.axhline(x_l, ls = '--', c = 'grey')
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+
+ax.set_xlim(0,70)
+# ax.yaxis.set_major_locator(MaxNLocator(2)) 
+save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = fig_sizes['spectrum']) 
+find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
+                                  height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
+                                  only_entrained_neurons =False)
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
+                                    density = False, ref_nuc_name = ref_nuc_name, total_phase = 720, projection = None,
+                                    outer=None, fig=None,  title='', tick_label_fontsize=18,
+                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False)
+
+#%% STN-GPe + GP-GP
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+dt = 0.25
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+name1 = 'Proto' # projecting
+name2 = 'STN' # recieving
+g = -0.003; g_ext =  0.01
+G = {}
+plot_start = 0
+plot_start_raster = 500
+G[(name2, name1)] , G[(name1, name2)] , G[(name1, name1)]  = g, -g, g
+
+poisson_prop = {name1:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext},
+                name2:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext}}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1'), (name1,'1') ],
+                      (name2, '1'): [(name1,'1')]}
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+# mem_pot_init_method = 'uniform'
+keep_mem_pot_all_t = False
+
+set_input_from_response_curve = True
+save_init = False
+noise_variance = {name1 : 0.1, name2: 0.1, name3 : 15}
+noise_amplitude = {name1 : 1, name2: 1, name3: 1}
+
+nuc1 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name1, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init ) for i in pop_list]
+nuc2 = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name2, G, T, t_sim, dt, 
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = False, mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method , path = path, save_init = save_init) for i in pop_list]
+nuclei_dict = {name1: nuc1, name2: nuc2}
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
+# filepaths = {name1: name1+ '_N_'+str(N_sim) +'_T_2000.pkl',
+#              name2:name2 + '_N_'+str(N_sim) +'_T_2000.pkl',
+#             name3: name3 + '_N_'+str(N_sim) +'_T_2000_noise_var_15.pkl'}
+# filepaths = {'FSI': 'FSI_A_12-5_N_1000_T_2000_noise_var_0-1.pkl' ,
+#              'D2': 'D2_A_1-1_N_1000_T_2000_noise_var_0-1.pkl' ,
+#             'Proto': 'Proto_A_45_N_1000_T_2000_noise_var_15.pkl'}
+filepaths = {'STN':'tau_m_5-13_STN_A_15_N_1000_T_2000_noise_var_4.pkl',
+            # 'Proto': 'tau_m_20_Proto_A_45_N_1000_T_2000_noise_var_105.pkl'}
+            'Proto': 'tau_m_12-94_Proto_A_45_N_1000_T_2000_noise_var_30.pkl'}
+
+set_init_all_nuclei(nuclei_dict, filepaths = filepaths)
+nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, 
+                                      t_mvt, t_list, dt, mem_pot_init_method=mem_pot_init_method, set_noise= False)
+
+nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
+# save_all_mem_potential(nuclei_dict, path)
+# fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
+# fig.savefig(os.path.join(path, 'V_m_Distribution_STN_GPe_'+mem_pot_init_method+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# fig.savefig(os.path.join(path, 'V_m_Distribution_STN_GPe_'+mem_pot_init_method+'.png'), dpi = 300, facecolor='w', edgecolor='w',
+#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
+state = 'STN_GPe_GPe-GPe_Real_tau_Proto_13_'
+
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = (10, 6))
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, 
+                                    include_title = True, set_xlim=True)
+
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = (11, 6))
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
+fig, ax = plt.subplots(1,1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
+# x_l = 0.75
+# ax.axhline(x_l, ls = '--', c = 'grey')
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+
+ax.set_xlim(0,70)
+save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = (6, 5))
 #%% FSI-D2-Proto 
+
 plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -2138,18 +2189,18 @@ K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+duration = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'FSI' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
 state = 'rest'
 name_list = [name1, name2, name3]
-g = -0.0035; g_ext =  0.01
+g = -0.0038; g_ext =  0.01
 G = {}
 plot_start = 1400
 plot_start_raster = 1400
 
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = g, g, g
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = 1.4 * g, 1.2 * g, g
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = { k: v * K[k] for k, v in G.items()}
 
@@ -2215,50 +2266,63 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 # fig.savefig(os.path.join(path, 'V_m_Distribution_all_nuclei_'+mem_pot_init_method+'.png'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
-status = 'Pallidostratal_no_oscil'
-# status = 'Pallidostratal_oscil'
+status = 'FSI-D2-Proto'
+n_neuron = 20
+fig_sizes = {'firing': (10,6),
+             'raster': (11,7),
+             'spectrum': (6, 5)}
 
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = [-10,70])
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 20)
+firing_fig_ylims = [-5, 60]
+fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'raster': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'spectrum':(5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05)}
 
-fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.set_size_inches((10, 6), forward=False)
-fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 1.5, linelengths = 1.5, n_neuron = 40, include_title = True,
-                            set_xlim=True, ax_label = True,ylabel_x = 0.05)
-fig_.set_size_inches((11, 7), forward=False)
-fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
-x_l = 1
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+fig = remove_all_x_labels(fig)
+fig.axes[0].set_ylim(firing_fig_ylims)
+fig = set_y_ticks(fig, [0, 30, 60])
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = fig_sizes['firing'])
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
+                                    include_title = True, set_xlim=True)
+
+fig_raster = remove_all_x_labels(fig_raster)
+fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = fig_sizes['raster'])
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
+fig_spec, ax = plt.subplots(1,1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
+fig_spec = remove_all_x_labels(fig_spec)
+
+# x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,50)
-# ax.set_ylim(-0.1,4.1)
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-#         print(nucleus.name, len(entrained_ind))
-#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
+ax.set_xlim(0,70)
+# ax.yaxis.set_major_locator(MaxNLocator(2)) 
+save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = fig_sizes['spectrum'])
 #%% Arky-D2-Proto
 
 plt.close('all')
@@ -2268,18 +2332,18 @@ K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+duration = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'Arky' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
 state = 'rest'
 name_list = [name1, name2, name3]
-g = -0.005; g_ext =  0.01
+g = -0.006; g_ext =  0.01
 G = {}
 plot_start = 1400
 plot_start_raster = 1400
 
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = g, g, g
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = 4 * g, g, 0.6 * g
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = { k: v * K[k] for k, v in G.items()}
 
@@ -2346,50 +2410,62 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 status = 'Arky-D2-Proto'
+n_neuron = 20
+fig_sizes = {'firing': (10,6),
+             'raster': (11,7),  
+             'spectrum': (6, 5)}
 
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = [-10,70])
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-#            include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 20)
+firing_fig_ylims = [-5, 60]
+fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'raster': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
+             'spectrum':(5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05)}
 
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.set_size_inches((10, 6), forward=False)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, include_title = True,
-                            set_xlim=True, ax_label = True,ylabel_x = 0.05)
-# fig_.set_size_inches((11, 7), forward=False)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
-x_l = 1
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+fig = remove_all_x_labels(fig)
+fig.axes[0].set_ylim(firing_fig_ylims)
+fig = set_y_ticks(fig, [0, 30, 60])
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = fig_sizes['firing'])
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
+                                    include_title = True, set_xlim=True)
+
+fig_raster = remove_all_x_labels(fig_raster)
+fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = fig_sizes['raster'])
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
+fig_spec, ax = plt.subplots(1,1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
+fig_spec = remove_all_x_labels(fig_spec)
+
+# x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,50)
-# ax.set_ylim(-0.1,4.1)
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-#         print(nucleus.name, len(entrained_ind))
-#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
-
-
+ax.set_xlim(0,70)
+# ax.yaxis.set_major_locator(MaxNLocator(2)) 
+save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = fig_sizes['spectrum'])
 #%% FSI-D2-Proto + STN-GPe
 
 plt.close('all')
@@ -2475,46 +2551,45 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 status = 'Pallidostratal_plus_STN_GPe'
-plot_start = 0
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = [-10,70])
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 20)
 
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.set_size_inches((10, 6), forward=False)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-#                             labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, include_title = True, set_xlim=True)
-# fig_.set_size_inches((11, 7), forward=False)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = (10, 6))
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, 
+                                    include_title = True, set_xlim=True)
+
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = (11, 6))
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
 fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
 # x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+
 ax.set_xlim(0,70)
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-
-# for nuclei_list in nuclei_dict.values():
-#     for nucleus in nuclei_list:
-#         entrained_ind = significance_of_oscil_all_neurons( nucleus, dt, window_mov_avg = 10, max_f = 250, 
-#                                                           n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2)
-#         print(nucleus.name, len(entrained_ind))
-#         nucleus.pop_act = np.average(nucleus.spikes[entrained_ind,:], axis = 0)/(dt/1000)
-
+save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = (6, 5))
 #%% FSI-D2-Proto + Arky-D2-Proto + STN-GPe
 
 plt.close('all')
@@ -2620,38 +2695,45 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 status = 'Pallidostratal_plus_STN_GPe'
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right')
-fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), title_fontsize=15, plot_start = plot_start, title = '',
-           include_FR = False, include_std=False, plt_mvt=False, legend_loc='upper right',  plot_filtered=True, low_f = low_f, high_f = high_f)
 
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.set_size_inches((10, 6), forward=False)
-# fig.savefig(os.path.join(path, 'SNN_firing_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-fig_ = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_raster, plot_end = t_sim,
-                            labelsize = 20, title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, include_title = True, set_xlim=True)
-# fig_.set_size_inches((11, 7), forward=False)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig_.savefig(os.path.join(path, 'SNN_raster_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+           title_fontsize=15, plot_start = plot_start, title = '',
+           include_FR = False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim =None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False, 
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
+             size = (10, 6))
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
+                                    title_fontsize = 25, lw  = 2, linelengths = 2, n_neuron = 40, 
+                                    include_title = True, set_xlim=True)
+
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
+             size = (11, 6))
+
+peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
+cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
+
 fig, ax = plt.subplots(1,1)
-peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False, 
-                fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
-fig.set_size_inches((6, 5), forward=False)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                         low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                         include_beta_band_in_legend = False)
+
 # x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
-ax.set_xlim(0,70)
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.png'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-# fig.savefig(os.path.join(path, 'SNN_spectrum_'+status+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-#                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 
+ax.set_xlim(0,70)
+save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status ),
+             size = (6, 5))
 ref_nuc_name = 'D2'; 
 find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
                                   height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
@@ -4421,7 +4503,293 @@ fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.png'), dpi = 300
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 fig.savefig(os.path.join(path, 'SNN_temporal_spectrum_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-#%% synaptic weight exploration SNN (FSI-D2-Proto)
+
+#%% Synapric weight exploraion (STN-GPe)  resetting inti dists and setting ext input collectively
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.25
+t_sim = 5000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_base = [int(400/dt), int(t_sim/dt)]
+
+name1 = 'Proto'
+name2 = 'STN'
+name_list = [name1, name2]
+state = 'rest'
+g_ext =  0.01
+g = 0
+G = {}
+
+G[(name1, name2)] , G[(name2, name1)] = -g, g
+
+poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1')],
+                       (name2, '1'): [(name1,'1')]
+                       }
+					 
+
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+der_ext_I_from_curve = True
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+save_init = False
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, 
+               save_init = save_init, syn_component_weight=syn_component_weight ) for i in pop_list] for name in name_list}
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
+# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
+# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+
+
+# Run on previously saved data
+FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+n_run = 10; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
+
+# save_figures = True ; save_pkl = True
+round_dec = 1 ; include_std = False
+plot_start =  int(t_sim * 3/4)
+plot_raster_start = int(t_sim * 3/4)
+n_neuron = 50
+legend_loc = 'center right'
+
+x = np.array([   1 ])
+
+n = len(x)
+g = -0.011  # start
+
+
+G_dict = {(name1, name2) : np.array( [-g]* (n)) ,
+          (name2, name1) : np.array( [g]* (n)) 
+        }
+
+filename = 'STN_Proto_N_1000_T_2000_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+
+G_dict = { k: v * K[k] for k, v in G_dict.items()}
+
+fft_method = 'Welch'
+filepath = os.path.join(path, 'Beta_power', filename)
+nuc_order = [ 'Proto', 'STN']
+ref_nuc_name = 'Proto'
+figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, 
+                                                    noise_amplitude, noise_variance, lim_oscil_perc = 10, plot_firing = plot_firing, low_pass_filter= low_pass_filter,legend_loc = legend_loc,
+                                                    lower_freq_cut= 8, upper_freq_cut = 40, set_seed = False, firing_ylim = None, n_run = n_run,  plot_start_raster= plot_raster_start, 
+                                                    plot_spectrum= plot_spectrum, plot_raster = plot_raster, plot_start = plot_start, plot_end = t_sim, n_neuron= n_neuron, round_dec = round_dec, include_std = include_std,
+                                                    find_beta_band_power = True, fft_method= fft_method, n_windows = 3, include_beta_band_in_legend=True, save_pkl = save_pkl,
+                                                    reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                                    state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
+                                                    receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
+                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
+                                                    find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 40, 
+                                                    n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
+                                                    plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 
+                                                    nuc_order = nuc_order)
+
+# pickle_obj(data, filepath)
+def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale= 1):
+    G = G_dict
+    names = [list(nuclei_dict.values())[i][0].name for i in range(len(nuclei_dict))]
+    gs = [str(round(G[('Arky', 'Proto')][0],3)) + '_' + str(round(G[('Arky', 'Proto')][-1]*scale,3)), 
+          str(round(G[('STN', 'Proto')][0],3)) + '_' + str(round(G[('STN', 'Proto')][-1]*scale,3)),
+          str(round(G[('Proto', 'STN')][0],3)) + '_' + str(round(G[('Proto', 'STN')][-1]*scale,3)),
+          str(round(G[('Proto', 'Proto')][0],3)) + '_' + str(round(G[('Proto', 'Proto')][-1]*scale,3))]
+
+    gs = [gs[i].replace('.','-') for i in range( len (gs))]
+    nucleus = nuclei_dict[names[0]][0]
+    filename = ( names[0] + '_' + names[1] + '_'+  names[2]  + '_G(PA)=' + gs[0]+ '_G(PS)=' +gs[1] + '_G(SP)= '  + gs[2] + '_G(PP)= '  + gs[3] + 
+             '_' + nucleus.ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + 
+              '_syn_' + nucleus.syn_input_integ_method+ '_' +
+              str(noise_variance[names[0]]) + '_' + str(noise_variance[names[1]]) + '_' + str(noise_variance[names[2]]) 
+            + '_N=' + str(nucleus.n) +'_T' + str(nucleus.t_sim) + '_' + fft_method  ) 
+        
+    return filename
+
+def save_figs(figs,nuclei_dict,  G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3, scale = 1):
+    prefix = [ 'Firing_rate_', 'Power_spectrum_','Raster_', 'Phase_' ]
+    prefix = [pre_prefix[i] + prefix[i] for i in range( len(prefix))]
+    prefix = ['Syn_g_explore_' + p for p in prefix]
+    filename = _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale = scale)
+    for i in range( len (figs)):
+        figs[i].set_size_inches(s [i], forward=False)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename + '.png'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+s = [(8, 6), (5, 5) , (10, 6), (4, 12)]
+
+if save_figures:
+ 	save_figs(figs, nuclei_dict, G_dict, noise_variance, path, fft_method, pre_prefix = ['Dem_norm_']*4, s = s)
+
+# manager = plt.get_current_fig_manager()
+# manager.window.showMaximized()
+#%% Synapric weight exploraion (GPe-GPe)  resetting inti dists and setting ext input collectively
+
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.25
+t_sim = 5000; t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim ; D_mvt = t_sim - t_mvt
+duration_base = [int(400/dt), int(t_sim/dt)]
+
+name1 = 'Proto'
+state = 'rest'
+
+name_list = [name1]
+g_ext =  0.01
+G = {}
+
+G[(name1, name1)] = - 0.01 
+
+poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
+
+receiving_pop_list = {(name1,'1') :  [(name2,'1')],
+                       (name2, '1'): [(name1,'1')]
+                       }
+					 
+
+
+pop_list = [1]  
+init_method = 'heterogeneous'
+# init_method = 'homogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+der_ext_I_from_curve = True
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+save_init = False
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
+               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, 
+               save_init = save_init, syn_component_weight=syn_component_weight ) for i in pop_list] for name in name_list}
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
+# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
+#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
+# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+
+
+# Run on previously saved data
+FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-STN.pkl'))
+receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
+                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
+
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+n_run = 10; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
+
+# save_figures = True ; save_pkl = True
+round_dec = 1 ; include_std = False
+plot_start =  int(t_sim * 3/4)
+plot_raster_start = int(t_sim * 3/4)
+n_neuron = 50
+legend_loc = 'center right'
+low_f = 8, high_f = 70
+
+x = np.array([   1 ])
+
+n = len(x)
+g = -0.011  # start
+
+
+G_dict = {(name1, name1) : np.array( [-g]* (n))
+         
+        }
+
+filename = 'Proto_Proto_N_1000_T_2000_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+
+G_dict = { k: v * K[k] for k, v in G_dict.items()}
+
+fft_method = 'Welch'
+filepath = os.path.join(path, 'Beta_power', filename)
+nuc_order = [ 'Proto']
+ref_nuc_name = 'Proto'
+figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, 
+                                                    noise_amplitude, noise_variance, lim_oscil_perc = 10, plot_firing = plot_firing, low_pass_filter= low_pass_filter,legend_loc = legend_loc,
+                                                    lower_freq_cut= 8, upper_freq_cut = 40, set_seed = False, firing_ylim = None, n_run = n_run,  plot_start_raster= plot_raster_start, 
+                                                    plot_spectrum= plot_spectrum, plot_raster = plot_raster, plot_start = plot_start, plot_end = t_sim, n_neuron= n_neuron, round_dec = round_dec, include_std = include_std,
+                                                    find_beta_band_power = True, fft_method= fft_method, n_windows = 3, include_beta_band_in_legend=True, save_pkl = save_pkl,
+                                                    reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
+                                                    state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
+                                                    receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
+                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
+                                                    find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = low_f, high_f = high_f, 
+                                                    n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
+                                                    plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 
+                                                    nuc_order = nuc_order)
+
+# pickle_obj(data, filepath)
+def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale= 1):
+    G = G_dict
+    names = [list(nuclei_dict.values())[i][0].name for i in range(len(nuclei_dict))]
+    gs = [str(round(G[('Arky', 'Proto')][0],3)) + '_' + str(round(G[('Arky', 'Proto')][-1]*scale,3)), 
+          str(round(G[('STN', 'Proto')][0],3)) + '_' + str(round(G[('STN', 'Proto')][-1]*scale,3)),
+          str(round(G[('Proto', 'STN')][0],3)) + '_' + str(round(G[('Proto', 'STN')][-1]*scale,3)),
+          str(round(G[('Proto', 'Proto')][0],3)) + '_' + str(round(G[('Proto', 'Proto')][-1]*scale,3))]
+
+    gs = [gs[i].replace('.','-') for i in range( len (gs))]
+    nucleus = nuclei_dict[names[0]][0]
+    filename = ( names[0] + '_' + names[1] + '_'+  names[2]  + '_G(PA)=' + gs[0]+ '_G(PS)=' +gs[1] + '_G(SP)= '  + gs[2] + '_G(PP)= '  + gs[3] + 
+             '_' + nucleus.ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + 
+              '_syn_' + nucleus.syn_input_integ_method+ '_' +
+              str(noise_variance[names[0]]) + '_' + str(noise_variance[names[1]]) + '_' + str(noise_variance[names[2]]) 
+            + '_N=' + str(nucleus.n) +'_T' + str(nucleus.t_sim) + '_' + fft_method  ) 
+        
+    return filename
+
+def save_figs(figs,nuclei_dict,  G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3, scale = 1):
+    prefix = [ 'Firing_rate_', 'Power_spectrum_','Raster_', 'Phase_' ]
+    prefix = [pre_prefix[i] + prefix[i] for i in range( len(prefix))]
+    prefix = ['Syn_g_explore_' + p for p in prefix]
+    filename = _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale = scale)
+    for i in range( len (figs)):
+        figs[i].set_size_inches(s [i], forward=False)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename + '.png'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
+                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+s = [(8, 6), (5, 5) , (10, 6), (4, 12)]
+
+if save_figures:
+ 	save_figs(figs, nuclei_dict, G_dict, noise_variance, path, fft_method, pre_prefix = ['Dem_norm_']*4, s = s)
+
+# manager = plt.get_current_fig_manager()
+# manager.window.showMaximized()
+#%% synaptic weight exploration SNN (FSI-D2-Proto) resetting inti dists and setting ext input collectively
 
 plt.close('all')
 N_sim = 1000
@@ -4598,7 +4966,7 @@ if save_figures:
 # manager = plt.get_current_fig_manager()
 # manager.window.showMaximized()
 
-#%% synaptic weight exploration SNN (Arky-D2-Proto)
+#%% synaptic weight exploration SNN (Arky-D2-Proto) resetting inti dists and setting ext input collectively
 
 plt.close('all')
 N_sim = 1000
@@ -5254,150 +5622,6 @@ if save_figures:
 
 # manager = plt.get_current_fig_manager()
 # manager.window.showMaximized()
-
-#%% Synapric weight exploraion STN-GPe  resetting inti dists and setting ext input collectively
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-K = calculate_number_of_connections(N, N_real, K_real)
-
-dt = 0.25
-t_sim = 5000; t_list = np.arange(int(t_sim/dt))
-t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_base = [int(400/dt), int(t_sim/dt)]
-
-name1 = 'Proto'
-name2 = 'STN'
-name_list = [name1, name2]
-state = 'rest'
-g_ext =  0.01
-g = 0
-G = {}
-
-G[(name1, name2)] , G[(name2, name1)] = -g, g
-
-poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
-
-receiving_pop_list = {(name1,'1') :  [(name2,'1')],
-                       (name2, '1'): [(name1,'1')]
-                       }
-					 
-
-
-pop_list = [1]  
-init_method = 'heterogeneous'
-# init_method = 'homogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-der_ext_I_from_curve = True
-keep_mem_pot_all_t = False
-set_input_from_response_curve = True
-save_init = False
-
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
-               poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, 
-               save_init = save_init, syn_component_weight=syn_component_weight ) for i in pop_list] for name in name_list}
-n_FR = 20
-all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
-
-# receiving_class_dict , FR_ext_all_nuclei = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-#                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-#                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= True, 
-#                                           use_saved_FR_ext= False, normalize_G_by_N = True)
-# pickle_obj(FR_ext_all_nuclei, os.path.join(path, 'FR_ext_Proto-STN.pkl'))
-
-
-# Run on previously saved data
-FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-STN.pkl'))
-receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
-
-# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 10; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
-
-# save_figures = True ; save_pkl = True
-round_dec = 1 ; include_std = False
-plot_start =  int(t_sim * 3/4)
-plot_raster_start = int(t_sim * 3/4)
-n_neuron = 50
-legend_loc = 'center right'
-
-x = np.array([   1 ])
-
-n = len(x)
-g = -0.011  # start
-
-
-G_dict = {(name1, name2) : np.array( [-g]* (n)) ,
-          (name2, name1) : np.array( [g]* (n)) 
-        }
-
-filename = 'STN_Proto_N_1000_T_2000_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
-
-G_dict = { k: v * K[k] for k, v in G_dict.items()}
-
-fft_method = 'Welch'
-filepath = os.path.join(path, 'Beta_power', filename)
-nuc_order = [ 'Proto', 'STN']
-ref_nuc_name = 'Proto'
-figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, 
-                                                    noise_amplitude, noise_variance, lim_oscil_perc = 10, plot_firing = plot_firing, low_pass_filter= low_pass_filter,legend_loc = legend_loc,
-                                                    lower_freq_cut= 8, upper_freq_cut = 40, set_seed = False, firing_ylim = None, n_run = n_run,  plot_start_raster= plot_raster_start, 
-                                                    plot_spectrum= plot_spectrum, plot_raster = plot_raster, plot_start = plot_start, plot_end = t_sim, n_neuron= n_neuron, round_dec = round_dec, include_std = include_std,
-                                                    find_beta_band_power = True, fft_method= fft_method, n_windows = 3, include_beta_band_in_legend=True, save_pkl = save_pkl,
-                                                    reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                                    state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
-                                                    receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
-                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
-                                                    find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 40, 
-                                                    n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
-                                                    plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 
-                                                    nuc_order = nuc_order)
-
-# pickle_obj(data, filepath)
-def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale= 1):
-    G = G_dict
-    names = [list(nuclei_dict.values())[i][0].name for i in range(len(nuclei_dict))]
-    gs = [str(round(G[('Arky', 'Proto')][0],3)) + '_' + str(round(G[('Arky', 'Proto')][-1]*scale,3)), 
-          str(round(G[('STN', 'Proto')][0],3)) + '_' + str(round(G[('STN', 'Proto')][-1]*scale,3)),
-          str(round(G[('Proto', 'STN')][0],3)) + '_' + str(round(G[('Proto', 'STN')][-1]*scale,3)),
-          str(round(G[('Proto', 'Proto')][0],3)) + '_' + str(round(G[('Proto', 'Proto')][-1]*scale,3))]
-
-    gs = [gs[i].replace('.','-') for i in range( len (gs))]
-    nucleus = nuclei_dict[names[0]][0]
-    filename = ( names[0] + '_' + names[1] + '_'+  names[2]  + '_G(PA)=' + gs[0]+ '_G(PS)=' +gs[1] + '_G(SP)= '  + gs[2] + '_G(PP)= '  + gs[3] + 
-             '_' + nucleus.ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + 
-              '_syn_' + nucleus.syn_input_integ_method+ '_' +
-              str(noise_variance[names[0]]) + '_' + str(noise_variance[names[1]]) + '_' + str(noise_variance[names[2]]) 
-            + '_N=' + str(nucleus.n) +'_T' + str(nucleus.t_sim) + '_' + fft_method  ) 
-        
-    return filename
-
-def save_figs(figs,nuclei_dict,  G, noise_variance, path, fft_method, pre_prefix = ['']*3, s= [(15,15)]*3, scale = 1):
-    prefix = [ 'Firing_rate_', 'Power_spectrum_','Raster_', 'Phase_' ]
-    prefix = [pre_prefix[i] + prefix[i] for i in range( len(prefix))]
-    prefix = ['Syn_g_explore_' + p for p in prefix]
-    filename = _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale = scale)
-    for i in range( len (figs)):
-        figs[i].set_size_inches(s [i], forward=False)
-        figs[i].savefig(os.path.join(path, prefix[i] + filename + '.png'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-        figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
-                orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-s = [(8, 6), (5, 5) , (10, 6), (4, 12)]
-
-if save_figures:
- 	save_figs(figs, nuclei_dict, G_dict, noise_variance, path, fft_method, pre_prefix = ['Dem_norm_']*4, s = s)
-
-# manager = plt.get_current_fig_manager()
-# manager.window.showMaximized()
-
 #%% Synapric weight exploraion STN-GPe-GPe + Arky resetting inti dists and setting ext input collectively
 plt.close('all')
 N_sim = 1000

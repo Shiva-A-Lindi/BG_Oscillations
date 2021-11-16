@@ -875,7 +875,7 @@ class Nucleus:
                                     total_phase = 360, ref_nuc_name = 'self', neurons_ind = 'all', troughs = False):
         
         all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
-        if ref_peaks == []: # if peaks are given as argument phases are calculated relative to them
+        if len( ref_peaks ) == 0: # if peaks are given as argument phases are calculated relative to them
             ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
         
         phase_all_spikes = np.zeros(len(all_spikes) * 2 + 1)
@@ -2327,7 +2327,8 @@ def get_axes(ax, figsize=(6, 5)):
 
 
 def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, labelsize=10, title_fontsize=15, linelengths=2.5, lw=3, xlim=None,
-                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal'):
+                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal',
+                include_nuc_name = True):
     fig, ax = get_axes(ax)
     c_dict = color_dict.copy()
     # c_to_ch = {v: k for k, v in c_dict.items()}['grey']
@@ -2335,7 +2336,8 @@ def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, labelsize=
     ax.eventplot(spikes_sparse, colors=c_dict[name],
                  linelengths=linelengths, lw=lw, orientation= orientation)
     ax.tick_params(axis='both', labelsize=labelsize)
-    ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
+    if include_nuc_name:
+        ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
     if axvspan:
         ax.axvspan(span_start, span_end, alpha=0.2, color=axvspan_color)
     remove_frame(ax)
@@ -2410,7 +2412,7 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_end=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, neurons =[],
-                            ylabel_x = 0.03):
+                            ylabel_x = 0.03, include_nuc_name = True):
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
@@ -2422,6 +2424,7 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
         ax = plt.Subplot(fig, outer)
         ax.set_title(title, fontsize=15)
         ax.axis('off')
+        
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
@@ -2437,8 +2440,10 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
             if set_xlim:
                 xlim = [plot_start, plot_end]
             else: xlim = None
-            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax=ax, labelsize=tick_label_fontsize, title_fontsize=title_fontsize, linelengths=linelengths, lw=lw, xlim=xlim,
-                            axvspan=axvspan, span_start=span_start, span_end=span_end, axvspan_color=axvspan_color)
+            ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax=ax, labelsize=tick_label_fontsize, 
+                             title_fontsize=title_fontsize, linelengths=linelengths, lw=lw, xlim=xlim,
+                            axvspan=axvspan, span_start=span_start, span_end=span_end, axvspan_color=axvspan_color,
+                            include_nuc_name = include_nuc_name)
             fig.add_subplot(ax)
 
             rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
@@ -4766,12 +4771,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
     ax.tick_params(axis='x', length = 10)
     ax.tick_params(axis='y', length = 8)
-    # ax.yaxis.set_major_locator(MaxNLocator(3)) 
-    # ax.set_yticklabels(labels = [0, 50, 100], fontsize = 12)
-    y_formatter = FixedFormatter(['0', '50', '100'])
-    y_locator = FixedLocator([0, 50, 100])
-    ax.yaxis.set_major_formatter(y_formatter)
-    ax.yaxis.set_major_locator(y_locator)
+    ax = set_y_ticks(ax, [0, 50, 100])
     remove_frame(ax)
     if xlim != None:
         ax.set_xlim(xlim)
@@ -4789,6 +4789,25 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
                       rotation=-90,fontsize=15)
     
     return fig
+
+def set_y_ticks(fig, label_list):
+    
+    for ax in fig.axes:
+        y_formatter = FixedFormatter([str(x) for x in label_list])
+        y_locator = FixedLocator(label_list)
+        ax.yaxis.set_major_formatter(y_formatter)
+        ax.yaxis.set_major_locator(y_locator)
+        
+    return fig
+
+def remove_all_x_labels(fig):
+    
+    for ax in fig.axes:
+        ax.axes.xaxis.set_ticklabels([])
+        ax.set_xlabel('')
+        
+    return fig
+   
 # def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, 
 #                                                  y_list, c_list, colormap = 'hot', x_axis = 'multiply', title = "", 
 #                                                  x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', 
