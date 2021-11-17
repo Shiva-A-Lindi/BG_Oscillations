@@ -1879,10 +1879,11 @@ fig = set_y_ticks(fig, [0, 60])
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
              size = fig_sizes['firing'])
 
+include_nuc_name = False
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
                                     plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
-                                    include_title = True, set_xlim=True)
+                                    include_nuc_name = include_nuc_name, set_xlim=True)
 
 fig_raster = remove_all_x_labels(fig_raster)
 fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
@@ -1940,10 +1941,11 @@ K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.25
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
-duration_2 = [int(t_sim/dt/2), int(t_sim/dt)]
+duration = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'Proto'
+state = 'rest'
 name_list = [name1]
-g = -0.005; g_ext =  0.01
+g = -0.001; g_ext =  0.01
 G = {}
 plot_start = 1400
 plot_start_raster = 1400
@@ -2000,7 +2002,7 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
 nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
-
+low_f = 8 ; high_f = 80
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 status = 'GPe-GPe'
 
@@ -2009,7 +2011,6 @@ fig_sizes = {'firing': (10,6),
              'spectrum': (6, 5)}
 
 n_neuron = 20
-include_nuc_name = False
 firing_fig_ylims = [20, 60]
 three_nuc_raster_y = (60 + 5) * 0.05
 fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.05),
@@ -2032,6 +2033,7 @@ fig = set_y_ticks(fig, [20, 60])
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
              size = fig_sizes['firing'])
 
+include_nuc_name = False
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
                                     plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
@@ -2046,14 +2048,14 @@ peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ;
 cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1,1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
+freq, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
                          smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
                          low_pass_filter, 0, 2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
                          spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
                          include_beta_band_in_legend = False)
 
 fig_spec = remove_all_x_labels(fig_spec)
-
+check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 1, min_f = 0, max_f = 250, n_pts_above_thresh = 3)
 # x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
 # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
@@ -2062,6 +2064,7 @@ ax.set_xlim(0,70)
 # ax.yaxis.set_major_locator(MaxNLocator(2)) 
 save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
              size = fig_sizes['spectrum']) 
+ref_nuc_name = 'Proto'
 find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 100,
                                   height = 0, ref_nuc_name = ref_nuc_name, start = 0, total_phase = 720,
                                   only_entrained_neurons =False)
@@ -2293,10 +2296,11 @@ fig = set_y_ticks(fig, [0, 30, 60])
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
              size = fig_sizes['firing'])
 
+include_nuc_name = False
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
                                     plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
-                                    include_title = True, set_xlim=True)
+                                    include_nuc_name = include_nuc_name, set_xlim=True)
 
 fig_raster = remove_all_x_labels(fig_raster)
 fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
@@ -2436,10 +2440,11 @@ fig = set_y_ticks(fig, [0, 30, 60])
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
              size = fig_sizes['firing'])
 
+include_nuc_name = False
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
                                     plot_start = plot_start_raster, plot_end = t_sim, labelsize = 20, 
                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
-                                    include_title = True, set_xlim=True)
+                                    include_nuc_name = include_nuc_name, set_xlim=True)
 
 fig_raster = remove_all_x_labels(fig_raster)
 fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
@@ -4568,7 +4573,7 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 10; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
+n_run = 2; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
 
 # save_figures = True ; save_pkl = True
 round_dec = 1 ; include_std = False
@@ -4576,7 +4581,7 @@ plot_start =  int(t_sim * 3/4)
 plot_raster_start = int(t_sim * 3/4)
 n_neuron = 50
 legend_loc = 'center right'
-
+check_peak_significance = True
 x = np.array([   1 ])
 
 n = len(x)
@@ -4603,7 +4608,7 @@ figs, title, data = synaptic_weight_exploration_SNN(nuclei_dict, filepath, durat
                                                     reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
                                                     state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
                                                     receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
-                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
+                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = check_peak_significance, 
                                                     find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 40, 
                                                     n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
                                                     plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 

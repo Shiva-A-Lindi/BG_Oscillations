@@ -1862,10 +1862,15 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend,
                                                                     divide_beta_band_in_power= divide_beta_band_in_power)
-            if save_pxx:                                               
-                data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f[:len_f_pxx], pxx[:len_f_pxx]                                                   
+            if save_pxx:   
+                                            
+                data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f[:len_f_pxx], pxx[:len_f_pxx]   
+                                                
             if check_peak_significance:
-                    data[(nucleus.name, 'peak_significance')][i, j,:] = check_significance_of_PSD_peak(f, pxx, n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3)
+                
+                    data[(nucleus.name, 'peak_significance')][i, j,:] = check_significance_of_PSD_peak(f, pxx, n_std_thresh = 2, min_f = 0, 
+                                                                                                       max_f = 250, n_pts_above_thresh = 3)
+                    
                     print(data[(nucleus.name, 'peak_significance')][i, j,:])                 
             # try:
             #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
@@ -1897,7 +1902,8 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
             if low_pass_filter:
                 nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order=6)
 
-            (n_half_cycles, perc_oscil, freq, if_stable, beta_band_power, f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
+            (n_half_cycles, perc_oscil, freq, 
+             if_stable, beta_band_power, f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
                                                                      peak_threshold=peak_threshold,
                                                                     smooth_kern_window=smooth_kern_window,
                                                                    cut_plateau_epsilon=cut_plateau_epsilon,
@@ -2796,19 +2802,26 @@ def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 
     """
     f, pxx, peak_f = get_fft_autc_spikes(nucleus, dt, window_mov_avg, n_window_welch)
     f, pxx = cut_PSD_2d(f, pxx, max_f = max_f)
-    signif_thresh =  cal_sig_thresh(f, pxx, min_f = min_f_sig_thres, max_f = max_f, n_sd_thresh = n_sd_thresh)
+    signif_thresh =  cal_sig_thresh_2d(f, pxx, min_f = min_f_sig_thres, max_f = max_f, n_sd_thresh = n_sd_thresh)
     entrained_neuron_ind  = check_significance_neuron_autc_PSD( signif_thresh, f, pxx, nucleus.n, n_pts_above_thresh = n_pts_above_thresh,
                                                    fmin= min_f_AUC_thres, fmax = max_f, PSD_AUC_thresh = PSD_AUC_thresh, 
                                                    filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
     print(nucleus.name, len(entrained_neuron_ind), ' out of ', nucleus.n , ' entrained to oscillatin')
     return entrained_neuron_ind
 
-def cal_sig_thresh(f, pxx, n_sd_thresh = 2, min_f = 0, max_f = 250):
+def cal_sig_thresh_2d(f, pxx, n_std_thresh = 2, min_f = 0, max_f = 250):
     
     ind_f = np.logical_and( min_f < f, f < max_f)
     return ( np.average( pxx[: , ind_f], axis = 1) + 
-             n_sd_thresh * 
+             n_std_thresh * 
              np.std( pxx [:, ind_f] , axis = 1) )
+
+def cal_sig_thresh_1d(f, pxx, n_std_thresh = 2, min_f = 0, max_f = 250):
+    
+    ind_f = np.logical_and( min_f < f, f < max_f)
+    return ( np.average( pxx[ ind_f]) + 
+             n_std_thresh * 
+             np.std( pxx [ ind_f] ) )
 
 def filter_based_on_PSD_AUC(f, pxx, fmin= 0, fmax = 200, PSD_AUC_thresh = 10 ** -5):
     PSD_integral = bandpower_2d_pxx(f, pxx, fmin, fmax)
@@ -2846,12 +2859,18 @@ def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f =
         times the std of the rest of the PSD '''
     
     f, pxx = cut_PSD_1d(f, pxx, max_f = max_f)
-    signif_thresh = cal_sig_thresh(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
-    above_thresh_ind = np.where(pxx >= signif_thresh.reshape(-1,1))[0]
-    n_above_thresh = np.bincount(above_thresh_ind)
-    longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
+    signif_thresh = cal_sig_thresh_1d(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
+    print(signif_thresh)
+    above_thresh_ind = np.where(pxx >= signif_thresh)[0]
     
+    print(above_thresh_ind)
+    longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
+    print(longest_seq_abv_thresh)
+    fig, ax = plt.subplots()
+    ax.plot(f, pxx, '-o')
+    ax.axhline(signif_thresh, min_f, max_f)
     if len(longest_seq_abv_thresh) >= n_pts_above_thresh:
+
         return True
     
     else:
