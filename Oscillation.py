@@ -5528,13 +5528,24 @@ legend_loc = 'center right'
 # x = np.array([ 1/4 , 4.5/4 , 6/4, 7./4])
 # g = -0.005  # start
 # n = len(x)
+ 
+x0 = np.array([1.5 , 1.5, 1.5])
+x1 = np.array([1.5 , 1.5, 1.5])
+x2 = np.array([1 , 1, 1])
+x3 = np.array([0.25 , 2, 4])
+x4 = np.array([1 , 3, 3])
 
-coef = 1 ; coef_D2 = 2
-x = np.array([ 1/4 , 4.5/4 , 8/4])
-x = np.array([ 26/4])
 
+x0 = np.array([1.5 , 1.5, 1.5])
+x1 = np.array([1.5 , 1.5, 1.5])
+x2 = np.array([1.5 , 1.5, 1])
+x3 = np.array([0.25 , 3, 4])
+x4 = np.array([0.5 , 3, 3])
 g = -0.0035  # start
 n = len(x)
+
+m = 1
+x0 =np.array( [x0[m]]); x1 = np.array([x1[m]]) ; x2 = np.array([x2[m]]); x3 = np.array([x3[m]]); x4 = np.array([x4[m]]); 
 
 # G_dict = {(name2, name1) : np.array([g]* (n)) ,
 #           (name3, name2) : g * x , 
@@ -5564,11 +5575,12 @@ n = len(x)
 # 		  (name4, name3) :  g * coef * x    }
 # filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_Proto_STN_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
-G_dict = {(name2, name1) : np.array( [g]* (n)) * coef_D2,
-          (name3, name2) : np.array( [g]* (n)) * 1.5, 
-          (name1, name3) : np.array( [g]* (n)),
-		  (name3, name4) :  -g * coef * x   ,
-		  (name4, name3) : np.array( [g * coef]* (n)) * 1.5}
+G_dict = {(name2, name1) : g *  x0,
+          (name3, name2) : g * x1, 
+          (name1, name3) : g * x2,
+		  (name3, name4) : -g  * x3,
+		  (name4, name3) : g * x4}
+
 filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
 G_dict = { k: v * K[k] for k, v in G_dict.items()}
@@ -7435,33 +7447,37 @@ plt.xlabel(r'$G\times FR (Spk/ms)$')
 plt.close('all')
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
-t_sim = 400 # simulation time in ms
-dt = 0.5 # euler time step in ms
-t_mvt = int(t_sim/2)
-plot_start = 100
-ylim = (-10,70)
-D_mvt = t_sim - t_mvt
-t_list = np.arange(int(t_sim/dt))
-duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)]
-duration_base = [0, int(t_mvt/dt)]
-G = { ('STN', 'Proto'): -0.1,
-     ('Proto', 'STN'): 1, 
-     ('Proto', 'Proto'): 0 } # synaptic weight
-G[('Proto', 'Proto')] = G[('STN', 'Proto')]
-receiving_pop_list = {('STN','1') : [('Proto', '1')], ('STN','2') : [('Proto', '2')],
-                    ('Proto','1') : [('Proto', '1'), ('STN', '1'), ('STN', '2')],
-                    ('Proto','2') : [('Proto', '2'), ('STN', '1'), ('STN', '2')]}
-pop_list = [1,2]
+if_plot = False
+dt = 0.1
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_mvt = 700 ; D_mvt = t_sim - t_mvt
+duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
+plot_start_trans = t_mvt - 200 ; plot_duration = 600
+plot_start_stable = 0
 
-# receiving_pop_list = {('STN','1') : [('Proto', '1')],('Proto', '1'):[('STN','1')] }
-# pop_list = [1]  
-  
-Proto = [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'Proto', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold) for i in pop_list]
-STN = [Nucleus(i, gain, threshold,neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, 'STN', G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold)for i in pop_list]
-nuclei_dict = {'Proto': Proto, 'STN' : STN}
+name1 = 'Proto'
+name2 = 'STN'
+name_list = [name1, name2]
 
-receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real_STN_Proto_diverse, receiving_pop_list, nuclei_dict,t_list)
-reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+(synaptic_time_constant[(name2, name1)],
+ synaptic_time_constant[(name1, name2)] )  =  [10], [6]
+g = - 2
+G = { ('STN', 'Proto'): g,
+     ('Proto', 'STN'): -g} # synaptic weight
+# G[('Proto', 'Proto')] = G[('STN', 'Proto')]
+receiving_pop_list = {('STN','1') : [('Proto', '1')],
+                    ('Proto','1') : [('STN', '1')]}
+                    
+
+lim_n_cycle = [6,10]
+pop_list = [1]  
+
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude,
+                              N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, 
+                              smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
+
+receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
+
 nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
 fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, plot_start=plot_start,title_fontsize=15,ylim=ylim,include_FR=False,
      title = r"$G_{SP}="+str(round(G[('Proto', 'STN')],2))+"$ "+", $G_{PS}=G_{PP}="+str(round(G[('STN', 'Proto')],2))+'$')
@@ -8085,7 +8101,7 @@ plt.axvline(g_transient[1], c = 'k')
 #%% RATE MODEL : FSI-D2-Proto loop without GPe-GPe
 
 g = -1.7
-dt = 0.5
+dt = 0.1
 t_sim = 1700; t_list = np.arange(int(t_sim/dt))
 t_mvt = 1000 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -8093,7 +8109,7 @@ G = {}
 
 name_list = {'Proto', 'D2', 'FSI'}
 
-G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g*0.5
+G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g
 
 receiving_pop_list = {('FSI','1') : [('Proto', '1')], 
                       ('Proto','1') : [('D2', '1')],
@@ -8101,7 +8117,7 @@ receiving_pop_list = {('FSI','1') : [('Proto', '1')],
 
 (synaptic_time_constant[('D2', 'FSI')], 
  synaptic_time_constant[('FSI', 'Proto')], 
- synaptic_time_constant[('Proto', 'D2')])  =  [30],[6],[10]
+ synaptic_time_constant[('Proto', 'D2')])  =  [10],[10],[10]
 
 
 pop_list = [1]  
@@ -8124,7 +8140,7 @@ state = 'Transient'
 # fig.savefig(os.path.join(path_rate, figname+'.png'),dpi = 300)
 # fig.savefig(os.path.join(path_rate, figname+'.pdf'),dpi = 300)
 find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt, peak_threshold =nucleus.oscil_peak_threshold, smooth_kern_window = nucleus.smooth_kern_window, check_stability=True)
-# temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_base)
+temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*duration_base)
 #%% RATE MODEL : FSI-D2-Proto tau-sweep
 
 n = 10 ; if_plot = False
