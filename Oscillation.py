@@ -4627,7 +4627,7 @@ n_neuron = 50
 legend_loc = 'center right'
 check_peak_significance = False
 
-filename = 'All_nuc_DD_N_1000_T_2000_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+filename = 'All_nuc_DD_N_1000_T_2000_n' + str(n_run) + '_runs' + '.pkl'
 
 G_dict = { k: [v] for k, v in G.items()}
 
@@ -5514,7 +5514,7 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
 n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-# n_run = 6; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = False
+# n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
 # save_figures = True ; save_pkl = True
 round_dec = 1 ; include_std = False
 plot_start =  int(t_sim * 3/4)
@@ -5522,31 +5522,42 @@ plot_raster_start = int(t_sim * 3/4)
 n_neuron = 50
 legend_loc = 'center right'
 
-# x = np.linspace(0, 7.7/4, 16)
 
 # coef = 2
 # x = np.array([ 1/4 , 4.5/4 , 6/4, 7./4])
 # g = -0.005  # start
 # n = len(x)
- 
-x0 = np.array([1.5 , 1.5, 1.5])
-x1 = np.array([1.5 , 1.5, 1.5])
-x2 = np.array([1 , 1, 1])
-x3 = np.array([0.25 , 2, 4])
-x4 = np.array([1 , 3, 3])
 
+# x0 = np.array([1.5, 1.5, 1.5, 1.5])
+# x1 = np.array([1.5, 1.5, 1.5, 1.5])
+# x2 = np.array([1.5, 1.5, 1.3, 1])
+# x3 = np.array([0.25, 3, 3.5, 4])
+# x4 = np.array([0.5, 1, 3, 3])
 
-x0 = np.array([1.5 , 1.5, 1.5])
-x1 = np.array([1.5 , 1.5, 1.5])
-x2 = np.array([1.5 , 1.5, 1])
-x3 = np.array([0.25 , 3, 4])
-x4 = np.array([0.5 , 3, 3])
+x0 = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+x1 = np.array([1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5])
+x2 = np.array([1.5, 1.5, 1.4, 1.45, 1.3, 1.2, 1.1, 1])
+x3 = np.array([0.25, 3, 3.1, 3.2, 3.5, 3.6, 3.7, 4])
+x4 = np.array([0.5, 1, 1.8, 2.6, 3, 3, 3, 3])
 g = -0.0035  # start
+n = len(x0)
+
+g = -.0045; coef = 2
+# for k,v in data['g'].items():
+#     print(k)
+#     print(v/K[k])
+
+x = np.array([0, 1.7, 3.8])
+
+# x = np.linspace(0, 3.8, 15)
+
 n = len(x)
+# 13, 14.3, 28, 30
+# m = 2
+# x0 =np.array( [x0[m]]); x1 = np.array([x1[m]]) ; x2 = np.array([x2[m]]); x3 = np.array([x3[m]]); x4 = np.array([x4[m]]); 
 
-m = 1
-x0 =np.array( [x0[m]]); x1 = np.array([x1[m]]) ; x2 = np.array([x2[m]]); x3 = np.array([x3[m]]); x4 = np.array([x4[m]]); 
 
+# x0, x1 = np.ones(n) * 1.5
 # G_dict = {(name2, name1) : np.array([g]* (n)) ,
 #           (name3, name2) : g * x , 
 #           (name1, name3) :  np.array( [g]* (n)),
@@ -5575,13 +5586,20 @@ x0 =np.array( [x0[m]]); x1 = np.array([x1[m]]) ; x2 = np.array([x2[m]]); x3 = np
 # 		  (name4, name3) :  g * coef * x    }
 # filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_Proto_STN_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
-G_dict = {(name2, name1) : g *  x0,
-          (name3, name2) : g * x1, 
-          (name1, name3) : g * x2,
-		  (name3, name4) : -g  * x3,
-		  (name4, name3) : g * x4}
-
+G_dict = {(name2, name1) : np.array( [g]* (n)) ,
+          (name3, name2) : np.array( [g]* (n)) * 1.5, 
+          (name1, name3) : np.array( [g]* (n)) ,
+		  (name3, name4) :  -g *  x  ,
+		  (name4, name3) :   np.array( [g * coef]* (n))  }
 filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
+
+# G_dict = {(name2, name1) : g *  x0,
+#           (name3, name2) : g * x1, 
+#           (name1, name3) : g * x2,
+# 		  (name3, name4) : -g  * x3,
+# 		  (name4, name3) : g * x4}
+
+# filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_all_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
 G_dict = { k: v * K[k] for k, v in G_dict.items()}
 
@@ -6398,8 +6416,8 @@ receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, 
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei, normalize_G_by_N=True)
 
-# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =False; plot_phase = False; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 8; plot_firing = False; plot_spectrum= False; plot_raster = False; plot_phase = False; low_pass_filter= False ;save_pkl = True ; save_figures = False; save_pxx = True
+n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =False; plot_phase = False; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+# n_run = 8; plot_firing = False; plot_spectrum= False; plot_raster = False; plot_phase = False; low_pass_filter= False ;save_pkl = True ; save_figures = False; save_pxx = True
 # save_figures = True
 # save_pkl = False
 round_dec = 1 ; include_std = False
@@ -6625,8 +6643,12 @@ fig.savefig(os.path.join(path,'Beta_power', 'abs_norm_G_' + param + '_beta_' + o
 ################
 nucleus_name_list = ['FSI', 'Proto','D2', 'STN']
 filename_list = os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_16_pts_6_runs.pkl')
-# filename_list = os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_5_runs.pkl')
+filename_list = os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_15_pts_5_runs.pkl')
 
+# filename_list = os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_20_pts_5_runs.pkl')
+# filename_list = os.path.join(path, 'Beta_power', 'D2_Proto_FSI_STN_N_1000_T_2000_G_all_changing_8_pts_1_runs.pkl')
+
+data = load_pickle(filename_list)
 key = [('D2', 'FSI'),
 ('FSI', 'Proto'),
 ('Proto', 'D2'),
@@ -7496,7 +7518,7 @@ temp_oscil_check(nuclei_dict['STN'][0].pop_act,oscil_peak_threshold['STN'], 3,dt
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 20000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 700 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -7509,9 +7531,10 @@ name_list = [name1]
 n = 50
 G_list = np.linspace(-7, 0, n, endpoint = True)
 
-transition_range = [4.25 - (4.27 - 4.245), 4.27]
-G_list = -pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 5,  10, 10)
-G_list = -pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 5,  1/10, 20)
+transition_range = [4.25 - (4.27 - 4.245), 4.27] # dt = 0.5
+transition_range = [3.8778 - (3.913 - 3.8778), 3.913] # dt = 0.1
+G_list = -pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 4.5,  10, 10)
+G_list = -pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 4.5,  1/10, 20)
 
 
 synaptic_time_constant[('Proto', 'Proto')] = [10]
@@ -7542,8 +7565,8 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 
 filename = ( 'G_sweep_Proto-Proto' + '_tau_' + 
             str(synaptic_time_constant[(name1 , name1)][0]) + 
-            '_n_' + str(n) + '_T_' + str(t_sim) 
-            )
+            '_n_' + str(n) + '_T_' + str(t_sim) +
+            '_dt_' + str(dt).replace('.', '-'))
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
                         )
@@ -7581,7 +7604,7 @@ save_pdf_png(fig, os.path.join(path_rate, filename).split('.')[0], size = (8,6))
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 20000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 700 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -7593,9 +7616,8 @@ name2 = 'STN'
 name_list = [name1, name2]
 
 n = 50
-# G_list = np.linspace(-7**(0.5), 0, n, endpoint = True)
-transition_range = [4.55-(4.6-4.55), 4.6]
-# G_list = pad_high_res_spacing_with_linspace(2.5, transition_range[0], 20, transition_range[1], 5,  10, 10)
+# transition_range = [4.55-(4.6-4.55), 4.6] #dt = 0.5
+transition_range = [3.55-(3.57 - 3.55), 3.57] # dt = 0.1
 G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 5,  1/10, 20)
 
 G_list = -np.power(G_list, 1/2)
@@ -7633,8 +7655,8 @@ receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K
 filename = ( 'G_sweep_STN-GPe' + '_tau_' + name1[0] + name2[0] + '_' +
            str( synaptic_time_constant[(name2, name1)][0]) + '_' + name2[0] + name1[0] + '_' +
             str( synaptic_time_constant[(name1, name2)][0])  +
-            '_n_' + str(n) + '_T_' + str(t_sim) 
-            )
+            '_n_' + str(n) + '_T_' + str(t_sim) +
+            '_dt_' + str(dt).replace('.','-'))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -7675,7 +7697,7 @@ save_pdf_png(fig, os.path.join(path_rate, filename).split('.')[0], size = (8,6))
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 10000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 500 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -7726,7 +7748,8 @@ filename = ( 'Tau_sweep_STN-GPe_tau_ratio_' + name1[0] + name2[0] + '_' +
             str(syn_decay_dict['tau_1']['tau_ratio'][(name2 , name1)]) + '_' + name2[0] + name1[0] + '_' +
             str(syn_decay_dict['tau_2']['tau_ratio'][(name1 , name2)]) +  '_G_ratio_' + name1[0] + name2[0] + '_' +
             str( abs(G_ratio_dict[(name2 , name1)]) ) + '_' + name2[0] + name1[0] + '_' +
-            str( abs(G_ratio_dict[(name1 , name2)]) ) + '_n_' + str(n) + '_T_' + str(t_sim)  )
+            str( abs(G_ratio_dict[(name1 , name2)]) ) + '_n_' + str(n) + '_T_' + str(t_sim)  + 
+            '_dt_' + str(dt).replace('.','-'))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -7786,7 +7809,7 @@ scatter_2d_plot(data['tau'][(name2, name1)][:,0],
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 10000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 500 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -7796,7 +7819,9 @@ name_list = [name1]
 
 g_list = np.linspace(-10, -0.5, 200, endpoint = True)
 
-synaptic_time_constant[('Proto', 'Proto')] = [10]
+synaptic_time_constant = {
+                        ('Proto', 'Proto') : [10]
+                        }
 
 G = {
      (name1 , name1) : -1
@@ -7829,7 +7854,8 @@ syn_decay_dict = {'tau_1':
     
 filename = ( 'Tau_sweep_GPe-GPe_tau_ratio_' + name1[0] + name1[0] + '_' +
             str(syn_decay_dict['tau_1']['tau_ratio'][(name1 , name1)]) + '_' + name1[0] + name1[0] + '_' +
-            str( abs(G_ratio_dict[(name1 , name1)]) ) + '_n_' + str(n) + '_T_' + str(t_sim) )
+            str( abs(G_ratio_dict[(name1 , name1)]) ) + '_n_' + str(n) + '_T_' + str(t_sim) +
+            '_dt_' + str(dt).replace('.','-'))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -7841,7 +7867,7 @@ find_stable_oscill = True # to find stable oscillatory regime
 
 sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
                   G.copy(),A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, 
-                  lim_n_cycle,find_stable_oscill)
+                  lim_n_cycle,find_stable_oscill, if_track_tau_2= False)
 
 pkl_file = open( filename, 'rb')
 data = pickle.load(pkl_file)
@@ -8199,7 +8225,7 @@ temp_oscil_check(nuclei_dict[name][0].pop_act,oscil_peak_threshold[name], 3,dt,*
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 10000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 400 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -8208,15 +8234,16 @@ duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, in
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI' 
-# name3 = 'Arky'
+name3 = 'Arky'
 name_list = {name1, name2, name3}
 receiving_pop_list = {(name3,'1') : [(name1, '1')], 
                       (name1,'1') : [(name2, '1')],
                       (name2,'1') : [(name3,'1')]}
 
-(synaptic_time_constant[(name2 , name3)], 
- synaptic_time_constant[(name3 , name1)],
- synaptic_time_constant[(name1 , name2)])  =  [10],[10],[10]
+synaptic_time_constant = {(name2 , name3) : [10], 
+                          (name3 , name1) : [10],
+                          (name1 , name2) : [10]
+                          }
 
 lim_n_cycle = [6,10]
 pop_list = [1]  
@@ -8266,25 +8293,26 @@ filename = ( 'Tau_sweep_D2-P-' + name3[0] + '_tau_ratio_' + name3[0] + name2[0] 
             str(abs(G_ratio_dict[(name2 , name3)])) + '_' + name3[0] + name1[0] + '_' +
             str(abs(G_ratio_dict[(name3 , name1)])) + '_' + name2[0] + name1[0] + '_' +
             str(abs(G_ratio_dict[(name1 , name2)])) + '_n_' +
-            str(n) + '_T_' + str(t_sim) )
+            str(n) + '_T_' + str(t_sim) +
+            '_dt_' + str(dt).replace('.','-'))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
                         )
 receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt, t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
-g_list = np.linspace(-5,-0.5, 250); 
+g_list = np.linspace(-5,-0.8, 260); 
 find_stable_oscill = True # to find stable oscillatory regime
 
 sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant.copy(), nuclei_dict, syn_decay_dict, filename, 
                   G.copy(),A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, 
-                  lim_n_cycle,find_stable_oscill)
+                  lim_n_cycle,find_stable_oscill, if_track_tau_2=False)
 #%% RATE MODEL : Any Pallidostriatal without GPe-GPe G-sweep
 plt.close('all')
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 n = 40 ; if_plot = False
-dt = 0.5
+dt = 0.1
 t_sim = 20000; t_list = np.arange(int(t_sim/dt))
 t_mvt = 700 ; D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)] ; duration_base = [0, int(t_mvt/dt)]
@@ -8294,17 +8322,19 @@ plot_start_stable = 0
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI' 
-# name3 = 'Arky'
+name3 = 'Arky'
 
 name_list = {name1, name2, name3}
 
 G_list = np.linspace(-5, 0, n, endpoint = True)
 
-transition_range = [2.46 - (2.695 - 2.46), 2.695] # FSI Loop
-# transition_range = [2.06 - (2.179 - 2.06), 2.179] # Arky Loop
+transition_range = [2.46 - (2.695 - 2.46), 2.695] # FSI Loop dt = 0.5
+transition_range = [2.21 - (2.225 - 2.21), 2.225] # FSI Loop dt = 0.5
+
+transition_range = [2.06 - (2.179 - 2.06), 2.179] # Arky Loop
 
 # G_list = pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 5,  10, 10)
-G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 5,  1/10, 20)
+G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/20, transition_range[1], 5,  1/10, 20)
 
 G_list = - np.power(abs(G_list), 1/3)
 
@@ -8354,7 +8384,8 @@ filename = ( 'G_sweep_D2-P-' + name3[0] + '_tau_' + name3[0] + name2[0] + '_' +
             str( abs(G_ratio_dict[(name2 , name3)]) ) + '_' + name3[0] + name1[0] + '_' +
             str( abs(G_ratio_dict[(name3 , name1)])) + '_' + name2[0] + name1[0] + '_' +
             str( abs(G_ratio_dict[(name1 , name2)])) + '_n_' +
-            str(n) + '_T_' + str(t_sim) )
+            str(n) + '_T_' + str(t_sim) +
+            '_dt_' + str(dt).replace('.','-'))
 
 filename = os.path.join(path_rate, 
                         filename.replace('.', '-') +  '.pkl' 
@@ -8802,10 +8833,10 @@ fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list
                                     tau_2_ind = 0, ylabelpad = -5, title = '', c_label = '', ax = ax, key = ('STN', 'Proto'))
 #%% RATE MODEL : frequency vs. tau_inhibition (All Loops) new
 plt.close('all')
-filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000.pkl',
-                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000.pkl',
-                'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_30_T_10000.pkl',
-                'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000.pkl']
+filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000_dt_0-1.pkl',
+                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000_dt_0-1.pkl',
+                'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_30_T_10000_dt_0-1.pkl',
+                'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000_dt_0-1.pkl']
 
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 figname = 'All_circuits_timescale'
@@ -8833,7 +8864,7 @@ def plot__(ax):
         y_spec = data[(name_list[i], y_list[i])][:,0]
         c_spec = data[(name_list[i], c_list[i])][:,0]
         # ax.plot(x_spec,y_spec, marker = 's', c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = 'k')
-        ax.scatter(x_spec,y_spec, marker = 's', c = color_list[i], lw = 0.2, label= label_list[i],zorder = 1, s = 20,  ec = 'k')
+        ax.scatter(x_spec,y_spec, marker = 's', c = color_list[i], lw = 0.2, label= label_list[i],zorder = 1, s = 40)#,  ec = 'k')
         
 plot__(ax2)
 
@@ -8842,15 +8873,16 @@ ax2.set_xlabel(r'$\tau_{decay}^{inhibition}$',fontsize = 20)
 ax2.set_ylabel( 'Frequency (Hz)',  fontsize = 20)
 
 # fig.text( -0.01, 0.5, 'Frequency (Hz)', va='center', rotation='vertical', fontsize = 18)
-y_formatter = FixedFormatter(['5', '20', '40', '60',  '80'])
-y_locator = FixedLocator([5, 20, 40, 60,  80])
-ax2.yaxis.set_major_formatter(y_formatter)
-ax2.yaxis.set_major_locator(y_locator)
+
+fig = set_y_ticks(fig, [5, 20, 40, 60,  80])
+fig = set_x_ticks(fig, [5, 15, 25])
+
+ax2.tick_params(axis='both', labelsize=22)
 
 remove_frame(ax2)
 ax2.set_xlim(4,26)
-ax2.set_ylim(5,80)
-ax2.legend(fontsize = 12, frameon = False, framealpha = 0.1, bbox_to_anchor=(.2, 0.5), bbox_transform=ax2.transAxes)
+ax2.set_ylim(5,70)
+ax2.legend(fontsize = 18, frameon = False, framealpha = 0.1, bbox_to_anchor=(.4, 0.5), bbox_transform=ax2.transAxes)
 ax2.axhspan(13,30, color = 'lightgrey', alpha = 0.5, zorder = 0)
 
 save_pdf_png(fig, os.path.join(path_rate, figname), size = (5,6))

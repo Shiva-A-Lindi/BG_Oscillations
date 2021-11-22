@@ -4317,7 +4317,8 @@ def save_freq_analysis_to_df_2d(data, state, i, j, nucleus, dt, duration, check_
     print(nucleus.name, ' stability =', if_stable)                                                                                             
     return data
 
-def create_data_dict_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time_scale, n_timebins, check_transient = False):
+def create_data_dict_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time_scale, n_timebins, synaptic_time_constant,
+                                  check_transient = False):
     '''build a data dictionary for 2d tau sweep '''
     
     data = {} ; 
@@ -4336,18 +4337,19 @@ def create_data_dict_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time
     data['g_transient'] = np.zeros(iter_param_length_list)
     data['tau'] = {}
     
-    for k in list(G.keys()):
+    for k in list(synaptic_time_constant.keys()):
         data['tau'][k] = np.zeros(iter_param_length_list)
-        
+        print(k)
     return data
 
-def extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2):
+def extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2, if_track_tau_2 = True):
     
     for key,v in syn_decay_dict['tau_1']['tau_ratio'].items():    
         synaptic_time_constant[key] = [syn_decay_dict['tau_1']['tau_ratio'][key] * t_decay_1]
         
-    for key,v in syn_decay_dict['tau_2']['tau_ratio'].items():    
-        synaptic_time_constant[key] = [syn_decay_dict['tau_2']['tau_ratio'][key] * t_decay_2]
+    if if_track_tau_2:
+        for key,v in syn_decay_dict['tau_2']['tau_ratio'].items():    
+            synaptic_time_constant[key] = [syn_decay_dict['tau_2']['tau_ratio'][key] * t_decay_2]
         
     return synaptic_time_constant
 
@@ -4386,7 +4388,7 @@ def run_and_derive_freq(data, receiving_class_dict, nuclei_dict, g_transient, du
 def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
                       t_list,dt, duration_base, duration_mvt, lim_n_cycle, find_stable_oscill=True, 
-                      check_transient = False):
+                      check_transient = False, if_track_tau_2 = True):
     
     
     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) 
@@ -4394,7 +4396,7 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
     n_runs = len(t_decay_series_1)*len(t_decay_series_2)
     
     data  = create_data_dict_tau_sweep_2d(nuclei_dict, G, (len(t_decay_series_1), len(t_decay_series_2)), 
-                                          2, len(t_list), check_transient = check_transient)    
+                                          2, len(t_list), synaptic_time_constant, check_transient = check_transient)    
     data['G_ratio'] = G_ratio_dict
     count = 0 
     
@@ -4402,8 +4404,9 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
         
         for j, t_decay_2 in enumerate( t_decay_series_2 ) :
             
-            synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
-
+            synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, 
+                                                                         t_decay_1, t_decay_2, if_track_tau_2 = if_track_tau_2 )
+            print(synaptic_time_constant)
             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             nuclei_dict = set_time_scale(nuclei_dict, synaptic_time_constant)
             
@@ -4502,8 +4505,9 @@ def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_lis
             break
             
     if not found_transient_g:
-        raise ValueError("Transient oscillation couldn't be found in the given <g> range" )
-        
+        # raise ValueError("Transient oscillation couldn't be found in the given <g> range" )
+        print("Transient oscillation couldn't be found in the given <g> range" )
+        g_transient = 0
     if find_stable_oscill and not found_stable_g:
         raise ValueError ("Stable oscillation couldn't be found in the given <g> range" )
         
@@ -4959,6 +4963,16 @@ def set_y_ticks(fig, label_list):
         
     return fig
 
+def set_x_ticks(fig, label_list):
+    
+    for ax in fig.axes:
+        x_formatter = FixedFormatter([str(x) for x in label_list])
+        x_locator = FixedLocator(label_list)
+        ax.xaxis.set_major_formatter(x_formatter)
+        ax.xaxis.set_major_locator(x_locator)
+        
+    return fig
+
 def remove_all_x_labels(fig):
     
     for ax in fig.axes:
@@ -5223,7 +5237,7 @@ def save_trans_stable_figs(fig_trans, fig_stable_list, path_rate, filename, figs
     fig_trans.set_size_inches(figsize, forward=False)
     
     for i, fig_stable in enumerate(fig_stable_list):
-        fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = ymax, ymin = ymin)
+        fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = ymax , ymin = ymin)
         fig_stable.set_size_inches(figsize, forward=False)
 
         fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.png')),dpi = 300, facecolor='w', edgecolor='w',
