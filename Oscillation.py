@@ -8326,15 +8326,15 @@ name3 = 'Arky'
 
 name_list = {name1, name2, name3}
 
-G_list = np.linspace(-5, 0, n, endpoint = True)
+# G_list = np.linspace(-5, 0, n, endpoint = True)
 
 transition_range = [2.46 - (2.695 - 2.46), 2.695] # FSI Loop dt = 0.5
-transition_range = [2.21 - (2.225 - 2.21), 2.225] # FSI Loop dt = 0.5
+transition_range = [2.197 - (2.204 - 2.197), 2.204] # FSI Loop dt = 0.1
 
-transition_range = [2.06 - (2.179 - 2.06), 2.179] # Arky Loop
+transition_range = [1.90 - (1.915 - 1.9), 1.915] # Arky Loop dt = 0.1
 
-# G_list = pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 5,  10, 10)
-G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/20, transition_range[1], 5,  1/10, 20)
+# G_list = pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 4.5,  10, 10)
+G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 4.5,  1/10, 20)
 
 G_list = - np.power(abs(G_list), 1/3)
 
