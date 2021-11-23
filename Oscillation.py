@@ -2,7 +2,7 @@
 import os
 
 root = '/home/shiva/BG_Oscillations'
-root =  r"C:/Users/azizp/BG_Oscillations"
+# root =  r"C:/Users/azizp/BG_Oscillations"
 # root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
@@ -221,8 +221,8 @@ neuronal_consts = {
 tau = {
        ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
 		  ('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
-       # ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
-       ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
+        ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
+       # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
        ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate
        ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
        ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 ( in thesis it was 2 and 10)
@@ -242,6 +242,7 @@ syn_component_weight = {
                         ('Arky', 'Proto') : [1, syn_coef_GABA_b],
                         ('D2','Arky'): [1]
                         }
+syn_component_weight = {key: [1] for key in list(tau.keys())}
 tau_DD = {('STN','Proto'): {'rise':[0.1],'decay':[7.78]}} # Fan et. al 2012}
 G_DD = {
       ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
@@ -2207,11 +2208,11 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status ),
              size = (6, 5))
 #%% FSI-D2-Proto 
 
-plt.close('all')
+# plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.25
+dt = 0.1
 t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
@@ -2275,7 +2276,7 @@ all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys
 
 
 # Run on previously saved data
-FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-FSI-D2.pkl'))
+# FR_ext_all_nuclei  = load_pickle( os.path.join(path, 'FR_ext_Proto-FSI-D2.pkl'))
 receiving_class_dict  = set_connec_ext_inp(Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
@@ -8346,7 +8347,7 @@ transition_range = [2.197 - (2.204 - 2.197), 2.204] # FSI Loop dt = 0.1
 transition_range = [1.90 - (1.915 - 1.9), 1.915] # Arky Loop dt = 0.1
 
 # G_list = pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 4.5,  10, 10)
-G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/10, transition_range[1], 4.5,  1/10, 20)
+G_list = pad_high_res_spacing_with_arange(1, transition_range[0], 1/25, transition_range[1], 4.5,  1/10, 20)
 
 G_list = - np.power(abs(G_list), 1/3)
 

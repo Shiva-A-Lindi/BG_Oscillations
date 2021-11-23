@@ -2834,6 +2834,9 @@ def noise_generator(amplitude, variance, n):
 
 	return amplitude * np.random.normal(0, variance, n).reshape(-1, 1)
 
+def OU_noise_generator(variance, tau,  OU_noise, gauss_noise):
+    ''' Ornstein-Uhlenbeck process as time correlated noise generator'''
+    return 0
 
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), include_beta_band_in_legend=False):
 
@@ -4144,7 +4147,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             data, if_stable_base = save_freq_analysis_to_df(data, 'base', i, nucleus, dt, duration_base)
                                                   
 
-            print(nucleus.name,' g = ', round(g,2), 
+            print(nucleus.name,' g = ', round(g, 2), 
                   'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i],
                   round(data[(nucleus.name, 'perc_t_oscil_mvt')][i],2),
                   '%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i],2) )
