@@ -2,7 +2,7 @@
 import os
 
 root = '/home/shiva/BG_Oscillations'
-# root =  r"C:/Users/azizp/BG_Oscillations"
+root =  r"C:/Users/azizp/BG_Oscillations"
 # root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
@@ -1814,25 +1814,25 @@ plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filt
 plt.close('all')
 
 ## Gaussian noise
-# noise_variance = {'Proto' : 300, 
-#                   'STN': 10}
-# FR_ext_range = {'Proto': {'rest': np.array([15/1000, 25/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-#                 'STN': {'rest': np.array([18/1000, 33/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
+noise_variance = {'Proto' : 300, 
+                  'STN': 10}
+FR_ext_range = {'Proto': {'rest': np.array([15/1000, 25/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
+                'STN': {'rest': np.array([18/1000, 33/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 
 # ## OU noise
-# noise_variance = {'Proto' : 50000, 
-#                   'STN': 1000}
+noise_variance = {'Proto' : 50000, 
+                  'STN': 1000}
 
 
-# FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-#                 'STN': {'rest': np.array([18/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
+FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
+                'STN': {'rest': np.array([18/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.05
+dt = 0.1
 t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration = [int(t_sim/dt/2), int(t_sim/dt)]

@@ -360,6 +360,8 @@ class Nucleus:
                                                                 tau = self.noise_tau, 
                                                                 noise_dt_before = self.noise
                                                                 ).reshape(-1,)
+        print(np.average(noise))
+
         # print(self.name, np.average(noise/self.rest_ext_input))
         return self.rest_ext_input + noise
 
