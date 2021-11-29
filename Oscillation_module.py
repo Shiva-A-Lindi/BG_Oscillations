@@ -86,8 +86,9 @@ class Nucleus:
     def __init__(self, population_number, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
         synaptic_time_constant, receiving_from_list, smooth_kern_window, oscil_peak_threshold, syn_input_integ_method='exp_rise_and_decay', neuronal_model='rate',
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
-        spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, set_input_from_response_curve=True,
-        set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None):
+        spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
+        set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10):
 
         if set_random_seed:
             self.random_seed = 1996
@@ -148,10 +149,9 @@ class Nucleus:
             self.scale_g_with_N = scale_g_with_N
             
         if neuronal_model == 'spiking':
-            
+
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             # dt incorporated in tau for efficiency
-            # filter based on the receiving nucleus
             self.tau = {k: {kk: np.array(
                 vv)/dt for kk, vv in tau[k].items()} for k, v in tau.items() if k[0] == name}
             self.pre_n_components = {k[1]: len(v['rise']) for k,v in self.tau.items()}
@@ -159,40 +159,32 @@ class Nucleus:
                 self.syn_component_weight = {k: v for k, v in syn_component_weight.items() if k[0] == name}
                 
             # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
-            self.I_rise = {k: np.zeros((self.n, len(
-                self.tau[self.name, k[0]]['decay']))) for k in self.receiving_from_list}
-            self.I_syn = {k: np.zeros((self.n, len(
-                self.tau[self.name, k[0]]['decay']))) for k in self.receiving_from_list}
+            self.I_rise = {k: np.zeros((self.n, self.pre_n_components[k[0]])) for k in self.receiving_from_list}
+            self.I_syn = {k: np.zeros((self.n, self.pre_n_components[k[0]])) for k in self.receiving_from_list}
             self.I_syn['ext_pop', '1'] = np.zeros(self.n,)
             self.I_rise['ext_pop', '1'] = np.zeros(self.n,)
             self.neuronal_consts = neuronal_consts[self.name]
-            # self.u_rest = self.neuronal_consts['u_rest']
             self.mem_pot_before_spike = np.zeros(self.n)
             self.syn_inputs = {k: np.zeros((self.n, 1))
                                            for k in self.receiving_from_list}
-            # meant to store the poisson spike trains of the external population
-            self.poisson_spikes = None
-            # external population size
-            self.n_ext_population = poisson_prop[self.name]['n']
+            
+            self.poisson_spikes = None                                       # meant to store the poisson spike trains of the external population
+            self.n_ext_population = poisson_prop[self.name]['n']            # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing']
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
-
-            self.representative_inp = {k: np.zeros((n_timebins, len(
-                self.tau[self.name, k[0]]['decay']))) for k in self.receiving_from_list}
+            self.representative_inp = {k: np.zeros( (n_timebins, self.pre_n_components[k[0]]) ) 
+                                       for k in self.receiving_from_list}
             self.representative_inp['ext_pop', '1'] = np.zeros(n_timebins)
             self.ext_input_all_t = np.zeros((self.n, n_timebins))
             self.voltage_trace = np.zeros(n_timebins+1)
             self.AUC_of_input = AUC_of_input
             self.rest_ext_input = np.zeros(self.n)
             self.ext_inp_method = ext_inp_method
-            # if derive external input value from response curve
-            self.der_ext_I_from_curve = der_ext_I_from_curve
+            self.der_ext_I_from_curve = der_ext_I_from_curve      # if derive external input value from response curve
             self.sum_syn_inp_at_rest = None
             self.keep_mem_pot_all_t = keep_mem_pot_all_t
             self.save_init = save_init
             self.set_input_from_response_curve = set_input_from_response_curve
-            if self.keep_mem_pot_all_t:
-                self.all_mem_pot = np.zeros((self.n, n_timebins))
             self.ext_input_integ_method = ext_input_integ_method
             self.mem_pot_init_method = mem_pot_init_method
             self.init_method = init_method
@@ -200,14 +192,26 @@ class Nucleus:
             self.spike_rel_phase_hist = {}
             self.bound_to_mean_ratio = bound_to_mean_ratio
             self.pop_act_filtered = False
+            if self.keep_mem_pot_all_t:
+                self.all_mem_pot = np.zeros((self.n, n_timebins))
             self.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
-            
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
                 'const+noise': self.constant_ext_input_with_noise, 'constant': self.constant_ext_input}
             self.input_integ_method_dict = {'exp_rise_and_decay': exp_rise_and_decay,
                 'instantaneus_rise_expon_decay': instantaneus_rise_expon_decay, 'dirac_delta_input': _dirac_delta_input}
+            
             self.syn_input_integ_method = syn_input_integ_method
             self.normalize_synaptic_weight()
+            self.noise_method = noise_method
+            self.noise_tau = noise_tau 
+            
+
+            
+            if time_correlated_noise:
+                self.noise = np.zeros((self.n,1))
+                
+            self.noise_generator_dict = { 'Gaussian' : noise_generator,
+                                          'Ornstein-Uhlenbeck': OU_noise_generator}
             
     def set_init_distribution(self, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False):
         
@@ -333,7 +337,7 @@ class Nucleus:
         # choose method of exerting external input from dictionary of methods
         I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt)
 
-        self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext,
+        self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, dt,
                                                                             I_rise = self.I_rise['ext_pop', '1'],
                                                                             I = self.I_syn['ext_pop', '1'],
                                                                             tau_rise = self.tau_ext_pop['rise'],
@@ -348,8 +352,17 @@ class Nucleus:
         return I_ext
 
     def constant_ext_input_with_noise(self, dt):
+        noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
+                                                                self.noise_variance, 
+                                                                self.n, 
+                                                                dt,
+                                                                self.sqrt_dt, 
+                                                                tau = self.noise_tau, 
+                                                                noise_dt_before = self.noise
+                                                                ).reshape(-1,)
+        # print(self.name, np.average(noise/self.rest_ext_input))
+        return self.rest_ext_input + noise
 
-        return self.rest_ext_input + self.sqrt_dt * noise_generator(self.noise_amplitude, self.noise_variance, self.n).reshape(-1,)
 
     def constant_ext_input(self, dt):
 
@@ -387,7 +400,7 @@ class Nucleus:
 
             self.cal_synaptic_input(dt, projecting, t)
             synaptic_inputs = synaptic_inputs + \
-                              self.sum_components_of_one_synapse(t, 
+                              self.sum_components_of_one_synapse(t, dt, 
                                                                  projecting.name, 
                                                                  str(projecting.population_num),
                                                                  pre_n_components = self.pre_n_components[projecting.name])
@@ -404,7 +417,7 @@ class Nucleus:
         for projecting in receiving_from_class_list:
 
             synaptic_inputs =  synaptic_inputs + \
-                                self.sum_components_of_one_synapse_one_step_ahead_with_no_spikes(projecting.name,
+                                self.sum_components_of_one_synapse_one_step_ahead_with_no_spikes(dt, projecting.name,
                                                                                                 str(projecting.population_num),
                                                                                                 pre_n_components = 
                                                                                                 self.pre_n_components[projecting.name]
@@ -413,7 +426,7 @@ class Nucleus:
 
         return synaptic_inputs
 
-    def sum_components_of_one_synapse(self, t, pre_name, pre_num, pre_n_components=1):
+    def sum_components_of_one_synapse(self, t, dt, pre_name, pre_num, pre_n_components=1):
         
         '''Calculate I_syn(t) as the sum of  all synaptic components  (e.g. GABA-A or GABA-b)  '''
 
@@ -422,7 +435,7 @@ class Nucleus:
         for i in range(self.pre_n_components[pre_name]):
             
             (self.I_syn[pre_name, pre_num][:, i], 
-             self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num],
+             self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num], dt, 
                                                                                                                 I_rise=self.I_rise[pre_name,
                                                                                                                 pre_num][:, i],
                                                                                                                 I=self.I_syn[pre_name, pre_num][:, i],
@@ -432,22 +445,24 @@ class Nucleus:
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
             
-            sum_components = ( sum_components + 
-                              self.I_syn[pre_name, pre_num][:, i] * 
-                              self.syn_component_weight[self.name, pre_name][i])
+            # print(self.name, pre_name, self.syn_component_weight[self.name, pre_name], i)
+
+            sum_components =  sum_components + \
+                              self.I_syn[pre_name, pre_num][:, i] * \
+                              self.syn_component_weight[self.name, pre_name][i]
             
         return sum_components
 
-    def sum_components_of_one_synapse_one_step_ahead_with_no_spikes(self, pre_name, pre_num, pre_n_components=1):
+    def sum_components_of_one_synapse_one_step_ahead_with_no_spikes(self, dt, pre_name, pre_num, pre_n_components=1):
         
         '''Calculate I_syn(t+dt) assuming that there are no spikes between time t and t+dt '''
 
         sum_components = np.zeros(self.n)
         for i in range(self.pre_n_components[pre_name]):
 
-            I_syn_next_dt, _ = self.input_integ_method_dict[self.syn_input_integ_method](0,
+            I_syn_next_dt, _ = self.input_integ_method_dict[self.syn_input_integ_method](0, dt, 
                                                 I_rise=self.I_rise[pre_name, pre_num][:, i],
-                                                I=self.I_syn[pre_name, pre_num][:, i],
+                                                  I=self.I_syn[pre_name, pre_num][:, i],
                                                 tau_rise=self.tau[(self.name, pre_name)]['rise'][i],
                                                 tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
 
@@ -458,8 +473,9 @@ class Nucleus:
     def solve_IF_without_syn_input(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
         self.cal_ext_inp(dt, t)
+        # print('I_ext = ', np.average(self.I_syn['ext_pop', '1']) * dt )
         synaptic_inputs = np.zeros(self.n)
-        self.update_potential(synaptic_inputs, dt, receiving_from_class_list)
+        self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
         spiking_ind = self.find_spikes(t)
         # self.reset_potential(spiking_ind)
         self.reset_potential_with_interpolation(spiking_ind, dt)
@@ -477,18 +493,21 @@ class Nucleus:
         # self.cal_population_activity(dt, t)
         # self.update_representative_measures(t)
         # if self.keep_mem_pot_all_t:
-        self.all_mem_pot[:, t] = self.mem_potential
+        # self.all_mem_pot[:, t] = self.mem_potential
         
-    def cal_coherence(self):
+    def cal_coherence(self, dt, sampling_t_distance_ms = 1):
         
         ''' Measure of synchrony as defined in section <2.3> in Hansel et al. 1998'''
+        half_t = int (self.all_mem_pot.shape[1] / 2)
+        sampling_t_distance = int( sampling_t_distance_ms / dt)
         
-        V_mean_t = self.average_mem_pot_over_n()
+        V_mean_t = self.average_mem_pot_over_n(start = half_t, sampling_t_distance = sampling_t_distance)
         Delta_N = np.average( np.power( V_mean_t , 2)) - \
-                  np.average( V_mean_t )
+                 np.power( np.average( V_mean_t ),
+                           2)
         
-        V_mean_n = self.average_mem_pot_over_t()
-        V_2_mean_n = self.average_mem_pot_2_over_t()
+        V_mean_n = self.average_mem_pot_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
+        V_2_mean_n = self.average_mem_pot_2_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
         normalizing_factor = np.average( V_2_mean_n - \
                                        np.power( V_mean_n , 2)
                                        )
@@ -496,19 +515,20 @@ class Nucleus:
         
         return coherence
     
-    def average_mem_pot_over_n(self):
-        half_t = int (self.all_mem_pot.shape[1] / 2)
-        return np.average(self.all_mem_pot[:, half_t:], axis = 0)
+    def average_mem_pot_over_n(self, start  = 0, sampling_t_distance = 1):
+        
+        return np.average(self.all_mem_pot[:, start: -1 : sampling_t_distance], axis = 0)
     
-    def average_mem_pot_over_t(self):
-        half_t = int (self.all_mem_pot.shape[1] / 2)
-        return np.average(self.all_mem_pot[:, half_t:], axis = 1)
+    def average_mem_pot_over_t(self, start  = 0, sampling_t_distance = 1):
+        
+        return np.average(self.all_mem_pot[:, start: -1 : sampling_t_distance], axis = 1)
     
-    def average_mem_pot_2_over_t(self):
-        half_t = int (self.all_mem_pot.shape[1] / 2)
+    def average_mem_pot_2_over_t(self, start  = 0, sampling_t_distance = 1):
+       
         return np.average( np.power(
-                                self.all_mem_pot[:, half_t:], 2),
-                        axis = 1)
+                                self.all_mem_pot[:, start: -1 : sampling_t_distance], 2),
+                         axis = 1)
+    
     def update_representative_measures(self, t):
 
         self.voltage_trace[t+1] = self.mem_potential[0]
@@ -528,7 +548,7 @@ class Nucleus:
                         self.u_rest, 
                         self.I_syn['ext_pop', '1'], 
                         synaptic_inputs)
-        # self.voltage_trace[t] = synaptic_inputs[0]
+        self.voltage_trace[t] = self.mem_potential[0]
 
         # self.mem_potential = fwd_Euler(dt, self.mem_potential, V_prime)
         I_syn_next_dt = self. sum_synaptic_input_one_step_ahead_with_no_spikes( receiving_from_class_list, 
@@ -639,9 +659,7 @@ class Nucleus:
             X = stats.truncexpon(b=(upper-lower) / scale, loc=lower, scale=scale)
             self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(
                 self.n)
-        # if self.name == 'STN':
-        #     # fig, ax = plt.subplots()
-        #     plt.plot(self.mem_potential)
+        
     def normalize_synaptic_weight_by_N(self):
         self.synaptic_weight = {
             k: v / self.K_connections[k] for k, v in self.synaptic_weight.items()}
@@ -698,13 +716,14 @@ class Nucleus:
         self.synaptic_time_constant = {
             k: v for k, v in synaptic_time_constant.items() if k[1] == self.name}
 
-    def incoming_rest_I_syn(self, proj_list, A):
+    def incoming_rest_I_syn(self, proj_list, A, dt):
         
         # I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * self.K_connections[self.name, proj]
         #                * len(self.tau[self.name, proj]['rise']) for proj in proj_list])*self.membrane_time_constant
-        I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * 
+        I_syn = np.sum([self.synaptic_weight[self.name, proj] * 
+                        A[proj] / 1000  * 
                         self.K_connections[self.name, proj] *
-                       np.sum(self.syn_component_weight[self.name, proj]) \
+                        np.sum(self.syn_component_weight[self.name, proj]) \
                            for proj in proj_list]) * \
                 self.membrane_time_constant
 
@@ -735,7 +754,7 @@ class Nucleus:
                 D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
         else:  # for the firing rate model the ext input is reported as the firing rate of the ext pop needed to provide the desired firing rate.
-            I_syn = self.incoming_rest_I_syn(proj_list, A)
+            I_syn = self.incoming_rest_I_syn(proj_list, A, dt)
 
             # print('I_syn', np.average(I_syn))
             self.sum_syn_inp_at_rest = I_syn
@@ -744,7 +763,7 @@ class Nucleus:
                 self._set_ext_inp_poisson(I_syn)
 
             elif self.ext_inp_method == 'const+noise' or self.ext_inp_method == 'const':
-                self._set_ext_inp_const_plus_noise(I_syn, end_of_nonlinearity)
+                self._set_ext_inp_const_plus_noise(I_syn, end_of_nonlinearity, dt)
                 
             else:
                 raise ValueError('external input handling method not right!')
@@ -786,7 +805,7 @@ class Nucleus:
         self.FR_ext = self.rest_ext_input / self.syn_weight_ext_pop / \
             self.n_ext_population / self.membrane_time_constant
 
-    def _set_ext_inp_const_plus_noise(self, I_syn, end_of_nonlinearity):
+    def _set_ext_inp_const_plus_noise(self, I_syn, end_of_nonlinearity, dt):
         # linear regime if decided not to derive from reponse curve (works for low noise levels)
         if self.basal_firing > end_of_nonlinearity and not self.set_input_from_response_curve:
             self._set_ext_inp_poisson(I_syn)
@@ -818,6 +837,7 @@ class Nucleus:
         self.clear_history()
         print(self.name, "FR_ext = ", self.FR_ext)
         return self.FR_ext
+    
     def estimate_needed_external_input(self, all_FR_list, dt, t_list, receiving_class_dict, if_plot=False, end_of_nonlinearity=25,
                                         n_FR=50, left_pad=0.001, right_pad=0.001, maxfev=5000, ax=None, c='grey'):
         start = timeit.default_timer()
@@ -888,11 +908,11 @@ class Nucleus:
         for i in range(FR_list.shape[0]):
 
             self.clear_history()
-            self.rest_ext_input = FR_list[i, :] * self.membrane_time_constant * \
+            self.rest_ext_input = FR_list[i, :]  * self.membrane_time_constant * \
                 self.n_ext_population * self.syn_weight_ext_pop
             self. run(dt, t_list, receiving_class_dict)
-            FR_sim[:, i] = np.average(
-                self.spikes[:, int(len(t_list)/2):], axis=1)/(dt/1000)
+            FR_sim[:, i] = np.average( self.spikes[:, int(len(t_list)/2):], 
+                                      axis=1) /  (dt/1000)
             print('FR = ', np.average(FR_list[i, :]), np.average(FR_sim[:, i]))
 
         return FR_sim
@@ -922,7 +942,7 @@ class Nucleus:
         for i in range(FR_list.shape[0]):
 
             self.clear_history()
-            self.rest_ext_input = FR_list[i, :] * self.membrane_time_constant * \
+            self.rest_ext_input = FR_list[i, :]  * self.membrane_time_constant * \
                 self.n_ext_population * self.syn_weight_ext_pop
             self. run(dt, t_list, receiving_class_dict)
             FR_sim[:, i] = np.average(
@@ -992,7 +1012,7 @@ class Nucleus:
         
     
 
-    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
+    def  find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
                                       divide_beta_band_in_power = False):
@@ -1300,10 +1320,19 @@ def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes
 
     return phase, n_spikes
 
-def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
+def create_FR_ext_filename_dict(nuclei_dict, path, dt):
+    filename_dict = {}
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            filename_dict[nucleus.name] = os.path.join(path, 'FR_ext_' + nucleus.name + 
+                                                       '_noise_var_' + str(nucleus.noise_variance) +
+                                                       '_dt_' + str(dt).replace('.', '-') + '.pkl')
+    return filename_dict
+
+def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
-                        use_saved_FR_ext = False, return_saved_FR_ext = False, normalize_G_by_N = False, state = 'rest'):
+                        use_saved_FR_ext = False, save_FR_ext = True, normalize_G_by_N = False, state = 'rest'):
     
     '''find number of connections and build J matrix, set ext inputs as well
         Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
@@ -1312,6 +1341,8 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
     receiving_class_dict = create_receiving_class_dict(
         receiving_pop_list, nuclei_dict)
     FR_ext_all_nuclei = {}
+    FR_ext_filename_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
+
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
@@ -1330,8 +1361,9 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
                         FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
                                                                         if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
                                                                         maxfev = maxfev, c=c, n_FR=n_FR)
-                        print(FR_ext, state)
                         FR_ext_all_nuclei[nucleus.name] = FR_ext
+                        if save_FR_ext:
+                            pickle_obj(nucleus.FR_ext, FR_ext_filename_dict[nucleus.name])
                     elif method == 'single_neuron':
                         if nucleus.basal_firing > end_of_nonlinearity:
                             nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
@@ -1342,15 +1374,19 @@ def set_connec_ext_inp(A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_
                                                                    end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
                                                                    n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
                     elif use_saved_FR_ext:
-                        nucleus.FR_ext = FR_ext_all_nuclei_saved[nucleus.name]
+                        nucleus.FR_ext = load_pickle(FR_ext_filename_dict[nucleus.name])
+                    
                 if normalize_G_by_N:
                     nucleus.normalize_synaptic_weight_by_N()
-                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
-                                  dt, end_of_nonlinearity=end_of_nonlinearity[nucleus.name][state])
-    if return_saved_FR_ext:
-        return receiving_class_dict, FR_ext_all_nuclei
-    else:
-        return receiving_class_dict
+                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
+                                      end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
+
+    # if return_saved_FR_ext:
+    #     return receiving_class_dict, FR_ext_all_nuclei
+    # else:
+        
+
+    return receiving_class_dict
 
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
@@ -1652,7 +1688,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                                  inset_props = inset_props, inset_yaxis_loc = inset_yaxis_loc)
                 
             max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
-            ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.2f}".format(AUC_ratio) + '$', xy=(0.2*j,0.4), xycoords='axes fraction', color = color_dict[name],
+            ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.2f}".format(AUC_ratio) + '$', xy=(0.2 + 0.2*j,0.8), xycoords='axes fraction', color = color_dict[name],
              fontsize=10)
 
         ax.set_ylim(-0, max_pxx)
@@ -1813,7 +1849,7 @@ def set_boxplot_prop(bp, color_list):
         median.set(color =color, 
                    linewidth = 0.5) 
     return bp
-def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -1822,12 +1858,12 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True):
+    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200):
 
     if set_seed:
         np.random.seed(1956)
 
-    nn = 200
+    
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = get_max_len_dict(G_dict)
     # print("n_inter = ", n_iter)
@@ -1849,8 +1885,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
         else:
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, nn))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, nn))
+        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, len_f_pxx))
+        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, len_f_pxx))
 
     data['g'] = G_dict
     count = 0
@@ -1894,15 +1930,15 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
             if reset_init_dist:
-                receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                receiving_class_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
                                                           end_of_nonlinearity = end_of_nonlinearity, 
                                                           set_FR_range_from_theory = False, method = 'collective', 
                                                           use_saved_FR_ext= use_saved_FR_ext,
-                                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei_saved, 
-                                                          return_saved_FR_ext= return_saved_FR_ext, normalize_G_by_N= False,
+                                                          normalize_G_by_N= False, save_FR_ext=False,
                                                           state = state)
-                
+
+
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 
             if plot_raster:
@@ -1928,7 +1964,8 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
-                                half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance, save_pxx = save_pxx)
+                                half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance, 
+                                save_pxx = save_pxx, len_f_pxx = len_f_pxx)
 
         if plot_spectrum:
             if fft_method == 'rfft':
@@ -1992,13 +2029,14 @@ def synaptic_weight_exploration_SNN(nuclei_dict, filepath, duration_base, G_dict
 def coherence_exploration(nuclei_dict, G_dict, noise_amplitude, noise_variance, A, N, N_real, K_real, receiving_pop_list,
                           A_mvt, D_mvt, t_mvt, t_list, dt,  all_FR_list , n_FR, receiving_class_dict,
                           end_of_nonlinearity, FR_ext_all_nuclei_saved, color_dict,
-                          poisson_prop, reset_init_dist = True):
+                          poisson_prop, reset_init_dist = True, sampling_t_distance_ms = 1, if_plot = False):
     
     n_g = get_max_len_dict(G_dict)
     coherence_dict = {name: np.zeros(n_g) for name in list(nuclei_dict.keys())}
+    
+    
     for i in range(n_g):
         G = {}
-        start = timeit.default_timer()
         for k, values in G_dict.items():
             G[k] = values[i]
             print(k, values[i])
@@ -2016,18 +2054,24 @@ def coherence_exploration(nuclei_dict, G_dict, noise_amplitude, noise_variance, 
                                                       return_saved_FR_ext= False, normalize_G_by_N= False,
                                                       state = 'rest')
             
+        # print(receiving_class_dict)
         nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
-        coherence_dict = set_coherence_all_nuclei(nuclei_dict, coherence_dict, i)
-        fig = plot(nuclei_dict,color_dict, dt,  t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
-            title_fontsize=15, plot_start = 0, title = str(dt),
-            include_FR = False, include_std=False, plt_mvt=False,
-            legend_loc='upper right', ylim =None)
+        coherence_dict = set_coherence_all_nuclei(nuclei_dict, coherence_dict, i, dt, 
+                                                  sampling_t_distance_ms = sampling_t_distance_ms)
+        
+        if if_plot:
+            fig = plot(nuclei_dict,color_dict, dt,  t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+                       title_fontsize=15, plot_start = 0, title = str(dt),
+                       include_FR = False, include_std=False, plt_mvt=False,
+                       legend_loc='upper right', ylim =None)
+    coherence_dict['G'] = G_dict
+        
     return coherence_dict
 
-def set_coherence_all_nuclei(nuclei_dict, coherence_dict, i):
+def set_coherence_all_nuclei(nuclei_dict, coherence_dict, i, dt, sampling_t_distance_ms=1):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            coherence_dict[nucleus.name][i] = nucleus.cal_coherence()
+            coherence_dict[nucleus.name][i] = nucleus.cal_coherence(dt, sampling_t_distance_ms= sampling_t_distance_ms)
     return coherence_dict
 
 def sinfunc(t, A, w, p, c):  return A * np.sin(w*(t - p)) + c
@@ -2372,12 +2416,12 @@ def instantaneus_rise_expon_decay(inputs, I=0, I_rise=None, tau_decay=5, tau_ris
     return I + (-I + inputs) / tau_decay, np.zeros_like(I)
 
 
-def _dirac_delta_input(inputs, I_rise=None, I=None, tau_rise=None, tau_decay=None):
+def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay=None):
 
-    return inputs, np.zeros_like(inputs)
+    return inputs , np.zeros_like(inputs)
 
 
-def exp_rise_and_decay(inputs, I_rise=0, I=0, tau_rise=5, tau_decay=5):
+def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
 
     I_rise = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
     I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
@@ -2917,15 +2961,20 @@ def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	return series.reshape(-1, 1)
 
 
-def noise_generator(amplitude, variance, n):
+def noise_generator(amplitude, variance, n, dt, sqrt_dt, tau = 0, noise_dt_before = 0):
     # return amplitude * np.random.normal(0, variance, n).reshape(-1, 1)
-    return np.random.normal(0, variance, n).reshape(-1, 1)
+    return sqrt_dt * np.random.normal(0, variance, n).reshape(-1, 1)
 
-def OU_noise_generator(variance, tau,  OU_noise, gauss_noise):
+def OU_noise_generator(amplitude, variance, n, dt, sqrt_dt, tau= 10,  noise_dt_before = 0):
     ''' Ornstein-Uhlenbeck process as time correlated noise generator'''
-    return 0
+    noise_prime = -noise_dt_before / tau + \
+                   variance * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
+                   
+    noise = fwd_Euler(dt, noise_dt_before, noise_prime)
+    return noise
 
-def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), include_beta_band_in_legend=False):
+def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
+                      include_beta_band_in_legend=False, tick_label_fontsize = 18, normalize = True):
 
 	fig, ax = get_axes(ax, figsize=figsize)
 	# plt.semilogy(freq[:N//2], f[:N//2])
@@ -2933,6 +2982,12 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 	if include_beta_band_in_legend:
 		beta_band_power = beta_bandpower(f, pxx)
 		label += ' ' + r'$\overline{P}_{\beta}=$' + str(round(beta_band_power, 3))
+        
+	if normalize :
+		
+		AUC = np.trapz(pxx, f)
+		pxx = pxx / AUC
+		
 	ax.plot(f, pxx, c=c, label=label, lw=1.5)
 	ax.set_xlabel('frequency (Hz)', fontsize=15)
 	ax.set_ylabel('FFT power', fontsize=15)
@@ -2940,8 +2995,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 	# ax.tick_params(axis='both', which='major', labelsize=10)
 	ax.locator_params(axis='y', nbins=5)
 	ax.locator_params(axis='x', nbins=5)
-	plt.rcParams['xtick.labelsize'] = 18
-	plt.rcParams['ytick.labelsize'] = 18 
+	ax.tick_params(axis='both', labelsize=tick_label_fontsize)
 	remove_frame(ax)
 
 
