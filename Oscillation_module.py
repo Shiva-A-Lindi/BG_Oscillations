@@ -512,12 +512,14 @@ class Nucleus:
         Delta_N = np.average( np.power( V_mean_t , 2)) - \
                   np.power( np.average( V_mean_t ),
                             2)
-        
+        print("Delta_N", Delta_N)
+
         V_mean_n = self.average_mem_pot_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
         V_2_mean_n = self.average_mem_pot_2_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
         normalizing_factor = np.average( V_2_mean_n - \
                                        np.power( V_mean_n , 2)
                                        )
+        print('normalizing factor', normalizing_factor)
         coherence = Delta_N / normalizing_factor
         
         return coherence
@@ -2859,18 +2861,36 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
                  rotation='vertical', fontsize=labelsize)
     return fig
 
-def plot_FR_distribution(nuclei_dict, color_dict, bins = 50):
+def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50):
     ''' plot the firing rate distribution of neurons of different populations '''
     fig, ax = plt.subplots()
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            FR_mean_neurons = np.average(nucleus.spikes , axis = 1)
-            
-            ax.hist( FR_mean_neurons, bins=bins, color=color_dict[nucleus.name], 
-                    label=nucleus.name, density=True, stacked=True, alpha = 0.2)
+            FR_mean_neurons = np.average(nucleus.spikes , axis = 1) / (dt/1000)
+            freq, edges = np.histogram(FR_mean_neurons, bins = bins)
+            width = np.diff(edges[:-1])
+            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                    label=nucleus.name,  alpha = 0.2)
             
     ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
-    ax.set_ylabel(r'$Probability\ density$', fontsize=15)
+    ax.set_ylabel('% of population', fontsize=15)
+    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    return fig
+
+def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
+    ''' plot the firing rate distribution of neurons of different populations '''
+    fig, ax = plt.subplots()
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            spk_amplitude = nucleus.spike_thresh - nucleus.u_rest
+            freq, edges = np.histogram(spk_amplitude, bins = bins)
+            width = np.diff(edges[:-1])
+            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                    label=nucleus.name,  alpha = 0.2)
+            
+    ax.set_xlabel('Spike Amplitude (mV)', fontsize=15)
+    ax.set_ylabel('% of population', fontsize=15)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
     ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
     return fig

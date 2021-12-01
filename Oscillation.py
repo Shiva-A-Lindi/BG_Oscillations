@@ -31,43 +31,41 @@ from Oscillation_module import *
 
 #from scipy.ndimage.filters import generic_filter
 
-N_sim = 1000
-N_sub_pop = 2
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
 N_Str = 2.79*10**6 # Oorschot 1998
-N_real = { 'STN': 13560 , 'Proto': 46000*0.70, 'Arky':46000*0.25, 'GPi': 3200, 'Str': N_Str, 'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str) , 'FSI': int(0.02*N_Str),  # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
-          'Th': 10000} # check to find 
-# A = { 'STN': 15 , 'Proto': 30, 'Arky': 18, # De la Crompe (2020) # Why??
+N_real = { 'STN': 13560 , 'Proto': 46000*0.70, 
+          'Arky': 46000*0.25, 'GPi': 3200, 'Str': N_Str, 
+          'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str) , 
+          'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
+
 A = { 'STN': 15 ,# De la Crompe (2020) [Fig. 6f]
-     'Proto': 45, 'Arky': 8, # Mallet et al. 2016, De la Crompe (2020)
+     'Proto': 45, ### AWAKE # Mallet et al. 2016, De la Crompe (2020) 
+     'Arky': 8, ### AWAKE Mallet et al. 2016, De la Crompe (2020) --> 15
          ## Corbit et al.: GPe neurons fired at 24.5 Hz in control and 18.9 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
      'FSI': 18.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
              # 21 Corbit et al. from HErnandez et al. 2013
      'D1': 1.1, 'D2': 1.1, #Berke et al. 2010
-     'GPi':26} # Benhamou & Cohen (201)
-# mean firing rate from experiments
+     'GPi':26} # Benhamou & Cohen (2001)
+
 A_DD = { 'STN': 24 ,  # De la Crompe (2020) [Fig. 6f]
         # 'Proto': 38, # De la Crompe (2020), Corbit et al. (2016):18.9+/-0.87 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
 			'Proto' : 22,  # De la Crompe (2020) [Fig. 4d] (This is for Sep 8th 2021. What was I thinking before?)
 			'FSI': 24, # Corbit et al. 2016
 			'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011, Corbit et al. 2016
 	         'Arky': 12} # De la Crompe (2020) [Fig. 4f]
+
 A_mvt = { 'STN': 50 , 'Proto': 22,  # Mallet et al. 2016 mean firing rate during movement from experiments
          'FSI': 32,
          'D2': 4, # Mirzaei et al. 2017
          'Arky':38} # Dodson et al. 2015
+
 A_trans = {'STN': 65, 'Proto': A['Proto'], 'D2': 23} # with ctx stimulation
 Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
 threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
 neuron_type = {'STN': 'Glut', 'Proto': 'GABA', 'D2': 'GABA', 'FSI':'GABA'}
 gain = { 'STN': 1 ,'Proto': 1, 'D2': 1, 'FSI':1, 'Arky': 1}
 
-#K = { ('STN', 'Proto'): 475,
-#      ('Proto', 'STN'): 161,
-#      ('Proto', 'Proto'): 399}
-conductance = {('STN', 'Proto'): 0,
-               ('Proto', 'Proto'): 0}
 syn_per_ter = {('STN', 'Proto'): int(12/10.6), #number of synapses per bouton = 12/10.6, #Baufreton et al. (2009)
                ('Proto', 'Proto'): 10, #Sadek et al. 2006 
               ('FSI', 'Proto'): 1,
@@ -80,6 +78,7 @@ syn_per_ter = {('STN', 'Proto'): int(12/10.6), #number of synapses per bouton = 
               ('GPi', 'Proto'): 1,
               ('D1', 'D2'): 1,
               ('D2', 'D2'): 1} 
+
 Str_connec = {('D1', 'D2'): .28,('D2', 'D2'):.36,  ('D1', 'D1'):.26,  ('D2', 'D1'):.05, ('MSN','MSN'): 1350} # Taverna et al 2008
 K_real = { ('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),# 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).  
            ('Proto', 'STN'): 135, # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
@@ -97,8 +96,6 @@ K_real = { ('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),# 243 bouton
            ('GPi', 'Proto'): 1, # find !!!
            # ('D1', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])), #Guzman et al (2003) based on Taverna et al (2008)
            # ('D2', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])),
-           # ('D2', 'Th'): 1, # find
-           # ('FSI', 'Th'): 1, # find
            ('D2','Arky'):100,# estimate
            ('Arky','Proto'):300} # estimate
 #           ('D1', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]),  
@@ -107,7 +104,6 @@ K_real = { ('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),# 243 bouton
 
 K_real_DD = {
            ('D2', 'FSI'): 2*K_real[('D2', 'FSI')],
-           # ('FSI','FSI'): int(N_real['FSI']*0.58), # Gittis et al. (2010)
            ('Proto', 'D2'): int(N_real['D2']*226/N_real['Proto']), # each Proto 226 from iSPN Kawaguchi et al. (1990)
            ('FSI', 'Proto'): 360, # averaging the FSI contacting of Proto boutons Bevan 1998
 		   ('Proto', 'STN'): K_real[('Proto', 'STN')],
@@ -115,12 +111,11 @@ K_real_DD = {
            ('D2','Arky'): 100,# estimate
            ('Arky','Proto'): 300, # estimate
            ('Proto', 'Proto'): K_real[('Proto', 'Proto')]}
-           # ('D1', 'D2'): 0.7*K_real[('D1', 'D2')], #Damodaran et al 2015 based on Taverna et al. 2008
-           # ('D2', 'D2'): 0.5*K_real[('D2', 'D2')]} #Damodaran et al 2015 based on Taverna et al. 2008
 
 
 K_real_STN_Proto_diverse = K_real.copy()
 K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
+
 T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('Proto', 'STN'): 2, # kita & Kitai (1991) - [firing rate] ## Ketzef & Silberberg 2020 says 4.5
       ('Proto', 'Proto'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
@@ -144,79 +139,69 @@ T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('Ctx','Th'): 5.6, # Walker et al. (2012)
       ('D1', 'D2'): 1,
       ('D2', 'D2'): 1} 
-    # transmission delay in ms
-T_DD = {('D2', 'Ctx'): 5.5, # excitation of MC--> Str Kita & Kita (2011)  [firing rate]
-        ('D1', 'Ctx'): 5.5,
-        ('STN', 'Ctx'): 5.9} # kita & Kita (2011) [firing rate]
-G = {('STN', 'Proto'): -1 ,
-     ('Proto', 'STN'): .5 , 
-     ('Proto', 'Proto'): -1,
-     ('Arky', 'Proto'): -1,
-     # ('D2', 'Arky'): 0.1,
-     # ('D2', 'Ctx'): 0,
-     # ('D1', 'Ctx'): 0,
-     ('D2','Proto'): 0,
-     ('D2', 'FSI'): -1, 
-     ('FSI', 'Proto'): -1,
-     ('FSI', 'FSI'): -1,
-     ('Proto','D2'): -1,
-     ('D2','D2'): 0,
-     ('D2','D1'): 0,
-     ('D1','D2'): 0,
-     ('D1', 'D1'): 0,
-     ('GPi', 'Proto'): 0,
-     ('Th', 'GPi') : 0
-     } # synaptic weight
+
 decay_time_scale = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 5, 'AMPA': 1.8, 'NMDA':51} # Gerstner. synaptic time scale for excitation and inhibition
 
 synaptic_time_constant = {}
-# synaptic_time_constant = {('STN', 'Proto'): [10] , ## used for rate model.
-#                         ('Proto', 'STN'): [decay_time_scale['Glut']], 
-#                         ('Proto', 'Proto'): [10],
-#                         ('D2', 'FSI'): [30], 
-#                         ('FSI', 'Proto'): [6],
-#                         ('FSI', 'FSI'): [6],
-#                         ('Proto','D2'): [10],
-#                         ('Arky','Proto'): [6],
-#                         ('D2', 'Arky'): [30]}
 
+mean_APth_Proto = ( (-56.6 * 14) + (-49.9*5) ) /(14 + 5)
+SD_APth_Proto = np.sqrt( 
+                        ( (14-1) * 1.8**2 + 14 * (-56.6 - mean_APth_Proto)**2 + 
+                          (5-1) * 2.8**2 + 5 * (-49.9 - mean_APth_Proto) **2 )  / 
+                        (5 + 14 -1 ) 
+                        ) # Abdli et al 2015 Table. 1 : average of PV+ and PV- proto
 
-# mean_APth_Proto = ( (-56.6 * 14) + (-49.9*5) ) /(14 + 5)
-# SD_APth_Proto = np.sqrt( 
-#                         ( (14-1) * 1.8**2 + 14 * (-56.6 - mean_APth_Proto)**2 + 
-#                          (5-1) * 2.8**2 + 5 * (-49.9 - mean_APth_Proto) **2 )  / 
-#                         (5 + 14 -1 ) 
-#                         ) # Abdli et al 2015 Table. 1 : average of PV+ and PV- proto
+mean_AHP_Proto = ( (-67.3 * 14) + (-66.5 * 5) ) /(14 + 5)
+SD_AHP_Proto = np.sqrt( 
+                        ( (14-1) * 2.2**2 + 14 * (-67.3 - mean_AHP_Proto)**2 + 
+                          (5-1) * 1.8**2 + 5 * (-66.3 - mean_AHP_Proto) **2 )  / 
+                        (5 + 14 -1 ) 
+                        ) # Abdli et al 2015 Table. 1 : average of PV+ and PV- proto
 
 neuronal_consts = { 
 				'Proto': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -85, 'truncmax': -40}, #Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
-                    'u_initial':{'min':-66.3, 'max':-37.57}, 
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-66.3, 'max':-37.57}, 
+                    'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -60}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
+                    # 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -1000, 'truncmax': -40}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
+					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
+                    'spike_thresh': {'mean':-54.8,'var':3.64}}, #  AP_thresh & tau_m trun bounds: Karube et al. 2019
+                    # 'spike_thresh': {'mean':-37.57,'var':4.79}}, #  Karube et al. 2019
 					# 'membrane_time_constant':{'mean':20,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
 					# 'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :#Projecting to STN from Karube et al 2019
 					# 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
-					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-37.57,'var':4.79}}, # tau_m : Jerome's measurements AP_thresh & tau_m trun bounds: Karube et al. 2019
-				'Arky': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -85, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
-                    'u_initial':{'min':-58.1, 'max':-42.9},
+				
+                'Arky': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-58.1, 'max':-42.9},
+                    'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -1000, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
+					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m: Jerome
+                    'spike_thresh': {'mean':-42.9,'var':0.8}}, #  . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
 					# 'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
-					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-42.9,'var':0.8}}, # tau_m: Jerome . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
-				'D2': {
- 					# 'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
- 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -64.47, 'var': 1, 'truncmin': -100, 'truncmax': -50},  #  Planert et al. 2013 RMP trunc bound estimated
-                    'u_initial':{'min':-64.47, 'max': -41.94}, 
 
-					# 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
+                'D2': {
+ 					# 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
+ 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-64.47, 'max': -41.94}, 
+                    'u_rest': {'mean': -64.47, 'var': 1, 'truncmin': -1000, 'truncmax': -50},  #  Planert et al. 2013 RMP trunc bound estimated
+					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 RMP trunc bound estimated
+                    'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
+
+                    # 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
 					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
-					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
-				'FSI': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -75, 'var': 1, 'truncmin': -100, 'truncmax': -65}, #  Russo et al. 2013. RMP trunc bound estimated
-                    'u_initial':{'min':-75, 'max':-46}, 
-					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
-				'STN': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_rest': {'mean': -59, 'var': 0.4, 'truncmin': -100, 'truncmax': -65},  # Paz et al. 2005
-                    'u_initial':{'min':-59, 'max':-50.8},
-					'membrane_time_constant':{'mean': 5.13,'var':0.97, 'truncmin': 2, 'truncmax': 80},'spike_thresh': {'mean':-50.8,'var':0.5}}} # Paz et al 2005 
+				
+                'FSI': {
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-75, 'max':-46}, 
+                    'u_rest': {'mean': -75, 'var': 1, 'truncmin': -1000, 'truncmax': -50}, #  Russo et al. 2013. RMP trunc bound estimated
+					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 0.5, 'truncmax': 100}, #  Russo et al 2013
+                    'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
+				
+                'STN': {
+# 					'u_rest': {'mean': -59, 'var': 0.4, 'truncmin': -1000, 'truncmax': -45},  # Paz et al. 2005 (till Dec 1st)
+    				'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-60.3, 'max':-41.4},
+                    'u_rest': {'mean': -60.3, 'var': 0.8, 'truncmin': -76, 'truncmax': -52},  # Beurrier et al. 1999
+					'membrane_time_constant':{'mean': 5.13,'var':0.97, 'truncmin': 0.5, 'truncmax': 100}, # Paz et al. 2005
+                    'spike_thresh': {'mean':-41.4,'var':0.7}}} # Beurrier et al. 1999 Spike thresh truc(-54, -34)
+# 					'membrane_time_constant':{'mean': 5.13,'var':0.97, 'truncmin': 0.5, 'truncmax': 100},'spike_thresh': {'mean':-50.8,'var':0.5}}} # Paz et al 2005 
+
+                    
 	
 tau = {
        ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
@@ -245,10 +230,9 @@ syn_component_weight = {
 
 syn_component_weight = {key: [1] for key in list(tau.keys())}
 tau_DD = {('STN','Proto'): {'rise':[0.1],'decay':[7.78]}} # Fan et. al 2012}
-G_DD = {
-      ('D2','Proto'): G[('D2','Proto')]*108/28} # IPSP amplitude in Ctr: 28pA, in DD: 108pA Corbit et al. (2016) [Is it due to increased connections or increased synaptic gain?]
 
 color_dict = {'Proto' : 'r', 'STN': 'k', 'D2': 'b', 'FSI': 'g','Arky':'darkorange'}
+
 I_ext_range = {'Proto' : [0.175*100, 0.185*100], 
                'STN': [0.012009 * 100, 0.02 * 100], 
                'D2': [0.0595*100 / 3 , 0.0605*100 / 3] , 
@@ -260,10 +244,12 @@ FR_ext_range = {'Proto': {'rest': [4/300, 9/300], 'DD':[1.8/300, 4.5/300], 'mvt'
                 'D2': {'rest': [0.2/300 , 1.5/300] ,  'DD':[0.2/300 , 3/300], 'mvt':[0.8/300 , 2.5/300]}, #u_rest variance ~15
                 'FSI': {'rest': [ 8/300, 10.2/300 ],  'DD': [ 8.7/300, 10.2/300 ], 'mvt':[9.3/300, 10.7/300]},
                 'Arky': {'rest': [0.8/300, 1.8/300], 'DD':[0.9/300, 2/300], 'mvt':[2/300, 3.3/300]}}
+
 FR_ext_range ['D2'] = {'rest': [1.8/300 , 3.8/300] ,  'DD':[2.9/300 , 4.5/300], 'mvt':[2.5/300 , 4.3/300]}#u_rest variance ~0.1 to 1
 FR_ext_range ['STN'] = {'rest': [6.5/300, 8/300],  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]} ### without noise
 
-noise_variance = {'Proto' : 250, 
+######## Gaussian
+noise_variance = {'Proto' : 250,
                   'STN': 30, 
                   'D2': 2 , 
                   'FSI': 10, 
@@ -284,16 +270,18 @@ FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4
                 'FSI': {'rest': np.array([2/1000, 8/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'D2': {'rest': np.array([0.01/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
-noise_variance = {'Proto' : 5000, 
+noise_variance = {'Proto': 5000, 
                   'STN': 1000,
                   'FSI': 5000, 
-                  'D2': 1000}
+                  'D2': 1000,
+                  'Arky': 2000 }
 
 
 FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-                'STN': {'rest': np.array([20/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'STN': {'rest': np.array([18/1000, 24/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'FSI': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([7/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
+                'D2': {'rest': np.array([7/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'Arky': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 ############3
 
@@ -644,19 +632,21 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 
-noise_variance = {'Proto' : 5000, 
-                  'STN': 1000,
+noise_variance = {'Proto': 5000, 
+                  'STN': 2000,
                   'FSI': 5000, 
-                  'D2': 1000}
+                  'D2': 1000,
+                  'Arky': 5000 }
 
 
 FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-                'STN': {'rest': np.array([20/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'STN': {'rest': np.array([2/1000, 7/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'FSI': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([7/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
+                'D2': {'rest': np.array([7/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'Arky': {'rest': np.array([2/1000, 6/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 plt.close('all')
-name = 'D2'
+name = 'Proto'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -678,11 +668,12 @@ ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
 # mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = True
+keep_noise_all_t = True
 set_FR_range_from_theory = False
 set_input_from_response_curve = True
 save_init = False
 der_ext_I_from_curve= True
-if_plot = True
+if_plot = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = False
@@ -700,11 +691,35 @@ class Nuc_keep_V_m(Nucleus):
         self.reset_potential_with_interpolation(spiking_ind,dt)
         self.all_mem_pot[:, t] = self.mem_potential
         
+    def cal_ext_inp(self, dt, t):
+
+        # choose method of exerting external input from dictionary of methods
+        I_ext, noise = self.ext_inp_method_dict[self.ext_inp_method](dt)
+
+        self.noise_all_t[:, t] = noise
+        
+        self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, dt,
+                                                                            I_rise = self.I_rise['ext_pop', '1'],
+                                                                            I = self.I_syn['ext_pop', '1'],
+                                                                            tau_rise = self.tau_ext_pop['rise'],
+                                                                            tau_decay = self.tau_ext_pop['decay'])
+    def constant_ext_input_with_noise(self, dt):
+        noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
+                                                                self.noise_variance, 
+                                                                self.n, 
+                                                                dt,
+                                                                self.sqrt_dt, 
+                                                                tau = self.noise_tau, 
+                                                                noise_dt_before = self.noise
+                                                                ).reshape(-1,)
+        
+        return self.rest_ext_input + noise, noise
+    
 nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
                poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,
                keep_mem_pot_all_t= keep_mem_pot_all_t, ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, 
-               path = path, save_init = save_init , noise_method = noise_method) for i in pop_list]
+               path = path, save_init = save_init , noise_method = noise_method, keep_noise_all_t= keep_noise_all_t) for i in pop_list]
 
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
@@ -717,12 +732,12 @@ receiving_class_dict = set_connec_ext_inp(path, Act[state], A_mvt,D_mvt,t_mvt,dt
                                           set_FR_range_from_theory = False, method = 'collective', save_FR_ext=True,
                                           use_saved_FR_ext= use_saved_FR_ext, normalize_G_by_N=True, state = state)
 
-print("rest ext inp mean = ", np.average(nuc[0].rest_ext_input))
-
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
+plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 25)
+print( 'coherence = ', nuclei_dict[name][0].cal_coherence( dt, sampling_t_distance_ms = 1) )
+
 for name in list(nuclei_dict.keys()):
     print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
-    print('I_0', np.average(nuclei_dict[name][0].rest_ext_input))
 
 save_all_mem_potential(nuclei_dict, path)
 fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
@@ -737,11 +752,18 @@ cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1,1)
 _, f,pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold , smooth_kern_window , 
-                         smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
-                         low_pass_filter, 0, 2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
-                         spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
+                                    smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
+                                    low_pass_filter, 0, 2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
+                                    spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
                          include_beta_band_in_legend = False)
 ax.set_xlim(0,70)
+
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = 0, plot_end = t_sim, tick_label_fontsize = 12, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = 40, 
+                                    include_nuc_name = True, set_xlim=True,
+                                    remove_ax_frame= False, y_tick_length= 2, x_tick_length = 3)
+
 #%% Find noise sigma
 
 plt.close('all')
@@ -2010,7 +2032,7 @@ name2 = 'Proto'
 state = 'rest'
 name_list = [name1, name2]
 
-g = -0.015
+g = -0.01
 G = {}
 
 G[(name1, name2)] , G[(name2, name1)] = g , -g
@@ -2072,9 +2094,9 @@ receiving_class_dict = set_connec_ext_inp(path, Act[state], A_mvt,D_mvt,t_mvt,dt
 
 
 nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
-for name in list(nuclei_dict.keys()):
-    print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
-    print('I_0', np.average(nuclei_dict[name][0].rest_ext_input))
+# for name in list(nuclei_dict.keys()):
+#     print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
+#     print('I_0', np.average(nuclei_dict[name][0].rest_ext_input))
 
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
@@ -2086,7 +2108,6 @@ smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
 # status = 'STN-GPe' + '_G_SP_' + str(round(abs(G[('STN', 'Proto')]),1)) + '_G_PS_' + str(round(abs(G[('Proto', 'STN')]),1))
 
-# n_neuron = 50
 # fig_sizes = {'firing': (10,6),
 #              'raster': (11,7),
 #              'spectrum': (6, 5)}
@@ -2113,13 +2134,14 @@ fig = plot(nuclei_dict,color_dict, dt,  t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
 # # save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
 # #              size = fig_sizes['firing'])
 
-# include_nuc_name = False
-# raster_order = ['Proto', 'STN']
-# fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
-#                                     plot_start = plot_start_raster, plot_end = t_sim, tick_label_fontsize = 12, 
-#                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
-#                                     include_nuc_name = include_nuc_name, set_xlim=True, name_list = raster_order,
-#                                     remove_ax_frame= False, y_tick_length= 2, x_tick_length = 3)
+n_neuron = 50
+include_nuc_name = False
+raster_order = ['Proto', 'STN']
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
+                                    plot_start = plot_start_raster, plot_end = t_sim, tick_label_fontsize = 12, 
+                                    title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = n_neuron, 
+                                    include_nuc_name = include_nuc_name, set_xlim=True, name_list = raster_order,
+                                    remove_ax_frame= False, y_tick_length= 2, x_tick_length = 3)
 
 # # # fig_raster = remove_all_x_labels(fig_raster)
 # # # fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
@@ -2176,7 +2198,7 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
 #%% Coherence
 
 plt.close('all')
-N_sim = 500
+N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
@@ -2541,6 +2563,7 @@ ax.set_xlim(0,70)
 save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status ),
              size = (6, 5))
 #%% FSI-D2-Proto 
+
 plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -2554,7 +2577,7 @@ name2 = 'D2' # recieving
 name3 = 'Proto'
 state = 'rest'
 name_list = [name1, name2, name3]
-g = -0.0045; g_ext =  0.01
+g = -0.0043; g_ext =  0.01
 G = {}
 plot_start = 1400
 plot_start_raster = 1400
@@ -2667,7 +2690,7 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_thresho
                          smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
                          low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
                          spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
-                         include_beta_band_in_legend = False)
+                         include_beta_band_in_legend = False, normalize_spec = False)
 
 fig_spec = remove_all_x_labels(fig_spec)
 
@@ -2679,6 +2702,9 @@ ax.set_xlim(0,70)
 # ax.yaxis.set_major_locator(MaxNLocator(2)) 
 save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
              size = fig_sizes['spectrum'])
+
+
+plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50)
 #%% Arky-D2-Proto
 
 plt.close('all')
