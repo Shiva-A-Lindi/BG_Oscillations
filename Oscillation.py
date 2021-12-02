@@ -39,27 +39,56 @@ N_real = { 'STN': 13560 , 'Proto': 46000*0.70,
           'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str) , 
           'FSI': int(0.02*N_Str)} # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
 
-A = { 'STN': 15 ,# De la Crompe (2020) [Fig. 6f]
-     'Proto': 45, ### AWAKE # Mallet et al. 2016, De la Crompe (2020) 
-     'Arky': 8, ### AWAKE Mallet et al. 2016, De la Crompe (2020) --> 15
-         ## Corbit et al.: GPe neurons fired at 24.5 Hz in control and 18.9 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
-     'FSI': 18.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz Berke et al 2010?
-             # 21 Corbit et al. from HErnandez et al. 2013
-     'D1': 1.1, 'D2': 1.1, #Berke et al. 2010
-     'GPi':26} # Benhamou & Cohen (2001)
+############################ firing rates before Dec 2021
+# A = { 'STN': 15 ,# De la Crompe (2020) [Fig. 6f] Are you blind?!
+#      'Proto': 45, ### AWAKE # Mallet et al. 2016, De la Crompe (2020) 
+#      'Arky': 8, ### AWAKE Mallet et al. 2016, De la Crompe (2020) --> 15
+#          ## Corbit et al.: GPe neurons fired at 24.5 Hz in control and 18.9 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
+#      'FSI': 18.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz # Gage et al. 2010
+#              # 21 Corbit et al. from HErnandez et al. 2013
+#      'D2': 1.1, # Gage et al. 2010
+#      'GPi':26} # Benhamou & Cohen (2001)
 
-A_DD = { 'STN': 24 ,  # De la Crompe (2020) [Fig. 6f]
-        # 'Proto': 38, # De la Crompe (2020), Corbit et al. (2016):18.9+/-0.87 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
-			'Proto' : 22,  # De la Crompe (2020) [Fig. 4d] (This is for Sep 8th 2021. What was I thinking before?)
-			'FSI': 24, # Corbit et al. 2016
-			'D1': 6.6, 'D2': 6.6, # Kita & Kita. 2011, Corbit et al. 2016
-	         'Arky': 12} # De la Crompe (2020) [Fig. 4f]
+# A_DD = { 'STN': 24 ,  # De la Crompe (2020) [Fig. 6f]
+#  		'Proto' : 22,  # De la Crompe (2020) [Fig. 4d] (This is for Sep 8th 2021. What was I thinking before?)
+#         'Arky': 12, # De la Crompe (2020) [Fig. 4f]
+#  		'FSI': 24, # Corbit et al. 2016
+#  		'D2': 6.6} # Kita & Kita. 2011, Corbit et al. 2016
+ 	  
+# A_mvt = { 'STN': 50 , 
+#          'Proto': 22,  # Mirzaei et al. 2017 Fig 1.F
+#           'Arky':38, # Dodson et al. 2015 (mice)      
+#           'FSI': 32,
+#           'D2': 4} # Mirzaei et al. 2017  Fig 1.F
+############################
+############################ Dec 2021 FR rest set to anesthetized 
 
-A_mvt = { 'STN': 50 , 'Proto': 22,  # Mallet et al. 2016 mean firing rate during movement from experiments
-         'FSI': 32,
-         'D2': 4, # Mirzaei et al. 2017
-         'Arky':38} # Dodson et al. 2015
+A_anesthetized = { 'STN': 7 , # De la Crompe (2020) averaged see cell: De La Crompe FR distributions
+                  'Proto': 40,  # De la Crompe (2020) averaged
+                  'Arky': 14, # De la Crompe (2020) averaged
+                  'FSI': 3.67, # Mallet et al. 2005 (SW-) / # Sharott et al. 2012 Fig 5A 
+                  'D2': 0.5} # Sharott et al. 2012 Fig 5A 
 
+A_DD = { 'STN': 24.2 ,   # De la Crompe (2020) averaged
+		 'Proto' : 21.6,  # De la Crompe (2020) averaged
+         'Arky': 12.2,  # De la Crompe (2020) averaged
+		 'FSI': 0, 
+		 'D2': 0} 
+	        
+A_mvt = { 'STN': 22 ,  # Mirzaei et al. 2017 Fig 1C
+          'Proto': 22, # Mirzaei et al. 2017 Fig 1F
+          'Arky': 10, # Mallet et al. 2016 Fig. 2B
+          'FSI': 24.7, # Berke et al. 2008 Fig. 1B
+          'D2': 4} # Mirzaei et al. 2017 Fig 1E
+        
+
+A_awake = { 'STN': 15, # Mirzaei et al. 2017 Fig 1C
+            'Proto': 46, # Mirzaei et al. 2017 Fig 1F
+            'Arky': 4, # Rough estimate Mallet et al. 2016 Fig 2A
+            'FSI': 6, # Perk et al. 2015
+            'D2': 1.1} # Mirzaei et al. 2017 Fig 1E
+
+A = A_anesthetized
 A_trans = {'STN': 65, 'Proto': A['Proto'], 'D2': 23} # with ctx stimulation
 Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
 threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
@@ -310,6 +339,33 @@ d_Str = 200 # duration of external input to Str
 
 #ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
 ext_inp_delay = 0
+
+#%% De La Crompe FR distributions
+#%% De La Crompe FR distributio
+FR_df = {}
+xls = pd.ExcelFile(os.path.join(root, 'FR_Brice_data.xlsx'))
+name_list = ['STN', 'Proto', 'Arky']
+for state in ['CTRL', 'Park']:
+    fig, ax = plt.subplots()
+    for name in name_list:
+        FR_df[name] = pd.read_excel(xls, name, header = [0], skiprows = [0])
+        col = name + "_" + state + "_FR"
+        notna_ind = FR_df[name][col].notna()
+        FR = FR_df[name][col][notna_ind]
+        freq, edges = np.histogram(FR, bins = 'auto')
+        width = np.diff(edges[:-1])
+        ax.bar( edges[:-1], freq / len(FR) * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[name],
+                label=name,  alpha = 0.2)
+        print(name, state,
+              ' mean = ', np.round( np.average(FR), 2), 
+              ' std = ', np.round( np.std(FR), 2) )
+    
+    ax.set_title(state, fontsize =15)
+    ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
+    ax.set_ylabel('% of population', fontsize=15)
+    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+
 #%% D2-FSI- Proto with derived external inputs
 
 N_sim = 1000
