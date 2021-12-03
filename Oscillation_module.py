@@ -5,6 +5,7 @@ import subprocess
 import timeit
 import numpy as np
 from numpy import inf
+import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -2861,21 +2862,124 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
                  rotation='vertical', fontsize=labelsize)
     return fig
 
-def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50):
+def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'auto', 
+                               alpha = 0.2, hatch = '/', zorder = 1, edgecolor = None):
+    figs = {}
+    FR_df = {}
+    for state in state_list:
+        fig, ax = plt.subplots()
+        for name in name_list:
+            figs[name] = fig
+            try:
+                FR_df[name] = pd.read_excel(xls, name, header = [0], skiprows = [0])
+                col = name + "_" + state + "_FR"
+                notna_ind = FR_df[name][col].notna()
+                FR = FR_df[name][col][notna_ind]
+                freq, edges = np.histogram(FR, bins = bins)
+                width = np.diff(edges[:-1])
+                ax.bar( edges[:-1], freq / len(FR) * 100,  
+                       width=np.append(width, width[-1]), 
+                       align = 'edge', facecolor = color_dict[name],
+                        label = name + ' De La Crompe (2020)',  alpha = alpha, 
+                        hatch = hatch, edgecolor = edgecolor,   
+                        zorder = zorder, lw = 2)
+                plt.rcParams['hatch.linewidth'] = 3
+    
+                ax.annotate( r'$ FR = {0} \pm {1} \; Hz$'.format( round (np.average( FR) , 2) , round( np.std( FR), 2) ),
+                            xy=(0.5,0.7),xycoords='axes fraction', color = color_dict[name],
+                            fontsize=14, alpha = alpha)
+                print(name, state,
+                      ' mean = ', np.round( np.average(FR), 2), 
+                      ' std = ', np.round( np.std(FR), 2) )
+            except ValueError:
+                pass
+        ax.set_title(state, fontsize =15)
+        ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
+        ax.set_ylabel('% of population', fontsize=15)
+        # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+        ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+        
+    return figs
+
+def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
+                         alpha = 0.2, start = 0, log_hist = False, box_plot = False):
+    
     ''' plot the firing rate distribution of neurons of different populations '''
-    fig, ax = plt.subplots()
+    
+    fig, ax = get_axes(ax)
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            FR_mean_neurons = np.average(nucleus.spikes , axis = 1) / (dt/1000)
+            FR_mean_neurons = np.average(nucleus.spikes[:,start:] , axis = 1) / (dt/1000)
+            FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
-            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
-                    label=nucleus.name,  alpha = 0.2)
+            print(FR_mean_neurons)
+            ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , round( FR_std_neurons, 2) ),
+                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
+             fontsize=14, alpha = alpha)
             
+            
+            if box_plot:
+                bp = ax.boxplot(freq, labels = [nucleus.name], patch_artist=True, whis = (0,100), zorder = 0 )
+                for patch, color in zip(bp['boxes'], [color_dict[nucleus.name]]):
+                    patch.set_facecolor(color)
+                    patch.set_alpha(0.2)
+                for median in (bp['medians']): 
+                    median.set(color = 'k', 
+                               linewidth = 0.5) 
+                xs = np.random.normal(1, 0.2, nucleus.n)
+                for x, val, c in zip(xs, FR_mean_neurons,[color_dict[nucleus.name]]):
+                    plt.scatter(x, val, c=c, alpha=0.4, s = 10, ec = 'k', zorder = 1)
+                ax.tick_params(axis='x', labelsize= 10)
+                ax.tick_params(axis='y', labelsize= 12)
+            else:
+                ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                       label=nucleus.name,  alpha =alpha, zorder = zorder)
+    if log_hist and not box_plot:
+        ax.set_xscale("log")
     ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
     ax.set_ylabel('% of population', fontsize=15)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
     ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    
+    return fig
+
+def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False):
+    
+    ''' plot the interspike interval distribution of neurons of different populations '''
+    
+    fig, ax = get_axes(ax)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            ISI_mean_neurons = np.array (
+                                     [np.average( 
+                                             np.diff(
+                                                 np.where(nucleus.spikes[i,start:] == 1)[0] 
+                                                     )
+                                                 ) for i in range(nucleus.n) if len(np.where(nucleus.spikes[i,start:] == 1)[0]) >= 2 ]
+                                        ) * dt
+                              
+                                
+            ISI_std_neurons = np.std(ISI_mean_neurons) 
+            freq, edges = np.histogram(ISI_mean_neurons, bins = bins)
+            width = np.diff(edges[:-1])
+            
+
+            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                    label=nucleus.name,  alpha =alpha, zorder = zorder)
+            ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI_mean_neurons) , 2) , round( ISI_std_neurons, 2) ),
+                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
+             fontsize=14, alpha = alpha)
+            
+    if log_hist:
+        ax.set_xscale("log")
+        
+    ax.set_xlabel('ISI (ms)', fontsize=15)
+    ax.set_ylabel('% of population', fontsize=15)
+    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    
     return fig
 
 def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
