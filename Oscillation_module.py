@@ -2902,7 +2902,7 @@ def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'a
     return figs
 
 def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
-                         alpha = 0.2, start = 0, log_hist = False, box_plot = False):
+                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, n_pts = 50):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
@@ -2910,26 +2910,27 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             FR_mean_neurons = np.average(nucleus.spikes[:,start:] , axis = 1) / (dt/1000)
+            print(FR_mean_neurons)
             FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
-            print(FR_mean_neurons)
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , round( FR_std_neurons, 2) ),
                         xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize=14, alpha = alpha)
             
             
             if box_plot:
-                bp = ax.boxplot(freq, labels = [nucleus.name], patch_artist=True, whis = (0,100), zorder = 0 )
+                bp = ax.boxplot(FR_mean_neurons, labels = [nucleus.name], patch_artist=True, whis = (0,100), 
+                                widths = 0.6, zorder = 0 )
                 for patch, color in zip(bp['boxes'], [color_dict[nucleus.name]]):
                     patch.set_facecolor(color)
                     patch.set_alpha(0.2)
                 for median in (bp['medians']): 
                     median.set(color = 'k', 
                                linewidth = 0.5) 
-                xs = np.random.normal(1, 0.2, nucleus.n)
-                for x, val, c in zip(xs, FR_mean_neurons,[color_dict[nucleus.name]]):
-                    plt.scatter(x, val, c=c, alpha=0.4, s = 10, ec = 'k', zorder = 1)
+                xs = np.random.normal(1, 0.04, n_pts)
+                # for x, val, c in zip(xs, FR_mean_neurons,[color_dict[nucleus.name]]):
+                ax.scatter(xs, FR_mean_neurons[:n_pts], c= color_dict[nucleus.name], alpha=0.4, s = 10, ec = 'k', zorder = 1)
                 ax.tick_params(axis='x', labelsize= 10)
                 ax.tick_params(axis='y', labelsize= 12)
             else:
@@ -2945,42 +2946,68 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     return fig
 
 def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
-                          alpha = 0.2, start = 0, log_hist = False):
+                          alpha = 0.2, start = 0, log_hist = False, mean_neurons = False):
     
     ''' plot the interspike interval distribution of neurons of different populations '''
     
     fig, ax = get_axes(ax)
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            ISI_mean_neurons = np.array (
-                                     [np.average( 
-                                             np.diff(
-                                                 np.where(nucleus.spikes[i,start:] == 1)[0] 
-                                                     )
-                                                 ) for i in range(nucleus.n) if len(np.where(nucleus.spikes[i,start:] == 1)[0]) >= 2 ]
-                                        ) * dt
-                              
-                                
-            ISI_std_neurons = np.std(ISI_mean_neurons) 
-            freq, edges = np.histogram(ISI_mean_neurons, bins = bins)
+            
+            if mean_neurons:
+                ISI, ISI_std = get_mean_sd_ISI_of_neurons(nucleus, start, dt)
+                ylabel = '% populatoin'
+            else:
+                ISI, ISI_std = get_all_ISI_of_neurons(nucleus, start, dt)   
+                ylabel = '% spike count'                           
+
+            
+            freq, edges = np.histogram(ISI, bins = bins)
             width = np.diff(edges[:-1])
             
 
             ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
                     label=nucleus.name,  alpha =alpha, zorder = zorder)
-            ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI_mean_neurons) , 2) , round( ISI_std_neurons, 2) ),
-                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
+            ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI) , 2) , round( ISI_std, 2) ),
+                        xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize=14, alpha = alpha)
             
     if log_hist:
         ax.set_xscale("log")
         
     ax.set_xlabel('ISI (ms)', fontsize=15)
-    ax.set_ylabel('% of population', fontsize=15)
+    ax.set_ylabel(ylabel, fontsize=15)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
     ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
     
     return fig
+
+def get_mean_sd_ISI_of_neurons(nucleus, start, dt):
+    
+    ISI_mean_neurons = np.array (
+                         [np.average( 
+                                 np.diff(
+                                     np.where(nucleus.spikes[i,start:] == 1)[0] 
+                                         )
+                                     ) for i in range(nucleus.n) if len(np.where(nucleus.spikes[i,start:] == 1)[0]) >= 2 ]
+                            ) * dt
+    ISI_std_neurons = np.std(ISI_mean_neurons) 
+    
+    return ISI_mean_neurons, ISI_std_neurons
+
+def get_all_ISI_of_neurons(nucleus, start, dt):
+    
+    ISI_all_t_neurons = np.array([])
+    for i in range(nucleus.n):
+        if len(np.where(nucleus.spikes[i,start:] == 1)[0]) >= 2:
+            ISIs = np.diff( np.where(nucleus.spikes[i,start:] == 1)[0] 
+                                             ) * dt
+            if len(ISIs) > 0:
+                ISI_all_t_neurons = np.append( ISI_all_t_neurons, ISIs )
+
+    ISI_all_t_neurons_sd = np.std(ISI_all_t_neurons) 
+    
+    return  ISI_all_t_neurons, ISI_all_t_neurons_sd
 
 def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
     ''' plot the firing rate distribution of neurons of different populations '''

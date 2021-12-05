@@ -31,6 +31,7 @@ from Oscillation_module import *
 
 #from scipy.ndimage.filters import generic_filter
 
+N_sim = 1000
 N = { 'STN': N_sim , 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim, 'D2': N_sim, 'D1': N_sim, 'GPi': N_sim, 'Th': N_sim}
 # MSNs make up at least 95% of all striatal cells (Kemp and Powell, 1971)
 N_Str = 2.79*10**6 # Oorschot 1998
@@ -142,8 +143,8 @@ K_real_DD = {
            ('Proto', 'Proto'): K_real[('Proto', 'Proto')]}
 
 
-K_real_STN_Proto_diverse = K_real.copy()
-K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
+# K_real_STN_Proto_diverse = K_real.copy()
+# K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
 
 T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
       ('Proto', 'STN'): 2, # kita & Kitai (1991) - [firing rate] ## Ketzef & Silberberg 2020 says 4.5
@@ -210,9 +211,9 @@ neuronal_consts = {
                 'D2': {
  					# 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
  					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-64.47, 'max': -41.94}, 
-                    'u_rest': {'mean': -64.47, 'var': 2, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 RMP trunc bound estimated
-					'membrane_time_constant':{'mean':13.85,'var':6.25, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 RMP trunc bound estimated
-                    'spike_thresh': {'mean':-41.94,'var':3.19}}, #  Planert et al. 2013
+                    'u_rest': {'mean': -64.47, 'var': 1.5, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 RMP trunc bound estimated
+					'membrane_time_constant':{'mean':13.85,'var': 2, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 RMP trunc bound estimated sd = 6.25
+                    'spike_thresh': {'mean':-41.94,'var': 1.5}}, #  Planert et al. 2013 sd  3.19
 
                     # 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
 					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
@@ -289,29 +290,18 @@ noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 
 
 ########33 OU
-noise_variance = {'Proto' : 50000, # unreasonable
-                  'STN': 1000,
-                  'FSI': 15000, 
-                  'D2': 5000}
-
-
-FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-                'STN': {'rest': np.array([18/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([2/1000, 8/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([0.01/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
-
-noise_variance = {'Proto': 5000, 
-                  'STN': 1000,
+noise_variance = {'Proto': 6000, 
+                  'STN': 2000,
                   'FSI': 5000, 
-                  'D2': 1000,
-                  'Arky': 2000 }
+                  'D2': 4500,
+                  'Arky': 5000 }
+ 
 
-
-FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-                'STN': {'rest': np.array([18/1000, 24/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([7/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'Arky': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
+FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
+                'STN': {'rest': np.array([20/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'FSI': {'rest': np.array([15/1000, 20/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'D2': {'rest': np.array([2/1000, 13/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 ############3
 
@@ -675,23 +665,23 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 noise_variance = {'Proto': 6000, 
                   'STN': 2000,
                   'FSI': 5000, 
-                  'D2': 1000,
+                  'D2': 4500,
                   'Arky': 5000 }
-
+ 
 
 FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
                 'STN': {'rest': np.array([20/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([22/1000, 28/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([5/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'FSI': {'rest': np.array([15/1000, 20/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'D2': {'rest': np.array([2/1000, 13/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 plt.close('all')
-name = 'D2'
+name = 'FSI'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1
-t_sim = 5000; t_list = np.arange(int(t_sim/dt))
+t_sim = 10000; t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
@@ -717,7 +707,6 @@ if_plot = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
-
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 class Nuc_keep_V_m(Nucleus):
@@ -785,21 +774,25 @@ state_dict = {'rest' : 'CTRL', 'DD' : 'Park'}
 # fig = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 100, 5), 
 #                            ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
 
-fig = plot_FR_distribution(nuclei_dict, dt, color_dict,  bins = np.logspace(0,np.log10(50), 50), 
+fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 15, 0.5),#) bins = np.logspace(0,np.log10(50), 50), 
                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
-                           log_hist = True, box_plot = True)
+                           log_hist = False)#, box_plot =True)
 
+save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
+              size = (2.5, 5))
 
-fig = plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = np.logspace(0, 4, 50), 
-                           ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2), log_hist = True)
+fig_ISI_dist = plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = np.logspace(0, 4, 50), 
+                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2), log_hist = True)
 
-save_pdf_png(fig, os.path.join(path, name + '_FR_dist_comp_SNN_Brice_' + status ),
+save_pdf_png(fig_ISI_dist, os.path.join(path, name + '_ISI_dist_' ),
               size = (6, 5))
 
+# plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50)
 for name in list(nuclei_dict.keys()):
     print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
     print( 'coherence = ', nuclei_dict[name][0].cal_coherence( dt, sampling_t_distance_ms = 1) )
 
+status = 'set_FR'
 save_all_mem_potential(nuclei_dict, path)
 fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 
@@ -809,7 +802,7 @@ fig = plot(nuclei_dict,color_dict, dt,  t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
             include_FR = False, include_std=False, plt_mvt=False,
             legend_loc='upper right', ylim =None)
 
-save_pdf_png(fig_spec, os.path.join(path, name + '_Firing_' + status ),
+save_pdf_png(fig, os.path.join(path, name + '_Firing_' ),
               size = (12, 4))
 
 peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; 
@@ -822,7 +815,7 @@ _, f,pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, p
                                     spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
                          include_beta_band_in_legend = False)
 ax.set_xlim(0,70)
-save_pdf_png(fig_spec, os.path.join(path, name + '_spec_' + status ),
+save_pdf_png(fig_spec, os.path.join(path, name + '_spec_' ),
               size = (4, 4))
 
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', 
@@ -830,7 +823,7 @@ fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, f
                                     title_fontsize = 25, lw  = 1, linelengths = 1, n_neuron = 50, 
                                     include_nuc_name = True, set_xlim=True,
                                     remove_ax_frame= False, y_tick_length= 2, x_tick_length = 3)
-save_pdf_png(fig_raster, os.path.join(path, name + '_Raster_' + status ),
+save_pdf_png(fig_raster, os.path.join(path, name + '_Raster_'  ),
               size = (12, 4))
 #%% Find noise sigma
 
