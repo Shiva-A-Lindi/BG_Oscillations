@@ -147,28 +147,27 @@ K_real_DD = {
 # K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
 
 T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
-      ('Proto', 'STN'): 2, # kita & Kitai (1991) - [firing rate] ## Ketzef & Silberberg 2020 says 4.5
-      ('Proto', 'Proto'): 5,#  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
-      ('Arky', 'Proto'): 5,#  Ketzef & Silberberg (2020)- [IPSP]
+      ('Proto', 'STN'):  4.5, # Ketzef & Silberberg 2020 says 4.5 #  kita & Kitai (1991) - [firing rate]  reports 2ms
+      ('Proto', 'Proto'): 5, #  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
+      ('Arky', 'Proto'): 5, #  Ketzef & Silberberg (2020)- [IPSP]
       ('D2','Arky') : 5, # Glajch et al. 2016 [Fig. 1] .estimate was 7 before Sep 2021. 
-      ('Proto', 'D2'):  7.34, #ms proto Ketzef & Silberberg (2020) {in-vitro:striatal photostimulation recording at Proto}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
-      ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
-#      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
-      ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
-      ('D1', 'Ctx'): 10.5,
-      # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
-      ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
-      ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
-      ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-      ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
-      ('Th', 'GPi'): 5, # Xu et al. (2008)
       ('FSI', 'Proto'): 5, # Glajch et al. 2016 [Fig. 2]. estimate was 6 before Sep 2021. 
-      ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
-      ('D2' , 'FSI'): 1, #0.93 ms mice Gittis et al 2010
-      ('FSI' , 'FSI'): 1, # estimate based on proximity
-      ('Ctx','Th'): 5.6, # Walker et al. (2012)
-      ('D1', 'D2'): 1,
-      ('D2', 'D2'): 1} 
+      ('Proto', 'D2'):  7.34, # ms proto Ketzef & Silberberg (2020) {striatal photostimulation recording at Proto}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
+      ('D2' , 'FSI'): 1} #0.93 ms mice Gittis et al 2010      
+#       ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
+# #      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
+#       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
+#       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
+#       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
+#       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
+#       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
+#       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
+#       ('Th', 'GPi'): 5, # Xu et al. (2008)
+#       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
+#       ('FSI' , 'FSI'): 1, # estimate based on proximity
+#       ('Ctx','Th'): 5.6, # Walker et al. (2012)
+#       ('D1', 'D2'): 1,
+#       ('D2', 'D2'): 1} 
 
 decay_time_scale = {'GABA-A' : 6, 'GABA-B': 200, 'Glut': 5, 'AMPA': 1.8, 'NMDA':51} # Gerstner. synaptic time scale for excitation and inhibition
 
@@ -190,21 +189,27 @@ SD_AHP_Proto = np.sqrt(
 
 neuronal_consts = { 
 				'Proto': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
                     # 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -1000, 'truncmax': -40}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
-                    'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto
-					'membrane_time_constant':{'mean':43,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
-                    'spike_thresh': {'mean':-54.8,'var':3.64}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto
+ 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
+                    'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1
+ 					'membrane_time_constant':{'mean':43,'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
+                    'spike_thresh': {'mean':-54.8,'var': 3.64}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- prot
+# 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
+#                     'u_rest': {'mean': -67.1, 'var': 0.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1
+# 					'membrane_time_constant':{'mean':43,'var': 10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
+#                     'spike_thresh': {'mean':-54.8,'var': 0.1}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto
+                
                     # 'spike_thresh': {'mean':-37.57,'var':4.79}}, #  Karube et al. 2019
 					# 'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :# Projecting to STN from Karube et al 2019
 					# 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
 				
                 'Arky': {
-					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-73.3, 'max':-55},
                     # 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -1000, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
+					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-73.3, 'max':-55},
                     'u_rest': {'mean': -73.3, 'var': 1.8, 'truncmin': -1000, 'truncmax': -56}, # Abdi et al 2015 Table. 1
 					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m: Jerome
                     'spike_thresh': {'mean':-55.0,'var':1.8}}, # Abdi et al 2015 Table. 1
+                
                     # 'spike_thresh': {'mean':-42.9,'var':0.8}}, #  . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
 					# 'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
 
@@ -235,12 +240,12 @@ neuronal_consts = {
                     
 	
 tau = {
-       ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016
+       ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016 mice
 		('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
-        ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012
+        ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012 in vitro
        # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
-       ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate
-       ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
+       ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate 
+       ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008 in vitro
        ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 ( in thesis it was 2 and 10)
        ('FSI','Proto'): {'rise':[1],'decay':[14.5]} ,# Saunders et al. 2016 (estimate was 6 before Sep 2021) 
        ('Arky', 'Proto') : {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
@@ -280,13 +285,13 @@ FR_ext_range ['D2'] = {'rest': [1.8/300 , 3.8/300] ,  'DD':[2.9/300 , 4.5/300], 
 FR_ext_range ['STN'] = {'rest': [6.5/300, 8/300],  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]} ### without noise
 
 ######## Gaussian
-noise_variance = {'Proto' : 250,
-                  'STN': 30, 
-                  'D2': 2 , 
-                  'FSI': 10, 
-                  'Arky': 6}
+# noise_variance = {'Proto' : 250,
+#                   'STN': 30, 
+#                   'D2': 2 , 
+#                   'FSI': 10, 
+#                   'Arky': 6}
 
-noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
+# noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 
 
 ########33 OU
@@ -662,21 +667,29 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 
-noise_variance = {'Proto': 6000, 
-                  'STN': 2000,
-                  'FSI': 5000, 
-                  'D2': 4500,
+noise_variance = {
+                # 'Proto': 4000, 
+                'Proto': 5000, 
+                   'STN': 2000,
+                    # 'FSI': 5000, 
+                   'FSI': 1000, 
+
+                    'D2': 4500,
+                   # 'D2': 2000,
                   'Arky': 5000 }
  
 
 FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
                 'STN': {'rest': np.array([20/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([15/1000, 20/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                # 'FSI': {'rest': np.array([10/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'FSI': {'rest': np.array([26/1000, 30/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+# 
                 'D2': {'rest': np.array([2/1000, 13/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                # 'D2': {'rest': np.array([5/1000, 18/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 plt.close('all')
-name = 'FSI'
+name = 'D2'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -706,7 +719,7 @@ der_ext_I_from_curve= True
 if_plot = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext = True
+use_saved_FR_ext =  True
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 class Nuc_keep_V_m(Nucleus):
@@ -765,18 +778,19 @@ receiving_class_dict = set_connec_ext_inp(path, Act[state], A_mvt,D_mvt,t_mvt,dt
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 
 state_dict = {'rest' : 'CTRL', 'DD' : 'Park'}
+xls = pd.ExcelFile(os.path.join(root, 'FR_Brice_data.xlsx'))
 
 # figs = plot_exper_FR_distribution(xls, [name], [ state_dict[state] ],
 #                                   color_dict, bins = np.arange(0, 100, 5),
 #                                   hatch = '/', edgecolor = 'k', alpha = 0.2, zorder = 1)
 
 
-# fig = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 100, 5), 
-#                            ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
+# fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 100, 5), 
+#                             ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
 
 fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 15, 0.5),#) bins = np.logspace(0,np.log10(50), 50), 
-                           ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
-                           log_hist = False)#, box_plot =True)
+                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
+                            log_hist = False, box_plot =True)
 
 save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
               size = (2.5, 5))
@@ -2064,27 +2078,12 @@ plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filt
 #%% STN-GPe
 plt.close('all')
 
-## Gaussian noise
-# noise_variance = {'Proto' : 300, 
-#                   'STN': 10}
-# FR_ext_range = {'Proto': {'rest': np.array([15/1000, 25/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-#                 'STN': {'rest': np.array([18/1000, 33/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
-
-
-# # ## OU noise
-# noise_variance = {'Proto' : 50000, 
-#                   'STN': 1000}
-
-
-# FR_ext_range = {'Proto': {'rest': np.array([12/1000, 20/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
-#                 'STN': {'rest': np.array([18/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
-
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.1
-t_sim = 1000; t_list = np.arange(int(t_sim/dt))
+t_sim = 3000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 
@@ -2093,7 +2092,7 @@ name2 = 'Proto'
 state = 'rest'
 name_list = [name1, name2]
 
-g = -0.01
+g = -0.0105
 G = {}
 
 G[(name1, name2)] , G[(name2, name1)] = g , -g
@@ -2630,7 +2629,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 2000; t_list = np.arange(int(t_sim/dt))
+t_sim = 3000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'FSI' # projecting
@@ -2638,14 +2637,16 @@ name2 = 'D2' # recieving
 name3 = 'Proto'
 state = 'rest'
 name_list = [name1, name2, name3]
-g = -0.0043; g_ext =  0.01
+g = -0.0065; g_ext =  0.01
 G = {}
-plot_start = 1400
-plot_start_raster = 1400
+# g = -0.005
+g = -0.0068
+# plot_start = 0
+# plot_start_raster = 0
 
-plot_start = 0
-plot_start_raster = 0
-G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] = 1.4 * g, 1.2 * g, g
+plot_start = 2000
+plot_start_raster = 2000
+G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  g,  g, g
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = { k: v * K[k] for k, v in G.items()}
 
@@ -2719,7 +2720,7 @@ fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
            include_FR = False, include_std=False, plt_mvt=False,
            legend_loc='upper right', ylim =None)
 
-fig = remove_all_x_labels(fig)
+# fig = remove_all_x_labels(fig)
 fig.axes[0].set_ylim(firing_fig_ylims)
 fig = set_y_ticks(fig, [0, 30, 60])
 # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(), 
@@ -2738,7 +2739,7 @@ fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, f
                                     include_nuc_name = include_nuc_name, set_xlim=True, name_list = raster_order,
                                     remove_ax_frame= False, y_tick_length= 2, x_tick_length = 3)
 
-fig_raster = remove_all_x_labels(fig_raster)
+# fig_raster = remove_all_x_labels(fig_raster)
 fig_raster = set_y_ticks(fig_raster, [0, n_neuron])
 save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status ),
              size = fig_sizes['raster'])
@@ -2751,9 +2752,9 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_thresho
                          smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False , 
                          low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, 
                          spec_figsize = (6,5), find_beta_band_power = False, fft_method = 'Welch', n_windows = 3, 
-                         include_beta_band_in_legend = False, normalize_spec = False)
+                         include_beta_band_in_legend = False, normalize_spec = True)
 
-fig_spec = remove_all_x_labels(fig_spec)
+# fig_spec = remove_all_x_labels(fig_spec)
 
 # x_l = 0.75
 # ax.axhline(x_l, ls = '--', c = 'grey')
@@ -2765,7 +2766,7 @@ save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
              size = fig_sizes['spectrum'])
 
 
-plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50)
+# plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50)
 #%% Arky-D2-Proto
 
 plt.close('all')
@@ -5084,7 +5085,7 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.1
-t_sim = 3000; t_list = np.arange(int(t_sim/dt))
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration_base = [int(400/dt), int(t_sim/dt)]
 
@@ -5130,12 +5131,12 @@ all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys
 
 receiving_class_dict = set_connec_ext_inp(path, Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory = False, method = 'collective', save_FR_ext=True,
+                                          set_FR_range_from_theory = False, method = 'collective',  save_FR_ext=True,
                                           use_saved_FR_ext= use_saved_FR_ext, normalize_G_by_N=True, state = state)
 
 
 
-n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = True
+n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
 # n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
 
 # save_figures = True ; save_pkl = True
@@ -5146,14 +5147,14 @@ n_neuron = 50
 legend_loc = 'center right'
 check_peak_significance = True
 x = np.array([0, 0.5, 1])
-g = -0.0118  # start
+g = -0.0105  # start
 n = len(x)
 
 G_dict = {(name1, name2) : -g * x ,
           (name2, name1) : g * x
         }
 
-filename = 'STN_Proto_N_1000_T_2000_' + str(n) + '_pts_' + str(n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + noise_method + '.pkl'
+filename = 'STN_Proto_N_1000_T_' + str(t_sim) + '_' + str(n) + '_pts_' + str(n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + noise_method + '.pkl'
 
 G_dict = { k: v * K[k] for k, v in G_dict.items()}
 
@@ -5169,7 +5170,7 @@ figs, title, data = synaptic_weight_exploration_SNN(path, nuclei_dict, filepath,
                                                     reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
                                                     state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
                                                     receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
-                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = check_peak_significance, 
+                                                    use_saved_FR_ext=True, check_peak_significance = check_peak_significance, 
                                                     find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 40, 
                                                     n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
                                                     plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 
@@ -5355,7 +5356,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 3000; t_list = np.arange(int(t_sim/dt))
+t_sim = 2000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration_base = [int(400/dt), int(t_sim/dt)]
 
@@ -5414,12 +5415,11 @@ nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_d
 ######## Set ext inp collectively
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
+
 receiving_class_dict = set_connec_ext_inp(path, Act[state], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory = False, method = 'collective', save_FR_ext=True,
+                                          set_FR_range_from_theory = False, method = 'collective',  save_FR_ext=True,
                                           use_saved_FR_ext= use_saved_FR_ext, normalize_G_by_N=True, state = state)
-
-
 
 n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True; plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
 # n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False; plot_phase = False; low_pass_filter= False ;save_pkl = True ; save_figures = False; save_pxx = True
@@ -5436,7 +5436,7 @@ x = np.array([0, 0.5, 1 ])
 
 n = len(x)
 
-g = -0.008  # start
+g = -0.01  # start
 
 #### 0.0045, 2.5, 0.5, 0.5 ,x = 1.5
 # G_dict = {(name2, name1) : np.array([g * 2]* (n)) ,
@@ -5454,9 +5454,10 @@ g = -0.008  # start
 #           (name1, name3) : g * 0.5 * x  }
 # filename = 'D2_Proto_FSI_N_1000_T_5000_G_Proto_FSI_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '.pkl'
 
-G_dict = {(name2, name1): 1.4 * g * x ,
-          (name3, name2): 1.2 * g * x , 
-          (name1, name3): g * x  }
+G_dict = {(name2, name1):  g * x ,
+          (name3, name2):  g * x , 
+          (name1, name3):  g * x  }
+
 filename = 'D2_Proto_FSI_N_1000_T_5000_G_all_changing_' + str(n) + '_pts_' + str(n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + noise_method + '.pkl'
 
 G_dict = { k: v * K[k] for k, v in G_dict.items()}
@@ -5476,7 +5477,7 @@ figs, title, data = synaptic_weight_exploration_SNN(path, nuclei_dict, filepath,
                                                     reset_init_dist = True, all_FR_list = all_FR_list , n_FR = n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
                                                     state = state, K_real = K_real, N_real = N_real, N = N, divide_beta_band_in_power=True,
                                                     receiving_pop_list = receiving_pop_list, poisson_prop = poisson_prop, return_saved_FR_ext= False, 
-                                                    use_saved_FR_ext=True, FR_ext_all_nuclei_saved = FR_ext_all_nuclei, check_peak_significance = False, 
+                                                    use_saved_FR_ext=True, check_peak_significance = False, 
                                                     find_phase = True, phase_thresh_h = 0, filter_order = 6, low_f = 8, high_f = 30, 
                                                     n_phase_bins = 70, start_phase = int(t_sim/4), ref_nuc_name = ref_nuc_name, save_pxx = save_pxx,
                                                     plot_phase = plot_phase, total_phase = 720, phase_projection = None, troughs = True, 
@@ -7214,10 +7215,11 @@ n_g_list = np.arange(3)
 
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_4_pts_5_runs.pkl' )
 # # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_1_pts_10_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
-# inset_props = [0.6, 0.3, 0.35, 0.35]
-# name_list = ['D2', 'FSI', 'Proto']
-# n_g_list = np.array([0])
+filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
+inset_props = [0.6, 0.3, 0.35, 0.35]
+name_list = ['D2', 'FSI', 'Proto']
+n_g_list = np.array([0])
+n_g_list = np.arange(3)
 
 # filename = os.path.join(path, 'Beta_power','STN_Proto_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
@@ -7227,13 +7229,12 @@ n_g_list = np.arange(3)
 # filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_2000_1_pts_10_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_5000_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_5000_1_pts_10_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_2000_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
+filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_3000_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
 
-# n_g_list = np.array([0])
-# name_list = [ 'STN', 'Proto']
-# inset_props = [0.6, 0.3, 0.35, 0.35]
-
-# n_g_list = np.arange(3)
+n_g_list = np.array([0])
+name_list = [ 'STN', 'Proto']
+inset_props = [0.6, 0.3, 0.35, 0.35]
+n_g_list = np.arange(3)
 
 
 # filename = os.path.join(path, 'Beta_power','Proto_Proto_N_1000_T_5000_4_pts_5_runs.pkl' )

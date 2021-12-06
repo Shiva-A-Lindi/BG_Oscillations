@@ -1339,7 +1339,9 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
         for nucleus in nuclei_list:
             filename_dict[nucleus.name] = os.path.join(path, 'FR_ext_' + nucleus.name + 
                                                        '_noise_var_' + str(nucleus.noise_variance) +
-                                                       '_dt_' + str(dt).replace('.', '-') + '.pkl')
+                                                       '_dt_' + str(dt).replace('.', '-') +
+                                                       '_A_' + str(nucleus.basal_firing).replace('.', '-') +
+                                                       '.pkl')
     return filename_dict
 
 def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
@@ -2910,7 +2912,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             FR_mean_neurons = np.average(nucleus.spikes[:,start:] , axis = 1) / (dt/1000)
-            print(FR_mean_neurons)
+            # print(FR_mean_neurons)
             FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
