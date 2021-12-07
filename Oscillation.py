@@ -70,26 +70,33 @@ A_anesthetized = { 'STN': 7 , # De la Crompe (2020) averaged see cell: De La Cro
                   'FSI': 3.67, # Mallet et al. 2005 Table 2 (SW-) / # Sharott et al. 2012 Fig 5A (SW-) 
                   'D2': 0.5} # Sharott et al. 2012 Fig 5A  (SW-) / Sharott et al. 2017 Fig 8E  (SW-)
 
-A_DD = { 'STN': 24.2 ,   # De la Crompe (2020) averaged
-		 'Proto' : 21.6,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 13
-         'Arky': 12.2,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 19
-		 'FSI': 4.08,  # Xiao et al. 2020 Fig 7B
-		 'D2': 2.8}   # Sharott et al. 2017 Fig 8E  (SW-)
-	        
+A_DD_anesthetized = { 'STN': 24.2 ,   # De la Crompe (2020) averaged
+            		 'Proto' : 21.6,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 13
+                     'Arky': 12.2,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 19
+            		 'FSI': 4.08,  # Xiao et al. 2020 Fig 7B
+            		 'D2': 2.8}   # Sharott et al. 2017 Fig 8E  (SW-)
+         
+A_DD_awake = { 'STN': 24.2 ,  
+     		 'Proto' : 21.6, 
+              'Arky': 12.2, 
+     		 'FSI': 4.08, 
+     		 'D2': 2.8} 
+         	        
 A_mvt = { 'STN': 22 ,  # Mirzaei et al. 2017 Fig 1C
           'Proto': 22, # Mirzaei et al. 2017 Fig 1F
           'Arky': 10, # Mallet et al. 2016 Fig. 2B
-          'FSI': 24.7, # Berke et al. 2008 Fig. 1B
+          'FSI': 24.7, # Berke et al. 2008 Fig. 1B rat 
           'D2': 4} # Mirzaei et al. 2017 Fig 1E
         
 
 A_awake = { 'STN': 15, # Mirzaei et al. 2017 Fig 1C 
             'Proto': 46, # Mirzaei et al. 2017 Fig 1F
             'Arky': 4, # Rough estimate Mallet et al. 2016 Fig 2A
-            'FSI': 6, # Perk et al. 2015
-            'D2': 1.1} # Mirzaei et al. 2017 Fig 1E/ Perk et al.2015 reports 0.5
+            'FSI': 15.2, # Berke et al. 2004 rat Fig 1B reports 0.6 +/-0.05 for all MSN/  Perk et al. 2015 Fig 4A reports 6 Hz
+            'D2': 1.1} # Mirzaei et al. 2017 Fig 1E/ Perk et al. 2015 Fig 3A. reports 0.5/ Berke et al. 2004 rat Fig 1B reports 0.6 +/-0.05 for all MSN
 
 A = A_anesthetized
+
 A_trans = {'STN': 65, 'Proto': A['Proto'], 'D2': 23} # with ctx stimulation
 Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
 threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
@@ -132,7 +139,7 @@ K_real = { ('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),# 243 bouton
 #           ('D2', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]), #Guzman et al (2003) based on Taverna et al (2008)
 #           ('D1', 'Proto'): int(N_real['Proto']*(1-np.power(64/81, 1/N_real['Proto'])))} # Klug et al 2018
 
-K_real_DD = {
+K_real_DD = {   
            ('D2', 'FSI'): 2*K_real[('D2', 'FSI')],
            ('Proto', 'D2'): int(N_real['D2']*226/N_real['Proto']), # each Proto 226 from iSPN Kawaguchi et al. (1990)
            ('FSI', 'Proto'): 360, # averaging the FSI contacting of Proto boutons Bevan 1998
@@ -146,14 +153,17 @@ K_real_DD = {
 # K_real_STN_Proto_diverse = K_real.copy()
 # K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
 
-T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
-      ('Proto', 'STN'):  4.5, # Ketzef & Silberberg 2020 says 4.5 #  kita & Kitai (1991) - [firing rate]  reports 2ms
-      ('Proto', 'Proto'): 5, #  Ketzef & Silberberg (2020)- [IPSP]/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
-      ('Arky', 'Proto'): 5, #  Ketzef & Silberberg (2020)- [IPSP]
-      ('D2','Arky') : 5, # Glajch et al. 2016 [Fig. 1] .estimate was 7 before Sep 2021. 
-      ('FSI', 'Proto'): 5, # Glajch et al. 2016 [Fig. 2]. estimate was 6 before Sep 2021. 
-      ('Proto', 'D2'):  7.34, # ms proto Ketzef & Silberberg (2020) {striatal photostimulation recording at Proto}- [IPSP] /7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
-      ('D2' , 'FSI'): 1} #0.93 ms mice Gittis et al 2010      
+T = { 
+      # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
+       ('STN', 'Proto'): 1.3 , # Fujimoto & Kita (1983) Fig 5G. rat n=102 in vivo electric stim  
+      ('Proto', 'STN'): 2.8, # ms kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 /  Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75/
+                              #  Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72
+      ('Proto', 'Proto'): 5, #  Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
+      ('Arky', 'Proto'): 5, #  Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5
+      ('D2', 'Arky') : 4.9, # Glajch et al. 2016 [Fig. 1] mice in vitro optogenetic temp: 20-22. estimate was 7 before Sep 2021. 
+      ('FSI', 'Proto'): 4.3, # Glajch et al. 2016 [Fig. 2] mice  in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021. 
+      ('Proto', 'D2'):  7.34, # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
+      ('D2' , 'FSI'): 0.93 } # Gittis et al 2010 mice in vitro electric stim temp = 31-33     
 #       ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
 # #      ('D2', 'Ctx'): 13.4 - 5, # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
 #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
@@ -161,6 +171,7 @@ T = { ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate]
 #       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
 #       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011 
 #       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
+      # ('Arky', 'STN'):  4.35, # Ketzef & Silberberg 2020 #  kita & Kitai (1991) - [firing rate]  reports 2ms
 #       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
 #       ('Th', 'GPi'): 5, # Xu et al. (2008)
 #       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
@@ -191,9 +202,9 @@ neuronal_consts = {
 				'Proto': {
                     # 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -1000, 'truncmax': -40}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
  					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
-                    'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1
- 					'membrane_time_constant':{'mean':43,'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
-                    'spike_thresh': {'mean':-54.8,'var': 3.64}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- prot
+                    'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1 rat in vitro electric stim temp = 35-37
+ 					'membrane_time_constant':{'mean':43,'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements (32-34 ?)
+                    'spike_thresh': {'mean':-54.8,'var': 3.64}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto rat in vitro electric stim temp = 35-37
 # 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
 #                     'u_rest': {'mean': -67.1, 'var': 0.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1
 # 					'membrane_time_constant':{'mean':43,'var': 10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m : Jerome's measurements
@@ -206,9 +217,9 @@ neuronal_consts = {
                 'Arky': {
                     # 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -1000, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-73.3, 'max':-55},
-                    'u_rest': {'mean': -73.3, 'var': 1.8, 'truncmin': -1000, 'truncmax': -56}, # Abdi et al 2015 Table. 1
-					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # tau_m: Jerome
-                    'spike_thresh': {'mean':-55.0,'var':1.8}}, # Abdi et al 2015 Table. 1
+                    'u_rest': {'mean': -73.3, 'var': 1.8, 'truncmin': -1000, 'truncmax': -56}, # Abdi et al 2015 Table. 1 rat in vitro electric stim temp = 35-37
+					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements (32-34 ?)
+                    'spike_thresh': {'mean':-55.0,'var':1.8}}, # Abdi et al 2015 Table. 1 rat in vitro electric stim temp = 35-37
                 
                     # 'spike_thresh': {'mean':-42.9,'var':0.8}}, #  . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
 					# 'membrane_time_constant':{'mean':19.9,'var':1.6},'spike_thresh': {'mean':-43,'var':0.8}}, # Cooper & Stanford 2000
@@ -216,18 +227,18 @@ neuronal_consts = {
                 'D2': {
  					# 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
  					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-64.47, 'max': -41.94}, 
-                    'u_rest': {'mean': -64.47, 'var': 1.5, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 RMP trunc bound estimated
-					'membrane_time_constant':{'mean':13.85,'var': 2, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 RMP trunc bound estimated sd = 6.25
-                    'spike_thresh': {'mean':-41.94,'var': 1.5}}, #  Planert et al. 2013 sd  3.19
+                    'u_rest': {'mean': -64.47, 'var': 1.5, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 rats in vitro electrical stim temp = 34-35
+					'membrane_time_constant':{'mean':13.85,'var': 2, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 sd = 6.25 rats in vitro electrical stim temp = 34-35
+                    'spike_thresh': {'mean':-41.94,'var': 1.5}}, #  Planert et al. 2013 sd = 3.19 rats in vitro electrical stim temp = 34-35
 
                     # 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
 					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
 				
                 'FSI': { 
 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-75, 'max':-46}, 
-                    'u_rest': {'mean': -75, 'var': 1, 'truncmin': -1000, 'truncmax': -50}, #  Russo et al. 2013. RMP trunc bound estimated
-					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 0.5, 'truncmax': 100}, #  Russo et al 2013
-                    'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013
+                    'u_rest': {'mean': -75, 'var': 1, 'truncmin': -1000, 'truncmax': -50}, #  Russo et al. 2013. mice in vitro temp = 32 electric stim
+					'membrane_time_constant':{'mean':9.2,'var':0.2, 'truncmin': 0.5, 'truncmax': 100}, #  Russo et al 2013 mice in vitro temp = 32 electric stim
+                    'spike_thresh': {'mean':-46,'var':1}}, #  Russo et al 2013 mice in vitro temp = 32 electric stim
 				
                 'STN': {
 # 					'u_rest': {'mean': -59, 'var': 0.4, 'truncmin': -1000, 'truncmax': -45},  # Paz et al. 2005 (till Dec 1st)
@@ -240,17 +251,19 @@ neuronal_consts = {
                     
 	
 tau = {
-       ('D2','FSI'):{'rise':[1],'decay':[14]} , # Straub et al. 2016 mice
-		('D1','D2'):{'rise':[3],'decay':[35]},# Straub et al. 2016
-        ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012 in vitro
+       ('D2','FSI'):{'rise':[1.1],'decay':[14.4]}, # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 n=(41/15) / Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26/ 
+                                                   # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
+        ('STN','Proto'): {'rise':[1.1],'decay':[7.8]}, # Baufreton et al. 2009/ decay=6.48 Fan et. al 2012 in vitro
        # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
        ('Proto','STN'): {'rise':[0.2],'decay':[6]}, # Glut estimate 
-       ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008 in vitro
-       ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 ( in thesis it was 2 and 10)
-       ('FSI','Proto'): {'rise':[1],'decay':[14.5]} ,# Saunders et al. 2016 (estimate was 6 before Sep 2021) 
-       ('Arky', 'Proto') : {'rise':[0.5, 40],'decay':[4.9, 200]}, # Sims et al. 2008
-       ('D2','Arky'): {'rise':[4],'decay':[28]} # Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
-      }
+       ('Proto','Proto'): {'rise':[0.5, 40],'decay':[4.9, 200]}, #  no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 
+       ('Proto','D2'): {'rise':[0.8],'decay':[6.13]}, # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 ( in thesis it was 2 and 10)
+       ('FSI','Proto'): {'rise':[1],'decay':[15]} ,# Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature (estimate was 6 before Sep 2021) 
+       ('Arky', 'Proto') : {'rise':[0.5, 40],'decay':[4.9, 200]}, # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 
+       ('D2','Arky'): {'rise':[4],'decay':[28]} # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
+     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
+
+        }
 
 syn_coef_GABA_b = 1
 syn_component_weight = {
@@ -295,7 +308,7 @@ FR_ext_range ['STN'] = {'rest': [6.5/300, 8/300],  'DD':[6/300, 7.5/300], 'mvt':
 
 
 ########33 OU
-noise_variance = {'Proto': 6000, 
+noise_variance = {'Proto': 4000, 
                   'STN': 2000,
                   'FSI': 5000, 
                   'D2': 4500,
@@ -668,11 +681,10 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 
 noise_variance = {
-                # 'Proto': 4000, 
-                'Proto': 5000, 
+                'Proto': 4000, 
                    'STN': 2000,
-                    # 'FSI': 5000, 
-                   'FSI': 1000, 
+                    'FSI': 5000, 
+                   # 'FSI': 1000, 
 
                     'D2': 4500,
                    # 'D2': 2000,
@@ -681,15 +693,14 @@ noise_variance = {
 
 FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
                 'STN': {'rest': np.array([20/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                # 'FSI': {'rest': np.array([10/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([26/1000, 30/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-# 
+                'FSI': {'rest': np.array([10/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                # 'FSI': {'rest': np.array([26/1000, 30/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'D2': {'rest': np.array([2/1000, 13/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 # 'D2': {'rest': np.array([5/1000, 18/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 plt.close('all')
-name = 'D2'
+name = 'FSI'
 state = 'rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -719,7 +730,7 @@ der_ext_I_from_curve= True
 if_plot = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext =  True
+use_saved_FR_ext =  False
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 class Nuc_keep_V_m(Nucleus):
@@ -780,20 +791,22 @@ nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 state_dict = {'rest' : 'CTRL', 'DD' : 'Park'}
 xls = pd.ExcelFile(os.path.join(root, 'FR_Brice_data.xlsx'))
 
-# figs = plot_exper_FR_distribution(xls, [name], [ state_dict[state] ],
-#                                   color_dict, bins = np.arange(0, 100, 5),
-#                                   hatch = '/', edgecolor = 'k', alpha = 0.2, zorder = 1)
+figs = plot_exper_FR_distribution(xls, [name], [ state_dict[state] ],
+                                  color_dict, bins = np.arange(0, 100, 5),
+                                  hatch = '/', edgecolor = 'k', alpha = 0.2, zorder = 1)
 
 
-# fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 100, 5), 
-#                             ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
-
-fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 15, 0.5),#) bins = np.logspace(0,np.log10(50), 50), 
-                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
-                            log_hist = False, box_plot =True)
-
+fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 10, .5), 
+                            ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
 save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
-              size = (2.5, 5))
+              size = (6, 5))
+
+# fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 15, 0.5),#) bins = np.logspace(0,np.log10(50), 50), 
+#                             ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
+#                             log_hist = False, box_plot =True)
+
+# save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
+#               size = (2.5, 5))
 
 fig_ISI_dist = plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = np.logspace(0, 4, 50), 
                             ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2), log_hist = True)
@@ -2639,13 +2652,13 @@ state = 'rest'
 name_list = [name1, name2, name3]
 g = -0.0065; g_ext =  0.01
 G = {}
-# g = -0.005
-g = -0.0068
-# plot_start = 0
-# plot_start_raster = 0
+g = -0.009
+# g = -0.0068
+plot_start = 0
+plot_start_raster = 0
 
-plot_start = 2000
-plot_start_raster = 2000
+# plot_start = 2000
+# plot_start_raster = 2000
 G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  g,  g, g
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = { k: v * K[k] for k, v in G.items()}
