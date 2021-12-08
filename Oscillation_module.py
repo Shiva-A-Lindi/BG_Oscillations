@@ -824,6 +824,7 @@ class Nucleus:
                 self.n_ext_population * self.membrane_time_constant - I_syn
             self.I_ext_0 =  np.average(self.rest_ext_input + I_syn)
             print(self.name, '<I_ext + I_syn> = ', np.average(self.rest_ext_input + I_syn))
+            
     def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
                                                  if_plot=False, end_of_nonlinearity=25, maxfev=5000, c='grey'):
         
@@ -2904,7 +2905,8 @@ def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'a
     return figs
 
 def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
-                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, n_pts = 50):
+                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, 
+                         n_pts = 50, only_non_zero = False):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
@@ -2912,7 +2914,9 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             FR_mean_neurons = np.average(nucleus.spikes[:,start:] , axis = 1) / (dt/1000)
-            # print(FR_mean_neurons)
+            if only_non_zero:
+                FR_mean_neurons = FR_mean_neurons[ FR_mean_neurons > 0]
+
             FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
@@ -2931,7 +2935,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                     median.set(color = 'k', 
                                linewidth = 0.5) 
                 xs = np.random.normal(1, 0.04, n_pts)
-                # for x, val, c in zip(xs, FR_mean_neurons,[color_dict[nucleus.name]]):
+                print(len(xs), len(FR_mean_neurons[:n_pts]))
                 ax.scatter(xs, FR_mean_neurons[:n_pts], c= color_dict[nucleus.name], alpha=0.4, s = 10, ec = 'k', zorder = 1)
                 ax.tick_params(axis='x', labelsize= 10)
                 ax.tick_params(axis='y', labelsize= 12)

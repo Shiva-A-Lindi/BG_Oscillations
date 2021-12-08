@@ -64,17 +64,17 @@ N_real = { 'STN': 13560 , 'Proto': 46000*0.70,
 ############################
 ############################ Dec 2021 FR rest set to anesthetized 
 
-A_anesthetized = { 'STN': 7 , # De la Crompe (2020) averaged see cell: De La Crompe FR distributions
+A_anesthetized = { 'STN': 7 , # De la Crompe (2020) averaged see cell: De La Crompe FR distributions / Mallet et al. 2008 (Sharott) from Fig 1I ~ 14 +/- 3 Hz 
                   'Proto': 39.84,  # De la Crompe (2020) averaged
                   'Arky': 14, # De la Crompe (2020) averaged
                   'FSI': 3.67, # Mallet et al. 2005 Table 2 (SW-) / # Sharott et al. 2012 Fig 5A (SW-) 
-                  'D2': 0.5} # Sharott et al. 2012 Fig 5A  (SW-) / Sharott et al. 2017 Fig 8E  (SW-)
+                  'D2': 0.5} # +/- 0.04 Sharott et al. 2017 Fig 8E  (SW-) n=12 / Sharott et al. 2012 Fig 5A  (SW-) n=16
 
-A_DD_anesthetized = { 'STN': 24.2 ,   # De la Crompe (2020) averaged
+A_DD_anesthetized = { 'STN': 24.2 ,   # De la Crompe (2020) averaged / Mallet et al. 2008 (Sharrot) from Fig 1I  ~ 32.5 +/- 5 Hz 
             		 'Proto' : 21.6,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 13
                      'Arky': 12.2,  # De la Crompe (2020) averaged / Mallet et al. 2008 Fig 6J reports 19
-            		 'FSI': 4.08,  # Xiao et al. 2020 Fig 7B
-            		 'D2': 2.8}   # Sharott et al. 2017 Fig 8E  (SW-)
+            		 'FSI': 4.08,  # Xiao et al. 2020 Fig 7B state unknown
+            		 'D2': 2.8}   # +/- 0.07 Sharott et al. 2017 Fig 8E  (SW-)
          
 A_DD_awake = { 'STN': 24.2 ,  
      		 'Proto' : 21.6, 
@@ -88,17 +88,20 @@ A_mvt = { 'STN': 22 ,  # Mirzaei et al. 2017 Fig 1C
           'FSI': 24.7, # Berke et al. 2008 Fig. 1B rat 
           'D2': 4} # Mirzaei et al. 2017 Fig 1E
         
+Arky_A_mean = np.average( [3.5 , .66 , 1.6 , 1.0 , .4 , .85] ) / 37.32 * 100
+Arky_A_sd = np.std( np.array([3.5 , .66 , 1.6 , 1.0 , .4 , .85])  / 37.32 * 100 )
 
 A_awake = { 'STN': 15, # Mirzaei et al. 2017 Fig 1C 
-            'Proto': 46, # Mirzaei et al. 2017 Fig 1F
-            'Arky': 4, # Rough estimate Mallet et al. 2016 Fig 2A
-            'FSI': 15.2, # Berke et al. 2004 rat Fig 1B reports 0.6 +/-0.05 for all MSN/  Perk et al. 2015 Fig 4A reports 6 Hz
+            'Proto': 46, # Mirzaei et al. 2017 Fig 1F / Dodson et al. 2015 awake mice at rest reports 48.3+/-3.4 Hz
+            'Arky': 3.6, # +/- 2.8 extrapolated from Mallet et al. 2016 Fig 2A/ Dodson et al. 2015 awake mice at rest reports 9.8+/-2.3 Hz
+            'FSI': 15.2, # +/- 1.4 Berke et al. 2004 rat Fig 1B /  Perk et al. 2015 Fig 4A reports 6 Hz
             'D2': 1.1} # Mirzaei et al. 2017 Fig 1E/ Perk et al. 2015 Fig 3A. reports 0.5/ Berke et al. 2004 rat Fig 1B reports 0.6 +/-0.05 for all MSN
 
 A = A_anesthetized
-
+# A = A_awake
 A_trans = {'STN': 65, 'Proto': A['Proto'], 'D2': 23} # with ctx stimulation
-Act = {'rest': A, 'mvt': A_mvt, 'DD': A_DD, 'trans': A_trans}
+Act = {'rest': A, 'awake_rest' : A_awake, 'mvt': A_mvt, 'DD': A_DD_anesthetized, 'trans': A_trans}
+
 threshold = { 'STN': .1 ,'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
 neuron_type = {'STN': 'Glut', 'Proto': 'GABA', 'D2': 'GABA', 'FSI':'GABA'}
 gain = { 'STN': 1 ,'Proto': 1, 'D2': 1, 'FSI':1, 'Arky': 1}
@@ -203,7 +206,7 @@ neuronal_consts = {
                     # 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -1000, 'truncmax': -40}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
  					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
                     'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1 rat in vitro electric stim temp = 35-37
- 					'membrane_time_constant':{'mean':43,'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements (32-34 ?)
+ 					'membrane_time_constant':{'mean':43,'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements temp = 32 
                     'spike_thresh': {'mean':-54.8,'var': 3.64}}, #   # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto rat in vitro electric stim temp = 35-37
 # 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-67.1, 'max':-54.8}, 
 #                     'u_rest': {'mean': -67.1, 'var': 0.1, 'truncmin': -1000, 'truncmax': -56},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1
@@ -218,7 +221,7 @@ neuronal_consts = {
                     # 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -1000, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-73.3, 'max':-55},
                     'u_rest': {'mean': -73.3, 'var': 1.8, 'truncmin': -1000, 'truncmax': -56}, # Abdi et al 2015 Table. 1 rat in vitro electric stim temp = 35-37
-					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements (32-34 ?)
+					'membrane_time_constant':{'mean':36.5,'var':10, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements temp = 32 
                     'spike_thresh': {'mean':-55.0,'var':1.8}}, # Abdi et al 2015 Table. 1 rat in vitro electric stim temp = 35-37
                 
                     # 'spike_thresh': {'mean':-42.9,'var':0.8}}, #  . AP_threh : Stanford & Cooper 2000 [type B] trun bounds of RMP is estimated
@@ -228,11 +231,13 @@ neuronal_consts = {
  					# 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
  					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-64.47, 'max': -41.94}, 
                     'u_rest': {'mean': -64.47, 'var': 1.5, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 rats in vitro electrical stim temp = 34-35
-					'membrane_time_constant':{'mean':13.85,'var': 2, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 sd = 6.25 rats in vitro electrical stim temp = 34-35
+ 					'membrane_time_constant':{'mean':13.85,'var': 2, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 sd = 6.25 rats in vitro electrical stim temp = 34-35
                     'spike_thresh': {'mean':-41.94,'var': 1.5}}, #  Planert et al. 2013 sd = 3.19 rats in vitro electrical stim temp = 34-35
+#                     'u_rest': {'mean': -64.47, 'var': .5, 'truncmin': -1000, 'truncmax': -42},  #  Planert et al. 2013 rats in vitro electrical stim temp = 34-35
+# 					'membrane_time_constant':{'mean':13.85,'var': 0.5, 'truncmin': 0.5, 'truncmax': 100},  #  Planert et al. 2013 sd = 6.25 rats in vitro electrical stim temp = 34-35
+#                     'spike_thresh': {'mean':-41.94,'var': .5}}, #  Planert et al. 2013 sd = 3.19 rats in vitro electrical stim temp = 34-35
 
                     # 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
-					# 'membrane_time_constant':{'mean':13,'var':1.5}}, # tau_m : Planert et al. 2013
 				
                 'FSI': { 
 					'nonlin_thresh':-20 , 'nonlin_sharpness': 1, 'u_initial':{'min':-75, 'max':-46}, 
@@ -304,7 +309,6 @@ FR_ext_range ['STN'] = {'rest': [6.5/300, 8/300],  'DD':[6/300, 7.5/300], 'mvt':
 #                   'FSI': 10, 
 #                   'Arky': 6}
 
-# noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 
 
 ########33 OU
@@ -322,13 +326,14 @@ FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.
                 'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
 ############3
+noise_amplitude = {'Proto' : 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 
 end_of_nonlinearity = {
-                  'FSI': { 'rest' : 10 , 'mvt': 20, 'DD': 35 } ,
-                  'D2':  { 'rest' : 20 , 'mvt': 20 , 'DD': 20, 'trans': 40 } ,
-                  'Proto':  { 'rest' :  20, 'mvt': 20 , 'DD': 20  },
-                  'STN': { 'rest' : 35 , 'mvt': 25, 'DD': 20, 'trans': 35 }, 
-                  'Arky':  { 'rest' :  35, 'mvt': 25 , 'DD': 10  }}
+                  'FSI': { 'rest' : 10 , 'awake_rest': 10, 'mvt': 20, 'DD': 35 } ,
+                  'D2':  { 'rest' : 20 , 'awake_rest': 8, 'mvt': 20 , 'DD': 20, 'trans': 40 } ,
+                  'Proto':  { 'rest' : 20, 'awake_rest': 20, 'mvt': 20 , 'DD': 20  },
+                  'STN': { 'rest' : 35 , 'awake_rest': 10, 'mvt': 25, 'DD': 20, 'trans': 35 }, 
+                  'Arky':  { 'rest' :  35, 'awake_rest': 10, 'mvt': 25 , 'DD': 10  }}
 
 oscil_peak_threshold = {'Proto' : 0.1, 'STN': 0.1, 'D2': 0.1, 'FSI': 0.1, 'Arky': 0.1}
 
@@ -681,31 +686,42 @@ fig.savefig(os.path.join(path, filename), dpi = 300, facecolor='w', edgecolor='w
 #%% Deriving F_ext from response curve of collective behavior in heterogeneous mode 
 
 noise_variance = {
-                'Proto': 4000, 
-                   'STN': 2000,
-                    'FSI': 5000, 
-                   # 'FSI': 1000, 
-
-                    'D2': 4500,
-                   # 'D2': 2000,
-                  'Arky': 5000 }
+                 'Proto': 4000, 
+                 'STN': 2000,
+                   'FSI': 5000, 
+                   # 'FSI': 2500, 
+                   # 'D2': 4500,
+                    'D2': 1000,
+                 'Arky': 5000 }
  
 
-FR_ext_range = {'Proto': {'rest': np.array([5/1000, 10/1000]), 'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
+FR_ext_range = {
+                # 'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]) ,'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
+                'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]) ,'DD':[1.8/300, 4.5/300], 'mvt':[1.8/300, 5/300]},
                 'STN': {'rest': np.array([20/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'FSI': {'rest': np.array([10/1000, 25/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                # 'FSI': {'rest': np.array([26/1000, 30/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                'D2': {'rest': np.array([2/1000, 13/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
-                # 'D2': {'rest': np.array([5/1000, 18/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                 # 'STN': {'rest': np.array([27/1000, 35/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'FSI': {'rest': np.array([10/1000, 25/1000]), 'awake_rest': np.array([20/1000, 27/1000]), 'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                # 'FSI': {'rest': np.array([26/1000, 30/1000]), 'awake_rest': np.array([25/1000, 35/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                'D2': {'rest': np.array([10/1000, 18/1000]), 'awake_rest': np.array([4/1000, 12/1000]), 'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
+                # 'D2': {'rest': np.array([10/1000, 12/1000]), 'awake_rest': np.array([12/1000, 18/1000]), 'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]},
                 'Arky': {'rest': np.array([8/1000, 12/1000]),  'DD':[6/300, 7.5/300], 'mvt':[7.2/300, 8.8/300]}}
 
+bins= {'D2' : {'max' : 15, 
+               'step': 0.5},
+       'Proto' : {'max' : 140, 
+               'step': 5},
+       'FSI' : {'max' : 50, 
+               'step': 2},
+       'STN' : {'max' : 40, 
+               'step': 1}}
 plt.close('all')
-name = 'FSI'
+name = 'D2'
 state = 'rest'
+# state = 'awake_rest'
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1
-t_sim = 10000; t_list = np.arange(int(t_sim/dt))
+t_sim = 1000; t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 
@@ -727,10 +743,10 @@ set_FR_range_from_theory = False
 set_input_from_response_curve = True
 save_init = False
 der_ext_I_from_curve= True
-if_plot = False
+if_plot = True
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext =  False
+use_saved_FR_ext =  True
 poisson_prop = {name:{'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.5},'decay':{'mean':5,'var':3}}, 'g':g_ext}}
 
 class Nuc_keep_V_m(Nucleus):
@@ -777,7 +793,13 @@ nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_
 
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
-                    
+
+m = 3
+fig, ax = plt.subplots()
+ax.plot(nucleus.all_mem_pot[m,:])      
+spikes = np.where(nucleus.spikes[m,:] == 1)[0]
+for sp in spikes:
+    ax.axvline(sp, c = 'r')      
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state] for name in list(nuclei_dict.keys()) } 
 
@@ -791,19 +813,20 @@ nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 state_dict = {'rest' : 'CTRL', 'DD' : 'Park'}
 xls = pd.ExcelFile(os.path.join(root, 'FR_Brice_data.xlsx'))
 
-figs = plot_exper_FR_distribution(xls, [name], [ state_dict[state] ],
-                                  color_dict, bins = np.arange(0, 100, 5),
-                                  hatch = '/', edgecolor = 'k', alpha = 0.2, zorder = 1)
+# figs = plot_exper_FR_distribution(xls, [name], [ state_dict[state] ],
+#                                   color_dict, bins = np.arange(0, 100, 5),
+#                                   hatch = '/', edgecolor = 'k', alpha = 0.2, zorder = 1)
 
 
-fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 10, .5), 
-                            ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
-save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
-              size = (6, 5))
+# fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 10, .5), 
+#                             ax = figs[name].gca(), alpha = 1, zorder = 0, start = int(t_sim / dt / 2))
+# save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
+#               size = (6, 5))
 
-# fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, 15, 0.5),#) bins = np.logspace(0,np.log10(50), 50), 
-#                             ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
-#                             log_hist = False, box_plot =True)
+
+fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins = np.arange(0, bins[name]['max'], bins[name]['step']),#) bins = np.logspace(0,np.log10(50), 50), 
+                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
+                            log_hist = False)#, only_non_zero= True, box_plot =True)
 
 # save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_'  ),
 #               size = (2.5, 5))
@@ -817,6 +840,7 @@ save_pdf_png(fig_ISI_dist, os.path.join(path, name + '_ISI_dist_' ),
 # plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50)
 for name in list(nuclei_dict.keys()):
     print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
+    print('mean firing =', np.average(nuclei_dict[name][0].pop_act[int(t_sim /2) :]))
     print( 'coherence = ', nuclei_dict[name][0].cal_coherence( dt, sampling_t_distance_ms = 1) )
 
 status = 'set_FR'
@@ -2642,18 +2666,20 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 3000; t_list = np.arange(int(t_sim/dt))
+t_sim = 5000; t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim ; D_mvt = t_sim - t_mvt
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 name1 = 'FSI' # projecting
 name2 = 'D2' # recieving
 name3 = 'Proto'
 state = 'rest'
+state = 'awake_rest'
 name_list = [name1, name2, name3]
-g = -0.0065; g_ext =  0.01
 G = {}
-g = -0.009
-# g = -0.0068
+# g = -0.009 # anesthetized
+g = -0.005 # awake
+# g = -0.0033 # awake D2 = 10 Hz
+
 plot_start = 0
 plot_start_raster = 0
 
@@ -2663,7 +2689,7 @@ G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)] =  g,  g, g
 # G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = { k: v * K[k] for k, v in G.items()}
 
-poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g':g_ext} for name in name_list}
+poisson_prop = {name : {'n':10000, 'firing':0.0475,'tau':{'rise':{'mean':1,'var':.1},'decay':{'mean':5,'var':0.5}}, 'g': 0.01} for name in name_list}
 
 receiving_pop_list = {(name1,'1') :  [(name3,'1')],
                       (name2, '1'): [(name1,'1')],
@@ -2686,7 +2712,7 @@ noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 noise_tau = 20 
 
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts,tau,ext_inp_delay,noise_variance, noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window,oscil_peak_threshold,neuronal_model ='spiking',set_input_from_response_curve = set_input_from_response_curve,
                poisson_prop =poisson_prop,init_method = init_method, der_ext_I_from_curve = der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t = keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method,syn_input_integ_method = syn_input_integ_method, path = path, save_init = save_init,
@@ -2714,6 +2740,10 @@ nuclei_dict = run(receiving_class_dict,t_list, dt,  nuclei_dict)
 for name in list(nuclei_dict.keys()):
     # print('Noise ', name, np.average(abs(nuclei_dict[name][0].noise_all_t)))
     print('I_0', np.average(nuclei_dict[name][0].rest_ext_input))
+    plot_FR_distribution({name: nuclei_dict[name]}, dt, color_dict, bins = np.arange(0, bins[name]['max'], bins[name]['step']),#) bins = np.logspace(0,np.log10(50), 50), 
+                            ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
+                            log_hist = False)#, box_plot =True)
+
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 status = 'FSI-D2-Proto' +  ('_G_DF_' + str(round( abs(G[('D2', 'FSI')]),1)) +
                             '_G_PD_' + str(round( abs(G[('Proto', 'D2')]),1)) +
