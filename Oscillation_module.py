@@ -89,7 +89,7 @@ class Nucleus:
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
         spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
-        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False):
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest'):
 
         if set_random_seed:
             self.random_seed = 1996
@@ -150,7 +150,7 @@ class Nucleus:
             self.scale_g_with_N = scale_g_with_N
             
         if neuronal_model == 'spiking':
-
+            self.state = state
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             # dt incorporated in tau for efficiency
             self.tau = {k: {kk: np.array(
@@ -213,20 +213,20 @@ class Nucleus:
                 self.noise_all_t = np.zeros((self.n, n_timebins))
             self.I_ext_0 = None
             
-            if time_correlated_noise:
-                self.noise = np.zeros((self.n,1))
+            
+            self.noise = np.zeros(( self.n, 1))
                 
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
-    def set_init_distribution(self, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False):
+    def set_init_distribution(self, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
         
         if self.init_method == 'homogeneous':
             self.initialize_homogeneously(poisson_prop, dt)
             self.FR_ext = 0
             
         elif self.init_method == 'heterogeneous':
-            self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio,
+            self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
             self.FR_ext = np.zeros(self.n)
             
@@ -348,17 +348,19 @@ class Nucleus:
                                                                             I = self.I_syn['ext_pop', '1'],
                                                                             tau_rise = self.tau_ext_pop['rise'],
                                                                             tau_decay = self.tau_ext_pop['decay'])
+        
     def constant_ext_input_with_noise(self, dt):
-        noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
-                                                                self.noise_variance, 
+        self.noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
+                                                                self.noise_std, 
                                                                 self.n, 
                                                                 dt,
                                                                 self.sqrt_dt, 
                                                                 tau = self.noise_tau, 
                                                                 noise_dt_before = self.noise
-                                                                ).reshape(-1,)
+                                                                )
+
         
-        return self.rest_ext_input + noise
+        return self.rest_ext_input + self.noise.reshape(-1,)
     
     def poissonian_ext_inp(self, dt):
 
@@ -619,8 +621,9 @@ class Nucleus:
         # self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
 
     def set_noise_param(self, noise_variance, noise_amplitude):
-
+        
         self.noise_variance = noise_variance[self.name]
+        self.noise_std = np.sqrt(noise_variance[self.name])
         self.noise_amplitude = noise_amplitude[self.name]
 
     def set_connections(self, K, N):
@@ -653,7 +656,7 @@ class Nucleus:
         elif method == 'draw_from_data':
 
             data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '_tau_' + str(np.round(
-                self.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-') + '.npy'))
+                self.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-') + '_' + self.state + '.npy'))
             
             y_dist = data.reshape(int(data.shape[0] * data.shape[1]), 1)
             self.mem_potential = draw_random_from_data_pdf(y_dist, 
@@ -791,6 +794,7 @@ class Nucleus:
         if set_noise:
             try:
                 self.noise_variance = f['noise_variance']
+                self.noise_std = np.sqrt(self.noise_variance)
             except KeyError:
                 print("Watchout couldn't set noise for the " +
                       self.name + ", set it manually!")
@@ -820,11 +824,13 @@ class Nucleus:
         if self.basal_firing > end_of_nonlinearity and not self.set_input_from_response_curve:
             self._set_ext_inp_poisson(I_syn)
         else:
-            self.rest_ext_input = self.FR_ext * self.syn_weight_ext_pop * \
-                self.n_ext_population * self.membrane_time_constant - I_syn
+            self.rest_ext_input = (self.FR_ext * self.syn_weight_ext_pop * \
+                                   self.n_ext_population * self.membrane_time_constant - 
+                                   I_syn )#.reshape(-1,1)
             self.I_ext_0 =  np.average(self.rest_ext_input + I_syn)
-            print(self.name, '<I_ext + I_syn> = ', np.average(self.rest_ext_input + I_syn))
+            print(self.name, '<I_ext + I_syn> = ', self.I_ext_0)
             
+            # self.set_noise_param(self.I_ext_0/10, self.noise_amplitude)
     def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
                                                  if_plot=False, end_of_nonlinearity=25, maxfev=5000, c='grey'):
         
@@ -1339,7 +1345,9 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             filename_dict[nucleus.name] = os.path.join(path, 'FR_ext_' + nucleus.name + 
-                                                       '_noise_var_' + str(nucleus.noise_variance) +
+                                                       '_noise_var_' + str( round(
+                                                                           nucleus.noise_variance , 2)
+                                                                           ).replace('.', '-') +
                                                        '_dt_' + str(dt).replace('.', '-') +
                                                        '_A_' + str(nucleus.basal_firing).replace('.', '-') +
                                                        '.pkl')
@@ -1422,7 +1430,7 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, poisson_prop = None,
+def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
                             mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
 
@@ -1581,6 +1589,15 @@ def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
             phase = phase_sine
     return phase
 
+def mean_std_multiple_sets(means, stds, nums):
+    mean_all = np.sum( means * nums ) / np.sum(nums)
+    std_all = np.sqrt(np.sum( (nums - 1) * 
+                      np.power(stds, 2) + 
+                      nums  * 
+                      np.power( means - mean_all, 2)) / \
+                (np.sum(nums) - 1) )
+    return mean_all, std_all
+
 def equi_phase_in_0_360_range(phase):
     ''' bring phase into [0,360)'''
     if phase < 0 : phase += 360
@@ -1670,7 +1687,6 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
     data = load_pickle(filename)
     
     n_run = data[(name_list[0], 'pxx')].shape[1] 
-
     for i, n_g in enumerate(n_g_list):
         
         max_pxx = 0
@@ -1680,16 +1696,21 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             
             f = data[(name,'f')][0,0].reshape(-1,)
             pxx_mean = np.average( data[(name,'pxx')][i,:,:], axis = 0)
-
+            
+            mean_peak_f =np.average( data[(name,'base_freq')][i,:], axis = 0)
+            sd_peak_f = np.std( data[(name,'base_freq')][i,:], axis = 0)
+            print('mean peak freq ', name, mean_peak_f)
             pxx_std = np.std( data[(name,'pxx')][i,:,:], axis = 0)
             all_std = np.std( data[(name,'pxx')][i,:,:].flatten() )
-            
-            significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3, 
-                                   ax = None, legend = 'PSD', c = 'k', if_plot = False)
+            significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
+                                                                     max_f = 250, n_pts_above_thresh = 3, 
+                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False)
             print(significance)
             
             if err_plot == 'fill_between':
-                ax.plot(f, pxx_mean, color = color_dict[name], label = name)
+                
+                ax.plot(f, pxx_mean, color = color_dict[name], label = name + ' f= '+
+                        r'$' + "{:.2f}". format(mean_peak_f) + ' \pm ' + "{:.2f}". format(sd_peak_f) + '$')
                 ax.fill_between(f, pxx_mean - pxx_std ,
                                 pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
             if err_plot == 'errorbar':
@@ -2094,7 +2115,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
 
         for nucleus_list in nuclei_dict.values():
             for nucleus in nucleus_list:
-                nucleus.noise_variance = noise_dict[nucleus.name][i]
+                nucleus.noise_std = np.sqrt( noise_dict[nucleus.name][i] )
                 data[(nucleus.name, 'noise_sigma')][i] = noise_dict[nucleus.name][i]
                 data[(nucleus.name, 'I_ext_0')] = np.average(nucleus.I_ext_0)
 
@@ -2114,7 +2135,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
             
             print(' {} from {} runs'.format(j + 1 , n_run))
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                                  A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
             if reset_init_dist:
@@ -2208,7 +2229,7 @@ def coherence_exploration(path, nuclei_dict, G_dict, noise_amplitude, noise_vari
             G[k] = values[i]
             print(k, values[i])
         nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
-                                              A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                              A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True)  
         if reset_init_dist:
@@ -2494,7 +2515,7 @@ def ax_label_adjust(ax, fontsize=18, nbins=5, ybins=None):
 
 def plot_fitted_sigmoid(xdata, ydata, x_scaled, desired_FR, FR_to_I_coef=0, coefs=[], ax=None,  noise_var=0, c='grey'):
     fig, ax = get_axes(ax)
-    ax.plot(xdata * FR_to_I_coef, ydata, 'o', label=r'$\sigma =$' + str(noise_var),
+    ax.plot(xdata * FR_to_I_coef, ydata, 'o', label=r'$\sigma^{2} =$' + str(noise_var),
             c=c, markersize=7, markerfacecolor='none', markeredgewidth=1.5)
     if coefs != []:
         y = sigmoid(x_scaled, *coefs)
@@ -2512,7 +2533,7 @@ def plot_fitted_sigmoid(xdata, ydata, x_scaled, desired_FR, FR_to_I_coef=0, coef
 
 def plot_fitted_line(x, y, slope, intercept, FR_to_I_coef=0, ax=None, noise_var=0, c='grey'):
     fig, ax = get_axes(ax)
-    ax.plot(x * FR_to_I_coef, y, 'o', label=r'$\sigma =$' + str(noise_var),
+    ax.plot(x * FR_to_I_coef, y, 'o', label=r'$\sigma^{2} =$' + str(noise_var),
             c=c, markersize=7, markerfacecolor='none', markeredgewidth=1.5)
     ax.plot(x * FR_to_I_coef, slope * x + intercept,
             c=c, label='fitted curve', lw=2)
@@ -2576,7 +2597,13 @@ def find_FR_sim_vs_FR_ext(FR_list, poisson_prop, receiving_class_dict, t_list, d
         i += 1
     return firing_prop
 
-
+def plot_action_potentials(nucleus, n_neuron= 0, t_start = 0, t_end = 1000):
+    fig, ax = plt.subplots()
+    ax.plot(nucleus.all_mem_pot[n_neuron, t_start: t_end])      
+    spikes = np.where(nucleus.spikes[n_neuron, t_start: t_end] == 1)[0]
+    for sp in spikes:
+        ax.axvline(sp, c = 'r')     
+        
 def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5):
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -2590,7 +2617,6 @@ def instantaneus_rise_expon_decay(inputs, I=0, I_rise=None, tau_decay=5, tau_ris
 
 
 def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay=None):
-
     return inputs , np.zeros_like(inputs)
 
 
@@ -2611,11 +2637,11 @@ def f_LIF(tau, V, V_rest, I_ext, I_syn):
     return (-(V - V_rest) + I_ext + I_syn) / tau
 
 
-def save_all_mem_potential(nuclei_dict, path):
+def save_all_mem_potential(nuclei_dict, path, state):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
             np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name + '_tau_' + str(np.round(
-                nucleus.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-')), nucleus.all_mem_pot)
+                nucleus.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-')) + '_' + state, nucleus.all_mem_pot)
 
 
 def draw_random_from_data_pdf(data, n, bins=50, if_plot=False):
@@ -2921,7 +2947,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , round( FR_std_neurons, 2) ),
-                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
+                        xy=(0.3,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize=14, alpha = alpha)
             
             
@@ -3302,15 +3328,14 @@ def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	return series.reshape(-1, 1)
 
 
-def noise_generator(amplitude, variance, n, dt, sqrt_dt, tau = 0, noise_dt_before = 0):
+def noise_generator(amplitude, std, n, dt, sqrt_dt, tau = 0, noise_dt_before = 0):
     # return amplitude * np.random.normal(0, variance, n).reshape(-1, 1)
-    return sqrt_dt * np.random.normal(0, variance, n).reshape(-1, 1)
+    return 1/sqrt_dt * np.random.normal(0, std, n).reshape(-1, 1)
 
-def OU_noise_generator(amplitude, variance, n, dt, sqrt_dt, tau= 10,  noise_dt_before = 0):
+def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before = 0):
     ''' Ornstein-Uhlenbeck process as time correlated noise generator'''
     noise_prime = -noise_dt_before / tau + \
-                   variance * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
-                   
+                   std * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
     noise = fwd_Euler(dt, noise_dt_before, noise_prime)
     return noise
 
