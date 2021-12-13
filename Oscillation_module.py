@@ -1678,10 +1678,17 @@ def save_pdf_png(fig, figname, size = (8,6)):
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
     fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+def normalize_PSDs(data, n_run, name, n_g):
+    for run in range(n_run):
+        AUC = np.trapz( data[(name,'pxx')][n_g, run,:])
+        data[(name,'pxx')][n_g, run,:] = data[(name,'pxx')][n_g, run,:] / AUC
+        
+    return data
 
 def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_props = [0.65, 0.6, 0.3, 0.3],
                 inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
-                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10):
+                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, normalize_PSD = True, include_AUC_ratio = False):
     
     fig = plt.figure()    
     data = load_pickle(filename)
@@ -1694,6 +1701,9 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
         
         for j, name in enumerate(name_list):
             
+            if normalize_PSD:
+                data = normalize_PSDs(data, n_run, name, i)
+                
             f = data[(name,'f')][0,0].reshape(-1,)
             pxx_mean = np.average( data[(name,'pxx')][i,:,:], axis = 0)
             
@@ -1705,8 +1715,10 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
                                                                      max_f = 250, n_pts_above_thresh = 3, 
                                                                      ax = None, legend = 'PSD', c = 'k', if_plot = False)
-            print(significance)
+
             
+            
+                   
             if err_plot == 'fill_between':
                 
                 ax.plot(f, pxx_mean, color = color_dict[name], label = name + ' f= '+
@@ -1725,8 +1737,9 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                                  inset_props = inset_props, inset_yaxis_loc = inset_yaxis_loc)
                 
             max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
-            ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.3f}".format(AUC_ratio) + '$', xy=(0.2 + 0.2*j,0.8), xycoords='axes fraction', color = color_dict[name],
-             fontsize=10)
+            if include_AUC_ratio:
+                ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.3f}".format(AUC_ratio) + '$', xy=(0.2 + 0.2*j,0.8), xycoords='axes fraction', color = color_dict[name],
+                            fontsize=10)
 
         ax.set_ylim(-0, max_pxx)
         ax.yaxis.set_major_locator(MaxNLocator(4)) 
@@ -2947,7 +2960,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , round( FR_std_neurons, 2) ),
-                        xy=(0.3,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
+                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize=14, alpha = alpha)
             
             
@@ -3063,6 +3076,12 @@ def set_axis_thickness(ax, linewidth  = 1):
     for axis in ['top','bottom','left','right']:
         ax.spines[axis].set_linewidth(linewidth)
         
+def get_str_of_nuclei_FR(nuclei_dict, name_list):
+    As = ''
+    for name in name_list:
+        As += name + '_' + str(np.round(nuclei_dict[name][0].basal_firing, 2)).replace('.', '-') + '_'
+    return As[:-1]
+
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_end=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, neurons =[],
@@ -3683,6 +3702,37 @@ def run_transition_to_DA_depletion_collective_setting(receiving_class_dict, rece
                                           set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
                                           use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_DD, normalize_G_by_N=False,
                                           state = 'DD')
+
+	stop = timeit.default_timer()
+	print("t = ", stop - start)
+	return nuclei_dict
+
+def run_transition_state_collective_setting(path, receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, K_all, N, N_real,
+                                            A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
+	if t_transition == None:
+		t_transition = t_list[int(len(t_list) / 3)]
+	start = timeit.default_timer()
+
+	for t in t_list:
+
+		for nuclei_list in nuclei_dict.values():
+			for k, nucleus in enumerate(nuclei_list):
+
+				nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k+1))])
+
+		if t == t_transition:
+			print('transitioning..')
+			change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
+			if 'DD' in state_2: 
+				nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
+
+			receiving_class_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
+                                                      receiving_pop_list, nuclei_dict, t_list,
+                                                      all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                                      set_FR_range_from_theory=False, method='collective',  save_FR_ext=True,
+                                                      use_saved_FR_ext = True, normalize_G_by_N=True, state=state_2)
+
 
 	stop = timeit.default_timer()
 	print("t = ", stop - start)
