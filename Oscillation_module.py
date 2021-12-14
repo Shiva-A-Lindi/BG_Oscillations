@@ -1105,11 +1105,37 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
        
-        
+def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.smooth_pop_activity(dt, window_ms=window_ms)
+            
+    return nuclei_dict
+
 def change_basal_firing_all_nuclei(A_new, nuclei_dict):
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             nucleus.change_basal_firing(A_new[nucleus.name])
+            
+    return nuclei_dict
+
+def change_state_all_nuclei(new_state, nuclei_dict):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.state = new_state
+            
+    return nuclei_dict
+
+def change_noise_all_nuclei( nuclei_dict, noise_variance, noise_amplitude):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            nucleus.set_noise_param(noise_variance, noise_amplitude)
+            
+    return nuclei_dict
 
 def plot_histogram(y, bins = 50, title = "", color = 'k'):
     fig, ax = plt.subplots()
@@ -1398,19 +1424,16 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                                                                    end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
                                                                    n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
                     elif use_saved_FR_ext:
+                        print(os.path.split(FR_ext_filename_dict[nucleus.name])[1] )
                         nucleus.FR_ext = load_pickle(FR_ext_filename_dict[nucleus.name])
                     
                 if normalize_G_by_N:
                     nucleus.normalize_synaptic_weight_by_N()
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                       end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
-
-    # if return_saved_FR_ext:
-    #     return receiving_class_dict, FR_ext_all_nuclei
-    # else:
         
 
-    return receiving_class_dict
+    return receiving_class_dict, nuclei_dict
 
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
@@ -2617,11 +2640,6 @@ def plot_action_potentials(nucleus, n_neuron= 0, t_start = 0, t_end = 1000):
     for sp in spikes:
         ax.axvline(sp, c = 'r')     
         
-def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5):
-    for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
-            nucleus.smooth_pop_activity(dt, window_ms=window_ms)
-
 
 def instantaneus_rise_expon_decay(inputs, I=0, I_rise=None, tau_decay=5, tau_rise=None):
 
@@ -3134,19 +3152,23 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
                  rotation='vertical', fontsize=labelsize)
     return fig
 
-def raster_plot_all_nuclei_DD(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_=None, tick_label_fontsize=18,
+def raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, n = 1000, 
                             t_transition = None, t_sim = None, ylabel_x = 0.03):
+    
     neurons = np.random.choice(n, n_neuron, replace=False )
-    fig_rest = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start, plot_end = t_transition - 10,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = 40, include_title = True, set_xlim=True,
+    
+    fig_state_1 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start, plot_end = t_transition - 10,
+                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = True, set_xlim=True,
                             neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x)
-    fig_DD = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = t_sim - (t_transition-10-plot_start), plot_end = t_sim,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = 40, include_title = True, set_xlim=True,
-                            axvspan = True, span_start = t_transition, span_end = t_sim, axvspan_color = 'darkseagreen',
+    
+    fig_state_2 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = t_sim - (t_transition-10-plot_start), plot_end = t_sim,
+                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = True, set_xlim=True,
+                            axvspan = True, span_start = t_transition, span_end = t_sim, axvspan_color = axvspan_color,
                             neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x)
-    return fig_rest, fig_DD
+    
+    return fig_state_1, fig_state_2
 
 def find_FR_sim_vs_FR_expected(FR_list, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict, A, A_mvt, D_mvt, t_mvt):
     ''' simulated FR vs. what we input as the desired firing rate'''
@@ -3707,36 +3729,45 @@ def run_transition_to_DA_depletion_collective_setting(receiving_class_dict, rece
 	print("t = ", stop - start)
 	return nuclei_dict
 
-def run_transition_state_collective_setting(path, receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, K_all, N, N_real,
+def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
+                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, 
+                                            state_1, state_2, K_all, N, N_real,
                                             A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
-	if t_transition == None:
-		t_transition = t_list[int(len(t_list) / 3)]
-	start = timeit.default_timer()
+    if t_transition == None:
+        t_transition = t_list[int(len(t_list) / 3)]
+    start = timeit.default_timer()
+    
+    for t in t_list:
+            
+        for nuclei_list in nuclei_dict.values():
+            k = 0
+            for nucleus in nuclei_list:
+                k += 1
+                
+                nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k))])
 
-	for t in t_list:
+        if t == t_transition:
+            print('transitioning..')
+            nuceli_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
+            nuclei_dict = change_state_all_nuclei(state_2, nuclei_dict)
+            nuclei_dict = change_noise_all_nuclei( nuclei_dict, noise_variance[state_2], noise_amplitude)
+            
+            if 'DD' in state_2 and ('Proto', 'Proto') in list(G.keys()): 
+                nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
 
-		for nuclei_list in nuclei_dict.values():
-			for k, nucleus in enumerate(nuclei_list):
+            receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
+                                                                   receiving_pop_list, nuclei_dict, t_list,
+                                                                   all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
+                                                                   end_of_nonlinearity=end_of_nonlinearity,
+                                                                   set_FR_range_from_theory=False, method='collective',  save_FR_ext=False,
+                                                                   use_saved_FR_ext = True, normalize_G_by_N=False, state=state_2)
 
-				nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k+1))])
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
-		if t == t_transition:
-			print('transitioning..')
-			change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
-			if 'DD' in state_2: 
-				nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
-
-			receiving_class_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
-                                                      receiving_pop_list, nuclei_dict, t_list,
-                                                      all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
-                                                      set_FR_range_from_theory=False, method='collective',  save_FR_ext=True,
-                                                      use_saved_FR_ext = True, normalize_G_by_N=True, state=state_2)
-
-
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-	return nuclei_dict
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    return nuclei_dict
 
 def run_transition_to_mvt_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
                                                      FR_ext_all_nuclei_mvt, K, N, N_real, A,
