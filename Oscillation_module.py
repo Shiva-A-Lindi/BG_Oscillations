@@ -3100,6 +3100,12 @@ def get_str_of_nuclei_FR(nuclei_dict, name_list):
         As += name + '_' + str(np.round(nuclei_dict[name][0].basal_firing, 2)).replace('.', '-') + '_'
     return As[:-1]
 
+def get_str_of_A_with_state(name_list, Act, state):
+    As = ''
+    for name in name_list:
+        As += name + '_' + str(np.round(Act[state][name], 2)).replace('.', '-') + '_'
+    return As[:-1]
+
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_end=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, neurons =[],
