@@ -828,7 +828,7 @@ class Nucleus:
                                    self.n_ext_population * self.membrane_time_constant - 
                                    I_syn )#.reshape(-1,1)
             self.I_ext_0 =  np.average(self.rest_ext_input + I_syn)
-            print(self.name, '<I_ext + I_syn> = ', self.I_ext_0)
+            # print(self.name, '<I_ext + I_syn> = ', self.I_ext_0)
             
             # self.set_noise_param(self.I_ext_0/10, self.noise_amplitude)
     def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
@@ -1374,7 +1374,7 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
                                                        '_noise_var_' + str( round(
                                                                            nucleus.noise_variance , 2)
                                                                            ).replace('.', '-') +
-                                                       '_dt_' + str(dt).replace('.', '-') +
+                                                       '_dt_' + str(0.1).replace('.', '-') +
                                                        '_A_' + str(nucleus.basal_firing).replace('.', '-') +
                                                        '.pkl')
     return filename_dict
@@ -1424,7 +1424,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                                                                    end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
                                                                    n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
                     elif use_saved_FR_ext:
-                        print(os.path.split(FR_ext_filename_dict[nucleus.name])[1] )
+                        # print(os.path.split(FR_ext_filename_dict[nucleus.name])[1] )
                         nucleus.FR_ext = load_pickle(FR_ext_filename_dict[nucleus.name])
                     
                 if normalize_G_by_N:
@@ -2001,7 +2001,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
             if reset_init_dist:
-                receiving_class_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
+                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
                                                           all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
                                                           end_of_nonlinearity = end_of_nonlinearity, 
                                                           set_FR_range_from_theory = False, method = 'collective', 
@@ -3664,7 +3664,8 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
 					nucleus.solve_IF(t, dt, receiving_class_dict[(
 					    nucleus.name, str(k))], mvt_ext_inp)
 					
-	nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
+	if nucleus.neuronal_model == 'spiking':
+		nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 	stop = timeit.default_timer()
 	print("t = ", stop - start)
 	return nuclei_dict
@@ -4747,7 +4748,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
             data, if_stable_base = save_freq_analysis_to_df(data, 'base', i, nucleus, dt, duration_base)
                                                   
 
-            print(nucleus.name,' g = ', round(g, 2), 
+            print(nucleus.name,' g = ', round(multiply_values_of_dict(G), 2), 
                   'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i],
                   round(data[(nucleus.name, 'perc_t_oscil_mvt')][i],2),
                   '%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i],2) )
