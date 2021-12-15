@@ -2229,7 +2229,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
         fig.text(0.03, 0.5, 'firing rate (spk/s)',
                  va='center', rotation='vertical', fontsize=18)
         figs.append(fig)
-        set_y_ticks(fig, [30, 50, 70])
+        fig = set_y_ticks(fig, [30, 50, 70])
     if plot_spectrum:
         fig_spec.set_size_inches((11, 15), forward=False)
         fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
@@ -5570,7 +5570,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
     ax.tick_params(axis='x', length = 10)
     ax.tick_params(axis='y', length = 8)
-    ax = set_y_ticks(ax, [0, 50, 100])
+    fig = set_y_ticks(fig, [0, 50, 100])
     remove_frame(ax)
     if xlim != None:
         ax.set_xlim(xlim)

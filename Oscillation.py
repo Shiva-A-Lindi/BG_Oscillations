@@ -20,7 +20,7 @@ import os
 
 root = '/home/shiva/BG_Oscillations'
 # root =  r"C:/Users/azizp/BG_Oscillations"
-# root = '/Users/apple/BG_Oscillations'
+root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
 path_rate = os.path.join(root, 'Outputs_rate_model')
@@ -9283,7 +9283,7 @@ N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
 dt = 0.1
-t_sim = 20000
+t_sim = 25000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 700
 D_mvt = t_sim - t_mvt
@@ -9301,12 +9301,12 @@ state_2 = 'mvt'
 name_list = [name1, name2]
 
 n = 50
-# transition_range = [4.55-(4.6-4.55), 4.6] #dt = 0.5
+# transition_range = [4.55-(4.6-4.55), 4.6] # dt = 0.5
 transition_range = [3.55-(3.57 - 3.55), 3.57]  # dt = 0.1 SP = 4, PS = 4.75
-transition_range = [5.14 - (5.2 - 5.14), 5.2]  # dt = 0.1 SP = 2.8, PS = 1.3
+transition_range = [5.12 - (5.139 - 5.12), 5.139]  # dt = 0.1 SP = 2.8, PS = 1.3
 
 G_list = pad_high_res_spacing_with_arange(  
-    1, transition_range[0], 1/10, transition_range[1], 5.5,  1/10, 20)
+    1, transition_range[0], 1/10, transition_range[1], 5.5,  1/20, 20)
 
 G_list = -np.power(G_list, 1/2)
 (synaptic_time_constant[(name2, name1)],
@@ -9330,11 +9330,11 @@ lim_n_cycle = [6, 10]
 pop_list = [1]
 
 nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance['rest'], noise_amplitude,
-                              N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
+                              N, Act[state_1], Act[state_2], name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
-    A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
+    Act[state_1], Act[state_2], D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
 
 # run(receiving_class_dict,t_list, dt, nuclei_dict)
 # plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,
@@ -10084,7 +10084,7 @@ N = dict.fromkeys(N, N_sim)
 n = 40
 if_plot = False
 dt = 0.1
-t_sim = 20000
+t_sim = 25000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 700
 D_mvt = t_sim - t_mvt
@@ -10097,7 +10097,7 @@ plot_start_stable = 0
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI'
-name3 = 'Arky'
+# name3 = 'Arky'
 
 state_1 = 'awake_rest'
 state_2 = 'mvt'
@@ -10107,13 +10107,13 @@ name_list = {name1, name2, name3}
 # G_list = np.linspace(-5, 0, n, endpoint = True)
 
 transition_range = [2.46 - (2.695 - 2.46), 2.695]  # FSI Loop dt = 0.5
-transition_range = [2.197 - (2.204 - 2.197), 2.204]  # FSI Loop dt = 0.1
+transition_range = [2.293 - (2.3117 - 2.293), 2.3117]  # FSI Loop dt = 0.1
 
-transition_range = [1.903 - (1.915 - 1.903), 1.915]  # Arky Loop dt = 0.1
+# transition_range = [1.903 - (1.915 - 1.903), 1.915]  # Arky Loop dt = 0.1
 
 # G_list = pad_high_res_spacing_with_linspace(0, transition_range[0], 20, transition_range[1], 4.5,  10, 10)
 G_list = pad_high_res_spacing_with_arange(
-    1, transition_range[0], 1/25, transition_range[1], 5.5,  1/10, 20)
+    1, transition_range[0], 1/25, transition_range[1], 5.5,  1/8, 20)
 
 G_list = - np.power(abs(G_list), 1/3)
 
@@ -10148,12 +10148,12 @@ G_ratio_dict = {
 
 lim_n_cycle = [6, 10]
 pop_list = [1]
-nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude,
-                              N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance['rest'], noise_amplitude,
+                              N, Act[state_1], Act[state_2], name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
-    A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
+    Act[state_1], Act[state_2], D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
 
 
 filename = ('G_sweep_D2-P-' + name3[0] + '_tau_' + name3[0] + name2[0] + '_' +
@@ -10164,12 +10164,12 @@ filename = ('G_sweep_D2-P-' + name3[0] + '_tau_' + name3[0] + name2[0] + '_' +
             str(abs(G_ratio_dict[(name3, name1)])) + '_' + name2[0] + name1[0] + '_' +
             str(abs(G_ratio_dict[(name1, name2)])) + '_n_' +
             str(n) + '_T_' + str(t_sim) +
-            '_dt_' + str(dt).replace('.', '-'))
+            '_dt_' + str(dt).replace('.', '-') + '_SP_2-8')
 
 filename = os.path.join(path_rate,
                         filename.replace('.', '-') + '.pkl'
                         )
-receiving_class_dict = set_connec_ext_inp(
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
     A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
 # nuclei_dict = run(receiving_class_dict,t_list, dt, nuclei_dict)
 # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, plot_start=0,title_fontsize=15,
@@ -10184,7 +10184,7 @@ fig_trans, fig_stable = synaptic_weight_space_exploration(G.copy(), Act[state_1]
 
 # fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = [75, 75], ymin = [-4, -4])
 save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename.split('.')[
-                       0], figsize=(5, 3), ymax=[75, 75], ymin=[-4, -4])
+                       0], figsize=(5, 3), ymax=[55, 55], ymin=[-4, -4])
 pkl_file = open(filename, 'rb')
 data = pickle.load(pkl_file)
 pkl_file.close()
@@ -10368,7 +10368,7 @@ nucleus_name_list = ['Proto']
 n = len(nucleus_name_list)
 
 filename_list = n * \
-    ['G_sweep_D2-P-F_tau_FD_10_FP_10_DP_10_G_ratio_FD_1_FP_1_DP_1_n_40_T_20000.pkl']
+    ['G_sweep_D2-P-F_tau_FD_10_FP_10_DP_10_G_ratio_FD_1_FP_1_DP_1_n_40_T_25000_dt_0-1_SP_2-8.pkl']
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 
 title = r'$\tau_{D2-FSI}=\tau_{FSI-Proto}=\tau_{Proto-D2}=10 \: ms$'
@@ -10409,7 +10409,7 @@ save_pdf_png(fig, filename_list[0].split('.')[0], size=(5, 3))
 nucleus_name_list = ['Proto']
 n = len(nucleus_name_list)
 
-filename_list = n * ['G_sweep_STN-GPe_tau_PS_10_SP_6_n_50_T_20000_dt_0-1_SP_2-8.pkl']
+filename_list = n * ['G_sweep_STN-GPe_tau_PS_10_SP_6_n_50_T_25000_dt_0-1_SP_2-8.pkl']
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 
 title = r'$\tau_{STN-Proto}=10\: ms \; , \tau_{Proto-STN}= 6 \: ms$'
