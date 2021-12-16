@@ -1031,12 +1031,14 @@ class Nucleus:
         
     
 
-    def  find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
+    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
-                                      divide_beta_band_in_power = False, normalize_spec = True):
+                                      divide_beta_band_in_power = False, normalize_spec = True, include_peak_f_in_legend = True):
+        
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
+            
         if method not in ["fft", "zero_crossing"]:
             raise ValueError("method must be either 'fft', or 'zero_crossing'")
 
@@ -1060,7 +1062,7 @@ class Nucleus:
 
         f, pxx, freq = freq_from_fft(sig, dt / 1000, plot_spectrum=plot_spectrum, ax=ax, c=c_spec, label=fft_label, figsize=spec_figsize,
                                      method=fft_method, n_windows=n_windows, include_beta_band_in_legend=include_beta_band_in_legend,
-                                     normalize_spec=normalize_spec)
+                                     normalize_spec=normalize_spec, include_peak_f_in_legend = include_peak_f_in_legend)
         if find_beta_band_power:
             if divide_beta_band_in_power:
                 
@@ -2389,7 +2391,7 @@ def find_freq_SNN(data, i, j, dt, nuclei_dict, duration_base, lim_oscil_perc, pe
 
 def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, normalize_spec = True):
+                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, normalize_spec = True, include_peak_f_in_legend = True):
     pxx = {}
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -2417,7 +2419,8 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
                                                                     fft_method=fft_method,
                                                                     n_windows=n_windows,
                                                                     include_beta_band_in_legend=include_beta_band_in_legend,
-                                                                    normalize_spec = normalize_spec)
+                                                                    normalize_spec = normalize_spec,
+                                                                    include_peak_f_in_legend = include_peak_f_in_legend)
             
     return freq, f, pxx
 
@@ -3161,17 +3164,17 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
 def raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, n = 1000, 
-                            t_transition = None, t_sim = None, ylabel_x = 0.03):
+                            t_transition = None, t_sim = None, ylabel_x = 0.03, include_nuc_name = True):
     
     neurons = np.random.choice(n, n_neuron, replace=False )
     
     fig_state_1 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start, plot_end = t_transition - 10,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = True, set_xlim=True,
-                            neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x)
+                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=True,
+                            neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x, include_nuc_name=include_nuc_name)
     
     fig_state_2 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = t_sim - (t_transition-10-plot_start), plot_end = t_sim,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = True, set_xlim=True,
-                            axvspan = True, span_start = t_transition, span_end = t_sim, axvspan_color = axvspan_color,
+                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=True,
+                            axvspan = True, span_start = t_transition, span_end = t_sim, axvspan_color = axvspan_color, include_nuc_name=include_nuc_name,
                             neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x)
     
     return fig_state_1, fig_state_2
@@ -3387,11 +3390,15 @@ def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before
     return noise
 
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
-                      include_beta_band_in_legend=False, tick_label_fontsize = 18, normalize = True):
+                      include_beta_band_in_legend=False, tick_label_fontsize = 18, normalize = True,
+                      include_peak_f_in_legend = True):
 
 	fig, ax = get_axes(ax, figsize=figsize)
 	# plt.semilogy(freq[:N//2], f[:N//2])
-	label = label + ' f =' + str(round(peak_freq, 1))
+    
+	if include_peak_f_in_legend :    
+	    label += ' f =' + str(round(peak_freq, 1))
+        
 	if include_beta_band_in_legend:
 		beta_band_power = beta_bandpower(f, pxx)
 		label += ' ' + r'$\overline{P}_{\beta}=$' + str(round(beta_band_power, 3))
@@ -3414,7 +3421,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 
 def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', figsize=(6, 5), 
                   method='rfft', n_windows=6, include_beta_band_in_legend=False, max_f = 200,
-                  normalize_spec = True):
+                  normalize_spec = True, include_peak_f_in_legend = True):
 	"""
 	Estimate frequency from peak of FFT
 	"""
@@ -3439,7 +3446,8 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 		if plot_spectrum:
 			plot_fft_spectrum(peak_freq, f, pxx, N, ax=ax, c=c, label=label,
 			                  figsize=figsize, normalize = normalize_spec,
-                              include_beta_band_in_legend=include_beta_band_in_legend)
+                              include_beta_band_in_legend=include_beta_band_in_legend,
+                              include_peak_f_in_legend = include_peak_f_in_legend)
 		
 		return f[f < max_f], pxx[f < max_f], peak_freq #return f[:max_f], pxx[:max_f], peak_freq
 
