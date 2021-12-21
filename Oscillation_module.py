@@ -1325,7 +1325,6 @@ def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, 
                                       height = height, ref_nuc_name = ref_nuc_name, start = start, 
                                       total_phase = total_phase, only_entrained_neurons = False)
     count = 0
-    print(n_bins)
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             ax = axes[count] 
@@ -1638,13 +1637,15 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name, shift_phase 
         for nucleus in nuclei_list:
             frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
             data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
-            data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
+            # data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
             centers = get_centers_from_edges(edges)
             data[(nucleus.name, 'rel_phase')][i,j],_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
           
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
-                  ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8):
+                  ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
+                  ylabel = r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$',
+                  xlabel = 'phase (deg)'):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
@@ -1691,9 +1692,9 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
                         
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             remove_frame(ax)
-    fig.text(0.5, 0.08, 'phase (deg)', ha='center',
+    fig.text(0.5, 0.08, xlabel, ha='center',
                  va='center', fontsize=xlabel_fontsize)
-    fig.text(-0.1, 0.5, r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$', ha='center', va='center',
+    fig.text(-0.1, 0.5, ylabel, ha='center', va='center',
                  rotation='vertical', fontsize=ylabel_fontsize)
     return fig
 
@@ -1951,7 +1952,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         
         if find_phase:
             data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'abs_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
+            # data[(nucleus.name, 'abs_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
             data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
 
         if divide_beta_band_in_power:
@@ -2022,8 +2023,8 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, total_phase = 720, troughs = troughs)
-                find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
-                                              height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
+                # find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
+                #                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
                 
             if plot_phase:
@@ -3395,9 +3396,9 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 
 	fig, ax = get_axes(ax, figsize=figsize)
 	# plt.semilogy(freq[:N//2], f[:N//2])
-    
+	ylabel = 'FFT power'
 	if include_peak_f_in_legend :    
-	    label += ' f =' + str(round(peak_freq, 1))
+	    label += ' f =' + str(round(peak_freq, 1)) + ' Hz'
         
 	if include_beta_band_in_legend:
 		beta_band_power = beta_bandpower(f, pxx)
@@ -3406,11 +3407,11 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
 	if normalize :
 		
 		AUC = np.trapz(pxx, f)
-		pxx = pxx / AUC
-		
+		pxx = pxx / AUC * 100
+		ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
 	ax.plot(f, pxx, c=c, label=label, lw=1.5)
 	ax.set_xlabel('frequency (Hz)', fontsize=15)
-	ax.set_ylabel('FFT power', fontsize=15)
+	ax.set_ylabel(ylabel, fontsize=15)
 	ax.legend(fontsize=15, loc='center right', framealpha=0.1, frameon=False)
 	# ax.tick_params(axis='both', which='major', labelsize=10)
 	ax.locator_params(axis='y', nbins=5)
