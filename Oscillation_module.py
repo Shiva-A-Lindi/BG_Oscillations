@@ -1561,19 +1561,49 @@ def find_phase_sine_fit(x, y):
     phase_sine = equi_phase_in_0_360_range(phase_sine)
     return phase_sine, fitfunc, w
 
-def shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name):
-    if nuc_name  != ref_nuc_name:
-        if phase < 30:
-            phase += 2 * np.pi / w
-    return phase
+# def shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name):
+#     if nuc_name  != ref_nuc_name:
+#         if phase < 30:
+#             phase += 2 * np.pi / w
+#     return phase
 
-def shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+# def shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+#     ''' If outliers (minority) are on the second peak, shift them back'''
+#     if nuc_name  != ref_nuc_name:
+#         if phase > 340 :
+#             print(nuc_name, 'shifting backward, phase before = ', phase)
+#             phase -= 2 * np.pi / w
+#             print('phase after = ', phase)
+#     return phase
+
+def shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name):
+    mean_phases = np.average(phases)
     if nuc_name  != ref_nuc_name:
-        if phase > 350 :
-            print(phase)
+        if mean_phases > 100:
+            ind = np.where(phases < 30)
+            print(nuc_name, 'shifting forward, phase before = ', phases[ind])
+            phases[ind] += 2 * np.pi / ws[ind]
+            print('phase after = ', phases[ind])
+    return phases
+
+def shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name):
+    ''' If outliers (minority) are on the second peak, shift them back'''
+    mean_phases = np.average(phases)
+    if nuc_name  != ref_nuc_name:
+        if mean_phases < 180:
+            ind = np.where(phases > 320)
+            print(nuc_name, 'shifting backward, phase before = ', phases[ind])
+            phases[ind] -= 2 * np.pi / ws[ind]
+            print('phase after = ', phases[ind])
+    return phases
+
+def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+    ''' If the second peak is detected shift to the previous'''
+    if nuc_name  != ref_nuc_name:
+        if phase > 360 :
+            print(nuc_name, 'shifting to first peak, phase before = ', phase)
             phase -= 2 * np.pi / w
-            print(w)
-            print(phase)
+            print('phase after = ', phase)
     return phase
 
 def find_phase_from_max(x, y):
@@ -1592,13 +1622,29 @@ def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name, shift_phase = None
     
     phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
         
+    phase = shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
+    
+    # if shift_phase == 'backward':
+    #     phase = shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
+        
+    # elif shift_phase == 'forward':
+    #     phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
+        
+    return phase, fitfunc, w
+
+def correct_phases(phases, ws, nuc_name, ref_nuc_name, shift_phase = None):
+    
     if shift_phase == 'backward':
-        phase = shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
+        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
         
     elif shift_phase == 'forward':
-        phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
+        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
         
-    return phase, fitfunc
+    elif shift_phase == 'both':
+        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
+        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
+
+    return phases
 
 def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
     if abs( phase_sine - phase_max) < 90: # two methods are consistent, max is more accurate visually
@@ -1639,12 +1685,12 @@ def set_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name, shift_phase 
             data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
             # data[(nucleus.name, 'abs_phase_hist')][i,j,0,:], data[(nucleus.name, 'abs_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist['self']
             centers = get_centers_from_edges(edges)
-            data[(nucleus.name, 'rel_phase')][i,j],_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
+            data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
           
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
-                  ylabel = r'$ Mean \; neuron \; spike \; count/(10^{\circ} \; degrees)$',
+                  ylabel = r'$ Mean \; neuron \; spike \; count/(4^{\circ} \; degrees)$',
                   xlabel = 'phase (deg)'):
     
     fig = plt.figure(figsize = (5, 15))
@@ -1682,7 +1728,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             ax.yaxis.set_major_locator(MaxNLocator(2)) 
             ax.tick_params(axis='both', labelsize=tick_label_fontsize)
 
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
             # ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
             #             np.max(phase_hist_mean + phase_hist_std))
             y_max = ( np.min(phase_hist_mean - phase_hist_std) * 0.5 + 
@@ -1708,13 +1754,17 @@ def save_pdf_png(fig, figname, size = (8,6)):
 def normalize_PSDs(data, n_run, name, n_g):
     for run in range(n_run):
         AUC = np.trapz( data[(name,'pxx')][n_g, run,:])
-        data[(name,'pxx')][n_g, run,:] = data[(name,'pxx')][n_g, run,:] / AUC
+        data[(name,'pxx')][n_g, run,:] = data[(name,'pxx')][n_g, run,:] / AUC * 100
         
     return data
 
 def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_props = [0.65, 0.6, 0.3, 0.3],
                 inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
-                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, normalize_PSD = True, include_AUC_ratio = False):
+                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
+                normalize_PSD = True, include_AUC_ratio = False, x_y_label_size = 10,
+                ylabel_norm = 'Norm. Power ' + r'$(\times 10^{-2})$',
+                ylabel_PSD = 'PSD',
+                xlabel = 'Frequency (Hz)'):
     
     fig = plt.figure()    
     data = load_pickle(filename)
@@ -1747,15 +1797,15 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                    
             if err_plot == 'fill_between':
                 
-                ax.plot(f, pxx_mean, color = color_dict[name], label = name + ' f= '+
-                        r'$' + "{:.2f}". format(mean_peak_f) + ' \pm ' + "{:.2f}". format(sd_peak_f) + '$')
+                ax.plot(f, pxx_mean, color = color_dict[name], lw = .5, label = name + ' f= '+
+                        r'$' + "{:.2f}". format(mean_peak_f) + ' \pm ' + "{:.2f}". format(sd_peak_f) + '$' + ' Hz')
                 ax.fill_between(f, pxx_mean - pxx_std ,
                                 pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
             if err_plot == 'errorbar':
-                ax.errorbar(f, pxx_mean, yerr = pxx_std, color = color_dict[name], label = name)
+                ax.errorbar(f, pxx_mean, yerr = pxx_std, color = color_dict[name], label = name, lw = .5)
                 
             if plot_lines:
-                ax.axhline(2 * all_std, 0, 200, ls = '--', color = color_dict[name])
+                ax.axhline(2 * all_std, 0, 200, ls = '--', color = color_dict[name], lw = 0.5, dashes=(10, 10))
                 # ax.axvline(f[np.argmax(pxx_mean)], linestyle = '--', color = color_dict[name])
             
             if name == inset_name:
@@ -1770,7 +1820,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
         ax.set_ylim(-0, max_pxx)
         ax.yaxis.set_major_locator(MaxNLocator(4)) 
         rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
-        ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+        ax.tick_params(axis='both', labelsize=tick_label_fontsize, pad=1)
         remove_frame(ax)
         if xlim == None:
             ax.set_xlim(8,60)
@@ -1779,74 +1829,16 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             
         ax.legend(fontsize = legend_font_size, loc = legend_loc,  framealpha = 0.1, frameon = False)
 
-    fig.text(0.5, 0.01, 'Frequency (Hz)', ha='center',
-                 va='center', fontsize=15)
-    fig.text(0.03, 0.5, 'PSD', ha='center', va='center',
-                 rotation='vertical', fontsize=15)
+    fig.text(0.5, -0.0005, xlabel, ha='center',
+                 va='center', fontsize=x_y_label_size)
+    if normalize_PSD:
+        fig.text(0.01, 0.5, ylabel_norm, ha='center', va='center',
+                     rotation='vertical', fontsize=x_y_label_size)
+    else:
+        fig.text(0.03, 0.5, ylabel_PSD, ha='center', va='center',
+                     rotation='vertical', fontsize=x_y_label_size)
     return fig
 
-def normalize_PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_props = [0.65, 0.6, 0.3, 0.3],
-                inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
-                plot_lines = False, tick_label_fontsize = 15):
-    
-    fig = plt.figure()    
-    data = load_pickle(filename)
-    
-    n_run = data[(name_list[0], 'rel_phase')].shape[1] 
-
-    for i, n_g in enumerate(n_g_list):
-        
-        max_pxx = 0
-        ax = fig.add_subplot(len(n_g_list), 1, i + 1)
-        
-        for j, name in enumerate(name_list):
-            
-            f = data[(name,'f')][0,0].reshape(-1,)
-            pxx_mean = np.average( data[(name,'pxx')][i,:,:], axis = 0)
-
-            pxx_std = np.std( data[(name,'pxx')][i,:,:], axis = 0)
-            all_std = np.std( data[(name,'pxx')][i,:,:].flatten() )
-            
-            significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3, 
-                                   ax = None, legend = 'PSD', c = 'k', if_plot = False)
-            print(significance)
-            
-            if err_plot == 'fill_between':
-                ax.plot(f, pxx_mean, color = color_dict[name], label = name)
-                ax.fill_between(f, pxx_mean - pxx_std ,
-                                pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
-            if err_plot == 'errorbar':
-                ax.errorbar(f, pxx_mean, yerr = pxx_std, color = color_dict[name], label = name)
-                
-            if plot_lines:
-                ax.axhline(2 * all_std, 0, 200, ls = '--', color = color_dict[name])
-                ax.axvline(f[np.argmax(pxx_mean)], linestyle = '--', color = color_dict[name])
-            
-            if name == inset_name:
-                plot_D2_as_inset(f, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
-                                 inset_props = inset_props, inset_yaxis_loc = inset_yaxis_loc)
-                
-            max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
-            ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.2f}".format(AUC_ratio) + '$', xy=(0.8,0.4), xycoords='axes fraction', color = color_dict[name],
-             fontsize=10)
-
-        ax.set_ylim(-0, max_pxx)
-        ax.yaxis.set_major_locator(MaxNLocator(4)) 
-        rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
-        ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-        remove_frame(ax)
-        if xlim == None:
-            ax.set_xlim(8,60)
-        else:
-            ax.set_xlim(xlim)
-            
-        ax.legend(fontsize = 20, loc = legend_loc,  framealpha = 0.1, frameon = False)
-
-    fig.text(0.5, 0.01, 'Frequency (Hz)', ha='center',
-                 va='center', fontsize=15)
-    fig.text(0.03, 0.5, 'PSD', ha='center', va='center',
-                 rotation='vertical', fontsize=15)
-    return fig
 def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
                      inset_props = [0.65, 0.6, 0.3, 0.3], inset_yaxis_loc = 'right'):
     
@@ -1876,10 +1868,13 @@ def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name, n_g, a
 def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = None):
     
     phases= np.zeros(n_run)
+    ws= np.zeros(n_run)
+
     for run in range(n_run):
 
         y = data[(name,'rel_phase_hist')][n_g,run,0,:]
-        phases[run], fitfunc = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
+        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
+    phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
     return phases
 
 def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name, box_width, box_y, max_y, 
