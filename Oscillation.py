@@ -5365,7 +5365,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
              size=(5, 3))
 
 
-# %% Transition to MVT FSI-D2-GPe + Arky-D2-GPe + STN-GPe collective
+# %% Transition to MVT FSI-D2-GPe + Arky-D2-GPe + STN-GPe + GPe-GPe collective
 
 plt.close('all')
 N_sim = 1000
@@ -5543,7 +5543,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
              size=(5, 3))
 
 
-# %% Transition to DD FSI-D2-GPe + Arky-D2-GPe + STN-GPe collective
+# %% Transition to DD FSI-D2-GPe + Arky-D2-GPe + STN-GPe + GPe-GPe collective
 
 plt.close('all')
 N_sim = 1000
@@ -5554,7 +5554,7 @@ t_sim = 5000
 t_list = np.arange(int(t_sim/dt))
 plot_start = int(t_sim / 5)
 t_transition = plot_start + int(t_sim / 4)
-duration_base = [int(100/dt), int(t_transition/dt)]
+duration_base = [int(1000/dt), int(t_transition/dt)]
 length = duration_base[1] - duration_base[0]
 duration_DD = [int(t_sim / dt) - length +
                int(t_transition / 4 / dt), int(t_sim / dt)]
@@ -5582,18 +5582,18 @@ G = {}
 g = -0.003
 x = [1.5, 1.5, 1.5, 1.5, 1, .5, .5 , 0.5]
 x = [1.5, 2, 1.5, 1.5, 1, .5, .5 , 0.8]
-x = [1.5, 2, 1.5, 1.5, 1, .5, 0.5 , 0.5]
+# x = [1.5, 2, 1.5, 1.5, 1, .5, 0.5 , 0.5]
 
 # x = [1., 3.5, 1., 1, 1.5, 2.5, 1.5, .1]
 # x = [1., 3.5, 1., 1, 1.5, 2., 1.5, .1]
 
-g = -0.002
+# g = -0.002
 
 (G[(name2, name1)], G[(name3, name2)],
  G[(name1, name3)], G[(name2, name4)],
  G[(name4, name3)], G[(name3, name5)],
- # G[(name5, name3)], G[(name3, name3)]) = x[0]* g,x[1] * g, x[2] * g, x[3] * g, x[4] * g, x[5] * -g , x[6] * g , g * x[7]
- G[(name5, name3)], G[(name3, name3)]) =  3* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3. * g , g * 0.1
+  G[(name5, name3)], G[(name3, name3)]) = x[0]* g,x[1] * g, x[2] * g, x[3] * g, x[4] * g, x[5] * -g , x[6] * g , g * x[7]
+ # G[(name5, name3)], G[(name3, name3)]) =  2.8* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 4 * -g , 3. * g , g * 0.1
 
 # 3* g, 3 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3 * g , g * 0.1 --> g = 0.002 single run 17 Hz, average 15.4
 # 2.5* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3.5 * -g , 3. * g , g * 0.1 --> 16.8 Hz g = 0.002
@@ -5631,7 +5631,7 @@ save_init = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
-low_f = 8; high_f = 20
+low_f = 5; high_f = 20
 
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
@@ -5654,19 +5654,20 @@ nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_a
 
 nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
 status = 'transition_to_' + state_2
-
+ylim = (-4, 75)
 D_mvt = t_sim - t_transition
 if 'DD' in state_2:
     fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
-               plot_start= plot_start, title='', legend_loc='upper left', plot_end=t_transition-10, ylim=(-4, 80),
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8)
+               plot_start= plot_start, title='', legend_loc='upper left', plot_end=t_transition-10, ylim=ylim,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, ncol_legend = 1)
     save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
                  size=(8, 5))
     
     fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
                plot_start = t_sim - (t_transition-plot_start), title='', 
-               legend_loc='upper left', plot_end= t_sim, vspan=True, ylim=(-4, 80),
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, axvspan_color = axvspan_color[state_2])
+               legend_loc='upper left', plot_end= t_sim, vspan=True, ylim=ylim,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
+               axvspan_color = axvspan_color[state_2], ncol_legend = 1)
     
     save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
                  size=(8, 5))
@@ -5676,9 +5677,9 @@ if 'DD' in state_2:
                                              t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=12, include_nuc_name=False)
 
     save_pdf_png(fig_state_1, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(3, 5))
+        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5.5, 6))
     save_pdf_png(fig_state_2, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(3, 5))
+        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5.5, 6))
     
 elif 'mvt' in state_2:
     
@@ -5709,7 +5710,7 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_thre
 
 ax.set_xlim(5, 70)
 ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
-ax.set_ylim(-0.01, 0.25)
+ax.set_ylim(-0.01, 10.8)
 ax.legend(fontsize=10, frameon=False)
 ax.tick_params(axis='both', labelsize=15)
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
@@ -5721,7 +5722,7 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_th
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
 ax.set_xlim(5, 70)
-ax.set_ylim(-0.01, 0.25)
+ax.set_ylim(-0.01, 10.8)
 ax.tick_params(axis='both', labelsize=15)
 ax.legend(fontsize=10, frameon=False)
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
@@ -5730,6 +5731,15 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 fig, ax = plt.subplots(1, 1)
 ax.annotate(x, xy=(0.2,0.5),xycoords='axes fraction', 
  fontsize= 20)
+
+find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=180,
+                                  height=0, ref_nuc_name= 'D2', start=duration_base[0], total_phase=720,
+                                  only_entrained_neurons=False, troughs = True)
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
+                                    density=False, ref_nuc_name= 'D2', total_phase=720, projection=None,
+                                    outer=None, fig=None,  title='', tick_label_fontsize=18,
+                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
+                                    ax_label=False, nuc_order = ['D2', 'STN', 'Arky', 'Proto', 'FSI'])
 
 # %% Transition to DD FSI-D2-GPe STN-GPe collective
 
@@ -6099,7 +6109,7 @@ fig, ax = plt.subplots(1, 1)
 ax.annotate([g_FSI_Loop, g_GPe_Loop], xy=(0.2,0.5),xycoords='axes fraction', 
  fontsize= 20)
 
-# %% Transition to DD FSI-D2-GPe STN-GPe + GPe- GPe collective
+# %% Transition to DD FSI-D2-GPe STN-GPe  GPe-GPe collective
 
 plt.close('all')
 N_sim = 1000
@@ -6290,7 +6300,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 fig, ax = plt.subplots(1, 1)
 ax.annotate([g_FSI_Loop, g_STN_Loop], xy=(0.2,0.5),xycoords='axes fraction', 
  fontsize= 20)
-# %% Transition FSI-D2-GPe + Arky-D2-GPe + STN-GPe collective multi run
+# %% Transition FSI-D2-GPe  Arky-D2-GPe  STN-GPe collective multi run
 
 plt.close('all')
 N_sim = 1000
@@ -6574,8 +6584,8 @@ name2 = 'STN'
 name_list = [name1, name2]
 
 
-state = 'rest' # set
-g = -0.013 # rest
+# state = 'rest' # set
+# g = -0.013 # rest
 
 # state = 'DD_anesth' # set
 # g = -0.008 # 'DD_anesth'
@@ -6583,8 +6593,8 @@ g = -0.013 # rest
 # state = 'awake_rest' # set
 # g = -0.01 # 'awake_rest'
 
-# state = 'mvt' # set
-# g = -0.008 # 'mvt'
+state = 'mvt' # set
+g = -0.008 # 'mvt'
 
 
 G = {}
@@ -6743,8 +6753,8 @@ G = {}
 state = 'rest' # set
 g = -0.005 # rest
 
-# state = 'DD_anesth' # set
-# g = -0.005 # 'DD_anesth'
+state = 'DD_anesth' # set
+g = -0.005 # 'DD_anesth'
 
 # state = 'awake_rest' # set
 # g = -0.005 # 'awake_rest'
@@ -6909,9 +6919,9 @@ g = -0.0048 # anesthetized G(DF) = g x 1.6
 # g = -0.0055  # awake all equal G
 # g = -0.00472  # awake G(DF) = g x 1.6
 
-state = 'mvt' # set
-g = -0.0035 # 'mvt'  all equal G
-g = -0.0032 # 'mvt' G(DF) = g x 1.6
+# state = 'mvt' # set
+# g = -0.0035 # 'mvt'  all equal G
+# g = -0.0032 # 'mvt' G(DF) = g x 1.6
 
 name_list = [name1, name2, name3]
 
@@ -8873,10 +8883,14 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # n_g_list = np.arange(4)
 # name_list = ['D2', 'STN', 'Proto', 'FSI']
 
+
+
 # filename = os.path.join(path, 'Beta_power','STN_Proto_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
 # name_list = [ 'STN', 'Arky', 'Proto']
 # n_g_list = np.array([0])
+
+
 
 # filename = os.path.join(path, 'Beta_power','D2_Proto_Arky_N_1000_T_5000_G_all_changing_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','D2_Proto_Arky_N_1000_T_5000_G_all_changing_1_pts_10_runs.pkl' )
@@ -8889,7 +8903,11 @@ y_max_series_dict = {'rest' : {'D2':0.08,  'Arky': 1.5, 'Proto': 2.},
 y_max_series = y_max_series_dict[state_list[0]]
 three_nuc_raster_y = (60 + 5) * 0.05
 figsize = (1.8, three_nuc_raster_y)
-# 
+
+
+# filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_FSI_D2_changing_16_pts_8_runs.pkl' )
+# n_g_list = np.linspace(0, 15, endpoint = True, num = 4).astype(int)
+# name_list = ['D2', 'Proto', 'FSI']
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_1_pts_10_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
@@ -8919,6 +8937,7 @@ figsize = (1.8, three_nuc_raster_y)
 # figsize = (1.8, three_nuc_raster_y * 2/3)
 
 
+
 # filename = os.path.join(path, 'Beta_power','Proto_Proto_N_1000_T_5000_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','Proto_Proto_N_1000_T_5000_1_pts_10_runs.pkl' )
 # loop = 'Proto-Proto'
@@ -8931,9 +8950,8 @@ figsize = (1.8, three_nuc_raster_y)
 # three_nuc_raster_y = (60 + 5) * 0.05
 # figsize = (1.8, three_nuc_raster_y * 1/3)
 
-# filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_FSI_D2_changing_16_pts_8_runs.pkl' )
-# n_g_list = np.linspace(0, 15, endpoint = True, num = 4).astype(int)
-# name_list = ['D2', 'Proto', 'FSI']
+
+
 
 # filename = os.path.join(path, 'Beta_power','STN_D2_Proto_FSI_Arky_N_1000_T_2000_G_all_changing_1_pts_8_runs_20Hz.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_D2_Proto_FSI_Arky_N_1000_T_2000_G_all_changing_1_pts_8_runs_30Hz.pkl' )
@@ -8942,21 +8960,20 @@ figsize = (1.8, three_nuc_raster_y)
 # filename = os.path.join(path, 'Beta_power','STN_D2_Proto_FSI_Arky_N_1000_T_5000_G_all_changing_1_pts_8_runs_18-8Hz.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_D2_Proto_FSI_Arky_N_1000_T_5000_G_all_changing_1_pts_8_runs_33Hz.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_D2_Proto_FSI_Arky_N_1000_T_5000_G_all_changing_1_pts_8_runs_33Hz.pkl' )
-
-# y_max_series = {'D2': 0.5, 'STN': 4, 'Arky': 3, 'Proto': 8, 'FSI': 4}
 # filename = os.path.join(path, 'Beta_power','All_nuc_DD_N_1000_T_2000_4_pts_5_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_5000_n8_runs.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_5000_n8_runs.pkl' )
 
-# y_max_series = {'D2':.75, 'STN': 5, 'Arky': 3, 'Proto': 5, 'FSI': 1.5}
-# name_list = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
-# n_g_list = np.array([0])
+name_list = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
+y_max_series = {'D2': 0.5, 'STN': 4, 'Arky': 3, 'Proto': 8, 'FSI': 4}
+n_g_list = np.array([0])
+ref_nuc_name = 'D2'
 
 
 ref_nuc_name = 'Proto'
 shift_phase = 'backward'
 # shift_phase = 'forward'
-# shift_phase = None
-shift_phase = 'both'
+shift_phase = None
+# shift_phase = 'both'
 
 fig = phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name=ref_nuc_name,
                     shift_phase=shift_phase, set_ylim=True, y_max_series=y_max_series)#, 
@@ -9146,7 +9163,7 @@ save_pdf_png(fig, os.path.join(path, 'mean_F_all_loops'),
 
 
 state_list = ['rest', 'DD_anesth', 'awake_rest', 'mvt']
-T_list = [5000, 4000, 5000, 4000]
+T_list = [5000, 5000, 5000, 5000]
 n = 8
 filename_dict = {
     'Proto-Proto': [('Proto_Proto_N_1000_T_'+ str(t) + '_1_pts_8_runs_dt_0-1_' + state + 
@@ -9174,6 +9191,8 @@ color_dict_ = {'Proto-Proto': color_dict['Proto'], 'STN-Proto' :color_dict['STN'
 
 fig, axes = plt.subplots(1, len(loop_list) , figsize = (2 * len(loop_list), 6))
 xlabels = {'rest': 'Anesthesia', 'DD_anesth': 'Anesthesia DD', 'awake_rest': 'Awake rest', 'mvt': 'Movement'}
+xlabels = {'rest': 'Anesth', 'DD_anesth': '  DD ', 'awake_rest': 'Awake', 'mvt': 'Mvmt'}
+
 for count, loop in enumerate(loop_list):
     filename_list = filename_dict[loop]
     ax = axes[count] 
@@ -9201,8 +9220,8 @@ for count, loop in enumerate(loop_list):
         ax.scatter(x, val, c=c, alpha=0.4, s=10, ec='grey', zorder=1)
     # ax.set_xlabel(list(xlabels.values()), fontdict = font_label)
 
-    ax.tick_params(axis='x', labelsize=10, rotation = 40)
-    ax.tick_params(axis='y', labelsize=12)
+    ax.tick_params(axis='x', labelsize=15, rotation = 40)
+    ax.tick_params(axis='y', labelsize=15)
     font = {'family': 'serif',
         'color': color,
         'weight': 'normal',
@@ -9223,7 +9242,7 @@ for count, loop in enumerate(loop_list):
     if count == 0:
         ax.set_ylabel('Frequency (Hz)', fontsize = 18)
 save_pdf_png(fig, os.path.join(path, 'mean_F_all_loops_all_states'),
-             size=(10, 6))
+             size=(8, 6))
 # %% Phase summary only entrained
 
 ref_nuc_name = 'D2'

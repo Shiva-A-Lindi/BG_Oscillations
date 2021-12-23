@@ -1405,6 +1405,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt)
             else:
+                
                 if nucleus. der_ext_I_from_curve:
                 
                     if method == 'collective' and not use_saved_FR_ext:
@@ -1432,7 +1433,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                     nucleus.normalize_synaptic_weight_by_N()
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                       end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
-        
+                print(nucleus.name, nucleus.synaptic_weight)
 
     return receiving_class_dict, nuclei_dict
 
@@ -3773,7 +3774,7 @@ def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  
                                                                    end_of_nonlinearity=end_of_nonlinearity,
                                                                    set_FR_range_from_theory=False, method='collective',  save_FR_ext=False,
                                                                    use_saved_FR_ext = True, normalize_G_by_N=False, state=state_2)
-
+            
     nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
     stop = timeit.default_timer()
@@ -4231,7 +4232,8 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
          ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
-         low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None):    
+         low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None,
+         ncol_legend = 1):    
 
     fig, ax = get_axes (ax)
     if plot_end == None : plot_end = t_list [-1]
@@ -4289,7 +4291,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.set_title(title, fontsize = title_fontsize, pad = title_pad)
     ax.set_xlabel("time (ms)", fontsize = 15)
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False)
+    ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
     ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
