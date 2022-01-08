@@ -1034,7 +1034,8 @@ class Nucleus:
     def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='rfft', n_windows=6, include_beta_band_in_legend=False,
-                                      divide_beta_band_in_power = False, normalize_spec = True, include_peak_f_in_legend = True):
+                                      divide_beta_band_in_power = False, normalize_spec = True, include_peak_f_in_legend = True, 
+                                      low_beta_range = [12.5,21], high_beta_range = [21, 30]):
         
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
@@ -1064,13 +1065,18 @@ class Nucleus:
                                      method=fft_method, n_windows=n_windows, include_beta_band_in_legend=include_beta_band_in_legend,
                                      normalize_spec=normalize_spec, include_peak_f_in_legend = include_peak_f_in_legend)
         if find_beta_band_power:
+            
             if divide_beta_band_in_power:
                 
-                low_beta_band_power = beta_bandpower(f, pxx, fmin = 12, fmax = 20)
-                high_beta_band_power = beta_bandpower(f, pxx, fmin = 20, fmax = 30)
+                low_beta_band_power = beta_bandpower(f, pxx, *low_beta_range) # fmin = 12, fmax = 18)
+                high_beta_band_power = beta_bandpower(f, pxx, *high_beta_range) #fmin = 18, fmax = 30)
+                low_gamma_band_power = beta_bandpower(f, pxx, fmin = 30, fmax = 80)
             else:
+        
                 beta_band_power = beta_bandpower(f, pxx)
+        
         else: beta_band_power = None
+        
         n_half_cycles = None
 
         if freq != 0:  # then check if there's oscillations
@@ -1081,17 +1087,15 @@ class Nucleus:
             #     if_stable = if_stable_oscillatory(sig, max(
             #         cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh=- 0.05)
             if divide_beta_band_in_power:
-                return n_half_cycles, 0, freq, if_stable, [low_beta_band_power, high_beta_band_power], f, pxx
+                return n_half_cycles, 0, freq, if_stable, [low_beta_band_power, high_beta_band_power, low_gamma_band_power], f, pxx
             else:
                 return n_half_cycles, 0, freq, if_stable, beta_band_power, f, pxx
 
         else:
+            
             print("Freq = 0")
             return 0, 0, 0, False, None, f, pxx
 
-        # else:
-        #     print("all plateau")
-        #     return 0, 0, 0, False, None, [], []
 
     def butter_bandpass_filter_pop_act(self, dt, low, high, order=6):
         self.pop_act_filtered = True
@@ -1798,7 +1802,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             all_std = np.std( data[(name,'pxx')][i,:,:].flatten() )
             significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
                                                                      max_f = 250, n_pts_above_thresh = 3, 
-                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False)
+                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
 
             
             
@@ -1935,7 +1939,8 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200):
+    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
+    plot_peak_sig = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -1989,7 +1994,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         start = timeit.default_timer()
         for k, values in G_dict.items():
             G[k] = values[i]
-            print(k, values[i])
+            print(k, np.round( values[i], 2) )
 
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
@@ -2041,7 +2046,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
                                 half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance, 
-                                save_pxx = save_pxx, len_f_pxx = len_f_pxx)
+                                save_pxx = save_pxx, len_f_pxx = len_f_pxx, normalize_spec=normalize_spec, plot_peak_sig = plot_peak_sig)
 
         if plot_spectrum:
             if fft_method == 'rfft':
@@ -2116,12 +2121,13 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
+    include_beta_band_in_legend=False, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200):
+    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
+    plot_peak_sig = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -2130,7 +2136,6 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = len(G_dict[loop_key_lists[0][0]])
     n_iter_2 = len(G_dict[loop_key_lists[1][0]])
-    # print("n_inter = ", n_iter)
     data = {}
     for nucleus_list in nuclei_dict.values():
         
@@ -2144,7 +2149,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
             data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_iter_2,n_run))
 
         if divide_beta_band_in_power:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 2))
+            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
         else:
             data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2,  n_run))
         data[(nucleus.name, 'f')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
@@ -2178,10 +2183,10 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i, display=display, decimal=decimal) 
         
         for m in range(n_iter_2):
-            
+            # title = _get_title(G, i, display=display, decimal=decimal) 
+            title = ''
             if plot_spectrum:
                 ax_spec = fig_spec.add_subplot(n_iter, n_iter_2, count+1)
             
@@ -2231,7 +2236,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
                                     c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                     include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
                                     half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance=check_peak_significance, 
-                                    save_pxx = save_pxx, len_f_pxx = len_f_pxx)
+                                    save_pxx = save_pxx, len_f_pxx = len_f_pxx, normalize_spec=normalize_spec, plot_peak_sig = plot_peak_sig)
     
             if plot_spectrum:
                 if fft_method == 'rfft':
@@ -2497,6 +2502,24 @@ def set_coherence_all_nuclei_to_data(nuclei_dict, data, i, j, dt, sampling_t_dis
             data[nucleus.name, 'coherence'][i, j] = nucleus.cal_coherence(dt, sampling_t_distance_ms= sampling_t_distance_ms)
     return data
 
+def max_in_dict(dictionary):
+    return np.max(
+                np.array(
+                        list(
+                           dictionary.values()
+                            )
+                        ).flatten()
+                )
+
+def min_in_dict(dictionary):
+    return np.min(
+                np.array(
+                        list(
+                           dictionary.values()
+                            )
+                        ).flatten()
+                )
+
 def sinfunc(t, A, w, p, c):  return A * np.sin(w*(t - p)) + c
 
 def fit_sine(t, y):
@@ -2522,10 +2545,12 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
         for nucleus in nucleus_list:
             nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order= order)
             
-def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
-                low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, half_peak_range = 5, 
-                n_std = 2, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, save_pxx = True, normalize_spec = True):
+def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, 
+                  cut_plateau_epsilon, check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, 
+                  plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
+                  fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
+                  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, 
+                  save_pxx = True, normalize_spec = True, plot_peak_sig = False):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -2557,20 +2582,26 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
                                                                     divide_beta_band_in_power= divide_beta_band_in_power,
                                                                     normalize_spec = normalize_spec)
             if save_pxx:   
-                                            
-                data[(nucleus.name, 'f')][element_ind, :], data[(nucleus.name, 'pxx')][element_ind, :] = f[:len_f_pxx], pxx[:len_f_pxx]   
-                                                
+                
+                if len(pxx) >= len_f_pxx:            
+                    
+                    data[(nucleus.name, 'f')][element_ind, :], data[(nucleus.name, 'pxx')][element_ind, :] = f[:len_f_pxx], pxx[:len_f_pxx]   
+                    
+                else:
+                    
+                    nan_arr = np.full(len_f_pxx - len(pxx), np.nan)
+                    data[(nucleus.name, 'f')][element_ind, :], data[(nucleus.name, 'pxx')][element_ind, :] = ( np.append(f, nan_arr), 
+                                                                                                              np.append(pxx, nan_arr))
             if check_peak_significance:
                 
-                    data[(nucleus.name, 'peak_significance')][element_ind] = check_significance_of_PSD_peak(f, pxx, n_std_thresh = 2, min_f = 0, 
-                                                                                                       max_f = 250, n_pts_above_thresh = 3)
+                    data[(nucleus.name, 'peak_significance')][element_ind] = check_significance_of_PSD_peak(f, pxx, 
+                                                                                                            n_std_thresh = 2, 
+                                                                                                            min_f = 0, 
+                                                                                                            max_f = 250, 
+                                                                                                            n_pts_above_thresh = 3,
+                                                                                                            if_plot = plot_peak_sig)
                     
                                   
-            # try:
-            #     data[(nucleus.name, 'f')][i, j, :], data[(nucleus.name, 'pxx')][i, j, :] = f, pxx
-            # except ValueError:
-            #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, :len(pxx)] = f, pxx
-            #     data[(nucleus.name, 'f')][i, j, :len(f)], data[(nucleus.name, 'pxx')][i, j, len(pxx):] = np.nan
                 
 
             nucleus.frequency_basal = data[(nucleus.name, 'base_freq')][element_ind]
@@ -2584,7 +2615,8 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
 
 def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                 low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, normalize_spec = True, include_peak_f_in_legend = True):
+                fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, normalize_spec = True, include_peak_f_in_legend = True,
+                check_significance = False, plot_peak_sig = False):
     pxx = {}
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -2598,24 +2630,37 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
 
             (n_half_cycles, perc_oscil, freq, 
              if_stable, beta_band_power, f, pxx[nucleus.name]) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
-                                                                     peak_threshold=peak_threshold,
-                                                                    smooth_kern_window=smooth_kern_window,
-                                                                   cut_plateau_epsilon=cut_plateau_epsilon,
-                                                                    check_stability=check_stability,
-                                                                    method=freq_method,
-                                                                     plot_sig=plot_sig,
-                                                                     plot_spectrum=plot_spectrum,
-                                                                    ax=ax, c_spec=c_spec[nucleus.name],
-                                                                     fft_label=nucleus.name,
-                                                                    spec_figsize=spec_figsize,
-                                                                    find_beta_band_power=find_beta_band_power,
-                                                                    fft_method=fft_method,
-                                                                    n_windows=n_windows,
-                                                                    include_beta_band_in_legend=include_beta_band_in_legend,
-                                                                    normalize_spec = normalize_spec,
-                                                                    include_peak_f_in_legend = include_peak_f_in_legend)
+                                                                                                          peak_threshold=peak_threshold,
+                                                                                                          smooth_kern_window=smooth_kern_window,
+                                                                                                          cut_plateau_epsilon=cut_plateau_epsilon,
+                                                                                                          check_stability=check_stability,
+                                                                                                          method=freq_method,
+                                                                                                          plot_sig=plot_sig,
+                                                                                                          plot_spectrum=plot_spectrum,
+                                                                                                          ax=ax, c_spec=c_spec[nucleus.name],
+                                                                                                          fft_label=nucleus.name,
+                                                                                                          spec_figsize=spec_figsize,
+                                                                                                          find_beta_band_power=find_beta_band_power,
+                                                                                                          fft_method=fft_method,
+                                                                                                          n_windows=n_windows,
+                                                                                                          include_beta_band_in_legend=include_beta_band_in_legend,
+                                                                                                          normalize_spec = normalize_spec,
+                                                                                                          include_peak_f_in_legend = include_peak_f_in_legend)
+            if check_significance:
+                sig_bool = check_significance_of_PSD_peak(f, pxx[nucleus.name], 
+                                               n_std_thresh = 2, 
+                                               min_f = 0, 
+                                               max_f = 250, 
+                                               n_pts_above_thresh = 3,
+                                               if_plot = plot_peak_sig, name = nucleus.name)
+            # p = pxx[nucleus.name]
             
-    return freq, f, pxx
+            # nan_arr = np.full(200 - len(p), np.nan)
+            # print(p.shape, nan_arr.shape)
+            # a = np.append(p, nan_arr)
+            # print( nucleus.name, sig_bool, len(pxx[nucleus.name]),a.shape )
+
+    # return freq, f, pxx
 
 
     
@@ -3799,36 +3844,40 @@ def check_significance_neuron_autc_PSD(signif_thresh, f, pxx, n, n_pts_above_thr
 
 
 def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 3, 
-                                   ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = 0.2):
+                                   ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = 0.2,
+                                   xlim = [0, 80], name = ''):
+    
     ''' Check significance of a peak in PSD by checking if the 
         <n_pts_above_thresh> consecutive points exceeds <n_std> 
         times the std of the rest of the PSD '''
     
     f, pxx = cut_PSD_1d(f, pxx, max_f = max_f)
     signif_thresh = cal_sig_thresh_1d(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
-    above_thresh_ind = np.where(pxx >= signif_thresh)[0]
+    # above_thresh_ind = np.where(pxx >= signif_thresh)[0]
     
     pxx_rel_sig = pxx - signif_thresh
     AUC_above_sig_thresh = np.trapz(pxx_rel_sig.clip(min  = 0), f)
     AUC = np.trapz(pxx, f)
     AUC_ratio = AUC_above_sig_thresh / AUC
     
-    print( "AUC ratio = {}".format( AUC_ratio ))
-    longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
+    # longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
     
     if if_plot:
-        if ax == None:
-            fig, ax = plt.subplots()
+        fig, ax = get_axes (ax)
         ax.plot(f, pxx, '-o', label = legend, c = c)
         ax.axhline(signif_thresh, min_f, max_f, ls = '--', color = c)
         ax.legend()
-        
+        ax.set_xlim(xlim)
+        ax.set_title(name)
+    
+    print( "AUC ratio = {}".format( AUC_ratio ), AUC_ratio > AUC_ratio_thresh)
+
     if AUC_ratio > AUC_ratio_thresh:
 
-        return True, AUC_ratio
+        return True
     
     else:
-        return False, AUC_ratio
+        return False
     
 def get_complement_ind(indices, n):
     ''' return the complement of the indices from an array of 0 to n'''
@@ -5804,6 +5853,34 @@ def set_y_ticks(fig, label_list):
         y_locator = FixedLocator(label_list)
         ax.yaxis.set_major_formatter(y_formatter)
         ax.yaxis.set_major_locator(y_locator)
+        
+    return fig
+
+def set_y_lim_all_axis(fig, ylim):
+    
+    for ax in fig.axes:
+        ax.set_ylim(ylim)
+        
+    return fig
+
+def set_x_lim_all_axis(fig, ylim):
+    
+    for ax in fig.axes:
+        ax.set_xlim(ylim)
+        
+    return fig
+
+def remove_legend_all_axis(fig):
+    
+    for ax in fig.axes:
+        ax.get_legend().remove()
+        
+    return fig
+
+def remove_title_all_axis(fig):
+    
+    for ax in fig.axes:
+        ax.set_title('')
         
     return fig
 

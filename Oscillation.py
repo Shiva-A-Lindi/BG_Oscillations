@@ -3394,10 +3394,11 @@ plot_start_raster = 1000
 G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(
     name3, name4)], G[(name4, name3)] = g, g, g, -g * 2 * 10/4, 2 * g
 G = {k: v * K[k] for k, v in G.items()}
-
-poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {'rise': {
-    'mean': 1, 'var': .1}, 'decay': {'mean': 5, 'var': 0.5}}, 'g': g_ext} for name in name_list}
-
+poisson_prop = {name: 
+                {'n': 10000, 'firing': 0.0475, 'tau': {
+                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
+                'g': 0.01} 
+                for name in name_list}
 
 receiving_pop_list = {(name1, '1'):  [(name3, '1')],
                       (name2, '1'): [(name1, '1')],
@@ -3501,6 +3502,125 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_thresho
 ax.set_xlim(0, 70)
 save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
              size=(6, 5))
+# %% FSI-D2-Proto + GPe-GPe
+
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.25
+t_sim = 2000
+t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim
+D_mvt = t_sim - t_mvt
+duration = [int(400/dt), int(t_sim/dt)]
+name1 = 'FSI'  # projecting
+name2 = 'D2'  # recieving
+name3 = 'Proto'
+state = 'awake_rest'
+name_list = [name1, name2, name3]
+
+g_FSI  = -2.
+g_GPe = -2
+G = {}
+plot_start = 1000
+plot_start_raster = 1000
+
+G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name3, name3)] = g_FSI, g_FSI, g_FSI, g_GPe
+# G = {k: v * K[k] for k, v in G.items()}
+
+poisson_prop = {name: 
+                {'n': 10000, 'firing': 0.0475, 'tau': {
+                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
+                'g': 0.01} 
+                for name in name_list}
+    
+receiving_pop_list = {(name1, '1'):  [(name3, '1')],
+                      (name2, '1'): [(name1, '1')],
+                      (name3, '1'): [(name2, '1'), (name3, '1')]}
+
+
+pop_list = [1]
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+noise_method = 'Gaussian'
+noise_method = 'Ornstein-Uhlenbeck'
+use_saved_FR_ext = True
+low_f = 8; high_f = 40
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
+               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path, save_init=save_init,
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
+
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state]
+               for name in list(nuclei_dict.keys())}
+
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list,
+                                          all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                          set_FR_range_from_theory=False, method='collective',  save_FR_ext=True,
+                                          use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
+
+
+nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
+status = 'Pallidostratal_plus_GPe_GPe'
+include_nuc_name = False
+fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
+           title_fontsize=15, plot_start=plot_start, title='',
+           include_FR=False, include_std=False, plt_mvt=False,
+           legend_loc='upper right', ylim=None)
+
+# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(),
+#            title_fontsize=15, plot_start = plot_start, title = '',
+#             include_FR = False, include_std=False, plt_mvt=False,
+# #             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+
+# save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
+#              size=(10, 6))
+
+raster_order = ['Proto', 'FSI', 'D2']
+fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
+                                    plot_start=plot_start_raster, plot_end=t_sim, tick_label_fontsize=12,
+                                    title_fontsize=25, lw=1, linelengths=1, n_neuron=40,
+                                    include_nuc_name=include_nuc_name, set_xlim=True, name_list=raster_order,
+                                    remove_ax_frame=False, y_tick_length=2, x_tick_length=3)
+# save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
+#              size=(11, 6))
+
+peak_threshold = 0.1
+smooth_window_ms = 3
+smooth_window_ms = 5
+cut_plateau_epsilon = 0.1
+lim_oscil_perc = 10
+low_pass_filter = False
+
+fig, ax = plt.subplots(1, 1)
+find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+                         smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                         low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
+                         spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
+                         include_beta_band_in_legend=False, check_significance= True, plot_peak_sig = True)
+
+# x_l = 0.75
+# ax.axhline(x_l, ls = '--', c = 'grey')
+# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+
+ax.set_xlim(0, 80)
+# save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
+#              size=(6, 5))
+
+
 # %% FSI-D2-Proto + Arky-D2-Proto + STN-GPe + GPe-GPe
 
 plt.close('all')
@@ -6566,18 +6686,72 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 
 # %% Parameterscape
 
-def parameterscape(x_list, y_list, markerstyle_list, color_list, size_list, xlabel, ylabel, label_fontsize = 12):
+def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
+                   size_list, xlabel, ylabel, title = '', label_fontsize = 12, cmap = 'jet'):
     
     fig, ax = plt.subplots(1, 1)
+    for i, y in enumerate(y_list):
+        
+        for j, x in enumerate(x_list):
+            
+            for name, ms, s in zip(name_list, markerstyle_list, size_list):
+                if peak_significance[name][i,j] == True:
+                    img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
+                                     s = s, cmap = cmap, edgecolors = 'k', 
+                                     vmax = max_in_dict(color_dict), 
+                                     vmin = min_in_dict(color_dict))
+                else:
+                    print('ff')
+                    img = ax.scatter(x, y, marker = ms, c = 'grey', 
+                                     s = s, edgecolors = 'k')
 
-    for x in x_list:
-        for y in y_list:
-            for ms, c, s in zip(markerstyle_list, color_list, size_list):
-                ax.scatter(x, y, ms, c = c, s = s)
+                ax.annotate(np.round(freq_dict['D2'][i,j],0), (x,y), color = 'w')
                 
+    ax.set_xlim(x_list[-1] + (x_list[1] - x_list[0]),
+                 x_list[0] - (x_list[1] - x_list[0]))
+    
+    ax.set_ylim(y_list[-1] + (y_list[1] - y_list[0]),
+                y_list[0] - (y_list[1] - y_list[0]))
+    
     ax.set_xlabel(xlabel, fontsize = label_fontsize)
     ax.set_ylabel(ylabel, fontsize = label_fontsize)
+    # ax.set_title(title, fontsize = label_fontsize)
+    clb = fig.colorbar(img)
+    ax.invert_xaxis()
     
+    
+    
+filepath = os.path.join(path, 'Beta_power', 
+                    'D2_Proto_FSI_N_1000_T_3000_1_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl')
+filepath = os.path.join(path, 'Beta_power', 
+                    'D2_Proto_FSI_N_1000_T_3000_15_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl')
+
+data  = load_pickle(filepath)
+x_list = data['g'][('Proto', 'Proto')]
+y_list = data['g'][('FSI', 'Proto')]    
+markerstyle_list = ['o', 'o', 's']
+name_list = ['D2', 'FSI', 'Proto']
+size_list = np.array([4, 2, 1]) * 1000
+xlabel = r'$G_{Proto-Proto}$'
+ylabel = r'$G_{FSI-Proto}$'
+
+power_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
+freq_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
+f_peak_sig_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
+
+p_ind = {'beta low': 0, 'beta high':1, 'gamma low': 2}
+param = 'beta low'
+# param = 'beta high'
+# param = 'gamma low'
+
+for name in name_list:
+    power_dict[name] = np.squeeze( data[name, 'base_beta_power'] )[:,:,p_ind[param]]
+    freq_dict[name] = np.squeeze( data[name, 'base_freq'] )
+    f_peak_sig_dict[name] = np.squeeze( data[name, 'peak_significance'] )
+
+    
+parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict,
+                   size_list, xlabel, ylabel, label_fontsize = 12, title = param + ' beta power')
 #%% Parameterscape
 # %% Synapric weight exploraion (STN-GPe)  resetting inti dists and setting ext input collectively
 plt.close('all')
@@ -7759,6 +7933,7 @@ nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path,
                save_init=save_init, syn_component_weight=syn_component_weight, noise_method=noise_method) for i in pop_list] for name in name_list}
+
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state]
                for name in list(nuclei_dict.keys())}
@@ -7768,9 +7943,9 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
                                           set_FR_range_from_theory=False, method='collective',  save_FR_ext=True,
                                           use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
 
-n_run = 1;plot_firing = True;plot_spectrum = True; plot_raster = True; plot_phase = True; low_pass_filter = False; save_pkl = False; save_figures = True; save_pxx = False
-# n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
-save_pkl = True ; save_pxx = False
+# n_run = 1;plot_firing = True;plot_spectrum = True; plot_raster = True; plot_phase = True; low_pass_filter = False; save_pkl = False; save_figures = True; save_pxx = False
+n_run = 1; plot_firing = False; plot_spectrum= False; plot_raster = False;plot_phase = False; low_pass_filter= False; save_pkl = True ; save_figures = False; save_pxx = True
+# save_pkl = True ; save_pxx = True
 round_dec = 1
 round_dec = 1
 include_std = False
@@ -7780,17 +7955,18 @@ n_neuron = 50
 legend_loc = 'center right'
 low_f = 8; high_f = 40
 
-g_FSI_list = - np.linspace(0.05, 2.5, 5, endpoint=True)
-g_GPe_list = - np.linspace(0.05, 2.5, 5, endpoint=True)
+g_FSI_list = - np.linspace(0.05, 2, 15, endpoint=True)
+g_GPe_list = - np.linspace(0.05, 2., 15, endpoint=True)
 
 G_dict = {(name2, name1): g_FSI_list,
           (name3, name2): g_FSI_list,
           (name1, name3): g_FSI_list,
           (name3, name3): g_GPe_list}
+
 loop_key_lists = [ [(name2, name1),
                     (name3, name2),
                     (name1, name3)], [(name3, name3)]]
-filename = 'D2_Proto_FSI_N_1000_T_' + str(t_sim) + '_' + str(n_run) + '_pts_' + str(
+filename = 'D2_Proto_FSI_N_1000_T_' + str(t_sim) + '_' + str(len(g_FSI_list)) + '_pts_' + str(
     n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + state + '_' + noise_method +  \
      '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '.pkl'
 
@@ -7805,11 +7981,11 @@ figs, title, data = synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuc
                                                     noise_amplitude, noise_variance, lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
                                                     lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
                                                     plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
-                                                    find_beta_band_power=True, fft_method=fft_method, n_windows=3, include_beta_band_in_legend=True, save_pkl=save_pkl,
+                                                    find_beta_band_power=True, fft_method=fft_method, n_windows=3, include_beta_band_in_legend=False, save_pkl=save_pkl,
                                                     reset_init_dist=True, all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
                                                     state=state, K_real=K_real, N_real=N_real, N=N, divide_beta_band_in_power=True,
                                                     receiving_pop_list=receiving_pop_list, poisson_prop=poisson_prop, return_saved_FR_ext=False,
-                                                    use_saved_FR_ext=True, check_peak_significance=False,
+                                                    use_saved_FR_ext=True, check_peak_significance= True,
                                                     find_phase=True, phase_thresh_h=0, filter_order=6, low_f=low_f, high_f=high_f,
                                                     n_phase_bins=180, start_phase= duration_base[0], ref_nuc_name=ref_nuc_name, save_pxx=save_pxx,
                                                     plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=True,
@@ -7865,6 +8041,11 @@ if save_figures:
     save_figs(figs, nuclei_dict, G_dict, noise_variance, path,
               fft_method, pre_prefix=['Dem_norm_']*4, s=s)
 
+set_y_lim_all_axis(figs[1], (0,10))
+set_x_lim_all_axis(figs[1], (0,70))
+
+remove_legend_all_axis(figs[0])
+remove_title_all_axis(figs[0])
 # manager = plt.get_current_fig_manager()
 # manager.window.showMaximized()
 
