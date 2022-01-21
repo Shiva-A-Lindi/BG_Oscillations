@@ -45,6 +45,7 @@ def as_si(x, ndp):
 f = mticker.ScalarFormatter(useOffset=False, useMathText=True)
 g = lambda x, pos: "${}$".format(f._formatSciNotation('%1.10e' % x))
 fmt = mticker.FuncFormatter(g)
+dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 
 def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=None, maxfev=None, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
@@ -3865,16 +3866,23 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
         
         if plot_end == None:
             plot_end = len(nucleus.pop_act)
+            
         ax = plt.Subplot(fig, inner[j])
+        
         if n_neuron == None:
             n_neuron = nucleus.n
+            
         if neurons == []:
             neurons = np.random.choice(nucleus.n, n_neuron, replace=False)
+            
         spikes_sparse = create_sparse_matrix(nucleus.spikes[neurons, :], end=(
-            plot_end / dt), start=(plot_start / dt)) * dt
+                                            plot_end / dt), start=(plot_start / dt)) * dt
         if set_xlim:
             xlim = [plot_start, plot_end]
-        else: xlim = None
+            
+        else: 
+            xlim = None
+            
         c_dict = color_dict.copy()
         c_dict['Arky'] = 'darkorange'
         ax = raster_plot(spikes_sparse, nucleus.name, c_dict,  ax=ax, tick_label_fontsize=tick_label_fontsize, 
@@ -4078,21 +4086,27 @@ def possion_spike_generator(n_pop, n_sending, r, dt):
 	return x.astype(int)
 
 def pad_high_res_spacing_with_linspace(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_high_res):
+    
     linspace_before = np.linspace(start_before, mid_start, n_before)
     linspace_after = np.linspace(mid_end, end_after, n_after)
     high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    
     return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
 
 def pad_high_res_spacing_with_arange(start_before, mid_start, bin_before, mid_end, end_after,  bin_after, n_high_res):
+    
     linspace_before = np.linspace(start_before, mid_start, int( ( mid_start - start_before) / bin_before) )
     linspace_after = np.linspace(mid_end, end_after, int( ( end_after - mid_end) / bin_after) )
     high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    
     return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
 
 def three_different_linspace_arrays(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_mid):
+    
     linspace_before = np.linspace(start_before, mid_start, n_before)
     linspace_after = np.linspace(mid_end, end_after, n_after)
     linspace_mid = np.linspace(mid_start, mid_end, n_mid)
+    
     return np.concatenate((linspace_before, linspace_mid, linspace_after), axis  = 0)
 
 def spacing_with_high_resolution_in_the_middle(n_points, start, end):
@@ -4104,61 +4118,70 @@ def spacing_with_high_resolution_in_the_middle(n_points, start, end):
 	half_y = y[: len(y) // 2]
 	diff = - np.diff(np.flip(half_y))
 	series = np.concatenate((half_y, np.cumsum(diff) + y[len(y) // 2])) + start
-	# print(series[ len(series) // 2])
 # 	if len(series) < n_points: # doesn't work with odd number of points!!!!!!
 # 		series = np.concatenate((series, series[-1]))
+
 	return series.reshape(-1, 1)
 
 
 def noise_generator(amplitude, std, n, dt, sqrt_dt, tau = 0, noise_dt_before = 0):
-    # return amplitude * np.random.normal(0, variance, n).reshape(-1, 1)
-    return 1/sqrt_dt * np.random.normal(0, std, n).reshape(-1, 1)
+        
+    return 1/sqrt_dt * amplitude * np.random.normal(0, std, n).reshape(-1, 1)
 
 def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before = 0):
+
     ''' Ornstein-Uhlenbeck process as time correlated noise generator'''
+    
     noise_prime = -noise_dt_before / tau + \
                    std * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
     noise = fwd_Euler(dt, noise_dt_before, noise_prime)
+    
     return noise
 
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
                       include_beta_band_in_legend=False, tick_label_fontsize = 18, normalize = True,
                       include_peak_f_in_legend = True, plot_sig_thresh = False, 
                       min_f = 0, max_f = 250, n_std_thresh = 2, legend_loc = 'center right'):
-
-	fig, ax = get_axes(ax, figsize=figsize)
-	# plt.semilogy(freq[:N//2], f[:N//2])
-	ylabel = 'FFT power'
     
-	if include_peak_f_in_legend :    
+    fig, ax = get_axes(ax, figsize=figsize)
+	# plt.semilogy(freq[:N//2], f[:N//2])
+    ylabel = 'FFT power'
+    
+    if include_peak_f_in_legend :    
 	    label += ' f =' + str(round(peak_freq, 1)) + ' Hz'
         
-	if include_beta_band_in_legend:
-		beta_band_power = beta_bandpower(f, pxx)
-		label += ' ' + r'$\overline{P}_{\beta}=$' + str(round(beta_band_power, 3))
+    if include_beta_band_in_legend:
+        beta_band_power = beta_bandpower(f, pxx)
+        label += ' ' + r'$\overline{P}_{\beta}=$' + str(round(beta_band_power, 3))
         
-	if normalize :
+    if normalize :
 		
-		AUC = np.trapz(pxx, f)
-		pxx = pxx / AUC * 100
-		ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
+        pxx = normalize_PSD(pxx, f) * 100
+        ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
         
     
-	ax.plot(f, pxx, c=c, label=label, lw=1.5)
-	ax.set_xlabel('frequency (Hz)', fontsize=15)
-	ax.set_ylabel(ylabel, fontsize=15)
-	ax.legend(fontsize=15, loc=legend_loc, framealpha=0.1, frameon=False)
+    ax.plot(f, pxx, c=c, label=label, lw=1.5)
+    ax.set_xlabel('frequency (Hz)', fontsize=15)
+    ax.set_ylabel(ylabel, fontsize=15)
+    ax.legend(fontsize=15, loc=legend_loc, framealpha=0.1, frameon=False)
 	# ax.tick_params(axis='both', which='major', labelsize=10)
-	ax.locator_params(axis='y', nbins=5)
-	ax.locator_params(axis='x', nbins=5)
-	ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-	remove_frame(ax)
+    ax.locator_params(axis='y', nbins=5)
+    ax.locator_params(axis='x', nbins=5)
+    ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+    remove_frame(ax)
     
-	if plot_sig_thresh:
+    if plot_sig_thresh:
         
-		print(min_f, max_f, 'sig thresh plotted')
-		sig_thresh = cal_sig_thresh_1d(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
-		ax.axhline(sig_thresh,0, max_f, ls = '--', color = c)
+        sig_thresh = cal_sig_thresh_1d(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
+        ax.axhline(sig_thresh,0, max_f, ls = '--', color = c)
+
+def normalize_PSD(pxx, f):
+    
+    ''' Normalize PSD to the AUC '''
+    AUC = np.trapz(pxx, f)
+    pxx = pxx / AUC 
+    
+    return pxx
 
 def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', figsize=(6, 5), 
                   method='rfft', n_windows=6, include_beta_band_in_legend=False, max_f = 200, min_f = 0,
@@ -4167,8 +4190,6 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 	"""
 	Estimate frequency from peak of FFT
 	"""
-	# Compute Fourier transform of windowed signal
-#    windowed = sig * signal.blackmanharris(len(sig))
 
 	N = len(sig)
 
@@ -4197,44 +4218,58 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 
 
 def freq_from_rfft(sig, dt, N):
+    
 	'''Estimate frequency with rfft method '''
+    
 	rf = rfft(sig)
 	f = fftfreq(N, dt)[:N//2]
-	# print(f)
 	pxx = np.abs(rf[:N//2]) ** 2
 	# Just use this for less-accurate, naive version
 	peak_freq = f[np.argmax(abs(rf[: N // 2]))]
+    
 	return f, pxx, peak_freq
 
 
 def freq_from_welch(sig, dt, n_windows=6):
+    
 	"""
 	Estimate frequency with Welch method
 	"""
+    
 	fs = 1 / dt
 	f, pxx = signal.welch(sig, axis=0, fs=fs, nperseg=int(len(sig) / n_windows))
 	peak_freq = f[np.argmax(pxx)]
+    
 	return f, pxx, peak_freq
 
 def autocorr_1d(x, method = 'numpy', mode = 'same'):
+    
     if method == 'numpy':
         result = np.correlate(x, x, mode= mode)
+        
     elif method == 'fft':
         result = signal.correlate(x, x, mode= mode, method = 'fft')
+        
     return result[ result.size//2 : ]
 
 def cut_PSD_2d(f, pxx, max_f = 250):
+    
     f_to_keep_ind = f < max_f
     pxx = pxx[:, f_to_keep_ind] 
+    
     return f[f_to_keep_ind] , pxx
 
 def cut_PSD_1d(f, pxx, max_f = 250):
+    
     f_to_keep_ind = f < max_f
     pxx = pxx[f_to_keep_ind] 
+    
     return f[f_to_keep_ind] , pxx
 
 def autocorr_2d(x):
+    
   """FFT based autocorrelation function, which is faster than numpy.correlate"""
+  
   # x is supposed to be an array of sequences, of shape (totalelements, length)
   length = x.shape[1]
   l = length * 2 - 1
@@ -4245,18 +4280,23 @@ def autocorr_2d(x):
   return autocorr
 
 def freq_from_welch_2d(sig, dt, n_windows=6):
+    
  	"""
  	Estimate frequency with Welch method for all the rows of a 2d array
  	"""
+     
  	fs = 1 / dt 
  	f, pxx = signal.welch(sig, axis=1, fs=fs, nperseg= int(sig.shape[1] / n_windows))
  	peak_freq = f[np.argmax(pxx, axis = 1)]
+     
  	return f, pxx, peak_freq
  
 def get_fft_autc_spikes(nucleus, dt, window_mov_avg, n_window_welch):
+    
     spks = moving_average_array_2d(nucleus.spikes.copy(), int(window_mov_avg / dt))
     autc = autocorr_2d(spks)
     f, pxx, peak_f = freq_from_welch_2d(autc, dt/1000, n_windows= n_window_welch)
+    
     return f, pxx, peak_f
 
 def significance_of_oscil_all_neurons(nucleus, dt, window_mov_avg = 10, max_f = 250, min_f_sig_thres = 0,
@@ -4928,16 +4968,21 @@ def mvt_step_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     return H
 
 def calculate_number_of_connections(N_sim,N_real,number_of_connection):
+    
     '''calculate number of connections in the scaled network.'''
+    
     KK = number_of_connection.copy()
+    
     for k, v in number_of_connection.items():
-#        print(k,v, N_real[k[1]],N_sim[k[0]])
         KK[k] = int(1/(1/v-1/N_real[k[1]]+1/N_sim[k[0]]))
+        
     return KK
 
 def transfer_func(Threshold, gain, x):
+    
     ''' a transfer function that grows linearly for positive values 
     of input higher than the threshold'''
+    
     return gain* np.maximum(np.zeros_like(x), (x - Threshold))
     
 # def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
@@ -4951,6 +4996,7 @@ def transfer_func(Threshold, gain, x):
 #     return JJ
 
 def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
+    
     ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving
         Arguments:
                 same_pop: optional bool (default = False)
@@ -4970,51 +5016,78 @@ def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = F
     JJ[rows,cols] = int(1)
     return JJ
 
-dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
+def get_start_end_plot(plot_start, plot_end, dt, t_list):
+    
+    if plot_end == None : 
+        
+        plot_end = t_list [-1]
+    
+    else:
+    
+        plot_end = int(plot_end / dt)
+        
+    plot_start = int( plot_start / dt)
+    
+    return plot_start, plot_end
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1,title_fontsize = 12,plot_start = 0,
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, title_fontsize = 12, plot_start = 0,
          ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
          low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None,
-         ncol_legend = 1):    
+         ncol_legend = 1, line_type = ['-', '--']):    
 
     fig, ax = get_axes (ax)
-    if plot_end == None : plot_end = t_list [-1]
-    else:
-        plot_end = int(plot_end / dt)
-    plot_start = int( plot_start / dt)
-    line_type = ['-', '--']
+    
+    plot_start, plot_end  = get_start_end_plot(plot_start, plot_end, dt, t_list)
+    
     count = 0
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in [nuclei_list[0]]:
             
             if plt_freq:
+                
                 label = nucleus.name + ' f=' + str(round(nucleus.frequency_basal,1)) + ' Hz'
+            
             else: 
+            
                 label = nucleus.name
                 
             if plot_filtered:
+                
                 act = nucleus.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
                 peaks,_ =signal.find_peaks(act, height = 0)
                 ax.plot(peaks * dt, act[peaks] + A[nucleus.name], 'x')
                 ax.plot(t_list[plot_start: plot_end]*dt, act[plot_start: plot_end] + A[nucleus.name], line_type[nucleus.population_num-1], 
                         c = color_dict[nucleus.name],lw = 1.5, alpha = 0.4)
+            
             else:
-                ax.plot(t_list[plot_start: plot_end]*dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
+            
+                ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
+            
             if continuous_firing_base_lines:
+            
                 ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '--', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
+            
             else:
+            
                 ax.plot(t_list[plot_start: int(t_mvt /dt)]*dt, np.ones_like(t_list[plot_start: int(t_mvt /dt)])*A[nucleus.name], '--', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
 
             if plt_mvt:
+                
                 if continuous_firing_base_lines:
+                
                     ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha = alpha_mvt,lw = 1 )
+                
                 else:
+                
                     ax.plot(t_list[int(t_mvt /dt): plot_end]*dt, np.ones_like(t_list[int(t_mvt /dt): plot_end])*A_mvt[nucleus.name], '--', c = color_dict[nucleus.name], alpha= alpha_mvt,lw = 1 )
+            
             FR_mean, FR_std = nucleus. average_pop_activity(int(len(t_list) / 2) , len(t_list))
             
             if include_FR:
+            
                 if include_std:
                     txt =  r"$\overline{{FR_{{{0}}}}}$ ={1} $\pm$ {2}".format(nucleus.name,  round(FR_mean,round_dec), round(FR_std,round_dec) )
                 else:

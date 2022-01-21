@@ -80,26 +80,33 @@ A_DD_anesthetized = {'STN': 24.2,   # De la Crompe (2020) averaged / Mallet et a
                      'FSI': 4.93,  # Xiao et al. 2020 Fig 7B state unknown average of all FSI pre in Fig 7B
                      'D2': 2.8}   # +/- 0.07 Sharott et al. 2017 Fig 8E  (SW-)
 
-A_DD_awake = {'STN': 24.2,
-              'Proto': 21.6,
-              'Arky': 12.2,
-              'FSI': 4.08,
-              'D2': 2.8}
-
-A_mvt = {'STN': 22,  # Mirzaei et al. 2017 Fig 1C
-         'Proto': 22,  # Mirzaei et al. 2017 Fig 1F
-         'Arky': 10,  # Mallet et al. 2016 Fig. 2B
-         'FSI': 24.7,  # Berke et al. 2008 Fig. 1B rat / Yael et al. 2013 in freely moving rats reports 17.5 +/- 10.3
-         'D2': 4}  # Mirzaei et al. 2017 Fig 1E
-
-Arky_A_mean = np.average([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100
-Arky_A_sd = np.std(np.array([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100)
-
-A_awake = {'STN': 15,  # Mirzaei et al. 2017 Fig 1C
+A_awake = {
+            # 'STN': 15,  # Mirzaei et al. 2017 Fig 1C (Before Jan 2022)
+           'STN': 10.12, # +/- 2.3  inattentive rest, Delaville et al. 2015 Figure 6An=28, 8 rats
            'Proto': 46,  # Mirzaei et al. 2017 Fig 1F / Dodson et al. 2015 awake mice at rest reports 48.3+/-3.4 Hz
            'Arky': 3.6,  # +/- 2.8 extrapolated from Mallet et al. 2016 Fig 2A rat in vivo head-fixed n = 6/ Dodson et al. 2015 awake mice at rest reports 9.8+/-2.3 Hz
            'FSI': 15.2,  # +/- 1.4 Berke et al. 2004 rat Fig 1B /  Perk et al. 2015 Fig 4A reports 6 Hz
            'D2': 1.1}  # Mirzaei et al. 2017 Fig 1E/ Perk et al. 2015 Fig 3A. reports 0.5/ Berke et al. 2004 rat Fig 1B reports 0.6 +/-0.05 for all MSN
+
+A_DD_awake = {'STN': 10.1 , # +/- 2.3   inattentive rest, Delaville et al. 2015 Figure 6A   n=32, 9 rats
+              'Proto': 0,
+              'Arky': 0,
+              'FSI': 0,
+              'D2': 0}
+
+A_mvt = {
+        # 'STN': 22,  # Mirzaei et al. 2017 Fig 1C (Before Jan 2022)
+         'STN': 10.37, # +/- 1.5 Delaville et al. 2015 Figure 6A  n=28, 8 rats
+         'Proto': 22,  # Mirzaei et al. 2017 Fig 1F
+         'Arky': 10,  # Mallet et al. 2016 Fig. 2B
+         'FSI': 24.7,  # Berke et al. 2008 Fig. 1B rat / Yael et al. 2013 in freely moving rats reports 17.5 +/- 10.3
+         'D2': 4}  # Mirzaei et al. 2017 Fig 1E
+A_DD_mvt = {
+         'STN': 10.1 # +/- 1.2 Delaville et al. 2015 Figure 6A   n=32, 9 rats
+             }
+Arky_A_mean = np.average([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100
+Arky_A_sd = np.std(np.array([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100)
+
 
 A = A_anesthetized
 Act = {'rest': A_anesthetized, 'awake_rest': A_awake, 'mvt': A_mvt,
@@ -334,7 +341,7 @@ noise_variance = {
                'Arky': 22} ,
      
       'awake_rest' : {'Proto': 31, 
-                      'STN': 15, 
+                      'STN': 14, 
                       'FSI': 27, 
                       'D2': 15, 
                       'Arky': 15},
@@ -356,7 +363,7 @@ noise_variance = {
 
 FR_ext_range = {
     'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 'DD_anesth': [1/300, 2/300], 'mvt': [1/300, 2/300]},
-    'STN': {'rest': np.array([23/1000, 31/1000]), 'awake_rest': np.array([28/1000, 32/1000]), 'DD_anesth': [30/1000, 35/1000], 'mvt':  [28/1000, 33/1000]},
+    'STN': {'rest': np.array([23/1000, 31/1000]), 'awake_rest': np.array([22/1000, 33/1000]), 'DD_anesth': [30/1000, 35/1000], 'mvt':  [28/1000, 33/1000]},
     'FSI': {'rest': np.array([22/1000, 30/1000]), 'awake_rest': np.array([28/1000, 32/1000]), 'DD_anesth': [22/1000, 31.5/1000], 'mvt':[30/1000, 35/1000]},
     'D2': {'rest': np.array([10/1000, 20/1000]), 'awake_rest': np.array([7/1000, 15/1000]), 'DD_anesth': [10/1000, 15/1000], 'mvt': [10/1000, 15.5/1000]},
     'Arky': {'rest': np.array([5/1000, 7/1000]), 'awake_rest': np.array([3/1000, 5/1000]), 'DD_anesth': [5/1000, 7/1000], 'mvt': [4/1000, 7/1000]}
@@ -417,7 +424,7 @@ end_of_nonlinearity = {
     'FSI': {'rest': 10, 'awake_rest': 10, 'mvt': 20, 'DD_anesth': 10},
     'D2':  {'rest': 10, 'awake_rest': 10, 'mvt': 10, 'DD_anesth': 10, 'trans': 40},
     'Proto':  {'rest': 20, 'awake_rest': 20, 'mvt': 20, 'DD_anesth': 20},
-    'STN': {'rest': 20, 'awake_rest': 10, 'mvt': 20, 'DD_anesth': 20, 'trans': 35},
+    'STN': {'rest': 20, 'awake_rest': 15, 'mvt': 20, 'DD_anesth': 20, 'trans': 35},
     'Arky':  {'rest':  10, 'awake_rest': 15, 'mvt': 25, 'DD_anesth': 10}
                         }
 
@@ -836,10 +843,10 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 
 plt.close('all')
-name = 'Proto'
+name = 'STN'
 # state = 'rest'
-# state = 'awake_rest'
-state = 'DD_anesth'
+state = 'awake_rest'
+# state = 'DD_anesth'
 # state = 'mvt'
 
 save_mem_pot_dist = True
@@ -934,7 +941,7 @@ nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noi
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
 
-plot_action_potentials(nucleus, n_neuron=1, t_end=5000)
+# plot_action_potentials(nucleus, n_neuron=1, t_end=5000)
 
 
 n_FR = 20
@@ -3374,6 +3381,7 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
+# K = calculate_number_of_connections(N, N_real, K_all['DD_anesth'])
 
 dt = 0.2
 t_sim = 5300
@@ -3381,12 +3389,14 @@ t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration = [int(300/dt), int(t_sim/dt)]
-n_windows = 6
+n_windows = 4
 name1 = 'FSI' 
 name2 = 'D2' 
 name3 = 'Proto'
 name4 = 'STN'
 state = 'awake_rest'
+# state = 'DD_anesth'
+
 name_list = [name1, name2, name3, name4]
 
 # g_FSI_list = - np.linspace(0.15, 2., 18, endpoint=True)
@@ -3414,9 +3424,16 @@ G = {}
 plot_start = t_sim - 600
 plot_start_raster = t_sim - 600
 
-G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name4, name3)], G[(name3, name4)] = g_FSI , g_FSI, g_FSI , g_STN, - g_STN
-# G = {k: v * K[k] for k, v in G.items()}
+g = -.0015
+# G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name4, name3)], G[(name3, name4)] = g_FSI , g_FSI, g_FSI , g_STN, - g_STN
+# G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name3, name4)], G[(name4, name3)] = 3* g * 2 * 4/15, 3.5 * g* 2.8/1.1, 2.5 * g *21/46, 3. * -g *24/10 , 3. * g *2 * 21/46
 
+G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name3, name4)], G[(name4, name3)] = 3* g * 1.8, 3.5 * g, 2.5 * g , 3. * -g*1.2 , 3. * g *2 
+
+G = {k: v * K[k] for k, v in G.items()}
+
+print(G)
+# 3* g * 1.9, 3.5 * g, 2.5 * g , 3. * -g*1.2 , 3. * g *2 --> 16.8
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
@@ -5697,12 +5714,12 @@ t_sim = 5000
 t_list = np.arange(int(t_sim/dt))
 plot_start = int(t_sim / 5)
 t_transition = plot_start + int(t_sim / 4)
-duration_base = [int(1000/dt), int(t_transition/dt)]
+duration_base = [int(300/dt), int(t_transition/dt)]
 length = duration_base[1] - duration_base[0]
 duration_DD = [int(t_sim / dt) - length +
                int(t_transition / 4 / dt), int(t_sim / dt)]
 
-
+n_windows = 4
 plot_start = t_transition - 1000
 plot_end = t_transition + 1000
 
@@ -5730,14 +5747,14 @@ x = [1.5, 2, 1.5, 1.5, 1, .5, .5 , 0.8]
 # x = [1., 3.5, 1., 1, 1.5, 2.5, 1.5, .1]
 # x = [1., 3.5, 1., 1, 1.5, 2., 1.5, .1]
 
-# g = -0.002
+g = -0.0018
 
 (G[(name2, name1)], G[(name3, name2)],
  G[(name1, name3)], G[(name2, name4)],
  G[(name4, name3)], G[(name3, name5)],
-  G[(name5, name3)], G[(name3, name3)]) = x[0]* g,x[1] * g, x[2] * g, x[3] * g, x[4] * g, x[5] * -g , x[6] * g , g * x[7]
+  # G[(name5, name3)], G[(name3, name3)]) = x[0]* g,x[1] * g, x[2] * g, x[3] * g, x[4] * g, x[5] * -g , x[6] * g , g * x[7]
  # G[(name5, name3)], G[(name3, name3)]) =  2.8* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 4 * -g , 3. * g , g * 0.1
-
+ G[(name5, name3)], G[(name3, name3)]) = 3* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3. * g , g * 0.1
 # 3* g, 3 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3 * g , g * 0.1 --> g = 0.002 single run 17 Hz, average 15.4
 # 2.5* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3.5 * -g , 3. * g , g * 0.1 --> 16.8 Hz g = 0.002
  # 3* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3. * g , g * 0.1 --> 16.8 Hz g = 0.002
@@ -5812,17 +5829,17 @@ if 'DD' in state_2:
                include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
                axvspan_color = axvspan_color[state_2], ncol_legend = 1)
     
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                 size=(8, 5))
+    # save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+    #              size=(8, 5))
     fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start,
                                              labelsize=10, title_fontsize=15, lw=1., linelengths=2, n_neuron=40, include_title=False, set_xlim=True,
                                              axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x=0.01,
                                              t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=12, include_nuc_name=False)
 
-    save_pdf_png(fig_state_1, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5.5, 6))
-    save_pdf_png(fig_state_2, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5.5, 6))
+    # save_pdf_png(fig_state_1, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5.5, 6))
+    # save_pdf_png(fig_state_2, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5.5, 6))
     
 elif 'mvt' in state_2:
     
@@ -5856,20 +5873,20 @@ ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
 ax.set_ylim(-0.01, 10.8)
 ax.legend(fontsize=10, frameon=False)
 ax.tick_params(axis='both', labelsize=15)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
-             size=(5, 3))
+# save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
+#              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-                         fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
+                         fft_method='Welch', n_windows=n_windows, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
 ax.set_xlim(5, 70)
 ax.set_ylim(-0.01, 10.8)
 ax.tick_params(axis='both', labelsize=15)
 ax.legend(fontsize=10, frameon=False)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
-             size=(5, 3))
+# save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
+#              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 ax.annotate(x, xy=(0.2,0.5),xycoords='axes fraction', 
@@ -5937,10 +5954,11 @@ g_STN_Loop = 1.7
 g_FSI_Loop = 11
 g_FSI = -g_FSI_Loop ** (1/3)
 g_STN = -g_STN_Loop ** (1/2)
-
+g_FSI = -2.3
+g_STN = -1.6
 (G[(name2, name1)], G[(name3, name2)],
  G[(name1, name3)], G[(name3, name5)],
- G[(name5, name3)]) = g_FSI, g_FSI, -3, -g_STN, g_STN
+ G[(name5, name3)]) = g_FSI, g_FSI, g_FSI, -g_STN, g_STN
 
 # 3* g, 3 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3 * g , g * 0.1 --> g = 0.002 single run 17 Hz, average 15.4
 # 2.5* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3.5 * -g , 3. * g , g * 0.1 --> 16.8 Hz g = 0.002
@@ -6306,19 +6324,21 @@ g_STN_Loop = 0.5
 g_FSI_Loop = 12
 g_FSI = -g_FSI_Loop ** (1/3)
 g_STN = -g_STN_Loop ** (1/2)
-g_GPe = -0.4
+g_STN = -1.6 
+g_FSI = -2.3
+g_GPe = -0.1
 
+g = -0.0018
 (G[(name2, name1)], G[(name3, name2)],
  G[(name1, name3)], G[(name3, name5)],
- G[(name5, name3)], G[(name3, name3)]) = g_FSI, g_FSI, -3.5, -g_STN, g_STN, g_GPe
-
+  G[(name5, name3)], G[(name3, name3)]) = g_FSI, g_FSI, g_FSI, -g_STN, g_STN, g_GPe
 # 3* g, 3 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3 * g , g * 0.1 --> g = 0.002 single run 17 Hz, average 15.4
 # 2.5* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3.5 * -g , 3. * g , g * 0.1 --> 16.8 Hz g = 0.002
 # [2, 2.5, 1, 1, 1, 3, 1, 0.1] --> 17 Hz g = 0.002
 # x = [1.5, 2.5, 1, 1, 1, 3, 1, 0.1] --> 17 Hz g = 0.003 double peak 19 and 40
 # 2.8* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 4 * -g , 3. * g , g * 0.1--> 19 Hz g = 0.002 Noooo
 
-# G = {k: v * K[k] for k, v in G.items()}
+G = {k: v * K[k] for k, v in G.items()}
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -6382,17 +6402,17 @@ if 'DD' in state_2:
                legend_loc='upper left', plot_end= t_sim, vspan=True, ylim=(-4, 80),
                include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, axvspan_color = axvspan_color[state_2])
     
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                 size=(8, 5))
+    # save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+    #              size=(8, 5))
     fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start,
                                              labelsize=10, title_fontsize=15, lw=1., linelengths=2, n_neuron=40, include_title=False, set_xlim=True,
                                              axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x=0.01,
                                              t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=12, include_nuc_name=False)
 
-    save_pdf_png(fig_state_1, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(3, 5))
-    save_pdf_png(fig_state_2, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(3, 5))
+    # save_pdf_png(fig_state_1, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_1), size=(3, 5))
+    # save_pdf_png(fig_state_2, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_2), size=(3, 5))
     
 elif 'mvt' in state_2:
     
@@ -6423,11 +6443,11 @@ find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_thre
 
 ax.set_xlim(5, 70)
 ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
-ax.set_ylim(-0.01, 0.1)
+# ax.set_ylim(-0.01, 0.1)
 ax.legend(fontsize=10, frameon=False)
 ax.tick_params(axis='both', labelsize=15)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
-             size=(5, 3))
+# save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
+#              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
@@ -6438,8 +6458,8 @@ ax.set_xlim(5, 70)
 ax.set_ylim(-0.01, 0.1)
 ax.tick_params(axis='both', labelsize=15)
 ax.legend(fontsize=10, frameon=False)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
-             size=(5, 3))
+# save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
+#              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 ax.annotate([g_FSI_Loop, g_STN_Loop], xy=(0.2,0.5),xycoords='axes fraction', 
@@ -6480,6 +6500,7 @@ g = -0.002
 
 G = {k: v * K[k] for k, v in G.items()}
 
+print(G)
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
@@ -6534,8 +6555,8 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt
                                           use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=False, state=state_2)
 
 
-# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+# n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
 
 round_dec = 1
 include_std = False
@@ -6735,7 +6756,7 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
                                      vmax = max_in_dict(color_dict), 
                                      vmin = min_in_dict(color_dict))
                 if annotate:
-                    ax.annotate(int(freq_dict[ann_name][i,j]), (x,y), color = 'w')
+                    ax.annotate(int(freq_dict[ann_name][i,j]), (x,y), color = 'k')
                 
     ax.set_xlim(x_list[-1] + (x_list[1] - x_list[0]),
                  x_list[0] - (x_list[1] - x_list[0]))
@@ -6785,11 +6806,12 @@ size_list = np.array([4, 2, 1]) * 1000
 filename = 'STN_D2_Proto_FSI_N_1000_T_5000_18_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15.pkl'
 # filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_2.pkl'
 filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_all_avg.pkl'
-examples_ind = {'A' : (4, 6), 'B': (16, 5),
-                'C': (10,10), 'D': (14,11),
-                'E' : (0, 17), 'F': (6, 17),
-                'G':(14,17), 'H': (17, 17)
+examples_ind = {'A' : (2, 3), 'B': (13, 0),
+                'C': (4, 8), 'D': (1, 10),
+                'E' : (0, 13), 'F': (2, 13),
+                'G':(5, 13), 'H': (13, 13)
                 }
+dt = 0.15
 key_x = ('STN', 'Proto')
 key_y = ('FSI', 'Proto')
 name_list = ['D2', 'FSI', 'Proto', 'STN']
@@ -6804,6 +6826,9 @@ filepath = os.path.join(path, 'Beta_power', filename)
 data  = load_pickle(filepath)
 x_list = data['g'][key_x]
 y_list = data['g'][key_y]    
+n_x = len(x_list)
+n_y = len(y_list)
+
 ylabel = r'$G_{FSI-Proto}$'
 
 power_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
@@ -6820,17 +6845,17 @@ param = 'frequency (Hz)'
 # for name in name_list:  ####### one single run (hence the squeeze)
 #     power_dict[name] = np.squeeze( data[name, 'base_beta_power'] )[:,:,p_ind[f_range]]
 #     freq_dict[name] = np.squeeze( data[name, 'base_freq'] )
-    # f_peak_sig_dict[name] = np.squeeze( data[name, 'peak_significance'] )
-
-# for name in name_list:   ####### averaged multiprocessing results
-#     power_dict[name] = data[name, 'power_all_runs'] [:,:,p_ind[f_range]]
-#     freq_dict[name] = data[name, 'peak_freq_all_runs'] 
-#     f_peak_sig_dict[name] =  data[name, 'peak_significance_all_runs'] 
+    # f_peak_sig_dict[name] =  np.zeros_like(freq_dict[name])
 
 for name in name_list:   ####### averaged multiprocessing results
-    power_dict[name] = np.average( data[name, 'base_beta_power'] [:,:,:, p_ind[f_range]], axis = 2)
-    freq_dict[name] = np.average( data[name, 'base_freq'], axis = 2)
+    power_dict[name] = data[name, 'power_all_runs'] [:,:,p_ind[f_range]]
+    freq_dict[name] = data[name, 'peak_freq_all_runs'] 
     f_peak_sig_dict[name] =  data[name, 'peak_significance_all_runs'] 
+
+# for name in name_list:   ####### average sigle multiprocessing file 
+#     power_dict[name] = np.average( data[name, 'base_beta_power'] [:,:,:, p_ind[f_range]], axis = 2)
+#     freq_dict[name] = np.average( data[name, 'base_freq'], axis = 2)
+#     f_peak_sig_dict[name] =  data[name, 'peak_significance_all_runs'] 
 
 # run = 1
 # for name in name_list: ####### single multi run file 
@@ -6839,11 +6864,10 @@ for name in name_list:   ####### averaged multiprocessing results
 #     f_peak_sig_dict[name] =  np.zeros_like(freq_dict[name])
     
     
-n_x = len(x_list)
-n_y = len(y_list)
-fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
-                   size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-                   annotate = False,  tick_size = 18, plot_acc_to_sig = False)
+
+# fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
+#                    size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
+#                    annotate = True, ann_name='D2',  tick_size = 18, plot_acc_to_sig = False)
 
 
 
@@ -6862,8 +6886,69 @@ def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highligh
         ax.annotate(key, (x + shift_x/5, y - shift_y/15), color = 'k', size = 18)
     return fig
 
+
+def plot_PSD_of_example_pts(data_all, examples_ind,  x_list, y_list):
+    
+    
+    for key, ind in examples_ind.items():
+        fig, ax = plt.subplots()
+        for name in name_list:
+            
+            f = data_all[(name, 'f')][ind[1], ind[0], 0, : ]
+            pxx = np.average(data_all[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
+            pxx = normalize_PSD( pxx, f)
+            peak_freq = np.round(data_all[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
+            ax.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+        
+        ax.set_xlim(0,80)
+        ax.legend()
+        ax.set_title(key, fontsize = 15)
+        
+        
+def plot_pop_act_and_PSD_of_example_pts(data, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
+                                        plt_duration = 600, run_no = 0, window_ms = 5):
+    
+    n_exmp = len(examples_ind)
+    fig = plt.figure( figsize=(12, 20) ) 
+    outer = gridspec.GridSpec( n_exmp, 1, wspace=0.2, hspace=0.2)
+    
+    for i, (key, ind) in enumerate(examples_ind.items()):
+    
+        inner = gridspec.GridSpecFromSubplotSpec( 1, 2, width_ratios=[1, 3],
+                                                 subplot_spec=outer[i], 
+                                                 wspace=0.1, hspace=0.1)
+        ax_PSD = plt.Subplot(fig, inner[0])
+        ax_pop_act = plt.Subplot(fig, inner[1])
+        
+        for name in name_list:
+        
+            f = data[(name, 'f')][ind[1], ind[0], 0, : ]
+            pxx = np.average(data[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
+            pxx = normalize_PSD( pxx, f)
+            peak_freq = np.round(data[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
+            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+        
+            duration = data[(name, 'pop_act')].shape[-1]
+            
+            pop_act = data[(name, 'pop_act')][ind[1], ind[0], run_no, duration - int( plt_duration/dt) : duration]
+            pop_act = moving_average_array(pop_act, int(window_ms / dt))
+            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt
+            ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
+            ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
+                                                 c = color_dict[name],lw = 1, alpha=0.8 )
+
+        ax_PSD.set_xlim(0, 80)
+        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
+        ax_pop_act.set_title(key, fontsize = 15)
+        fig.add_subplot(ax_PSD)
+        fig.add_subplot(ax_pop_act)
+        
+    return fig
+
+# plot_example_pts(data_all, examples_ind,  x_list, y_list)
+fig = plot_pop_act_and_PSD_of_example_pts(data_all, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
 # fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'r')
-save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
+# save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
 
 
 # %% Merge data from multiprocessing
@@ -6874,7 +6959,7 @@ def get_specs_of_mp(ex_filename, path, name = 'FSI'):
     filepath = os.path.join(path, 'Beta_power', ex_filename + '0.pkl')
     data  = load_pickle(filepath)
     n_iter, n_iter_2, n_run, len_f_pxx = data[(name, 'pxx')].shape
-    n_iter, n_iter_2, duration = data[(name, 'pop_act')].shape
+    n_iter, n_iter_2, n_run, duration = data[(name, 'pop_act')].shape
     
     return n_iter, n_iter_2, duration, n_run, len_f_pxx
 
@@ -6886,7 +6971,7 @@ def create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_p
     
     for name in name_list:
         data[(name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
-        data[(name, 'pop_act')] = np.zeros((n_iter, n_iter_2, duration))
+        data[(name, 'pop_act')] = np.zeros((n_iter, n_iter_2,n_run,  duration))
         data[(name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
         
         if find_phase:
@@ -6924,7 +7009,6 @@ def save_g_to_data_all(loop_keys, n_iter, iter_1, data):
 
 def merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, loop_keys, find_phase = False):
     
-    # for mp in range(1, 2) : # n_mp):
     for mp in range(n_mp):
 
         filename = ex_filename + str(mp) + '.pkl'
@@ -6945,15 +7029,13 @@ def merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, loop_keys
                 data_all[(name, 'rel_phase_hist')][iter_1: iter_1 + n_iter, :, :, :] =  data[(name, 'rel_phase_hist')]  
                 data_all[(name, 'rel_phase')][iter_1: iter_1 + n_iter, : ] =  data[(name, 'rel_phase')] 
             
-            # data_all[(name, 'pop_act')][iter_1: iter_1 + n_iter, :, :] = data[(name, 'pop_act')] 
+            data_all[(name, 'pop_act')][iter_1: iter_1 + n_iter, :, :] = data[(name, 'pop_act')] 
             data_all[(name, 'base_freq')][iter_1: iter_1 + n_iter, :] = data[(name, 'base_freq')] 
-            # print( name, ' run 0 :', data[(name, 'pxx')][ 1, 10, 1, :5 ])
 
             data_all[(name, 'base_beta_power')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'base_beta_power')]
             data_all[(name, 'f')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'f')] 
             data_all[(name, 'pxx')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'pxx')] 
-        # print( np.where( ~ (data[(name_list[0], 'pxx')] == data[(name_list[1], 'pxx')]) ),
-               # np.where( ~ (data[(name_list[0], 'pxx')] == data[(name_list[2], 'pxx')]) ) )
+
         data_all = save_g_to_data_all(loop_keys, n_iter, iter_1, data)
         
     return data_all
@@ -6988,8 +7070,10 @@ data_all = merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, lo
 
 pickle_obj(data_all,os.path.join(path, 'Beta_power', ex_filename + 'all.pkl'))
 
+
 # %% average multiple runs 
 
+#%% average
 name1 = 'FSI'  
 name2 = 'D2'  
 name3 = 'Proto'
@@ -7014,7 +7098,8 @@ def check_for_nans_in_freq_analysis(name_list, data_all, n_iter_1, n_iter_2, n_r
                     
             
 def average_over_runs_and_update_dataframe(filepath, data_all, n_iter_1, n_iter_2, n_run, name_list , save_gamma = True,
-                                           low_beta_range = [12,20], high_beta_range = [20, 30], low_gamma_range = [30, 70]):
+                                           low_beta_range = [12,20], high_beta_range = [20, 30], low_gamma_range = [30, 70],
+                                           AUC_ratio_thresh = 0.15):
     e = 0
     # for iter_1 in range(e, e + 1):
     #     for iter_2 in range(e, e + 1):
@@ -7025,9 +7110,7 @@ def average_over_runs_and_update_dataframe(filepath, data_all, n_iter_1, n_iter_
             for name in name_list:
                 f = data_all[(name, 'f')][iter_1, iter_2, 0, : ]
                 pxx = np.average(data_all[(name, 'pxx')][iter_1, iter_2, :, : ], axis = 0)
-                pxx = data_all[(name, 'pxx')][iter_1, iter_2, 0, : ]
-                # print( name, ' run 0 :', data_all[(name, 'pxx')][iter_1, iter_2, 0, :5 ])
-                # print( 'avg pxx :' , pxx[:5])
+
                 
                 data_all[( name, 'peak_significance_all_runs')][iter_1, iter_2 ] = check_significance_of_PSD_peak(f, pxx,  
                                                                                                                  n_std_thresh = 2, 
@@ -7035,7 +7118,7 @@ def average_over_runs_and_update_dataframe(filepath, data_all, n_iter_1, n_iter_
                                                                                                                  n_pts_above_thresh = 3,
                                                                                                                  if_plot = False, 
                                                                                                                  name = name, 
-                                                                                                                 AUC_ratio_thresh = 0.2)
+                                                                                                                 AUC_ratio_thresh = AUC_ratio_thresh)
                 
                 data_all[(name, 'peak_freq_all_runs')][iter_1, iter_2 ] = f[ np.argmax( pxx ) ]
                 low_beta_band_power = beta_bandpower(f, pxx, *low_beta_range)
