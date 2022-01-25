@@ -1974,6 +1974,13 @@ def set_boxplot_prop(bp, color_list):
                    linewidth = 0.5) 
     return bp
 
+def print_G_items(G_dict):
+    
+    print('G = \n')
+    for k, values in G_dict.items():
+    
+        print(k, np.round( values, 2) )
+
 def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
@@ -2052,7 +2059,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i, display=display, decimal=decimal) 
+        title = G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
             
@@ -2251,10 +2258,10 @@ def synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, 
 
         else: ax_spec = None
 
-        # title = _get_title(tau_dict, i, display=display, decimal=decimal) 
+        # title = G_element_as_txt(tau_dict, i, display=display, decimal=decimal) 
         title = ''
         G.update({k: gg * (i  + 50) / 50  for k, gg in G_copy.items()})
-        print('G = ', G)
+        print_G_items(G)
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
@@ -2437,10 +2444,10 @@ def synaptic_T_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, T_
 
         else: ax_spec = None
 
-        # title = _get_title(tau_dict, i, display=display, decimal=decimal) 
+        # title = G_element_as_txt(tau_dict, i, display=display, decimal=decimal) 
         title = ''
         G.update({k: gg / ((i  + 10) / 10)  for k, gg in G_copy.items()})
-        print('G = ', G)
+        print_G_items(G)
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
@@ -2640,14 +2647,15 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
 
         
         for m in range(n_iter_2):
-            # title = _get_title(G, i, display=display, decimal=decimal) 
+            # title =G_element_as_txt(G, i, display=display, decimal=decimal) 
             title = ''
             if plot_spectrum:
                 ax_spec = fig_spec.add_subplot(n_iter, n_iter_2, count+1)
             
             for k in loop_key_lists[1]:
                 G[k] = G_dict[k][m]
-            
+                 
+            print_G_items(G)
             for j in range(n_run):
                 
                 print(' {} from {} runs'.format(j + 1 , n_run))
@@ -2817,7 +2825,8 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
 
         for k, values in G_dict.items():
             G[k] = values[i]
-            print(k, values[i])
+            
+        print_G_items(G)    
             
 
         if plot_spectrum:
@@ -2825,7 +2834,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
 
         else: ax_spec = None
 
-        title = _get_title(G_dict, i, display=display, decimal=decimal) 
+        title = G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
             
@@ -3161,20 +3170,32 @@ def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
         ax.axes.xaxis.set_ticklabels([])
 
 
-def _get_title(G_dict, i, display='normal', decimal=0):
+def G_element_as_txt(G_dict, i, display='normal', decimal=0):
 
     title = ''
     for j in range(len(G_dict)):
         if display == 'normal':
-            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + str(round(list(G_dict.values())[j][i], 2)) + ' '
+            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + str(round(list(G_dict.values())[j][i], 2)) + ', '
         
         elif display == 'sci':
-            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[j][i], decimal)) + ' '
+            title += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[j][i], decimal)) + ', '
         if (j+1) % 3 == 0:
             title += ' \n '  
     return title
 
-            
+def G_as_txt(G_dict, display='normal', decimal=0):
+
+    G_txt = ''
+    for j in range(len(G_dict)):
+        if display == 'normal':
+            G_txt += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + str(round(list(G_dict.values())[j], 2)) + ', '
+        
+        elif display == 'sci':
+            G_txt += r"$G_{"+list(G_dict.keys())[j][0]+"-"+list(G_dict.keys())[j][1]+"}$ = " + r"${0:s}$".format(as_si(list(G_dict.values())[j], decimal)) + ', '
+        if (j+1) % 3 == 0:
+            G_txt += ' \n '  
+    return G_txt
+
 def remove_frame(ax):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -4179,6 +4200,14 @@ def normalize_PSD(pxx, f):
     
     ''' Normalize PSD to the AUC '''
     AUC = np.trapz(pxx, f)
+    pxx = pxx / AUC 
+    
+    return pxx
+
+def normalize_PSD_2d(pxx, f, axis = 0):
+    print(pxx.shape, f.shape)
+    ''' Normalize PSD to the AUC '''
+    AUC = np.trapz(pxx, f, axis = axis)
     pxx = pxx / AUC 
     
     return pxx
@@ -6691,6 +6720,154 @@ def find_AUC_of_input(name,path,poisson_prop,gain, threshold, neuronal_consts,ta
     return AUC, AUC_std
 
 
+def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
+                   size_list, xlabel, ylabel, title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
+                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, plot_acc_to_sig = True):
+    
+    fig, ax = plt.subplots(1, 1)
+    for i, y in enumerate(y_list):
+        
+        for j, x in enumerate(x_list):
+            
+            for name, ms, s in zip(name_list, markerstyle_list, size_list):
+                if plot_acc_to_sig:
+                    if peak_significance[name][i,j] == True:
+                        img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
+                                         s = s, cmap = cmap, edgecolors = 'k', 
+                                         vmax = max_in_dict(color_dict), 
+                                         vmin = min_in_dict(color_dict))
+                    else:
+                        
+                        img = ax.scatter(x, y, marker = ms, c = 'grey', 
+                                         s = s, edgecolors = 'k')
+                else:
+                    img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
+                                     s = s, cmap = cmap, edgecolors = 'k', 
+                                     vmax = max_in_dict(color_dict), 
+                                     vmin = min_in_dict(color_dict))
+                if annotate:
+                    ax.annotate(int(freq_dict[ann_name][i,j]), (x,y), color = 'k')
+                
+    ax.set_xlim(x_list[-1] + (x_list[1] - x_list[0]),
+                 x_list[0] - (x_list[1] - x_list[0]))
+    
+    ax.set_ylim(y_list[-1] + (y_list[1] - y_list[0]),
+                y_list[0] - (y_list[1] - y_list[0]))
+    
+    ax.set_xlabel(xlabel, fontsize = label_fontsize)
+    ax.set_ylabel(ylabel, fontsize = label_fontsize)
+    ax.set_title(title, fontsize = label_fontsize)
+    set_n_ticks(ax, 4, 4)
+    remove_tick_lines(ax)
+    ax.tick_params(axis='both', which='major', labelsize=tick_size)
+    fig = set_y_ticks(fig, ax.get_xticks().tolist()[:-1])
+    clb = fig.colorbar(img, location='right', shrink=0.5)
+    clb.set_label(title, labelpad=-45, y=0.5, rotation=-90, fontsize = label_fontsize)
+    clb.ax.tick_params(labelsize=clb_tick_size )
+    set_max_dec_tick(ax)
+    clb.ax.yaxis.tick_right()
+    ax.invert_xaxis()
+    remove_whole_frame(ax)
+    
+    return fig
+    
+
+
+def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w', alpha = 0.5):
+    ax = fig.gca()
+    for key, ind in examples_ind.items():
+        s = size_list[0] * 1.5
+        x = x_list[ind[0]] 
+        y = y_list[ind[1]] 
+        shift_x = abs(x_list[1] - x_list[0])
+        shift_y = abs(y_list[1] - y_list[0])
+        
+        ax.scatter(x, y, marker = 'o', c = highlight_color, alpha = alpha ,
+                    s = s, edgecolors = None)
+        ax.annotate(key, (x + shift_x/5, y - shift_y/15), color = 'w', size = 18)
+    return fig
+
+
+def plot_PSD_of_example_pts(data_all, examples_ind,  x_list, y_list, name_list, color_dict):
+    
+    
+    for key, ind in examples_ind.items():
+        fig, ax = plt.subplots()
+        for name in name_list:
+            
+            f = data_all[(name, 'f')][ind[1], ind[0], 0, : ]
+            pxx = np.average(data_all[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
+            pxx = normalize_PSD( pxx, f)
+            peak_freq = np.round(data_all[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
+            ax.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+        
+        ax.set_xlim(0,80)
+        ax.legend()
+        ax.set_title(key, fontsize = 15)
+        
+        
+def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
+                                        plt_duration = 600, run_no = 0, window_ms = 5):
+    
+    n_exmp = len(examples_ind)
+    fig = plt.figure( figsize=(12, 20) ) 
+    outer = gridspec.GridSpec( n_exmp, 1, wspace=0.2, hspace=0.2)
+    
+    for i, (key, ind) in enumerate(examples_ind.items()):
+    
+        inner = gridspec.GridSpecFromSubplotSpec( 1, 2, width_ratios=[1, 3],
+                                                 subplot_spec=outer[i], 
+                                                 wspace=0.1, hspace=0.1)
+        ax_PSD = plt.Subplot(fig, inner[0])
+        ax_pop_act = plt.Subplot(fig, inner[1])
+        
+        for name in name_list:
+        
+            f = data[(name, 'f')][ind[1], ind[0], 0, : ]
+            pxx = np.average(data[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
+            pxx = normalize_PSD( pxx, f) * 100
+            peak_freq = np.round(data[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
+            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+        
+            duration = data[(name, 'pop_act')].shape[-1]
+            
+            pop_act = data[(name, 'pop_act')][ind[1], ind[0], run_no, duration - int( plt_duration/dt) : duration]
+            pop_act = moving_average_array(pop_act, int(window_ms / dt))
+            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt
+            ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
+            ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
+                                                 c = color_dict[name],lw = 1, alpha=0.8 )
+
+        ax_PSD.set_xlim(0, 80)
+        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
+        ax_PSD.set_ylabel(key, fontsize = 20, rotation = 0, labelpad = 10)
+        # ax_pop_act.set_title(key, fontsize = 15)
+        fig.add_subplot(ax_PSD)
+        fig.add_subplot(ax_pop_act)
+        fig.text(0.6, 0.085, 'Time (ms)', ha='center', fontsize = 15)
+        fig.text(0.95, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical', fontsize = 15)
+        fig.text(0.2, 0.085, 'frequency', ha='center', fontsize = 15)
+        fig.text(0.05, 0.5, 'Normalized Power' + r'$(\times 10^{-2})$', va='center', rotation='vertical',fontsize = 15)
+        
+    return fig
+
+def plot_surf(x_list,y_list, z_arr):
+    
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    X,Y = np.meshgrid( x_list,y_list)
+    surf = ax.plot_surface(X, Y, z_arr, cmap = cm.coolwarm)
+    fig.colorbar(surf, shrink=0.5, aspect=5, location = 'left')
+    return fig, ax
+
+def plot_spec_as_surf(g_list, freq_list, pxx_2d_arr, normalize_PSD = True, 
+                      xlabel = '', ylabel = '', zlabel = ''):
+    if normalize_PSD:
+        pxx_2d_arr = normalize_PSD_2d(pxx_2d_arr, freq_list, axis = 0)
+    fig, ax = plot_surf(g_list, freq_list,pxx_2d_arr)
+    ax.set_xlabel(xlabel, fontsize = 15)
+    ax.set_ylabel(ylabel, fontsize = 15)
+    ax.set_zlabel(zlabel, fontsize = 15)
+    return fig, ax
 
 def plot_theory_FR_sim_vs_FR_ext(name, poisson_prop, x_range, neuronal_consts, start_epsilon = 10**(-10), x_val = 'FR', ax = None, lw = 3):
     fig, ax = get_axes(ax)

@@ -329,8 +329,6 @@ I_ext_range = {'Proto': [0.175*100, 0.185*100],
                'Arky': []}
 
 
-
-
 noise_variance = {
     
      'rest' : {'Proto': 28, 
@@ -3384,12 +3382,12 @@ K = calculate_number_of_connections(N, N_real, K_real)
 # K = calculate_number_of_connections(N, N_real, K_all['DD_anesth'])
 
 dt = 0.2
-t_sim = 5300
+t_sim = 5300 + 2500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration = [int(300/dt), int(t_sim/dt)]
-n_windows = 4
+n_windows = 6
 name1 = 'FSI' 
 name2 = 'D2' 
 name3 = 'Proto'
@@ -3428,12 +3426,17 @@ g = -.0015
 # G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name4, name3)], G[(name3, name4)] = g_FSI , g_FSI, g_FSI , g_STN, - g_STN
 # G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name3, name4)], G[(name4, name3)] = 3* g * 2 * 4/15, 3.5 * g* 2.8/1.1, 2.5 * g *21/46, 3. * -g *24/10 , 3. * g *2 * 21/46
 
-G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], G[(name3, name4)], G[(name4, name3)] = 3* g * 1.8, 3.5 * g, 2.5 * g , 3. * -g*1.2 , 3. * g *2 
+( G[(name2, name1)], G[(name3, name2)], G[(name1, name3)], 
+ G[(name3, name4)], G[(name4, name3)] ) = 3 * g * 1.9, 3.5 * g, 2.5 * g , 3. * -g * 1.6 , 3. * g * 2.
 
 G = {k: v * K[k] for k, v in G.items()}
 
-print(G)
-# 3* g * 1.9, 3.5 * g, 2.5 * g , 3. * -g*1.2 , 3. * g *2 --> 16.8
+print_G_items(G)
+# 3 * g * 1.9, 3.5 * g, 2.5 * g , 3. * -g * 1.6 , 3. * g * 2. --> 19.2 Hz /20 Hz
+# 3 * g * 1.8, 3.5 * g, 2.5 * g , 3. * -g * 1.4 , 3. * g * 2. --> 18.4 Hz
+# 3 * g * 1.8, 3.5 * g, 2.5 * g , 3. * -g * 1.3 , 3. * g * 2. --> 17.6 Hz
+# 3 * g * 1.8, 3.5 * g, 2.5 * g , 3. * -g * 1.2 , 3. * g * 2 --> 16.8 Hz
+
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
@@ -3483,7 +3486,7 @@ smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
 status = 'Pallidostratal_plus_STN_GPe'
 
 fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-           title_fontsize=15, plot_start=plot_start, title='',
+           title_fontsize=15, plot_start=plot_start, title= G_as_txt(G, display='normal', decimal=1) ,
            include_FR=False, include_std=False, plt_mvt=False,
            legend_loc='upper right', ylim=None)
 
@@ -3492,8 +3495,8 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt,
 #             include_FR = False, include_std=False, plt_mvt=False,
 #             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
 
-# save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
-#              size=(10, 6))
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
+              size=(10, 6))
 
 raster_order = ['Proto', 'FSI', 'D2']
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
@@ -3501,15 +3504,10 @@ fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig
                                     title_fontsize=25, lw=1, linelengths=1, n_neuron=40,
                                     include_nuc_name=True, set_xlim=True, name_list=raster_order,
                                     remove_ax_frame=False, y_tick_length=2, x_tick_length=3)
-# save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
-#              size=(11, 6))
+save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
+              size=(11, 6))
 
-peak_threshold = 0.1
-smooth_window_ms = 3
-smooth_window_ms = 5
-cut_plateau_epsilon = 0.1
-lim_oscil_perc = 10
-low_pass_filter = False
+peak_threshold = 0.1; smooth_window_ms = 3; smooth_window_ms = 5; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
 _, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
@@ -3525,10 +3523,10 @@ print('fft size = ', len(f))
 
 ax.set_xlim(0, 60)
 ax.set_title(dt)
-# save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
-#              size=(6, 5))
+save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
+              size=(6, 5))
 
-pickle_obj({'time_series': nuclei_dict['Proto'][0].pop_act}, os.path.join(root, 'test_pop_act.pkl'))
+# pickle_obj({'time_series': nuclei_dict['Proto'][0].pop_act}, os.path.join(root, 'test_pop_act.pkl'))
 # %% FSI-D2-Proto + GPe-GPe
 
 plt.close('all')
@@ -6500,7 +6498,7 @@ g = -0.002
 
 G = {k: v * K[k] for k, v in G.items()}
 
-print(G)
+print_G_items(G_dict)
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
@@ -6574,7 +6572,7 @@ filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
 nuc_order = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
 ref_nuc_name = 'D2'
-figs, title, data = synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration, G_dict, color_dict, dt, t_list, Act[state_2], A_mvt, t_mvt, D_mvt, receiving_class_dict,
+figs, title, data = c(path, nuclei_dict, filepath, duration, G_dict, color_dict, dt, t_list, Act[state_2], A_mvt, t_mvt, D_mvt, receiving_class_dict,
                                                     noise_amplitude, noise_variance[state_2], lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
                                                     lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
                                                     plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
@@ -6730,59 +6728,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 
 # %% Parameterscape
 
-def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
-                   size_list, xlabel, ylabel, title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
-                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, plot_acc_to_sig = True):
-    
-    fig, ax = plt.subplots(1, 1)
-    for i, y in enumerate(y_list):
         
-        for j, x in enumerate(x_list):
-            
-            for name, ms, s in zip(name_list, markerstyle_list, size_list):
-                if plot_acc_to_sig:
-                    if peak_significance[name][i,j] == True:
-                        img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
-                                         s = s, cmap = cmap, edgecolors = 'k', 
-                                         vmax = max_in_dict(color_dict), 
-                                         vmin = min_in_dict(color_dict))
-                    else:
-                        
-                        img = ax.scatter(x, y, marker = ms, c = 'grey', 
-                                         s = s, edgecolors = 'k')
-                else:
-                    img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
-                                     s = s, cmap = cmap, edgecolors = 'k', 
-                                     vmax = max_in_dict(color_dict), 
-                                     vmin = min_in_dict(color_dict))
-                if annotate:
-                    ax.annotate(int(freq_dict[ann_name][i,j]), (x,y), color = 'k')
-                
-    ax.set_xlim(x_list[-1] + (x_list[1] - x_list[0]),
-                 x_list[0] - (x_list[1] - x_list[0]))
-    
-    ax.set_ylim(y_list[-1] + (y_list[1] - y_list[0]),
-                y_list[0] - (y_list[1] - y_list[0]))
-    
-    ax.set_xlabel(xlabel, fontsize = label_fontsize)
-    ax.set_ylabel(ylabel, fontsize = label_fontsize)
-    ax.set_title(title, fontsize = label_fontsize)
-    set_n_ticks(ax, 4, 4)
-    remove_tick_lines(ax)
-    ax.tick_params(axis='both', which='major', labelsize=tick_size)
-    fig = set_y_ticks(fig, ax.get_xticks().tolist()[:-1])
-    clb = fig.colorbar(img, location='right', shrink=0.5)
-    clb.set_label(title, labelpad=-45, y=0.5, rotation=-90, fontsize = label_fontsize)
-    clb.ax.tick_params(labelsize=clb_tick_size )
-    set_max_dec_tick(ax)
-    clb.ax.yaxis.tick_right()
-    ax.invert_xaxis()
-    remove_whole_frame(ax)
-    
-    return fig
-    
-    
-
 filename =  'D2_Proto_FSI_N_1000_T_3000_1_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl'
 filename =  'D2_Proto_FSI_N_1000_T_3000_15_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl'
 filename =  'D2_Proto_FSI_N_1000_T_3000_15_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl' ## equal Gs
@@ -6865,90 +6811,28 @@ for name in name_list:   ####### averaged multiprocessing results
     
     
 
-# fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
-#                    size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-#                    annotate = True, ann_name='D2',  tick_size = 18, plot_acc_to_sig = False)
 
 
+f_list = data['D2', 'f'][0,0,0,:]
+plot_spec_as_surf(data['g']['Proto','STN'], 
+                  f_list[f_list < 80], 
+                  np.average(
+                      data['Proto', 'pxx'][-1,:,:,:], axis = 1).T[f_list < 80,:],
+                  xlabel = r'$G_{STN \; Loop}$', ylabel = 'Frequency (Hz)', 
+                  zlabel = 'Normalized Power' + r'$(\times 10^{-2})$')
 
 
-def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'r'):
-    ax = fig.gca()
-    for key, ind in examples_ind.items():
-        s = size_list[0] * 1.5
-        x = x_list[ind[0]] 
-        y = y_list[ind[1]] 
-        shift_x = abs(x_list[1] - x_list[0])
-        shift_y = abs(y_list[1] - y_list[0])
-        
-        ax.scatter(x, y, marker = 'o', c = highlight_color, alpha = 0.2 ,
-                    s = s, edgecolors = None)
-        ax.annotate(key, (x + shift_x/5, y - shift_y/15), color = 'k', size = 18)
-    return fig
+fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
+                    size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
+                    annotate = False, ann_name='D2',  tick_size = 18, plot_acc_to_sig = False)
 
 
-def plot_PSD_of_example_pts(data_all, examples_ind,  x_list, y_list):
-    
-    
-    for key, ind in examples_ind.items():
-        fig, ax = plt.subplots()
-        for name in name_list:
-            
-            f = data_all[(name, 'f')][ind[1], ind[0], 0, : ]
-            pxx = np.average(data_all[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
-            pxx = normalize_PSD( pxx, f)
-            peak_freq = np.round(data_all[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
-            ax.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
-        
-        ax.set_xlim(0,80)
-        ax.legend()
-        ax.set_title(key, fontsize = 15)
-        
-        
-def plot_pop_act_and_PSD_of_example_pts(data, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
-                                        plt_duration = 600, run_no = 0, window_ms = 5):
-    
-    n_exmp = len(examples_ind)
-    fig = plt.figure( figsize=(12, 20) ) 
-    outer = gridspec.GridSpec( n_exmp, 1, wspace=0.2, hspace=0.2)
-    
-    for i, (key, ind) in enumerate(examples_ind.items()):
-    
-        inner = gridspec.GridSpecFromSubplotSpec( 1, 2, width_ratios=[1, 3],
-                                                 subplot_spec=outer[i], 
-                                                 wspace=0.1, hspace=0.1)
-        ax_PSD = plt.Subplot(fig, inner[0])
-        ax_pop_act = plt.Subplot(fig, inner[1])
-        
-        for name in name_list:
-        
-            f = data[(name, 'f')][ind[1], ind[0], 0, : ]
-            pxx = np.average(data[(name, 'pxx')][ind[1], ind[0], :, : ], axis = 0)
-            pxx = normalize_PSD( pxx, f)
-            peak_freq = np.round(data[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
-            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
-        
-            duration = data[(name, 'pop_act')].shape[-1]
-            
-            pop_act = data[(name, 'pop_act')][ind[1], ind[0], run_no, duration - int( plt_duration/dt) : duration]
-            pop_act = moving_average_array(pop_act, int(window_ms / dt))
-            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt
-            ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
-            ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
-                                                 c = color_dict[name],lw = 1, alpha=0.8 )
+fig_exmp = plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
+save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
 
-        ax_PSD.set_xlim(0, 80)
-        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
-        ax_pop_act.set_title(key, fontsize = 15)
-        fig.add_subplot(ax_PSD)
-        fig.add_subplot(ax_pop_act)
-        
-    return fig
 
-# plot_example_pts(data_all, examples_ind,  x_list, y_list)
-fig = plot_pop_act_and_PSD_of_example_pts(data_all, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
-# fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'r')
-# save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
+fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
+save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
 
 
 # %% Merge data from multiprocessing
