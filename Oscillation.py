@@ -3382,12 +3382,12 @@ K = calculate_number_of_connections(N, N_real, K_real)
 # K = calculate_number_of_connections(N, N_real, K_all['DD_anesth'])
 
 dt = 0.2
-t_sim = 5300 + 2500
+t_sim = 5300 
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration = [int(300/dt), int(t_sim/dt)]
-n_windows = 6
+n_windows = 4
 name1 = 'FSI' 
 name2 = 'D2' 
 name3 = 'Proto'
@@ -6757,9 +6757,16 @@ examples_ind = {'A' : (2, 3), 'B': (13, 0),
                 'E' : (0, 13), 'F': (2, 13),
                 'G':(5, 13), 'H': (13, 13)
                 }
+filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_all_avg.pkl'
+
+examples_ind = {'A' : (0, 0), 'B': (11, 2),
+                'C': (0, 4), 'D': (6, 4),
+                'E' : (0, 9), 'F': (8, 6),
+                'G':(6, 9), 'H': (13, 9)
+                }
 dt = 0.15
-key_x = ('STN', 'Proto')
-key_y = ('FSI', 'Proto')
+key_x = ('Proto', 'STN')
+key_y = ('D2', 'FSI')
 name_list = ['D2', 'FSI', 'Proto', 'STN']
 xlabel = r'$G_{STN-Proto}$'
 markerstyle_list = ['o', 'o', 's', 'o']
@@ -6813,22 +6820,23 @@ for name in name_list:   ####### averaged multiprocessing results
 
 
 
-f_list = data['D2', 'f'][0,0,0,:]
-plot_spec_as_surf(data['g']['Proto','STN'], 
-                  f_list[f_list < 80], 
-                  np.average(
-                      data['Proto', 'pxx'][-1,:,:,:], axis = 1).T[f_list < 80,:],
-                  xlabel = r'$G_{STN \; Loop}$', ylabel = 'Frequency (Hz)', 
-                  zlabel = 'Normalized Power' + r'$(\times 10^{-2})$')
+# f_list = data['D2', 'f'][0,0,0,:]
+# fig_PSD_surf,_ = plot_spec_as_surf(data['g']['Proto','STN'], 
+#                   f_list[f_list < 80], 
+#                   np.average(
+#                       data['Proto', 'pxx'][-1,:,:,:], axis = 1).T[f_list < 80,:],
+#                   xlabel = r'$G_{STN \; Loop}$', ylabel = 'Frequency (Hz)', 
+#                   zlabel = 'Normalized Power' + r'$(\times 10^{-2})$')
+# save_pdf_png(fig, filepath.split('.')[0] + '_' + param + '_PSD_surf', size = (.8 * n_x + 1, .8 * n_y))
 
 
 fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
                     size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-                    annotate = False, ann_name='D2',  tick_size = 18, plot_acc_to_sig = False)
+                    annotate = False, ann_name='Proto',  tick_size = 18, plot_acc_to_sig = False)
 
 
-fig_exmp = plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
-save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
+# fig_exmp = plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
+# save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
 
 
 fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
@@ -6842,33 +6850,39 @@ def get_specs_of_mp(ex_filename, path, name = 'FSI'):
     
     filepath = os.path.join(path, 'Beta_power', ex_filename + '0.pkl')
     data  = load_pickle(filepath)
-    n_iter, n_iter_2, n_run, len_f_pxx = data[(name, 'pxx')].shape
-    n_iter, n_iter_2, n_run, duration = data[(name, 'pop_act')].shape
+    n_iter_l_1, n_iter_l_2, n_run, len_f_pxx = data[(name, 'pxx')].shape
+    n_iter_l_1, n_iter_l_2, n_run, duration = data[(name, 'pop_act')].shape
     
-    return n_iter, n_iter_2, duration, n_run, len_f_pxx
+    return n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx
 
 def create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_pxx, duration, 
                                          n_iter_each_loop, loop_key_lists):
     
     data = {}
-    n_iter, n_iter_2 = n_iter_each_loop
+    n_iter_l_1, n_iter_l_2 = n_iter_each_loop
     
     for name in name_list:
-        data[(name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
-        data[(name, 'pop_act')] = np.zeros((n_iter, n_iter_2,n_run,  duration))
-        data[(name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
+        data[(name, 'base_freq')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run))
+        data[(name, 'pop_act')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run,  duration))
+        data[(name, 'peak_significance')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
         
         if find_phase:
-            data[(name, 'rel_phase_hist')] = np.zeros((n_iter, n_iter_2, n_run, 2, n_phase_bins-1))
-            data[(name, 'rel_phase')] = np.zeros((n_iter, n_iter_2, n_run))
+            data[(name, 'rel_phase_hist')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, 2, n_phase_bins-1))
+            data[(name, 'rel_phase')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run))
     
-        data[(name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
-        data[(name, 'f')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        data[(name, 'pxx')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        data[(name, 'peak_significance_all_runs')] = np.zeros((n_iter, n_iter_2))
-        data[(name, 'peak_freq_all_runs')] = np.zeros((n_iter, n_iter_2))
-        data[(name, 'power_all_runs')] = np.zeros((n_iter, n_iter_2, 3))
+        data[(name, 'base_beta_power')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, 3))
+        data[(name, 'f')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, len_f_pxx))
+        data[(name, 'pxx')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, len_f_pxx))
+        data[(name, 'peak_significance_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2))
+        data[(name, 'peak_freq_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2))
+        data[(name, 'power_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2, 3))
         
+    data = create_g_in_data(data, loop_key_lists, n_iter_each_loop)
+
+    return data
+
+def create_g_in_data(data, loop_key_lists, n_iter_each_loop):
+ 
     data['g'] = {}
     n_loops = len(loop_key_lists)
     
@@ -6877,21 +6891,26 @@ def create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_p
         loop_keys = loop_key_lists[loop]
         for key in loop_keys:
             data['g'][key] = np.zeros(n_iter_each_loop[loop])
-            
-        
     return data
 
-def save_g_to_data_all(loop_keys, n_iter, iter_1, data):
+def get_the_other_loop_ind(changing_loop_ind):
+    if changing_loop_ind == 1:
+        return 0
+    else:
+        return 1
     
-    for key in loop_keys[0]:
-        data_all['g'][key][iter_1: iter_1 + n_iter]  = data['g'][key]
+def save_g_to_data_all(loop_keys, n_iter, this_iter, data, changing_loop_ind = 0):
     
-    for key in loop_keys[1]:
+    for key in loop_keys[changing_loop_ind]:
+        data_all['g'][key][this_iter: this_iter + n_iter]  = data['g'][key]
+    
+    for key in loop_keys[get_the_other_loop_ind(changing_loop_ind)]:
         data_all['g'] [key] = data['g'][key]
         
     return data_all
 
-def merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, loop_keys, find_phase = False):
+def merge_mp_data(data_all, ex_filename, path, n_iter_mp, n_mp, loop_keys, find_phase = False, 
+                  changing_loop_ind = 0):
     
     for mp in range(n_mp):
 
@@ -6900,70 +6919,109 @@ def merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, loop_keys
         filepath = os.path.join(path, 'Beta_power', filename)
         data  = load_pickle(filepath)
         
-        iter_1 = n_iter * mp
+        this_iter = n_iter_mp * mp
         
         for name in name_list:
-            
-            if (name, 'peak_significance') in data:
-                
-                data_all[(name, 'peak_significance')][iter_1: iter_1 + n_iter, :, :] =data [(name, 'peak_significance')]
-            
-            if (name, 'rel_phase_hist') in data:
-                
-                data_all[(name, 'rel_phase_hist')][iter_1: iter_1 + n_iter, :, :, :] =  data[(name, 'rel_phase_hist')]  
-                data_all[(name, 'rel_phase')][iter_1: iter_1 + n_iter, : ] =  data[(name, 'rel_phase')] 
-            
-            data_all[(name, 'pop_act')][iter_1: iter_1 + n_iter, :, :] = data[(name, 'pop_act')] 
-            data_all[(name, 'base_freq')][iter_1: iter_1 + n_iter, :] = data[(name, 'base_freq')] 
+            if changing_loop_ind == 0:
+                data_all = fill_data_all_first_loop_mp(this_iter, n_iter_mp, data_all, data, name)
+            if changing_loop_ind == 1:
+                data_all = fill_data_all_second_loop_mp(this_iter, n_iter_mp, data_all, data, name)
 
-            data_all[(name, 'base_beta_power')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'base_beta_power')]
-            data_all[(name, 'f')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'f')] 
-            data_all[(name, 'pxx')][iter_1: iter_1 + n_iter, :, :, :]  = data[(name, 'pxx')] 
-
-        data_all = save_g_to_data_all(loop_keys, n_iter, iter_1, data)
+        data_all = save_g_to_data_all(loop_keys, n_iter_mp, this_iter, data, changing_loop_ind = changing_loop_ind )
         
     return data_all
 
-ex_filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_'
+def fill_data_all_first_loop_mp(this_iter, n_iter, data_all, data, name):
+    
+    if (name, 'peak_significance') in data:
+        
+        data_all[(name, 'peak_significance')][this_iter: this_iter + n_iter, :, :] =data [(name, 'peak_significance')]
+    
+    if (name, 'rel_phase_hist') in data:
+        
+        data_all[(name, 'rel_phase_hist')][this_iter: this_iter + n_iter, :, :, :] =  data[(name, 'rel_phase_hist')]  
+        data_all[(name, 'rel_phase')][this_iter: this_iter + n_iter, : ] =  data[(name, 'rel_phase')] 
+    
+    data_all[(name, 'pop_act')][this_iter: this_iter + n_iter, :, :] = data[(name, 'pop_act')] 
+    data_all[(name, 'base_freq')][this_iter: this_iter + n_iter, :] = data[(name, 'base_freq')] 
+
+    data_all[(name, 'base_beta_power')][this_iter: this_iter + n_iter, :, :, :]  = data[(name, 'base_beta_power')]
+    data_all[(name, 'f')][this_iter: this_iter + n_iter, :, :, :]  = data[(name, 'f')] 
+    data_all[(name, 'pxx')][this_iter: this_iter + n_iter, :, :, :]  = data[(name, 'pxx')] 
+    
+    return data_all
+
+
+def fill_data_all_second_loop_mp(this_iter, n_iter, data_all, data, name):
+    
+    if (name, 'peak_significance') in data:
+        
+        data_all[(name, 'peak_significance')][:, this_iter: this_iter + n_iter, :] = data [(name, 'peak_significance')]
+    
+    if (name, 'rel_phase_hist') in data:
+        
+        data_all[(name, 'rel_phase_hist')][:, this_iter: this_iter + n_iter, :, :] =  data[(name, 'rel_phase_hist')]  
+        data_all[(name, 'rel_phase')][:, this_iter: this_iter + n_iter] =  data[(name, 'rel_phase')] 
+    
+
+    data_all[(name, 'pop_act')][:, this_iter: this_iter + n_iter, :] = data[(name, 'pop_act')] 
+    data_all[(name, 'base_freq')][:, this_iter: this_iter + n_iter] = data[(name, 'base_freq')] 
+
+    data_all[(name, 'base_beta_power')][:, this_iter: this_iter + n_iter, :, :]  = data[(name, 'base_beta_power')]
+    data_all[(name, 'f')][:, this_iter: this_iter + n_iter, :, :]  = data[(name, 'f')] 
+    data_all[(name, 'pxx')][:, this_iter: this_iter + n_iter, :, :]  = data[(name, 'pxx')] 
+    
+    return data_all
 
 name1 = 'FSI'  
 name2 = 'D2'  
 name3 = 'Proto'
 name4 = 'STN'
 name_list = [name1, name2, name3, name4]
+n_mp = 7
+find_phase = False ; n_phase_bins = 180
 
 loop_key_lists = [ [(name2, name1),
                     (name3, name2),
-                    (name1, name3)], [(name4, name3), (name3, name4)]]
+                    (name1, name3)], 
+                  [(name4, name3), (name3, name4)]]
 
-
-n_iter, n_iter_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
-n_mp = 7
-n_iter_each_loop = [n_iter * n_mp, n_iter_2]
-find_phase = False ; n_phase_bins = 180
-
+ex_filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_'
 t_sim = 2300
 dt = 0.15
+changing_loop_ind = 0
+n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
 
+ex_filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_'
+t_sim = 5300
+dt = 0.2
+changing_loop_ind = 1
+n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
 
+n_iter_each_loop_each_file = [n_iter_l_1, n_iter_l_2 ]
+mp_to_multiply = np.ones(2); mp_to_multiply[changing_loop_ind] = n_mp
+n_iter_each_loop = (n_iter_each_loop_each_file * mp_to_multiply).astype(int)
 
 data_all = create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_pxx, duration, 
                                                 n_iter_each_loop, loop_key_lists)
 
-data_all = merge_mp_data(data_all, ex_filename, path, n_iter, n_mp, n_iter_2, loop_key_lists, find_phase = False)
-
+data_all = merge_mp_data(data_all, ex_filename, path, n_iter_each_loop_each_file[changing_loop_ind], n_mp, loop_key_lists, 
+                         find_phase = False,changing_loop_ind  = changing_loop_ind)
 pickle_obj(data_all,os.path.join(path, 'Beta_power', ex_filename + 'all.pkl'))
 
 
 # %% average multiple runs 
 
-#%% average
+# %% average
 name1 = 'FSI'  
 name2 = 'D2'  
 name3 = 'Proto'
 name4 = 'STN'
 name_list = [name1, name2, name3, name4]
+
 filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_all.pkl'
+filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_all.pkl'
+
 filepath = os.path.join(path, 'Beta_power', filename)
 data_all  = load_pickle(filepath)
 n_run = data_all[(name1, 'f')].shape[2]
