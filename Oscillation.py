@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import os
-
+from itertools import chain
+import xlsxwriter
 root = '/home/shiva/BG_Oscillations'
 # root =  r"C:/Users/azizp/BG_Oscillations"
 # root = '/Users/apple/BG_Oscillations'
@@ -1492,6 +1493,110 @@ plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 # nucleus.smooth_pop_activity(dt, window_ms = 5)
 fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt,
            D_mvt, ax=None, title_fontsize=15, title=init_method)
+
+# %% Nico's data D2 and STN stim
+
+
+def plot_fr_response(FR_df, filename, color_dict, xlim = None, stim_duration = 10):
+    
+    fig, ax = plt.subplots()
+    
+    for name in list(FR_df.keys()):
+        
+        time = FR_df[name]['Time'] * 1000
+        fr = FR_df[name].drop(columns = ['Time'])
+        fr_mean = fr.mean(axis=1)
+        fr_std = fr.std(axis=1)
+        n_cells = len(FR_df[name].columns) - 1
+        ax.plot(time, fr_mean, c = color_dict[name], label = name + ' n =' + str(n_cells))
+        ax.fill_between(time, fr_mean - fr_std, fr_mean + fr_std, color = color_dict[name], alpha = 0.1)
+        
+    title = filename.split('.')[0].split('_')[-1] 
+    ax.set_title(title, fontsize = 15)
+    ax.legend(fontsize = 10, frameon = False)
+    ax.set_xlabel('Time (ms)', fontsize = 14)
+    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
+    ax.axvspan(0, stim_duration, alpha=0.2, color='grey')
+    
+    if xlim == None:
+        xlim = get_max_min_from_column_in_df_dict(FR_df, 'Time') *1000
+        
+    ax.set_xlim(xlim)
+    remove_frame(ax)
+    return fig, ax
+
+def merge_labeled_non_labeled_data(filepath_list, sheet_name_extra_list, merged_filepath):
+    
+    FR_df = {}
+    
+    for i, filepath in enumerate(filepath_list):
+        xls = pd.ExcelFile(filepath)
+        sheet_name_list = xls.sheet_names
+
+        for sheet_name in sheet_name_list:
+            
+            name = sheet_name.split('_')[-1].replace( sheet_name_extra_list[i], '')
+            print(name)
+
+            if i == 0: # to create the df template to later be concatenated
+                
+                FR_df[name] = pd.read_excel(xls, sheet_name, header = [0])
+                
+            else:
+                
+                FR_df[name] = pd.concat( [ FR_df[name], pd.read_excel(xls, sheet_name, header = [0]).drop(columns = 'Time')], 
+                                        axis = 1)
+
+    save_df_dict_to_excel_sheets(FR_df, merged_filepath)
+    return 0
+
+def decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, root):
+    
+    if plot_what == 'non-labeled':
+        sheet_name_extra = 'Response'
+        filename = filename_non_labeled
+        filepath = os.path.join( root, 'Exp_Stim_data', filename)
+    
+    elif plot_what == 'labeled':
+        sheet_name_extra = 'LabelResponse'
+        filename = filename_labeled
+        filepath = os.path.join( root, 'Exp_Stim_data', filename)
+    ###################### labeled and non-labeled merged
+    elif plot_what == 'merged':
+        filename_list = [filename_non_labeled, filename_labeled] 
+        
+        filepath_list = [os.path.join( root, 'Exp_Stim_data', filename) for filename in filename_list]
+        
+        merged_filepath= os.path.join( root, 'Exp_Stim_data', longestSubstringFinder(*filename_list) + 'merged.xlsx')
+        filepath = merged_filepath
+        sheet_name_extra = ''
+        merge_labeled_non_labeled_data(filepath_list, 
+                                        ['Response', 'LabelResponse'], 
+                                        merged_filepath = merged_filepath)
+        
+    return filepath, sheet_name_extra
+
+
+color_dict['MSNs'] = color_dict['D2']
+plot_what = 'labeled'
+plot_what = 'non-labeled'
+plot_what = 'merged'
+
+##################### Labeled/or non-labeld
+filename_non_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_NotLabelled.xlsx'
+filename_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_OnlyLabelled.xlsx'
+
+filename_non_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_NotLabelled.xlsx'
+filename_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
+
+##################### Read and plot
+filepath, sheet_name_extra = decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, root)
+FR_df = read_sheets_of_xls_data(filepath, sheet_name_extra = sheet_name_extra)
+fig, ax = plot_fr_response(FR_df, filepath, color_dict)
+save_pdf_png(fig, filepath.split('.')[0],
+              size=(5, 3))
+    
+    
 # %% plot fitted response curve different noise
 plt.close('all')
 name = 'Proto'

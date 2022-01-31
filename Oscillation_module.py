@@ -6720,6 +6720,51 @@ def find_AUC_of_input(name,path,poisson_prop,gain, threshold, neuronal_consts,ta
     return AUC, AUC_std
 
 
+def save_df_dict_to_excel_sheets(df_dict, filepath):
+    writer = pd.ExcelWriter(filepath, engine='xlsxwriter')
+
+    for df_name, df in df_dict.items():
+        
+        df.to_excel(writer, sheet_name=df_name)
+        
+    writer.save()
+
+def longestSubstringFinder(string1, string2):
+    answer = ""
+    len1, len2 = len(string1), len(string2)
+    for i in range(len1):
+        match = ""
+        for j in range(len2):
+            if (i + j < len1 and string1[i + j] == string2[j]):
+                match += string2[j]
+            else:
+                if (len(match) > len(answer)): answer = match
+                match = ""
+    return answer
+
+
+def read_sheets_of_xls_data(filepath, sheet_name_extra = 'Response'):
+    
+    FR_df = {}
+    xls = pd.ExcelFile(filepath)
+    sheet_name_list = xls.sheet_names
+    for sheet_name in sheet_name_list:
+        
+        name = sheet_name.split('_')[-1].replace( sheet_name_extra, '')
+        FR_df[name] = pd.read_excel(xls, sheet_name, header = [0])
+        
+    return FR_df
+
+from itertools import chain
+
+def get_max_min_from_column_in_df_dict(df_dict, colname):
+    
+    ''' get max and min within a certain column among dfs of a dictionary '''
+    
+    maximum = max(chain.from_iterable( df[colname] for df in df_dict.values()))
+    minimum = min(chain.from_iterable( df[colname] for df in df_dict.values()))
+    return np.array([minimum, maximum])
+
 def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
                    size_list, xlabel, ylabel, title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
                    annotate = True, ann_name = 'Proto', clb_tick_size  = 20, plot_acc_to_sig = True):
