@@ -768,6 +768,7 @@ class Nucleus:
                 D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
 
         else:  # for the firing rate model the ext input is reported as the firing rate of the ext pop needed to provide the desired firing rate.
+            
             I_syn = self.incoming_rest_I_syn(proj_list, A, dt)
 
             # print('I_syn', np.average(I_syn))
@@ -4472,20 +4473,19 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
     for t in t_list:
         for nuclei_list in nuclei_dict.values():
             
-            k = 0
-            for nucleus in nuclei_list:
-                k += 1
+            for k, nucleus in enumerate(nuclei_list):
+
 		#        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement
                 mvt_ext_inp = np.ones((nucleus.n, 1)) * \
 				                      nucleus.external_inp_t_series[t]  # movement added
                 if nucleus.neuronal_model == 'rate':  # rate model
                     nucleus.calculate_input_and_inst_act(
-					    t, dt, receiving_class_dict[(nucleus.name, str(k))], mvt_ext_inp)
+					    t, dt, receiving_class_dict[(nucleus.name, str(k + 1))], mvt_ext_inp)
                     nucleus.update_output(dt)
                 if nucleus.neuronal_model == 'spiking':  # QIF
                     
                     nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k))], mvt_ext_inp)
+					    nucleus.name, str(k + 1))], mvt_ext_inp)
 					
     if nucleus.neuronal_model == 'spiking':
         nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
@@ -4862,32 +4862,37 @@ def run_with_transient_external_input_including_transmission_delay_collective(re
     min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
     
     # synaptic trans delay relative to the nucleus with minimum delay.
-    t_start_inp_dict = {k: t_transient + v -
-	    syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()}
+    t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
+                        for k, v in syn_trans_delay_dict.items()}
+    print(t_start_inp_dict)
     t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
+    
     start = timeit.default_timer()
 
     for t in t_list:
+        
         # if it's the start of external input to (a) nucleus(ei)
         if t in list(t_start_inp_dict.values()):
-            key = get_corr_key_to_val(t_start_inp_dict, t)
+            key_start = get_corr_key_to_val(t_start_inp_dict, t)
 
-            nuclei_dict = selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict)
+            nuclei_dict = selective_additive_ext_input(nuclei_dict, key_start, ext_inp_dict)
 
-            print("stim start at {} for {} average is {}".format(t*dt, key , 
-                                                           np.average(nuclei_dict[key[0]][0].rest_ext_input)))
+            print("stim start at {} for {} average is {}".format(t * dt, key_start , 
+                                                                 np.average(nuclei_dict[key_start[0]][0].rest_ext_input)))
 
         # if it's the end of external input to (a) nucleus(ei)
         if t in list( t_end_inp_dict.values() ):
-            key = get_corr_key_to_val(t_end_inp_dict, t)
+            
+            key_end = get_corr_key_to_val(t_end_inp_dict, t)
             nuclei_dict = selective_reset_ext_input_collective(nuclei_dict, 
-                                     get_corr_key_to_val(t_end_inp_dict, t), 
-                                     A)
-            print("stim end at {} for {} average is {}".format(t*dt, key , 
-                                                           np.average(nuclei_dict[key[0]][0].rest_ext_input)))
+                                                               key_end, A)
+            
+            print("stim end at {} for {} average is {}".format(t * dt, key_end , 
+                                                           np.average(nuclei_dict[key_end[0]][0].rest_ext_input)))
         for nuclei_list in nuclei_dict.values():
             for k, nucleus in enumerate(nuclei_list):
-                nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k + 1))])
+                nucleus.solve_IF(t, dt, receiving_class_dict[(nucleus.name,str(k + 1))])
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
     stop = timeit.default_timer()
     print("t = ", stop - start)
@@ -4901,36 +4906,46 @@ def cal_average_activity(nuclei_dict, n_run, avg_act):
                 avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
     return avg_act
 
-def average_multi_run_collective(receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict,  A, G,N,N_real, K_real, syn_trans_delay_dict, poisson_prop, 
-                                 list_of_nuc_with_trans_inp, FR_ext_all_nuclei, n_FR, all_FR_list, end_of_nonlinearity,
+def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
+                                 syn_trans_delay_dict, poisson_prop, 
+                                 list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
                                  t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None,
                                  ext_inp_dict = None, noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
-                                 color_dict = None):
+                                 color_dict = None, state = 'rest'):
     
-    avg_act = {nuc: np.zeros((len(t_list),len(nuclei_dict[nuc]))) for nuc in list( nuclei_dict.keys() ) }
+    avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
+               for nuc in list( nuclei_dict.keys() ) }
+    
     for i in range(n_run):
-        nuclei_dict = run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
-                                                                              A, syn_trans_delay_dict,
-                                                                              t_transient=t_transient, duration=duration, ext_inp_dict = ext_inp_dict)  
+        
+        nuclei_dict = run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, 
+                                                                                                t_list, dt, nuclei_dict,
+                                                                                                A, syn_trans_delay_dict,
+                                                                                                t_transient = t_transient, 
+                                                                                                duration = duration, 
+                                                                                                ext_inp_dict = ext_inp_dict)  
         # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start =0,
         #     plt_mvt = False, include_FR=False)#, ylim = [0,150])
 
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                  normalize_G_by_N= True) 
         
-        receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR,  
-                                          end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory = False, method = 'collective', 
-                                          use_saved_FR_ext= True,
-                                          FR_ext_all_nuclei_saved = FR_ext_all_nuclei, 
-                                          normalize_G_by_N= False)
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+                                              A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                              reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
+                                              normalize_G_by_N= True) 
+        
+        receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, 
+                                                               receiving_pop_list, nuclei_dict,t_list, 
+                                                               all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, 
+                                                               end_of_nonlinearity = end_of_nonlinearity, 
+                                                               set_FR_range_from_theory = False, method = 'collective', 
+                                                               use_saved_FR_ext= True,
+                                                               normalize_G_by_N= False, save_FR_ext=False,
+                                                               state = state)
 
 
         print(i+1,'from',n_run)
+        
     return avg_act
 
 def average_multi_run(receiving_class_dict,t_list, dt, nuclei_dict, rest_init_filepaths,  A,
@@ -4963,23 +4978,35 @@ def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_in
         for nucleus in nuclei_list:
             if nucleus.name in list_of_nuc_with_trans_inp:
                 
-                ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'], ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
+                ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'] * np.average( nucleus.rest_ext_input), 
+                                           ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
                 nucleus.additive_ext_input(ext_inp)
+                
     return nuclei_dict
 
 def selective_reset_ext_input(nuclei_dict, init_filepaths, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
+
     set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp =list_of_nuc_with_trans_inp, filepaths = init_filepaths) 
+
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+
             if nucleus.name in list_of_nuc_with_trans_inp:
+
                 nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
 
-def selective_reset_ext_input_collective(nuclei_dict, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
+def selective_reset_ext_input_collective(nuclei_dict, list_of_nuc_with_trans_inp, A, 
+                                         A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
+
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+
             if nucleus.name in list_of_nuc_with_trans_inp:
+
                 nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+
     return nuclei_dict
+
 def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     ''' a gradually increasing deacreasing input mimicing movement'''
 
@@ -5140,7 +5167,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-    ax.set_xlim(plot_start * dt - 20, plot_end * dt + 20) 
+    ax.set_xlim(plot_start * dt , plot_end * dt ) 
     
     ax.tick_params(axis='y', length = tick_length)
     ax.tick_params(axis='x', length = tick_length)
