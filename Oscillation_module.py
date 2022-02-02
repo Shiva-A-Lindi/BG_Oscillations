@@ -5167,7 +5167,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-    ax.set_xlim(plot_start * dt , plot_end * dt ) 
+    ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
     
     ax.tick_params(axis='y', length = tick_length)
     ax.tick_params(axis='x', length = tick_length)
