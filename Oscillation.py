@@ -284,8 +284,9 @@ tau = {
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
     ('STN', 'Proto'): {'rise': [1.1], 'decay': [7.8]},
-    # Baufreton et al. 2009/ decay=6.48 Fan et. al 2012 in vitro 
-    # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]}, # Baufreton et al. 2009, decay=6.48 Fan et. al 2012, GABA-b from Gertsner
+    # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
+    # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
+    # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
     ('Proto', 'STN'): {'rise': [0.2], 'decay': [6]},  
     # Glut estimate
     # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.225
@@ -1518,9 +1519,9 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt,
 # %% Nico's data D2 and STN stim
 
 
-def plot_fr_response(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10):
+def plot_fr_response(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, ax = None):
     
-    fig, ax = plt.subplots()
+    fig, ax = get_axes( ax )
     
     for name in list(FR_df.keys()):
         
@@ -4286,7 +4287,7 @@ name1 = 'Proto'
 name2 = 'STN'
 name3 = 'Arky'
 state = 'trans'
-name_list = [name1, name2, name3]
+name_list = [name1, name2]#, name3]
 g = -0.008
 G = {}
 
@@ -4305,11 +4306,11 @@ G = {}
 
 plot_start = 300
 plot_start_raster = 500
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)] = -0.0001, 0.02, -0.001  # same strength GABA_a and b
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)] = -0.0001, 0.015, -0.001  # same strength GABA_a and b
 
 G = {k: v * K[k] for k, v in G.items()}
 
-tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
+# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -4356,12 +4357,14 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 t_transient = 350  # ms
 duration = 10
-n_run = 10
-duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
+n_run = 5
+duration_fft = [int((t_transient + 100)/dt), int(t_sim/dt)]
 
 list_of_nuc_with_trans_inp = ['STN', 'D2']
-ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1}
-                }
+ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1} } # instant increase
+
+ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1} } # expometial tau 1.2
+ext_inp_dict = {'STN': {'mean' : 150., 'sigma': .5 * .1} } # expometial tau 6
 
 
 syn_trans_delay_dict = {k[0]: v for k,
@@ -4376,7 +4379,8 @@ avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class
                                        list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
                                        t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
                                        A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
-                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state)
+                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state,
+                                       exponential_ext_inp= True,  tau_rise = 5000, tau_decay = 50)
 
 
 
@@ -4389,17 +4393,29 @@ for nuclei_list in nuclei_dict.values():
         nucleus.pop_act = avg_act[nucleus.name][:, k]
 
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=1)
-fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None, title_fontsize=20, plot_start=plot_start, 
+fig = plot(nuclei_dict, color_dict, dt, t_list - 350 / dt, Act[state], A_mvt, t_mvt, D_mvt, ax=None, title_fontsize=20, plot_start=-50, 
            title="", plt_mvt=False, include_FR=False , ylim = [-10,160])
 
 ax = fig.gca()
-ax.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
-ax.axvline(t_transient, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-ax.axvline(t_transient + duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-ax.axhline(0, c= 'grey', ls = ':')
-save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_' + str(duration) +'ms_onto_Proto' + str(n_run) + '_run'), size = (5,3))
+# ax.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
+# ax.axvline(t_transient, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+# ax.axvline(t_transient + duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+# ax.axhline(0, c= 'grey', ls = ':')
+# save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_' + str(duration) +'ms_onto_Proto' + str(n_run) + '_run'), size = (5,3))
+filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_merged.xlsx'
+FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
 
+plot_fr_response(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, ax = ax)
+#%% 
 
+x = np.linspace(0, 5000, num = 5000)
+
+y = (1- np.exp(-( (x) / 1000))) * (np.exp(-( (x) / 50)))
+
+# fig, ax = plt.subplots()
+ax.plot(x * .1, y/ np.trapz(y, x))
+
+# ax.plot(500- x * np.log(x/ ( 100 + x)))
 
 
 # %% effect of MC-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays of MC-STR and MC-STN single neuron

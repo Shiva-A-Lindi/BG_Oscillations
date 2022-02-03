@@ -342,7 +342,7 @@ class Nucleus:
     def cal_ext_inp(self, dt, t):
 
         # choose method of exerting external input from dictionary of methods
-        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt)
+        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[t]
         
         self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, dt,
                                                                             I_rise = self.I_rise['ext_pop', '1'],
@@ -484,13 +484,11 @@ class Nucleus:
     def solve_IF_without_syn_input(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
         self.cal_ext_inp(dt, t)
-        # print('I_ext = ', np.average(self.I_syn['ext_pop', '1']) * dt )
         synaptic_inputs = np.zeros(self.n)
         self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
         spiking_ind = self.find_spikes(t)
         # self.reset_potential(spiking_ind)
         self.reset_potential_with_interpolation(spiking_ind, dt)
-        # self.cal_population_activity(dt, t)
 
     def solve_IF(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
@@ -501,7 +499,6 @@ class Nucleus:
         # self.reset_potential(spiking_ind)
         self.reset_potential_with_interpolation(spiking_ind,dt)
         
-        # self.cal_population_activity(dt, t)
         # self.update_representative_measures(t)
         # if self.keep_mem_pot_all_t:
         #     self.all_mem_pot[:, t] = self.mem_potential
@@ -975,17 +972,21 @@ class Nucleus:
         return FR_sim
 
     def run(self, dt, t_list, receiving_class_dict):
+        
         for t in t_list:  # run temporal dynamics
+        
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, str(self.population_num))])
             
     def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
+        
         if isinstance(neurons_ind, str)  and neurons_ind == 'all':    
             spike_times = np.where(self.spikes == 1)[1]
         elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
             spike_times = np.where(self.spikes[neurons_ind,:] == 1)[1]
         else:
             raise("Invalid input for 'ind_neurons'. It has to be either 'all' or the list of indices of neurons to be included.")
+            
         return spike_times[spike_times > start ] - start
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0):
@@ -4466,11 +4467,13 @@ def cal_population_activity_all_nuc_all_t(nuclei_dict, dt):
             
     return nuclei_dict
 
-def run(receiving_class_dict, t_list, dt, nuclei_dict):
 
-    start = timeit.default_timer()
-
+def run_rate_model(receiving_class_dict, t_list, dt, nuclei_dict):
+    
+    ''' run temporal dynimcas of the rate model'''
+    
     for t in t_list:
+        
         for nuclei_list in nuclei_dict.values():
             
             for k, nucleus in enumerate(nuclei_list):
@@ -4478,25 +4481,51 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
 		#        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement
                 mvt_ext_inp = np.ones((nucleus.n, 1)) * \
 				                      nucleus.external_inp_t_series[t]  # movement added
-                if nucleus.neuronal_model == 'rate':  # rate model
-                    nucleus.calculate_input_and_inst_act(
+                nucleus.calculate_input_and_inst_act(
 					    t, dt, receiving_class_dict[(nucleus.name, str(k + 1))], mvt_ext_inp)
-                    nucleus.update_output(dt)
-                if nucleus.neuronal_model == 'spiking':  # QIF
-                    
-                    nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k + 1))], mvt_ext_inp)
-					
-    if nucleus.neuronal_model == 'spiking':
-        nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
-        
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
+                nucleus.update_output(dt)
+
     return nuclei_dict
 
-def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict, DD_init_filepaths, K_DD, N, N_real, A_DD, A_mvt, D_mvt, t_mvt, t_transition=None):
+def run_spiking_model(receiving_class_dict, t_list, dt, nuclei_dict):
+    
+    ''' run temporal dynimcas of the spiking neural net'''
+    
+    for t in t_list:
+        
+        for nuclei_list in nuclei_dict.values():
+            
+            for k, nucleus in enumerate(nuclei_list):
+
+                nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k + 1))])
+    
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
+
+    return nuclei_dict
+
+run_dyn_func_dict = {'rate': run_rate_model, 'spiking': run_spiking_model}
+
+def run(receiving_class_dict, t_list, dt, nuclei_dict):
+    
+    ''' run temporal dynamics based on the model'''
+    
+    start = timeit.default_timer()
+
+    model = nuclei_dict[ list(nuclei_dict.keys()) [0]] [0]
+    nuclei_dict = run_dyn_func_dict[model](receiving_class_dict, t_list, dt, nuclei_dict)
+    
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    
+    return nuclei_dict
+
+def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict, DD_init_filepaths, K_DD, N, N_real, 
+                                   A_DD, A_mvt, D_mvt, t_mvt, t_transition=None):
+    
 	if t_transition == None:
 		t_transition = t_list[int(len(t_list) / 3)]
+        
 	start = timeit.default_timer()
 
 	for t in t_list:
@@ -4851,7 +4880,9 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
     
     return nuclei_dict
 
-def run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+
+
+def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
                                                                               A, syn_trans_delay_dict,
                                                                               t_transient=10, duration=10, ext_inp_dict = None):
     
@@ -4864,11 +4895,10 @@ def run_with_transient_external_input_including_transmission_delay_collective(re
     # synaptic trans delay relative to the nucleus with minimum delay.
     t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
                         for k, v in syn_trans_delay_dict.items()}
-    print(t_start_inp_dict)
     t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
-    
     start = timeit.default_timer()
 
+    
     for t in t_list:
         
         # if it's the start of external input to (a) nucleus(ei)
@@ -4899,6 +4929,60 @@ def run_with_transient_external_input_including_transmission_delay_collective(re
     
     return nuclei_dict
 
+def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
+                                             t_start_inp_dict, dt, duration = 10):
+    
+    list_of_nuc_with_trans_inp = list(t_start_inp_dict.keys())
+
+    for name in list_of_nuc_with_trans_inp:
+        
+        t_start = t_start_inp_dict[name]
+        t_list_trimmed = t_list[ t_start: ]
+        nucleus = nuclei_dict[name][0]
+        
+        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * np.average(nucleus.rest_ext_input ) * \
+                                                                                (1- np.exp(-( t_list_trimmed - t_start)/ tau_rise )) * \
+                                                                                (np.exp(-( t_list_trimmed - t_start)/ tau_decay))
+                                                                                
+        fig, ax = plt.subplots()
+        ax.plot(t_list * dt, nucleus.external_inp_t_series)
+        ax.axvspan(t_start* dt, (t_start + duration) * dt, alpha=0.2, color='yellow')
+
+    return nuclei_dict
+
+def run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+                                                                    A, syn_trans_delay_dict, tau_rise = 50, tau_decay = 50,
+                                                                    t_transient=10, duration=10, ext_inp_dict = None):
+    
+    '''
+    		run normaly til "t_transient" then exert an external transient input ( as an exponential rise and decay) 
+            to the concerned nuclei then resume to normal state until the end of simulation.
+    		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to 
+            different nuclei (e.g. MC to STN and MC to D2)
+    '''
+    min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
+    
+    # synaptic trans delay relative to the nucleus with minimum delay.
+    t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
+                        for k, v in syn_trans_delay_dict.items()}
+    t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
+    start = timeit.default_timer()
+
+    nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
+                                                           t_start_inp_dict, dt,  duration=10)
+    for t in t_list:
+        for nuclei_list in nuclei_dict.values():
+            for k, nucleus in enumerate(nuclei_list):
+                
+                nucleus.solve_IF(t, dt, receiving_class_dict[(nucleus.name,str(k + 1))])
+                
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
+
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    
+    return nuclei_dict
+
 def cal_average_activity(nuclei_dict, n_run, avg_act):
     
     for nuclei_list in nuclei_dict.values():
@@ -4907,25 +4991,34 @@ def cal_average_activity(nuclei_dict, n_run, avg_act):
     return avg_act
 
 def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
-                                 syn_trans_delay_dict, poisson_prop, 
-                                 list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
-                                 t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None,
-                                 ext_inp_dict = None, noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
-                                 color_dict = None, state = 'rest'):
+                                 syn_trans_delay_dict, poisson_prop, list_of_nuc_with_trans_inp, n_FR, all_FR_list, 
+                                 end_of_nonlinearity, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, 
+                                 t_mvt = None, ext_inp_dict = None, noise_amplitude = None, noise_variance = None, 
+                                 reset_init_dist = True, color_dict = None, state = 'rest', exponential_ext_inp = False,
+                                 tau_rise = 5, tau_decay = 10):
     
     avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
                for nuc in list( nuclei_dict.keys() ) }
     
     for i in range(n_run):
         
-        nuclei_dict = run_with_transient_external_input_including_transmission_delay_collective(receiving_class_dict, 
+        if exponential_ext_inp:
+            nuclei_dict = run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
+                                                                                        t_list, dt, nuclei_dict,
+                                                                                        A, syn_trans_delay_dict,
+                                                                                        t_transient = t_transient, 
+                                                                                        duration = duration, 
+                                                                                        ext_inp_dict = ext_inp_dict,
+                                                                                        tau_rise = tau_rise, tau_decay = tau_decay)  
+        else:
+            
+            nuclei_dict = run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
                                                                                                 t_list, dt, nuclei_dict,
                                                                                                 A, syn_trans_delay_dict,
                                                                                                 t_transient = t_transient, 
                                                                                                 duration = duration, 
                                                                                                 ext_inp_dict = ext_inp_dict)  
-        # fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title_fontsize=20, plot_start =0,
-        #     plt_mvt = False, include_FR=False)#, ylim = [0,150])
+
 
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
@@ -5015,13 +5108,13 @@ def mvt_grad_ext_input(D_mvt, t_mvt, delay, H0, t_series):
     H[ind] = 0
     return H
 
-def mvt_step_ext_input(D_mvt, t_mvt, delay, H0, t_series):
+def mvt_step_ext_input(D_mvt, t_mvt, delay, value, t_series):
     ''' step function returning external input during movment duration '''
     
-    H = H0*np.ones_like(t_series)
+    ext_add_inp = value * np.ones_like(t_series)
     ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
-    H[ind] = 0
-    return H
+    ext_add_inp[ind] = 0
+    return ext_add_inp
 
 def calculate_number_of_connections(N_sim,N_real,number_of_connection):
     
@@ -5708,16 +5801,18 @@ def G_sweep_title(G_dict, g_1, g_2):
                         list(G_dict.keys())[1][0] + "}$ =" + str(round(g_2, 2))
             )
     return title
-# def run_specific_g
+
 def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
     ''' make a list of classes that project to one class form the given list'''
     receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
     for key in receiving_class_dict.keys():
         receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
+        
     return receiving_class_dict
 
 
 def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end, cut_plateau_epsilon = 0.1):
+    
     def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
         ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
         fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
