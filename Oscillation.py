@@ -289,7 +289,7 @@ tau = {
     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
     ('Proto', 'STN'): {'rise': [0.2], 'decay': [6]},  
     # Glut estimate
-    # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.225
+    # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
     ('Proto', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 ( in thesis it was 2 and 10)
     ('Proto', 'D2'): {'rise': [0.8], 'decay': [6.13]},
@@ -1519,39 +1519,6 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt,
 # %% Nico's data D2 and STN stim
 
 
-def plot_fr_response(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, ax = None):
-    
-    fig, ax = get_axes( ax )
-    
-    for name in list(FR_df.keys()):
-        
-        time = FR_df[name]['Time'] * 1000
-        fr = FR_df[name].drop(columns = ['Time'])
-        fr_mean = fr.mean(axis=1)
-        print( name, ' rest firing rate = ', np.average( fr_mean[time < 0] ))
-        fr_std = fr.std(axis=1)
-        n_cells = len(FR_df[name].columns) - 1
-        ax.plot(time, fr_mean, c = color_dict[name], label = name + ' n =' + str(n_cells))
-        ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
-                        color = color_dict[name], alpha = 0.1)
-        
-    title = filename.split('.')[0].split('_')[-1] 
-    ax.set_title(title, fontsize = 15)
-    ax.legend(fontsize = 10, frameon = False)
-    ax.set_xlabel('Time (ms)', fontsize = 14)
-    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
-    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
-    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axhline(0, c= 'grey', ls = ':')
-
-    if xlim != None:
-        ax.set_xlim(xlim)
-    if ylim != None:
-        ax.set_ylim(ylim)
-
-    remove_frame(ax)
-    return fig, ax
 
 def merge_labeled_non_labeled_data(filepath_list, sheet_name_extra_list, merged_filepath):
     
@@ -1621,7 +1588,7 @@ ylim = (-5, 60)
 ##################### Read and plot
 filepath, sheet_name_extra = decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, root)
 FR_df = read_sheets_of_xls_data(filepath, sheet_name_extra = sheet_name_extra)
-fig, ax = plot_fr_response(FR_df, filepath, color_dict, ylim = ylim)
+fig, ax = plot_fr_response_from_experiment(FR_df, filepath, color_dict, ylim = ylim)
 save_pdf_png(fig, filepath.split('.')[0],
               size=(5, 3))
     
@@ -4273,7 +4240,8 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi=500, facecolor='
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
 # %% effect of transient increase in STN activity onto GPe (with/without GABA-B) collective
-plt.close('all')
+
+# plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
@@ -4306,12 +4274,15 @@ G = {}
 
 plot_start = 300
 plot_start_raster = 500
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)] = -0.0001, 0.015, -0.001  # same strength GABA_a and b
+g_SP = 0.028 ## # exponetial tau 6 merged
+
+g_SP = 0.018 ## # exponetial tau 6 merged
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)] = -0.0001, g_SP, -0.001  # same strength GABA_a and b
 
 G = {k: v * K[k] for k, v in G.items()}
 
-# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
-
+# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.041]}
+# T[('Proto', 'STN')] = 0.1
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
@@ -4357,44 +4328,42 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 t_transient = 350  # ms
 duration = 10
-n_run = 5
-duration_fft = [int((t_transient + 100)/dt), int(t_sim/dt)]
+n_run = 1
 
-list_of_nuc_with_trans_inp = ['STN', 'D2']
 ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1} } # instant increase
 
-ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1} } # expometial tau 1.2
-ext_inp_dict = {'STN': {'mean' : 150., 'sigma': .5 * .1} } # expometial tau 6
+ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1} } # exponetial tau 1.
+ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 merged
+tau_rise = 100; tau_decay = 5
+
+ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 only labeled
+tau_rise = 250; tau_decay = 4.
 
 
-syn_trans_delay_dict = {k[0]: v for k,
-                        v in T.items() if k[0] == 'STN' and k[1] == 'Ctx'}
+
 
 syn_trans_delay_dict = {'STN' : 0}
-# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
-# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
+
 
 avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
                                        Act[state], G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,
-                                       list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
+                                        n_FR, all_FR_list, end_of_nonlinearity,
                                        t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
                                        A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
                                        noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state,
-                                       exponential_ext_inp= True,  tau_rise = 5000, tau_decay = 50)
+                                       exponential_ext_inp= True,  tau_rise = tau_rise, tau_decay = tau_decay, plot = False)
 
 
 
-
-# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
-# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
 
 for nuclei_list in nuclei_dict.values():
     for k, nucleus in enumerate(nuclei_list):
         nucleus.pop_act = avg_act[nucleus.name][:, k]
 
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=1)
-fig = plot(nuclei_dict, color_dict, dt, t_list - 350 / dt, Act[state], A_mvt, t_mvt, D_mvt, ax=None, title_fontsize=20, plot_start=-50, 
-           title="", plt_mvt=False, include_FR=False , ylim = [-10,160])
+fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, t_transient / dt), Act[state], A_mvt, t_mvt, D_mvt, title_fontsize=20, plot_start= plot_start, 
+           title="", plt_mvt=False, include_FR=False , ylim = [-10,160], alpha = 0.2)
+
 
 ax = fig.gca()
 # ax.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
@@ -4402,15 +4371,29 @@ ax = fig.gca()
 # ax.axvline(t_transient + duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
 # ax.axhline(0, c= 'grey', ls = ':')
 # save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_' + str(duration) +'ms_onto_Proto' + str(n_run) + '_run'), size = (5,3))
+
+
+
+######## Plot experimental on top
 filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_merged.xlsx'
+proto_shift = -4.5
+sheet_name_extra = ''
+filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
+proto_shift = -5.8
+sheet_name_extra = 'Label'
 FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
 
-plot_fr_response(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, ax = ax)
-#%% 
+fig, ax = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
+                           ax = ax, time_shift_dict = {'STN': 0, 'Arky': 0, 'Proto': proto_shift}, sheet_name_extra = sheet_name_extra)
+
+ax.set_xlim(-15, 90)
+save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_onto_Proto' + str(n_run) + '_run_compared_with_experiment_' + filename.split('.')[0].split('_')[-1] ), size = (5,3))
+
+# %% exp rise and decay test
 
 x = np.linspace(0, 5000, num = 5000)
 
-y = (1- np.exp(-( (x) / 1000))) * (np.exp(-( (x) / 50)))
+y =  (1 -np.exp(-(x) / 10000000)) * (np.exp(- (x) / 200))
 
 # fig, ax = plt.subplots()
 ax.plot(x * .1, y/ np.trapz(y, x))
@@ -4679,7 +4662,7 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.1
-t_sim = 300 + 150 + 50
+t_sim = 500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -4688,22 +4671,10 @@ name2 = 'STN'  # recieving
 name3 = 'D2'
 name4 = 'Arky'
 state = 'trans'
-name_list = [name1, name2, name3, name4]
+name_list = [name1, name2, name3]#, name4]
 g = -0.005
 G = {}
 
-# syn_coef_GABA_b = 5
-# syn_component_weight = {
-#     ('D2', 'FSI'): [1],
-#     # the relative weight of the GABA-a and GABA-b components
-#     ('STN', 'Proto'): [1, syn_coef_GABA_b],
-#     ('Proto', 'STN'): [1],
-#     ('Proto', 'Proto'): [1, syn_coef_GABA_b],
-#     ('Proto', 'D2'): [1],
-#     ('FSI', 'Proto'): [1],
-#     ('Arky', 'Proto'): [1, syn_coef_GABA_b],
-#     ('D2', 'Arky'): [1]
-# }
 
 plot_start = 300
 plot_start_raster = 500
@@ -4758,51 +4729,64 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 t_transient = 350  # ms
 duration = 10
-n_run = 10
-duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
-
-list_of_nuc_with_trans_inp = ['STN', 'D2']
-ext_inp_dict = {'D2': {'mean' : 1, 'sigma': 1 * .1}}
-
-# def get_syn_trans_delay(T):
-
-#     syn_trans_delay_dict_STN = {
-#         k[0]: v for k, v in T.items() if k[0] == 'STN' and k[1] == 'Ctx'}
-#     syn_trans_delay_dict_STR = {
-#         k[0]: v for k, v in T.items() if k[0] == 'D2' and k[1] == 'Ctx'}
-#     syn_trans_delay_dict = {
-#         **syn_trans_delay_dict_STN, **syn_trans_delay_dict_STR}
-#     syn_trans_delay_dict = {k: v / dt for k, v in syn_trans_delay_dict.items()}
-#     return syn_trans_delay_dict
-
-
-# syn_trans_delay_dict = get_syn_trans_delay(T)
+n_run = 5
 
 syn_trans_delay_dict = {'D2': 0}
-# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
-# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
+
+
+ext_inp_dict = {'D2': {'mean' : 150., 'sigma': .5 * .1} } # exponetial tau 6 merged
+tau_rise = 100; tau_decay = 5
+
+# ext_inp_dict = {'D2': {'mean' : 77., 'sigma': .5 * .1} } # exponetial tau 6 only labeled
+# tau_rise = 100; tau_decay = 5
+
+
 
 avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
                                        Act[state], G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,
-                                       list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
+          n_FR, all_FR_list, end_of_nonlinearity,
                                        t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
                                        A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
-                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state)
+                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state,
+                                       exponential_ext_inp= True,  tau_rise = tau_rise, tau_decay = tau_decay, plot = False)
+
+
+
 
 for nuclei_list in nuclei_dict.values():
     for k, nucleus in enumerate(nuclei_list):
         nucleus.pop_act = avg_act[nucleus.name][:, k]
 
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=1)
-fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None, title_fontsize=20, plot_start=plot_start,
-           title="", plt_mvt=False, include_FR=False, ylim = [ -5, 60])
+fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, t_transient / dt), Act[state], A_mvt, t_mvt, D_mvt, title_fontsize=20, plot_start= plot_start, 
+           title="", plt_mvt=False, include_FR=False , ylim = [-5,60], alpha = 0.2)
+
 
 ax = fig.gca()
-ax.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
-ax.axvline(t_transient, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-ax.axvline(t_transient + duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-ax.axhline(0, c= 'grey', ls = ':')
-save_pdf_png(fig, os.path.join(path, 'D2_trans_stim_' + str(duration) +'ms_onto_STN-Proto' + str(n_run) + '_run'), size = (5,3))
+# ax.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
+# ax.axvline(t_transient, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+# ax.axvline(t_transient + duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+# ax.axhline(0, c= 'grey', ls = ':')
+# save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_' + str(duration) +'ms_onto_Proto' + str(n_run) + '_run'), size = (5,3))
+
+
+color_dict['MSNs'] = color_dict['D2']
+
+######## Plot experimental on top
+filename = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_merged.xlsx'
+proto_shift = 0
+sheet_name_extra = ''
+time_shift_dict = {'MSNs': 0 ,'STN': -7.5, 'Arky': 0, 'Proto': -7.5}
+# filename = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_OnlyLabelled.xlsx'
+# proto_shift = -3
+# sheet_name_extra = 'Label'
+FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
+
+fig, ax = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
+                           ax = ax, time_shift_dict = time_shift_dict, sheet_name_extra = sheet_name_extra)
+
+ax.set_xlim(-15, 90)
+save_pdf_png(fig, os.path.join(path, 'D2_trans_stim_onto_Proto' + str(n_run) + '_run_compared_with_experiment_' + filename.split('.')[0].split('_')[-1] ), size = (5,3))
 
 
 

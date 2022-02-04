@@ -4930,7 +4930,7 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     return nuclei_dict
 
 def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
-                                             t_start_inp_dict, dt, duration = 10):
+                                             t_start_inp_dict, dt, duration = 10, plot = False):
     
     list_of_nuc_with_trans_inp = list(t_start_inp_dict.keys())
 
@@ -4939,20 +4939,22 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_
         t_start = t_start_inp_dict[name]
         t_list_trimmed = t_list[ t_start: ]
         nucleus = nuclei_dict[name][0]
-        
-        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * np.average(nucleus.rest_ext_input ) * \
-                                                                                (1- np.exp(-( t_list_trimmed - t_start)/ tau_rise )) * \
-                                                                                (np.exp(-( t_list_trimmed - t_start)/ tau_decay))
+        f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
+            (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt)))
+        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * np.average(nucleus.rest_ext_input ) * f / \
+                                                    np.trapz(f, t_list_trimmed)
                                                                                 
-        fig, ax = plt.subplots()
-        ax.plot(t_list * dt, nucleus.external_inp_t_series)
-        ax.axvspan(t_start* dt, (t_start + duration) * dt, alpha=0.2, color='yellow')
+        if plot:
+            
+            fig, ax = plt.subplots()
+            ax.plot(t_list * dt, nucleus.external_inp_t_series)
+            ax.axvspan(t_start* dt, (t_start + duration) * dt, alpha=0.2, color='yellow')
 
     return nuclei_dict
 
 def run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
                                                                     A, syn_trans_delay_dict, tau_rise = 50, tau_decay = 50,
-                                                                    t_transient=10, duration=10, ext_inp_dict = None):
+                                                                    t_transient=10, duration=10, ext_inp_dict = None, plot = False):
     
     '''
     		run normaly til "t_transient" then exert an external transient input ( as an exponential rise and decay) 
@@ -4969,7 +4971,7 @@ def run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_cl
     start = timeit.default_timer()
 
     nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
-                                                           t_start_inp_dict, dt,  duration=10)
+                                                           t_start_inp_dict, dt,  duration=10, plot = plot)
     for t in t_list:
         for nuclei_list in nuclei_dict.values():
             for k, nucleus in enumerate(nuclei_list):
@@ -4990,12 +4992,54 @@ def cal_average_activity(nuclei_dict, n_run, avg_act):
                 avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
     return avg_act
 
+
+
+def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, 
+                     stim_duration = 10, ax = None, time_shift_dict = None, sheet_name_extra = '',
+                     legend_loc = 'upper right'):
+    
+    fig, ax = get_axes( ax )
+    
+    if time_shift_dict == None:
+        time_shift_dict = { key: 0 for key in list(FR_df.keys())}
+
+    for name in list(FR_df.keys()):
+        
+        name_adj = name.split('_')[-1].replace( sheet_name_extra, '')
+        time = FR_df[name]['Time'] * 1000 - time_shift_dict[name_adj]
+        fr = FR_df[name].drop(columns = ['Time'])
+        fr_mean = fr.mean(axis=1)
+        # print( name, ' rest firing rate = ', np.average( fr_mean[time < 0] ))
+        fr_std = fr.std(axis=1)
+        n_cells = len(FR_df[name].columns) - 1
+        ax.plot(time, fr_mean, c = color_dict[name_adj], label = name_adj + ' n =' + str(n_cells))
+        ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
+                        color = color_dict[name_adj], alpha = 0.1)
+        
+    title = filename.split('.')[0].split('_')[-1] 
+    ax.set_title(title, fontsize = 15)
+    ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
+    ax.set_xlabel('Time (ms)', fontsize = 14)
+    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
+    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
+    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axhline(0, c= 'grey', ls = ':')
+
+    if xlim != None:
+        ax.set_xlim(xlim)
+    if ylim != None:
+        ax.set_ylim(ylim)
+
+    remove_frame(ax)
+    return fig, ax
+
 def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
-                                 syn_trans_delay_dict, poisson_prop, list_of_nuc_with_trans_inp, n_FR, all_FR_list, 
+                                 syn_trans_delay_dict, poisson_prop,  n_FR, all_FR_list, 
                                  end_of_nonlinearity, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, 
                                  t_mvt = None, ext_inp_dict = None, noise_amplitude = None, noise_variance = None, 
                                  reset_init_dist = True, color_dict = None, state = 'rest', exponential_ext_inp = False,
-                                 tau_rise = 5, tau_decay = 10):
+                                 tau_rise = 5, tau_decay = 10, plot = False):
     
     avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
                for nuc in list( nuclei_dict.keys() ) }
@@ -5009,7 +5053,8 @@ def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,
                                                                                         t_transient = t_transient, 
                                                                                         duration = duration, 
                                                                                         ext_inp_dict = ext_inp_dict,
-                                                                                        tau_rise = tau_rise, tau_decay = tau_decay)  
+                                                                                        tau_rise = tau_rise, 
+                                                                                        tau_decay = tau_decay, plot = plot)  
         else:
             
             nuclei_dict = run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
@@ -5169,7 +5214,7 @@ def get_start_end_plot(plot_start, plot_end, dt, t_list):
     
     if plot_end == None : 
         
-        plot_end = t_list [-1]
+        plot_end = int( len(t_list) )
     
     else:
     
@@ -5184,12 +5229,11 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
          low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None,
-         ncol_legend = 1, line_type = ['-', '--']):    
+         ncol_legend = 1, line_type = ['-', '--'], alpha = 1):    
 
     fig, ax = get_axes (ax)
     
     plot_start, plot_end  = get_start_end_plot(plot_start, plot_end, dt, t_list)
-    
     count = 0
     
     for nuclei_list in nuclei_dict.values():
@@ -5212,9 +5256,9 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
                         c = color_dict[nucleus.name],lw = 1.5, alpha = 0.4)
             
             else:
-            
-                ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5)
-            
+                ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], 
+                        line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5, alpha = alpha)
+                
             if continuous_firing_base_lines:
             
                 ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], '--', c = color_dict[nucleus.name],lw = 1, alpha=0.8 )
@@ -5260,7 +5304,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-    ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
+    # ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
     
     ax.tick_params(axis='y', length = tick_length)
     ax.tick_params(axis='x', length = tick_length)
