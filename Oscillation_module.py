@@ -1795,7 +1795,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
                         
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             remove_frame(ax)
-    fig.text(0.5, 0.08, xlabel, ha='center',
+    fig.text(0.5, 0.02, xlabel, ha='center',
                  va='center', fontsize=xlabel_fontsize)
     fig.text(-0.1, 0.5, ylabel, ha='center', va='center',
                  rotation='vertical', fontsize=ylabel_fontsize)
@@ -1821,7 +1821,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                 normalize_PSD = True, include_AUC_ratio = False, x_y_label_size = 10,
                 ylabel_norm = 'Norm. Power ' + r'$(\times 10^{-2})$',
                 ylabel_PSD = 'PSD',
-                xlabel = 'Frequency (Hz)'):
+                xlabel = 'Frequency (Hz)', peak_f_sd = False):
     
     fig = plt.figure()    
     data = load_pickle(filename)
@@ -1839,13 +1839,13 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                 
             f = data[(name,'f')][0,0].reshape(-1,)
             pxx_mean = np.average( data[(name,'pxx')][i,:,:], axis = 0)
-            
+            print(data[(name,'base_freq')][i,:])
             mean_peak_f =np.average( data[(name,'base_freq')][i,:], axis = 0)
             sd_peak_f = np.std( data[(name,'base_freq')][i,:], axis = 0)
             print('mean peak freq ', name, mean_peak_f)
             pxx_std = np.std( data[(name,'pxx')][i,:,:], axis = 0)
             all_std = np.std( data[(name,'pxx')][i,:,:].flatten() )
-            significance, AUC_ratio = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
+            significance = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
                                                                      max_f = 250, n_pts_above_thresh = 3, 
                                                                      ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
 
@@ -1853,9 +1853,11 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             
                    
             if err_plot == 'fill_between':
-                
-                ax.plot(f, pxx_mean, color = color_dict[name], lw = .5, label = name + ' f= '+
-                        r'$' + "{:.2f}". format(mean_peak_f) + ' \pm ' + "{:.2f}". format(sd_peak_f) + '$' + ' Hz')
+                leg_label = name + ' f= '+\
+                        r'$' + "{:.2f}". format(mean_peak_f)+ '$'
+                if peak_f_sd:
+                    leg_label += '$' +' \pm ' + "{:.2f}". format(sd_peak_f) + '$' + ' Hz'
+                ax.plot(f, pxx_mean, color = color_dict[name], lw = .5, label = leg_label)
                 ax.fill_between(f, pxx_mean - pxx_std ,
                                 pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
             if err_plot == 'errorbar':
@@ -1889,7 +1891,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
     fig.text(0.5, -0.0005, xlabel, ha='center',
                  va='center', fontsize=x_y_label_size)
     if normalize_PSD:
-        fig.text(0.01, 0.5, ylabel_norm, ha='center', va='center',
+        fig.text(0.001, 0.5, ylabel_norm, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
     else:
         fig.text(0.03, 0.5, ylabel_PSD, ha='center', va='center',
@@ -2102,7 +2104,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
                 
-            data = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
+            data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
@@ -2117,7 +2119,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
 
             else:
                 x_l = 5
-                ax_spec.axhline(x_l, ls='--', c='grey')
+                # ax_spec.axhline(x_l, ls='--', c='grey')
 
             # ax_spec.set_title(title, fontsize = 18)
             ax_spec.legend(fontsize=11, loc='upper center',
@@ -2305,7 +2307,7 @@ def synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, 
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
                 
-            data = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
+            data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
@@ -2490,7 +2492,7 @@ def synaptic_T_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, T_
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
                 
-            data = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
+            data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
@@ -2699,7 +2701,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
                                                               tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                               include_title=True, ax_label=True, nuc_order = nuc_order)
                     
-                data = find_freq_SNN(data, (i, m, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
+                data, nuclei_dict = find_freq_SNN(data, (i, m, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                     check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                     c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                     include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
@@ -2861,7 +2863,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
                 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
                                                     plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
  
-            data = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
+            data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
                                 check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                 c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                 include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
@@ -3024,15 +3026,17 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
 def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, 
                   cut_plateau_epsilon, check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, 
                   plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                  fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
+                  fft_method='rfft', n_windows=3, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
                   half_peak_range = 5, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, 
-                  save_pxx = True, normalize_spec = True, plot_sig_thresh = False, plot_peak_sig = False,
+                  save_pxx = True, normalize_spec = True, plot_sig_thresh = False, plot_peak_sig = False, smooth = True,
                   min_f = 100, max_f = 300, n_std_thresh = 2, AUC_ratio_thresh = 0.8, save_gamma = False):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
+            
+            if smooth:
 
-            nucleus.smooth_pop_activity(dt, window_ms=smooth_window_ms)
+                nucleus.smooth_pop_activity(dt, window_ms=smooth_window_ms)
 
             if low_pass_filter:
                 nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order=6)
@@ -3085,7 +3089,7 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
                 nucleus.name, 'base_beta_power')][element_ind], np.sum(data[(
                 nucleus.name, 'base_beta_power')][element_ind]))
 
-    return data
+    return data, nuclei_dict
 
 def save_pxx_to_df(f, pxx, len_f_pxx, element_ind, data, name):
     
@@ -3114,7 +3118,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
                              cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                              low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=False, 
                              ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                             fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, 
+                             fft_method='rfft', n_windows=3, include_beta_band_in_legend=True, smooth = False, 
                              normalize_spec = True, include_peak_f_in_legend = True,
                              check_significance = False, plot_sig_thresh = False, plot_peak_sig = False,
                              min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8):
@@ -3128,7 +3132,7 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
 
             if low_pass_filter:
                 nucleus.butter_bandpass_filter_pop_act(dt, lower_freq_cut, upper_freq_cut, order=6)
-            print(nucleus.name)
+
             (n_half_cycles, perc_oscil, freq, 
              if_stable, beta_band_power, f, pxx[nucleus.name]) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
                                                                                                           peak_threshold=peak_threshold,
@@ -4512,7 +4516,8 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
     
     start = timeit.default_timer()
 
-    model = nuclei_dict[ list(nuclei_dict.keys()) [0]] [0]
+    model = nuclei_dict[ list(nuclei_dict.keys()) [0]] [0]. neuronal_model
+    print(model)
     nuclei_dict = run_dyn_func_dict[model](receiving_class_dict, t_list, dt, nuclei_dict)
     
     stop = timeit.default_timer()
@@ -5229,7 +5234,7 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
          plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
          continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
          low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None,
-         ncol_legend = 1, line_type = ['-', '--'], alpha = 1):    
+         ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True):    
 
     fig, ax = get_axes (ax)
     
@@ -5301,10 +5306,11 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
     ax.set_title(title, fontsize = title_fontsize, pad = title_pad)
     ax.set_xlabel("time (ms)", fontsize = 15)
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
+    if legend:
+        ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
     # ax.tick_params(axis='both', which='major', labelsize=10)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-    # ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
+    ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
     
     ax.tick_params(axis='y', length = tick_length)
     ax.tick_params(axis='x', length = tick_length)
@@ -6972,7 +6978,7 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
     remove_tick_lines(ax)
     ax.tick_params(axis='both', which='major', labelsize=tick_size)
     fig = set_y_ticks(fig, ax.get_xticks().tolist()[:-1])
-    clb = fig.colorbar(img, location='right', shrink=0.5)
+    clb = fig.colorbar(img, shrink=0.5)
     clb.set_label(title, labelpad=-45, y=0.5, rotation=-90, fontsize = label_fontsize)
     clb.ax.tick_params(labelsize=clb_tick_size )
     set_max_dec_tick(ax)
@@ -7062,12 +7068,59 @@ def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y
         
     return fig
 
+
+def plot_pop_act_and_PSD_of_example_pts_1d(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
+                                        plt_duration = 600, run_no = 0, window_ms = 5):
+    
+    n_exmp = len(examples_ind)
+    fig = plt.figure( figsize=(12, 20) ) 
+    outer = gridspec.GridSpec( n_exmp, 1, wspace=0.2, hspace=0.2)
+    
+    for i, (key, ind) in enumerate(examples_ind.items()):
+    
+        inner = gridspec.GridSpecFromSubplotSpec( 1, 2, width_ratios=[1, 3],
+                                                 subplot_spec=outer[i], 
+                                                 wspace=0.1, hspace=0.1)
+        ax_PSD = plt.Subplot(fig, inner[0])
+        ax_pop_act = plt.Subplot(fig, inner[1])
+        
+        for name in name_list:
+        
+            f = data[(name, 'f')][ind, 0, : ]
+            pxx = np.average(data[(name, 'pxx')][ind, :, : ], axis = 0)
+            # print(data[(name, 'pxx')].shape, data[(name, 'pxx')][ind, :, : ].shape)
+            pxx = normalize_PSD( pxx, f) * 100
+            peak_freq = np.round( np.average(data[(name, 'base_freq')][ind, :]) , 1)
+            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+        
+            duration = data[(name, 'pop_act')].shape[-1]
+            
+            pop_act = data[(name, 'pop_act')][ind, run_no, duration - int( plt_duration/dt) : duration]
+            pop_act = moving_average_array(pop_act, int(window_ms / dt))
+            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt
+            ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
+            ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
+                                                 c = color_dict[name],lw = 1, alpha=0.8 )
+
+        ax_PSD.set_xlim(0, 80)
+        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
+        ax_PSD.set_ylabel(key, fontsize = 20, rotation = 0, labelpad = 10)
+        # ax_pop_act.set_title(key, fontsize = 15)
+        fig.add_subplot(ax_PSD)
+        fig.add_subplot(ax_pop_act)
+        fig.text(0.6, 0.05, 'Time (ms)', ha='center', fontsize = 15)
+        fig.text(0.92, 0.5, 'firing rate (spk/s)', va='center', rotation=-90, fontsize = 15)
+        fig.text(0.2, 0.05, 'frequency', ha='center', fontsize = 15)
+        fig.text(0.05, 0.5, 'Normalized Power' + r'$(\times 10^{-2})$', va='center', rotation='vertical',fontsize = 15)
+        
+    return fig
+
 def plot_surf(x_list,y_list, z_arr):
     
     fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     X,Y = np.meshgrid( x_list,y_list)
     surf = ax.plot_surface(X, Y, z_arr, cmap = cm.coolwarm)
-    fig.colorbar(surf, shrink=0.5, aspect=5, location = 'left')
+    fig.colorbar(surf, shrink=0.5, aspect=5)#, location = 'left')
     return fig, ax
 
 def plot_spec_as_surf(g_list, freq_list, pxx_2d_arr, normalize_PSD = True, 
