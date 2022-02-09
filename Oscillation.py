@@ -277,71 +277,70 @@ neuronal_consts = {
         'spike_thresh': {'mean': -41.4, 'var': 0.7}}}  # Beurrier et al. 1999 Table 1. rat in vitro electric stim temp = 30 +/- 2 only single spikes
 
 
+# tau = {
+#     ('D2', 'FSI'): {'rise': [1.5], 'decay': [11.4]},  # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 +/- 2.9 and decay: 11.4 +/- 2.1 .
+
+#     # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 14.4 +/- 0.5 n = 41/15  Before Dec 2021
+#     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
+#     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
+#     ('STN', 'Proto'): {'rise': [1.1], 'decay': [7.8]},
+#     # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
+#     # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
+#     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
+#     ('Proto', 'STN'): {'rise': [0.2], 'decay': [6]},  
+#     # Glut estimate
+#     # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
+#     ('Proto', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
+#     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 ( in thesis it was 2 and 10)
+#     ('Proto', 'D2'): {'rise': [0.8], 'decay': [6.13]},
+#     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32,
+#     # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
+#     ('FSI', 'Proto'): {'rise': [1], 'decay': [7.8]},
+#     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
+#     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
+#     # (estimate was 6 before Sep 2021)
+#     ('Arky', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
+#     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
+#     ('D2', 'Arky'): {'rise': [1], 'decay': [28]}
+#     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
+#     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
+# }
+
+
 tau = {
-    ('D2', 'FSI'): {'rise': [1.5], 'decay': [11.4]},  # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 +/- 2.9 and decay: 11.4 +/- 2.1 .
-
-    # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 14.4 +/- 0.5 n = 41/15  Before Dec 2021
-    # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
-    # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
-    ('STN', 'Proto'): {'rise': [1.1], 'decay': [7.8]},
-    # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
-    # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
-    # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
-    ('Proto', 'STN'): {'rise': [0.2], 'decay': [6]},  
-    # Glut estimate
-    # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
-    ('Proto', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
-    # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 ( in thesis it was 2 and 10)
-    ('Proto', 'D2'): {'rise': [0.8], 'decay': [6.13]},
-    # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32,
-    # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
-    ('FSI', 'Proto'): {'rise': [1], 'decay': [7.8]},
-    # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
-    # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
-    # (estimate was 6 before Sep 2021)
-    ('Arky', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
-    # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
-    ('D2', 'Arky'): {'rise': [1], 'decay': [28]}
-    # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
-    # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
-
-}
-
-
-tau = {
-    ('D2', 'FSI'): {'rise': {'mean': [1.5], 'sd' : [2.9]}, 
-                    'decay': {'mean' : [11.4], 'sd': [2.1]}},  
+    ('D2', 'FSI'): {'rise': {'mean': [1.5], 'sd' : [2.9], 'truncmin': [0.1], 'truncmax': [1000]}, 
+                    'decay': {'mean' : [11.4], 'sd': [2.1], 'truncmin': [0.1], 'truncmax': [1000]}},  
     
     # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 +/- 2.9 and decay: 11.4 +/- 2.1 .
     # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 14.4 +/- 0.5 n = 41/15  Before Dec 2021
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
-    ('STN', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4]},
-                        'decay' : {'mean' : [7.8], 'sd' : [4.4]}},
+    ('STN', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
     # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
-    ('Proto', 'STN'): {'rise': {'mean' : [0.2], 'sd' : [0.5]},
-                        'decay' : {'mean' : [6], 'sd' : [1]}},
+    ('Proto', 'STN'): {'rise': {'mean' : [0.2], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Glut estimate
     # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
-    ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04]},
-                        'decay' : {'mean' : [4.91], 'sd' : [0.29]}},
+    ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14 ( in thesis it was 2 and 10)
-    ('Proto', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.06]},
-                        'decay' : {'mean' :[6.13], 'sd' : [.38]}},
+    ('Proto', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.06], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' :[6.13], 'sd' : [.38], 'truncmin': [0.1], 'truncmax': [1000]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14,
     # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
-    ('FSI', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4]},
-                        'decay' : {'mean' : [7.8], 'sd' : [4.4]}},
+    ('FSI', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
     # (estimate was 6 before Sep 2021)
-    ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04]},
-                        'decay' : {'mean' : [4.9], 'sd' : [0.29]}},
+    ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean' : [4.9], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
-    ('D2', 'Arky'): {'rise': {'mean' : [1.], 'sd' : [0.5]},
-                        'decay' : {'mean': [28], 'sd' : [5]}},
+    ('D2', 'Arky'): {'rise': {'mean' : [1.], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
+                        'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.1], 'truncmax': [1000]}},
     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
 
@@ -489,19 +488,7 @@ oscil_peak_threshold = {'Proto': 0.1, 'STN': 0.1,
 
 smooth_kern_window = {key: value * 30 for key, value in noise_variance['rest'].items()}
 #oscil_peak_threshold = {key: (gain[key]*noise_amplitude[key]*noise_variance[key]-threshold[key])/5 for key in noise_variance.keys()}
-pert_val = 10
-mvt_selective_ext_input_dict = {('Proto', '1'): pert_val, ('Proto', '2'): -pert_val,
-                                ('STN', '1'): pert_val, ('STN', '2'): -pert_val}  # external input coming from Ctx and Str
-dopamine_percentage = 100
-t_sim = 400  # simulation time in ms
-t_mvt = int(t_sim/2)
-D_mvt = t_sim - t_mvt
-D_perturb = 250  # transient selective perturbation
-d_Str = 200  # duration of external input to Str
-#    duration_mvt = [int((t_mvt+ max(T[('Proto', 'D2')],T[('STN', 'Ctx')]))/dt), int((t_mvt+D_mvt)/dt)]
-#    duration_base = [int((max(T[('Proto', 'STN')],T[('STN', 'Proto')]))/dt), int(t_mvt/dt)]
 
-#ext_inp_delay = {'Proto': T[('Proto', 'D2')], 'STN': T[('STN', 'Ctx')]}
 ext_inp_delay = 0
 
 # %% De La Crompe FR distributions
@@ -2993,12 +2980,13 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.2
-t_sim = 2000
+t_sim = 5300
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration = [int(300/dt), int(t_sim/dt)]
 
+n_windows = 4
 name1 = 'STN'
 name2 = 'Proto'
 name_list = [name1, name2]
@@ -3012,7 +3000,7 @@ name_list = [name1, name2]
 # g = -0.008 # 'DD_anesth'
 
 state = 'awake_rest' # set
-g = -0.01 # 'awake_rest'
+g = -0.012 # 'awake_rest'
 # g = -0.008
 
 # state = 'mvt' # set
@@ -3042,7 +3030,7 @@ poisson_prop = {name:
 receiving_pop_list = {(name1, '1'):  [(name2, '1')],
                       (name2, '1'): [(name1, '1')]}
 
-tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
+# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
 
 pop_list = [1]
 init_method = 'heterogeneous'
@@ -3160,7 +3148,7 @@ fig_spec, ax = plt.subplots(1, 1)
 _, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
-                                     spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
+                                     spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
                                      include_beta_band_in_legend=False)
 
 # fig_spec = remove_all_x_labels(fig_spec)
@@ -4764,8 +4752,8 @@ G = {}
 
 plot_start = 300
 plot_start_raster = 500
-# G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name4, name1)] = -0.006, 0.0008, -0.0007, -0.002 ## real tau
-G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name4, name1)] = -0.005, 0.0008, -0.0022, -0.002 
+G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name4, name1)], G[(name1, name1)] = -0.006, 0.002, -0.0007, -0.002, -0.001 ## real tau
+# G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name4, name1)] = -0.005, 0.0008, -0.0022, -0.002 
 
 G = {k: v * K[k] for k, v in G.items()}
 
@@ -4775,7 +4763,7 @@ poisson_prop = {name:
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'):  [(name2, '1'), (name3, '1')], #, (name1, '1')],
+receiving_pop_list = {(name1, '1'):  [(name2, '1'), (name3, '1'), (name1, '1')],
                       (name2, '1'): [(name1, '1')],
                       (name3, '1'): [],
                       (name4, '1'): [(name1, '1')]}
@@ -4794,9 +4782,9 @@ noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 
-tau[('STN', 'Proto')] =  {'rise': [1.1], 'decay': [10]}
-tau[('Arky', 'Proto')] =  {'rise': [1.1], 'decay': [8]}
-tau[('Proto', 'D2')] =  {'rise': [1.1], 'decay': [30]}
+# tau[('STN', 'Proto')] =  {'rise': [1.1], 'decay': [10]}
+# tau[('Arky', 'Proto')] =  {'rise': [1.1], 'decay': [8]}
+# tau[('Proto', 'D2')] =  {'rise': [1.1], 'decay': [30]}
 
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
@@ -4817,7 +4805,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 t_transient = 350  # ms
 duration = 10
-n_run = 5
+n_run = 1
 
 syn_trans_delay_dict = {'D2': 0}
 
@@ -4830,9 +4818,9 @@ tau_rise = 100; tau_decay = 5
 
 
 
-avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
+avg_act = average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
                                        Act[state], G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,
-          n_FR, all_FR_list, end_of_nonlinearity,
+                                       n_FR, all_FR_list, end_of_nonlinearity,
                                        t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
                                        A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
                                        noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state,
@@ -4864,7 +4852,7 @@ color_dict['MSNs'] = color_dict['D2']
 filename = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_merged.xlsx'
 proto_shift = 0
 sheet_name_extra = ''
-time_shift_dict = {'MSNs': 2.6 ,'STN': 2.6 - 10.1 -4.5, 'Arky': 2.6 - 10.1, 'Proto': 2.6 - 10.1}
+time_shift_dict = {'MSNs': 2.6 ,'STN': 2.6 - 10.1 , 'Arky': 2.6 - 10.1, 'Proto': 2.6 - 10.1}
 # time_shift_dict = {'MSNs': 0 ,'STN': 0, 'Arky': 0, 'Proto': 0}
 
 # filename = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_OnlyLabelled.xlsx'
@@ -4875,8 +4863,8 @@ FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', 
 fig, ax = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
                            ax = ax, time_shift_dict = time_shift_dict, sheet_name_extra = sheet_name_extra)
 
-ax.set_xlim(-15, 90)
-save_pdf_png(fig, os.path.join(path, 'Tweaked_D2_trans_stim_onto_Proto' + str(n_run) + '_run_compared_with_experiment_' + filename.split('.')[0].split('_')[-1] ), size = (5,3))
+ax.set_xlim(-15, 150)
+save_pdf_png(fig, os.path.join(path, 'Real_D2_trans_stim_onto_Proto' + str(n_run) + '_run_compared_with_experiment_' + filename.split('.')[0].split('_')[-1] ), size = (5,3))
 
 
 
@@ -7158,7 +7146,7 @@ save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size =
 fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
 save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
 
-#%% only changing STN to Proto weight
+# %% only changing STN to Proto weight
 
 filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_5_pts_3_runs.pkl'
 examples_ind = {'A' :0, 'B': 1,
@@ -7362,7 +7350,7 @@ data_all = merge_mp_data(data_all, ex_filename, path, n_iter_each_loop_each_file
                          find_phase = False,changing_loop_ind  = changing_loop_ind)
 pickle_obj(data_all,os.path.join(path, 'Beta_power', ex_filename + 'all.pkl'))
  
-# %% average
+# %% average data from multiprocessing
 
 name3 = 'Proto'
 name4 = 'STN'

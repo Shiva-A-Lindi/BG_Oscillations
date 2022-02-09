@@ -116,8 +116,8 @@ class Nucleus:
         self.K_connections = None
         # stored history in ms derived from the longest transmission delay of the projections
         self.history_duration = max(self.transmission_delay.values())
-        self.receiving_from_list = receiving_from_list[(
-            self.name, str(self.population_num))]
+        self.receiving_from_list = receiving_from_list[(self.name, str(self.population_num))]
+        self.receiving_from_pop_name_list = [ pop[0] for pop in self.receiving_from_list]
         sending_to_dict = find_sending_pop_dict(receiving_from_list)
         self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))]
         self.rest_ext_input = None
@@ -137,10 +137,12 @@ class Nucleus:
         self.t_sim = t_sim
         self.sqrt_dt = np.sqrt(dt)
         self.half_dt = dt/2
+        
+        
         if neuronal_model == 'rate':
             
-            self.output = {k: np.zeros(
-                (self.n, int(T[k[0], self.name]/dt))) for k in self.sending_to_dict}
+            self.output = {k: np.zeros((self.n, int( T[ k[0], self.name] / dt ))) 
+                           for k in self.sending_to_dict}
             self.input = np.zeros((self.n))
             self.neuron_act = np.zeros((self.n))
             # external input mimicing movement
@@ -151,14 +153,26 @@ class Nucleus:
             self.scale_g_with_N = scale_g_with_N
             
         if neuronal_model == 'spiking':
+            
+            print('Initializing ', name)
             self.state = state
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
-            # dt incorporated in tau for efficiency
-            self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} 
-                        for k, v in tau.items() if k[0] == name}
-            self.pre_n_components = {k[1]: len(v['rise']) for k,v in self.tau.items()}
+            self.tau_specs = {k: v for k, v in tau.items() 
+                              if k[0] == self.name and 
+                              k[1] in self.receiving_from_pop_name_list}
+            
+
+            self.tau = {k: np.zeros((  len ( list( v['rise'].values()) [0]) , self.n )) 
+                        for k, v in self.tau_specs.items()}
+            
+            # self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} 
+            #             for k, v in tau.items() if k[0] == name}
+            
+            self.pre_n_components = {k[1]: len(v['rise']['mean']) for k,v in self.tau_specs.items()}
+            
             if syn_component_weight != None:
                 self.syn_component_weight = {k: v for k, v in syn_component_weight.items() if k[0] == name}
+                
                 
             # since every connection might have different rise and decay time, inputs must be updataed accordincg to where the input is coming from
             self.I_rise = {k: np.zeros((self.n, self.pre_n_components[k[0]])) for k in self.receiving_from_list}
@@ -168,7 +182,7 @@ class Nucleus:
             self.neuronal_consts = neuronal_consts[self.name]
             self.mem_pot_before_spike = np.zeros(self.n)
             self.syn_inputs = {k: np.zeros((self.n, 1))
-                                           for k in self.receiving_from_list}
+                               for k in self.receiving_from_list}
             
             self.poisson_spikes = None                                       # meant to store the poisson spike trains of the external population
             self.n_ext_population = poisson_prop[self.name]['n']            # external population size
@@ -194,9 +208,20 @@ class Nucleus:
             self.spike_rel_phase_hist = {}
             self.bound_to_mean_ratio = bound_to_mean_ratio
             self.pop_act_filtered = False
+            self.syn_input_integ_method = syn_input_integ_method
+            self.I_ext_0 = None
+            self.noise = np.zeros(( self.n, 1))
+            self.noise_method = noise_method
+            self.noise_tau = noise_tau 
+            
             if self.keep_mem_pot_all_t:
                 self.all_mem_pot = np.zeros((self.n, n_timebins))
-            self.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
+                
+            if keep_noise_all_t : 
+                self.noise_all_t = np.zeros((self.n, n_timebins))
+                
+            self.set_init_distribution( tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
+            self.normalize_synaptic_weight()
             
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
                                         'const+noise': self.constant_ext_input_with_noise, 
@@ -206,78 +231,140 @@ class Nucleus:
                                             'instantaneus_rise_expon_decay': instantaneus_rise_expon_decay, 
                                             'dirac_delta_input': _dirac_delta_input}
             
-            self.syn_input_integ_method = syn_input_integ_method
-            self.normalize_synaptic_weight()
-            self.noise_method = noise_method
-            self.noise_tau = noise_tau 
-            if keep_noise_all_t : 
-                self.noise_all_t = np.zeros((self.n, n_timebins))
-            self.I_ext_0 = None
-            
-            
-            self.noise = np.zeros(( self.n, 1))
-                
+        
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
-    def set_init_distribution(self, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
+    def set_init_distribution(self, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
         
         if self.init_method == 'homogeneous':
+            
             self.initialize_homogeneously(poisson_prop, dt)
             self.FR_ext = 0
             
         elif self.init_method == 'heterogeneous':
-            self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
-                                            *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
-            self.FR_ext = np.zeros(self.n)
             
-    def initialize_heterogeneously(self, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2,
-                                    plot_initial_V_m_dist=False, plot_mem_tau_hist = False):
+            self.initialize_heterogeneously(tau, poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
+                                            *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
+            
+            self.FR_ext = np.zeros(self.n)
+          
+    def intialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
-        ''' cell properties and boundary conditions come from distributions'''
+        ''' initialize membrane time constant either with a specified truncation value or
+            truncation with percentage of the mean values '''
+            
+        if 'truncmin' in self.neuronal_consts['membrane_time_constant']:
+            
+            self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
+                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
+                                                                       truncmin=self.neuronal_consts['membrane_time_constant']['truncmin'],
+                                                                       truncmax=self.neuronal_consts['membrane_time_constant']['truncmax'])
+        else:
+            
+            self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
+                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
+                                                                       lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
+
+    def intialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
+                                          bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
+                                          plot_syn_tau_hist = False):
         
-        self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
-                                                   self.neuronal_consts['u_rest']['var'], self.n,
-                                                   truncmin=self.neuronal_consts['u_rest']['truncmin'],
-                                                   truncmax=self.neuronal_consts['u_rest']['truncmax'])
+        ''' initialize synaptic time constant with a truncated normal distribution
+            Note: dt incorporated in tau for time efficiency
+        '''
+        if len(self.receiving_from_pop_name_list) > 0:
+            tc_list = list (self.tau_specs[ list(self.tau_specs.keys()) [0] ].keys() ) 
+            for key in list (self.tau_specs.keys()):
+                
+                self.tau[key] = {tc : np.array( [truncated_normal_distributed(self.tau_specs[key][tc]['mean'][i],
+                                                                              self.tau_specs[key][tc]['sd'][i], self.n,
+                                                                              truncmin = self.tau_specs[key][tc]['truncmin'][i],
+                                                                              truncmax = self.tau_specs[key][tc]['truncmax'][i]) / dt 
+                                                 for i in range( len(self.tau_specs[key][tc]['mean'] )) 
+                                                 ] )
+                                for tc in tc_list
+                                }
+                                       
+                if plot_syn_tau_hist:
+                    
+                    self.plot_synaptic_time_scale_distribution(key, dt, ax=None, bins=bins, 
+                                                               color=color, tc = tc_plot, 
+                                                               syn_element_no = syn_element_no)
+                    
+    def intialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
+        
+        # tc_list = list (poisson_prop[self.name][ list(poisson_prop[self.name].keys()) [0] ].keys() ) 
+        tc_list = ['rise', 'decay']
+        self.tau_ext_pop = {tc: truncated_normal_distributed(poisson_prop[self.name]['tau'][tc]['mean'],
+                                                             poisson_prop[self.name]['tau'][tc]['var'], self.n,
+                                                             lower_bound_perc=lower_bound_perc, 
+                                                             upper_bound_perc=upper_bound_perc) / dt
+                            for tc in tc_list}
+                  
+    def initialize_spike_threshold(self, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
         self.spike_thresh = truncated_normal_distributed(self.neuronal_consts['spike_thresh']['mean'],
                                                          self.neuronal_consts['spike_thresh']['var'], self.n,
                                                          scale_bound=scale_bound_with_arbitrary_value, scale=(
                                                          self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean']),
                                                          lower_bound_perc=spike_thresh_bound_ratio[0], upper_bound_perc=spike_thresh_bound_ratio[1])
-
-        self.initialize_mem_potential(method=self.mem_pot_init_method)
+    
+    def initialize_resting_membrane_potential(self):
+    
+        self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
+                                               self.neuronal_consts['u_rest']['var'], self.n,
+                                               truncmin=self.neuronal_consts['u_rest']['truncmin'],
+                                               truncmax=self.neuronal_consts['u_rest']['truncmax'])
         
+    def initialize_heterogeneously(self, tau, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
+                                   lower_bound_perc=0.8, upper_bound_perc=1.2,
+                                    plot_initial_V_m_dist=False, plot_mem_tau_hist = False,
+                                    bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
+                                    plot_syn_tau_hist = False):
+        
+        ''' cell properties and boundary conditions come from distributions'''
+        
+        self. initialize_resting_membrane_potential()
+        
+        self. initialize_spike_threshold( spike_thresh_bound_ratio,
+                                         lower_bound_perc = lower_bound_perc, 
+                                         upper_bound_perc = upper_bound_perc)
+        
+        self. initialize_mem_potential(method=self.mem_pot_init_method)
+        
+        self. intialize_membrane_time_constant(lower_bound_perc = lower_bound_perc, 
+                                              upper_bound_perc = upper_bound_perc)
+        
+        self. intialize_synaptic_time_constant(dt, tau, bins = bins, color= color, tc_plot = tc_plot, 
+                                               syn_element_no = syn_element_no, 
+                                               plot_syn_tau_hist = plot_syn_tau_hist,
+                                              lower_bound_perc = lower_bound_perc, 
+                                              upper_bound_perc = upper_bound_perc)
+        
+        self.intialize_ext_synaptic_time_constant(poisson_prop, dt, 
+                                                  lower_bound_perc = lower_bound_perc, 
+                                                  upper_bound_perc = upper_bound_perc)
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
             
         if plot_initial_V_m_dist:
             self.plot_mem_potential_distribution_of_one_t(0, bins=50)
 
-        if 'truncmin' in self.neuronal_consts['membrane_time_constant']:
-            self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
-                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
-                                                                       truncmin=self.neuronal_consts['membrane_time_constant']['truncmin'],
-                                                                       truncmax=self.neuronal_consts['membrane_time_constant']['truncmax'])
-        else:
-            self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
-                                                                       self.neuronal_consts['membrane_time_constant']['var'], self.n,
-                                                                       lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
-            
         if plot_mem_tau_hist:
             plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
             
+
         # dt incorporated in tau for efficiency
-        self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
-                                                                poisson_prop[self.name]['tau']['rise']['var'], self.n,
-                                                                lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt,
-                            'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
-                                                                poisson_prop[self.name]['tau']['decay']['var'], self.n,
-                                                                lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
-        # print('setting u_rest')
+        # self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
+        #                                                         poisson_prop[self.name]['tau']['rise']['var'], self.n,
+        #                                                         lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt,
+        #                     'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
+        #                                                         poisson_prop[self.name]['tau']['decay']['var'], self.n,
+        #                                                         lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
         self.voltage_trace[0] = self.mem_potential[0] 
         
+
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         ''' cell properties and boundary conditions are constant for all cells'''
 
@@ -447,12 +534,11 @@ class Nucleus:
             
             (self.I_syn[pre_name, pre_num][:, i], 
              self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num], dt, 
-                                                                                                                I_rise=self.I_rise[pre_name,
+                                                                                                                I_rise = self.I_rise[pre_name,
                                                                                                                 pre_num][:, i],
-                                                                                                                I=self.I_syn[pre_name, pre_num][:, i],
-                                                                                                                tau_rise=self.tau[(
-                                                                                                                    self.name, pre_name)]['rise'][i],
-                                                                                                                tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
+                                                                                                                I = self.I_syn[pre_name, pre_num][:, i],
+                                                                                                                tau_rise = self.tau[(self.name, pre_name)]['rise'][i,:],
+                                                                                                                tau_decay = self.tau[(self.name, pre_name)]['decay'][i,:])
             self.representative_inp[pre_name, pre_num][t,
                 i] = self.I_syn[pre_name, pre_num][0, i]
             
@@ -472,10 +558,10 @@ class Nucleus:
         for i in range(self.pre_n_components[pre_name]):
 
             I_syn_next_dt, _ = self.input_integ_method_dict[self.syn_input_integ_method](0, dt, 
-                                                I_rise=self.I_rise[pre_name, pre_num][:, i],
-                                                  I=self.I_syn[pre_name, pre_num][:, i],
-                                                tau_rise=self.tau[(self.name, pre_name)]['rise'][i],
-                                                tau_decay=self.tau[(self.name, pre_name)]['decay'][i])
+                                                I_rise = self.I_rise[pre_name, pre_num][:, i],
+                                                I = self.I_syn[pre_name, pre_num][:, i],
+                                                tau_rise = self.tau[(self.name, pre_name)]['rise'][i,:],
+                                                tau_decay = self.tau[(self.name, pre_name)]['decay'][i,:])
 
             sum_components = sum_components + I_syn_next_dt * self.syn_component_weight[self.name, pre_name][i]
             
@@ -602,21 +688,20 @@ class Nucleus:
     def cal_population_activity_all_t(self, dt):
                 self.pop_act = np.average(self.spikes, axis=0)/ (dt/1000)
 
-    def reset_ext_pop_properties(self, poisson_prop, dt):
-        '''reset the properties of the external poisson spiking population'''
+    # def reset_ext_pop_properties(self, poisson_prop, dt):
+    #     '''reset the properties of the external poisson spiking population'''
 
-        # external population size
-        self.n_ext_population = poisson_prop[self.name]['n']
-        self.firing_of_ext_pop = poisson_prop[self.name]['firing']
+    #     # external population size
+    #     self.n_ext_population = poisson_prop[self.name]['n']
+    #     self.firing_of_ext_pop = poisson_prop[self.name]['firing']
 
-        self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
-                                                                poisson_prop[self.name]['tau']['rise']['var'], self.n,
-                                                                lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt,
-                            'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
-                                                                poisson_prop[self.name]['tau']['decay']['var'], self.n,
-                                                                lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
-        self.syn_weight_ext_pop = poisson_prop[self.name]['g']
-        # self.representative_inp['ext_pop','1'] = np.zeros((int(t_sim/dt)))
+    #     self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
+    #                                                             poisson_prop[self.name]['tau']['rise']['var'], self.n,
+    #                                                             lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt,
+    #                         'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
+    #                                                             poisson_prop[self.name]['tau']['decay']['var'], self.n,
+    #                                                             lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
+    #     self.syn_weight_ext_pop = poisson_prop[self.name]['g']
 
     def set_noise_param(self, noise_variance, noise_amplitude):
         
@@ -953,7 +1038,18 @@ class Nucleus:
         ax.set_ylabel(r'$Probability$', fontsize=15)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize=15)
+    def plot_mem_potential_distribution_of_all_t(self, key, dt, ax=None, bins=50, 
+                                                 color='grey', tc = 'decay', syn_element_no = 0):
 
+        fig, ax = get_axes(ax)
+        ax.hist(self.tau[key][tc][syn_element_no,:] * dt, bins=bins,
+                label='from '+ key[1] , density=True, stacked=True, color=color)
+        ax.set_xlabel('synaptic ' + tc + ' time constant (ms)', fontsize=15)
+        ax.set_ylabel(r'$Probability\ density$', fontsize=15)
+        
+        ax.set_title(self.name, fontsize=15)
+        ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+        
     def Find_threshold_of_firing(self, FR_list, t_list, dt, receiving_class_dict):
         FR_sim = np.zeros((self.n, len(FR_list)))
 
@@ -1470,7 +1566,7 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
+def reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
                             mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
 
@@ -1485,7 +1581,7 @@ def reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A, 
             if set_noise:
                 nucleus.set_noise_param(noise_variance, noise_amplitude)
             if reset_init_dist:
-                nucleus.set_init_distribution( poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False)
+                nucleus.set_init_distribution( tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False)
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
     return nuclei_dict
@@ -1985,7 +2081,7 @@ def print_G_items(G_dict):
     
         print(k, np.round( values, 2) )
 
-def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2068,7 +2164,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2189,7 +2285,7 @@ def reset_T_all_nuclei(T_dict, nuclei_dict, i, dt):
                     nucleus.transmission_delay[k] = T_dict[k][ i ] 
     return nuclei_dict
 
-def synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2269,7 +2365,7 @@ def synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, 
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2374,7 +2470,7 @@ def synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, 
         pickle_obj(data, filepath)
     return figs, title, data
 
-def synaptic_T_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, T_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base, G, T_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2455,7 +2551,7 @@ def synaptic_T_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, T_
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2569,7 +2665,7 @@ def synaptic_T_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, T_
         
 #     return synaptic_time_constant
 
-def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2663,7 +2759,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
             for j in range(n_run):
                 
                 print(' {} from {} runs'.format(j + 1 , n_run))
-                nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+                nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                                       A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                       reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                       normalize_G_by_N= True)  
@@ -2768,7 +2864,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepa
         pickle_obj(data, filepath)
     return figs, title, data
 
-def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2843,7 +2939,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2924,7 +3020,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, path, nuclei_dict, filepath
     return figs, title, data
 
 
-def coherence_exploration(path, nuclei_dict, G_dict, noise_amplitude, noise_variance, A, N, N_real, K_real, receiving_pop_list,
+def coherence_exploration(path, tau, nuclei_dict, G_dict, noise_amplitude, noise_variance, A, N, N_real, K_real, receiving_pop_list,
                           A_mvt, D_mvt, t_mvt, t_list, dt,  all_FR_list , n_FR, receiving_class_dict,
                           end_of_nonlinearity, color_dict,
                           poisson_prop, reset_init_dist = True, sampling_t_distance_ms = 1, if_plot = False):
@@ -2938,7 +3034,7 @@ def coherence_exploration(path, nuclei_dict, G_dict, noise_amplitude, noise_vari
         for k, values in G_dict.items():
             G[k] = values[i]
             print(k, values[i])
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau,  G, noise_amplitude, noise_variance, A,
                                               A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True)  
@@ -3415,7 +3511,7 @@ def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay
 
 
 def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
-
+    # print(len(I_rise), len(tau_rise))
     I_rise = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
     I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
     return I, I_rise
@@ -4517,7 +4613,7 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
     start = timeit.default_timer()
 
     model = nuclei_dict[ list(nuclei_dict.keys()) [0]] [0]. neuronal_model
-    print(model)
+    print('running ', model, 'model...')
     nuclei_dict = run_dyn_func_dict[model](receiving_class_dict, t_list, dt, nuclei_dict)
     
     stop = timeit.default_timer()
@@ -5039,7 +5135,7 @@ def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, y
     remove_frame(ax)
     return fig, ax
 
-def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
+def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
                                  syn_trans_delay_dict, poisson_prop,  n_FR, all_FR_list, 
                                  end_of_nonlinearity, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, 
                                  t_mvt = None, ext_inp_dict = None, noise_amplitude = None, noise_variance = None, 
@@ -5072,7 +5168,7 @@ def average_multi_run_collective(path, receiving_pop_list, receiving_class_dict,
 
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
                                               A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True) 
