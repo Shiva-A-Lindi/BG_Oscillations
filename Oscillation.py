@@ -102,6 +102,7 @@ A_mvt = {
          'Arky': 10,  # Mallet et al. 2016 Fig. 2B
          'FSI': 24.7,  # Berke et al. 2008 Fig. 1B rat / Yael et al. 2013 in freely moving rats reports 17.5 +/- 10.3
          'D2': 4}  # Mirzaei et al. 2017 Fig 1E
+
 A_DD_mvt = {
          'STN': 10.1 # +/- 1.2 Delaville et al. 2015 Figure 6A   n=32, 9 rats
              }
@@ -183,14 +184,15 @@ K_all = {'rest': K_real, 'DD_anesth': K_real_DD, 'awake_rest': K_real, 'mvt': K_
 
 T = {
     # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
-    ('STN', 'Proto'): 1.3,     # Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
+    ('STN', 'Proto'): 1.3,     # 1.3 +/- 0.3 range = (0.8,2.5) Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
     ('Proto', 'STN'): 2.8,  # ms kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 /  Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75/
     #  Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72 
     ('Proto', 'Proto'): 5, # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
     ('Arky', 'Proto'): 5,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5
     ('D2', 'Arky'): 4.9,     # Glajch et al. 2016 [Fig. 1] mice in vitro optogenetic temp: 20-22. estimate was 7 before Sep 2021.
     ('FSI', 'Proto'): 4.3,     # Glajch et al. 2016 [Fig. 2] mice  in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
-    ('Proto', 'D2'):  7.34,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 7ms Kita & Kitai (1991) - [IPSP] [Kita and Kitai 1991 5ms?]
+    ('Proto', 'D2'):  7.34,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 
+    # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37 Fig 6
     ('D2', 'FSI'): 0.93,  # Gittis et al 2010 mice in vitro electric stim temp = 31-33
     ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
     ('D2', 'Ctx'): 13.4 - 5} # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
@@ -207,6 +209,35 @@ T = {
 #       ('Ctx','Th'): 5.6, # Walker et al. (2012)
 #       ('D1', 'D2'): 1,
 #       ('D2', 'D2'): 1}
+
+
+T = {
+    # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
+    ('STN', 'Proto'): {'mean': 1.3, 'sd' : 0.3, 'truncmin': 0.8, 'truncmax': 2.5},
+    # 1.3 +/- 0.3 range = (0.8,2.5) Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
+    ('Proto', 'STN'): {'mean': 2.8, 'sd' : 0.6, 'truncmin': 2, 'truncmax': 4.4} ,
+    # kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 range =(2, 4.4) Fig 7 sd calculated as range/4
+    # Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75 +/- 0.14
+    # Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72 
+    ('Proto', 'Proto'): {'mean': 4.76, 'sd' : 0.88, 'truncmin': 3.05, 'truncmax': 7.55}, 
+    # Ketzef & Silberberg (2020) Fig 3H 5.12 +/- 0.88 range=(3.5,8) n = 5 mice in vivo optogenetic temp = 36.5 Proto ChR2 onset = 0.42 +/- 0.05 n = 20 Fig 3H
+    # Bugaysen et al. 2013 reports 0.96 +/- 0.27 n=4 in vitro electric stim temp = 34
+    ('Arky', 'Proto'): {'mean': 4.55, 'sd' : 0.54, 'truncmin': 2.55, 'truncmax': 7.05},     
+    # Ketzef & Silberberg (2020) Fig 3H 5 +/- 0.54 range=(3,7.5) n = 7 range from fig mice in vivo optogenetic temp = 36.5 Proto ChR2 onset = 0.42 +/- 0.05 n = 20 Fig 3H
+    ('D2', 'Arky'): {'mean': 4.9, 'sd' : 0.6, 'truncmin': 3.8, 'truncmax': 7.7},     
+    # Glajch et al. 2016 Fig. 2/ Table 2 4.9 +/- 0.6 n= 12 mice in vitro optogenetic temp: 20-22 . estimate was 7 before Sep 2021.
+    ('FSI', 'Proto'): {'mean': 4.3, 'sd' : 0.7, 'truncmin': 3.2, 'truncmax': 7.},     
+    # Glajch et al. 2016 Fig. 2/ Table 2 mice  4.3 +/- 0.7 n= 17 range from fig in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
+    ('Proto', 'D2'): {'mean': 6.89, 'sd' : 0.35, 'truncmin': 4.3, 'truncmax': 11.3},     
+    # Ketzef & Silberberg (2020) Fig 6K 7.34 +/- 0.35 range=(4.75,11.75) n = 27 range from fig mice in vivo optogenetic temp = 36.5/ corrected for D2-ChR2 onset delay
+    # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37    
+    ('D2', 'FSI'): {'mean': 0.93, 'sd' : 0.29, 'truncmin': 0.8, 'truncmax': 2},  
+    # Gittis et al 2010 mice in vitro electric stim temp = 31-33
+    ('STN', 'Ctx'): {'mean': 5.5, 'sd' : 0.5, 'truncmin': 1, 'truncmax': 10}, 
+    # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
+    ('D2', 'Ctx'): {'mean': 13.4-5, 'sd' : 0.5, 'truncmin': 1, 'truncmax': 10}} 
+    # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
+
 
 # Gerstner. synaptic time scale for excitation and inhibition
 decay_time_scale = {'GABA-A': 6, 'GABA-B': 200,
@@ -257,7 +288,7 @@ neuronal_consts = {
         # 'u_rest': {'mean': -64.47, 'var': 14.25, 'truncmin': -100, 'truncmax': -45}, 'u_initial':{'min':-64.47, 'max': -41.94},  #  Planert et al. 2013 RMP trunc bound estimated
         'nonlin_thresh': -20, 'nonlin_sharpness': 1, 'u_initial': {'min': -64.47, 'max': -41.94},
         'u_rest': {'mean': -64.47, 'var': 1.5, 'truncmin': -1000, 'truncmax': -42}, # Planert et al. 2013 Table. 1 sd = 14.25 rats in vitro electrical stim temp = 34-35
-        'membrane_time_constant': {'mean': 13.85, 'var': 2, 'truncmin': 0.5, 'truncmax': 100},  # Planert et al. 2013 Table. 1 sd = 6.25 rats in vitro electrical stim temp = 34-35
+        'membrane_time_constant': {'mean': 13.85, 'var': 2, 'truncmin': 0.5, 'truncmax': 100},  # Planert et al. 2013 Table. 1 n = 25, sd = 6.25 rats in vitro electrical stim temp = 34-35
         'spike_thresh': {'mean': -41.94, 'var': 1.5}},  # Planert et al. 2013 Table. 1 sd = 3.19 rats in vitro electrical stim temp = 34-35
 
     # 'spike_thresh': {'mean':-55,'var':2}, # Willet et al. 2019
@@ -265,46 +296,18 @@ neuronal_consts = {
     'FSI': {
         'nonlin_thresh': -20, 'nonlin_sharpness': 1, 'u_initial': {'min': -76, 'max': -46},
         'u_rest': {'mean': -76, 'var': 0.4, 'truncmin': -1000, 'truncmax': -50},  # Russo et al. 2013. mice in vitro temp = 32 electric stim sd = 1. n = 46
-        'membrane_time_constant': {'mean': 9.2, 'var': 0.2, 'truncmin': 0.5, 'truncmax': 100},  # Russo et al 2013 mice in vitro temp = 32 electric stim sd 0.4. n = 46
-        'spike_thresh': {'mean': -46, 'var': 0.4}},  # Russo et al 2013 mice in vitro temp = 32 electric stim sd = 1. n = 46
+        'membrane_time_constant': {'mean': 9.2, 'var': 0.2, 'truncmin': 0.5, 'truncmax': 100},  # Russo et al 2013 mice in vitro temp = 32 electric stim sd 2.71. n = 46 Table 1. Regular
+        'spike_thresh': {'mean': -46, 'var': 0.4}},  # Russo et al 2013 mice in vitro temp = 32 electric stim sd = 6.78, n = 46 Table 1. Regular
 
     'STN': {
         # 'u_rest': {'mean': -59, 'var': 0.4, 'truncmin': -1000, 'truncmax': -45},  # Paz et al. 2005 (till Dec 1st)
         'nonlin_thresh': -20, 'nonlin_sharpness': 1, 'u_initial': {'min': -60.3, 'max': -41.4},
         'u_rest': {'mean': -60.3, 'var': .8, 'truncmin': -1000, 'truncmax': -46}, # Beurrier et al. 1999 Table 1. rat in vitro electric stim temp = 30 +/- 2 
-        'membrane_time_constant': {'mean': 5.13, 'var': 0.5, 'truncmin': 0.5, 'truncmax': 100},  # Paz et al. 2005 5.13 +/- 0.97 sd decreased to match FR dist of De la Crompe 2020/ 
-        # Kita et al. 1983 reports 6 +/-2 n=7  
+        'membrane_time_constant': {'mean': 5.13, 'var': 0.5, 'truncmin': 0.5, 'truncmax': 100},  
+        # Paz et al. 2005 5.13 +/- 0.97  in-vivo intracellular electric stim Fig.6B n = 6 temp = (36.5–37.5°C) sd decreased to match FR dist of De la Crompe 2020/ 
+        # Kita et al. 1983 reports 6 +/-2 n=7  range=(4,9)
         'spike_thresh': {'mean': -41.4, 'var': 0.7}}}  # Beurrier et al. 1999 Table 1. rat in vitro electric stim temp = 30 +/- 2 only single spikes
 
-
-# tau = {
-#     ('D2', 'FSI'): {'rise': [1.5], 'decay': [11.4]},  # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 +/- 2.9 and decay: 11.4 +/- 2.1 .
-
-#     # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 14.4 +/- 0.5 n = 41/15  Before Dec 2021
-#     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
-#     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
-#     ('STN', 'Proto'): {'rise': [1.1], 'decay': [7.8]},
-#     # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
-#     # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
-#     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
-#     ('Proto', 'STN'): {'rise': [0.2], 'decay': [6]},  
-#     # Glut estimate
-#     # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
-#     ('Proto', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
-#     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 ( in thesis it was 2 and 10)
-#     ('Proto', 'D2'): {'rise': [0.8], 'decay': [6.13]},
-#     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32,
-#     # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
-#     ('FSI', 'Proto'): {'rise': [1], 'decay': [7.8]},
-#     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
-#     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
-#     # (estimate was 6 before Sep 2021)
-#     ('Arky', 'Proto'): {'rise': [0.5], 'decay': [4.9]},
-#     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
-#     ('D2', 'Arky'): {'rise': [1], 'decay': [28]}
-#     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
-#     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
-# }
 
 
 tau = {
@@ -316,48 +319,48 @@ tau = {
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6+/- 2.3 ms n=26 
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 5G reports 8.0+/- 3.2 ms n=69
     ('STN', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
+                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Baufreton et al. 2009 rise = 1.1 +/- 0.4, decay = 7.8 +/- 4.4 n = 8 temp = 37
     # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
     ('Proto', 'STN'): {'rise': {'mean' : [0.2], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}},
+                       'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Glut estimate
     # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
     ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
+                         'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14 ( in thesis it was 2 and 10)
     ('Proto', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.06], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' :[6.13], 'sd' : [.38], 'truncmin': [0.1], 'truncmax': [1000]}},
+                      'decay' : {'mean' :[6.13], 'sd' : [.38], 'truncmin': [0.1], 'truncmax': [1000]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14,
     # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
     ('FSI', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
+                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [1000]}},
     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
+    # Gittis et. al 2010 decay = 7.6 +/ 2.3 Fig 7E range estimated from fig mice in vitro electric stim temp = 31-33
     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
     # (estimate was 6 before Sep 2021)
     ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
                         'decay' : {'mean' : [4.9], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
     ('D2', 'Arky'): {'rise': {'mean' : [1.], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.1], 'truncmax': [1000]}},
+                     'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.1], 'truncmax': [1000]}},
     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
 
 }
 
 syn_coef_GABA_b = 1
-syn_component_weight = {
+
+syn_component_weight = {    # the relative weight of the GABA-a and GABA-b components
     ('D2', 'FSI'): [1],
-    # the relative weight of the GABA-a and GABA-b components
     ('STN', 'Proto'): [1, syn_coef_GABA_b],
     ('Proto', 'STN'): [1],
     ('Proto', 'Proto'): [1, syn_coef_GABA_b],
     ('Proto', 'D2'): [1],
     ('FSI', 'Proto'): [1],
     ('Arky', 'Proto'): [1, syn_coef_GABA_b],
-    ('D2', 'Arky'): [1]
-}
+    ('D2', 'Arky'): [1]}
 
 syn_component_weight = {key: [1] for key in list(tau.keys())}
 
