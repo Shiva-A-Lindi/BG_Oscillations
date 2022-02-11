@@ -90,17 +90,19 @@ class Nucleus:
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
         spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
-        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest'):
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996):
 
         if set_random_seed:
-            self.random_seed = 1996
+            self.random_seed = random_seed
             np.random.seed(self.random_seed)
 
 
         n_timebins = int(t_sim/dt)
-        self.n = N[name]  # population size
-        self.population_num = population_number
         self.name = name
+        self.population_num = population_number
+        self.receiving_from_list = receiving_from_list[(self.name, str(self.population_num))]
+        self.receiving_from_pop_name_list = [ pop[0] for pop in self.receiving_from_list]
+        self.n = N[name]  # population size
         self.basal_firing = A[name]
         self.mvt_firing = A_mvt[name]
         self.threshold = threshold[name]
@@ -109,15 +111,21 @@ class Nucleus:
         self.synaptic_time_constant = {
             k: v for k, v in synaptic_time_constant.items() if k[1] == name}
         # filter based on the receiving nucleus
-        self.transmission_delay = {k: v for k, v in T.items() if k[0] == name}
+        self.T_specs = {k: v for k, v in T.items() 
+                          if k[0] == self.name and 
+                             k[1] in self.receiving_from_pop_name_list}
+        
+        self.transmission_delay = {k: np.zeros( self.n ) 
+                                   for k, v in self.T_specs.items()}
+        
+        # self.transmission_delay = {k: v for k, v in T.items() if k[0] == name}
+
         self.ext_inp_delay = ext_inp_delay
-        # filter based on the receiving nucleus
-        self.synaptic_weight = {k: v for k, v in G.items() if k[0] == name}
+        
+        self.synaptic_weight = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
         self.K_connections = None
         # stored history in ms derived from the longest transmission delay of the projections
-        self.history_duration = max(self.transmission_delay.values())
-        self.receiving_from_list = receiving_from_list[(self.name, str(self.population_num))]
-        self.receiving_from_pop_name_list = [ pop[0] for pop in self.receiving_from_list]
+
         sending_to_dict = find_sending_pop_dict(receiving_from_list)
         self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))]
         self.rest_ext_input = None
@@ -151,7 +159,8 @@ class Nucleus:
             self.noise_induced_basal_firing = None
             self.oscil_peak_threshold = oscil_peak_threshold[self.name]
             self.scale_g_with_N = scale_g_with_N
-            
+            self. intialize_transmission_delays(dt)
+
         if neuronal_model == 'spiking':
             
             print('Initializing ', name)
@@ -249,7 +258,8 @@ class Nucleus:
             
             self.FR_ext = np.zeros(self.n)
           
-    def intialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2):
+    def intialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2, 
+                                         plot_mem_tau_hist = False):
         
         ''' initialize membrane time constant either with a specified truncation value or
             truncation with percentage of the mean values '''
@@ -265,7 +275,10 @@ class Nucleus:
             self.membrane_time_constant = truncated_normal_distributed(self.neuronal_consts['membrane_time_constant']['mean'],
                                                                        self.neuronal_consts['membrane_time_constant']['var'], self.n,
                                                                        lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
-
+        
+        if plot_mem_tau_hist:
+            plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
+            
     def intialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
                                           plot_syn_tau_hist = False):
@@ -274,7 +287,9 @@ class Nucleus:
             Note: dt incorporated in tau for time efficiency
         '''
         if len(self.receiving_from_pop_name_list) > 0:
+            
             tc_list = list (self.tau_specs[ list(self.tau_specs.keys()) [0] ].keys() ) 
+            
             for key in list (self.tau_specs.keys()):
                 
                 self.tau[key] = {tc : np.array( [truncated_normal_distributed(self.tau_specs[key][tc]['mean'][i],
@@ -291,11 +306,29 @@ class Nucleus:
                     self.plot_synaptic_time_scale_distribution(key, dt, ax=None, bins=bins, 
                                                                color=color, tc = tc_plot, 
                                                                syn_element_no = syn_element_no)
-                    
+              
+    def intialize_transmission_delays(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
+                                          bins=50, color='grey',
+                                          plot_T_hist = False):
+        
+        ''' initialize axonal transmission delays with a truncated normal distribution
+            Note: dt incorporated in tau for time efficiency
+        '''
+
+        if len(self.receiving_from_pop_name_list) > 0:
+            self.transmission_delay = {key: (truncated_normal_distributed(self.T_specs[key]['mean'],
+                                                                          self.T_specs[key]['sd'], self.n,
+                                                                          truncmin = self.T_specs[key]['truncmin'],
+                                                                          truncmax = self.T_specs[key]['truncmax']) / dt ).astype(int)
+                                       for key in list (self.T_specs.keys())}
+            
+            self.history_duration = get_max_value_dict(self.transmission_delay )
+
     def intialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
-        # tc_list = list (poisson_prop[self.name][ list(poisson_prop[self.name].keys()) [0] ].keys() ) 
         tc_list = ['rise', 'decay']
+        # dt incorporated for time efficiency
+
         self.tau_ext_pop = {tc: truncated_normal_distributed(poisson_prop[self.name]['tau'][tc]['mean'],
                                                              poisson_prop[self.name]['tau'][tc]['var'], self.n,
                                                              lower_bound_perc=lower_bound_perc, 
@@ -310,12 +343,55 @@ class Nucleus:
                                                          self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean']),
                                                          lower_bound_perc=spike_thresh_bound_ratio[0], upper_bound_perc=spike_thresh_bound_ratio[1])
     
-    def initialize_resting_membrane_potential(self):
+    def initialize_resting_membrane_potential(self, plot_initial_V_m_dist = False):
     
         self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
                                                self.neuronal_consts['u_rest']['var'], self.n,
                                                truncmin=self.neuronal_consts['u_rest']['truncmin'],
                                                truncmax=self.neuronal_consts['u_rest']['truncmax'])
+
+    def initialize_mem_potential(self, method = 'uniform', plot_initial_V_m_dist = False):
+        
+        if method not in ['uniform', 'constant', 'exponential', 'draw_from_data']:
+            
+            raise ValueError(
+                " method must be either 'uniform', 'constant', 'exponential', or 'draw_from_data' ")
+            
+        if method == 'draw_from_data':
+
+            data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '_tau_' + str(np.round(
+                            self.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-') + '_' + self.state + '.npy'))
+            
+            y_dist = data.reshape( int( data.shape[0] * data.shape[1] ), 1)
+            
+            self.mem_potential = draw_random_from_data_pdf(y_dist, self.n, bins=20)
+
+        elif method == 'uniform':
+
+            self.mem_potential = np.random.uniform( low=self.neuronal_consts['u_initial']['min'], 
+                                                   high=self.neuronal_consts['u_initial']['max'], 
+                                                   size=self.n)
+
+
+        elif method == 'constant':
+            
+              self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest']['mean'])
+
+        elif method == 'exponential':  # Doesn't work with linear interpolation of IF, diverges
+        
+            lower, upper, scale = 0, self.neuronal_consts['spike_thresh']['mean'] - \
+                                    self.u_rest, 30
+            X = stats.truncexpon(b=(upper-lower) / scale, loc=lower, scale=scale)
+            self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(
+                                self.n)
+        
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:, 0] = self.mem_potential.copy()
+            
+        if plot_initial_V_m_dist:
+            self.plot_mem_potential_distribution_of_one_t(0, bins=50)
+            
+        self.voltage_trace[0] = self.mem_potential[0] 
         
     def initialize_heterogeneously(self, tau, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
                                    lower_bound_perc=0.8, upper_bound_perc=1.2,
@@ -327,64 +403,72 @@ class Nucleus:
         
         self. initialize_resting_membrane_potential()
         
+        self. intialize_transmission_delays(dt, 
+                                            lower_bound_perc = lower_bound_perc, 
+                                            upper_bound_perc = upper_bound_perc)
+        
         self. initialize_spike_threshold( spike_thresh_bound_ratio,
                                          lower_bound_perc = lower_bound_perc, 
                                          upper_bound_perc = upper_bound_perc)
         
-        self. initialize_mem_potential(method=self.mem_pot_init_method)
+        self. initialize_mem_potential(method=self.mem_pot_init_method, 
+                                       plot_initial_V_m_dist = plot_initial_V_m_dist)
         
         self. intialize_membrane_time_constant(lower_bound_perc = lower_bound_perc, 
-                                              upper_bound_perc = upper_bound_perc)
+                                               upper_bound_perc = upper_bound_perc,
+                                               plot_mem_tau_hist = plot_mem_tau_hist)
         
         self. intialize_synaptic_time_constant(dt, tau, bins = bins, color= color, tc_plot = tc_plot, 
                                                syn_element_no = syn_element_no, 
                                                plot_syn_tau_hist = plot_syn_tau_hist,
-                                              lower_bound_perc = lower_bound_perc, 
-                                              upper_bound_perc = upper_bound_perc)
+                                               lower_bound_perc = lower_bound_perc, 
+                                               upper_bound_perc = upper_bound_perc)
         
         self.intialize_ext_synaptic_time_constant(poisson_prop, dt, 
                                                   lower_bound_perc = lower_bound_perc, 
                                                   upper_bound_perc = upper_bound_perc)
-        if self.keep_mem_pot_all_t:
-            self.all_mem_pot[:, 0] = self.mem_potential.copy()
-            
-        if plot_initial_V_m_dist:
-            self.plot_mem_potential_distribution_of_one_t(0, bins=50)
 
-        if plot_mem_tau_hist:
-            plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
-            
-
-        # dt incorporated in tau for efficiency
-        # self.tau_ext_pop = {'rise': truncated_normal_distributed(poisson_prop[self.name]['tau']['rise']['mean'],
-        #                                                         poisson_prop[self.name]['tau']['rise']['var'], self.n,
-        #                                                         lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt,
-        #                     'decay': truncated_normal_distributed(poisson_prop[self.name]['tau']['decay']['mean'],
-        #                                                         poisson_prop[self.name]['tau']['decay']['var'], self.n,
-        #                                                         lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc) / dt}
-        self.voltage_trace[0] = self.mem_potential[0] 
         
 
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
+        
         ''' cell properties and boundary conditions are constant for all cells'''
 
-        # self.mem_potential = np.random.uniform(low = self.neuronal_consts['u_initial']['min'], high = self.neuronal_consts['u_initial']['max'], size = self.n) # membrane potential
-        self.spike_thresh = np.full(
-            self.n, self.neuronal_consts['spike_thresh']['mean'])
-        self.u_rest = np.full(
-            self.n, self.neuronal_consts['u_rest']['mean'])
-        self.mem_potential = np.random.uniform(
-            low=self.neuronal_consts['u_rest']['mean'], high=self.spike_thresh, size=self.n)  # membrane potential
+        self.transmission_delay = {key: ( np.full( self.n, self.T_specs[key]['mean']) 
+                                         / dt ).astype(int)
+                                   for key in list (self.T_specs.keys())}
         
-        if self.keep_mem_pot_all_t:
-            self.all_mem_pot[:, 0] = self.mem_potential.copy()
+        self.spike_thresh = np.full( self.n, 
+                                    self.neuronal_consts['spike_thresh']['mean'])
+        
+        self.u_rest = np.full( self.n, 
+                              self.neuronal_consts['u_rest']['mean'])
+        
+        self.mem_potential = np.random.uniform( low=self.neuronal_consts['u_rest']['mean'], 
+                                                high=self.spike_thresh, size=self.n)  # membrane potential
+        
 
         self.membrane_time_constant = np.full(self.n,
                                              self.neuronal_consts['membrane_time_constant']['mean'])
         
-        self.tau_ext_pop = {'rise': np.full(self.n, poisson_prop[self.name]['tau']['rise']['mean'])/dt,  # synaptic decay time of the external pop inputs
-                            'decay': np.full(self.n, poisson_prop[self.name]['tau']['decay']['mean'])/dt}
-
+        self.tau_ext_pop = {'rise': np.full(self.n, poisson_prop[self.name]['tau']['rise']['mean']) / dt,  # synaptic decay time of the external pop inputs
+                            'decay': np.full(self.n, poisson_prop[self.name]['tau']['decay']['mean']) / dt}
+        
+        tc_list = list (self.tau_specs[ list(self.tau_specs.keys()) [0] ].keys() ) 
+            
+        for key in list (self.tau_specs.keys()):
+            
+            self.tau[key] = {tc : np.array( [np.full( self.n, self.tau_specs[key][tc]['mean'][i]) / dt 
+                                             for i in range( len(self.tau_specs[key][tc]['mean'] )) 
+                                             ] )
+                            for tc in tc_list
+                            }
+            # print( self.tau[key]['rise'] .shape)
+            
+            
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:, 0] = self.mem_potential.copy()
+            
     def normalize_synaptic_weight(self):
 
         self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean'])
@@ -401,8 +485,8 @@ class Nucleus:
                             self.synaptic_weight[(self.name, projecting.name)] * 
                            np.matmul(
                                    self.connectivity_matrix[ (projecting.name, num) ]  ,
-                                   projecting.output[ (self.name, str(self.population_num))][:, -int(self.transmission_delay[(self.name, 
-                                                                                                                              projecting.name)] / dt) ].reshape(-1, 1)
+                                   projecting.output[ (self.name, str(self.population_num))][:, - self.transmission_delay[(self.name, 
+                                                                                                                           projecting.name)]].reshape(-1, 1)
                                    )
                            )
 
@@ -477,10 +561,11 @@ class Nucleus:
         
         num = str(projecting.population_num)
         name = projecting.name
+        # print(projecting.spikes[:, t - self.transmission_delay[(self.name, name)]].shape)
         self.syn_inputs[name, num] = (self.synaptic_weight[(self.name, name)] *
                                     np.matmul(self.connectivity_matrix[(name, num)],
-                                               projecting.spikes[:, int(
-                                                   t - self.transmission_delay[(self.name, name)] / dt)]
+                                               np.diagonal( projecting.spikes[:, 
+                                                   t - self.transmission_delay[(self.name, name)]])
                                             ) / dt * \
                                     self.membrane_time_constant).reshape(-1,)
                                     
@@ -723,38 +808,7 @@ class Nucleus:
             self.connectivity_matrix[projecting] = build_connection_matrix(
                 self.n, N[projecting[0]], n_connections, same_pop = same_pop)
 
-    def initialize_mem_potential(self, method='uniform'):
-        
-        if method not in ['uniform', 'constant', 'exponential', 'draw_from_data']:
-            
-            raise ValueError(
-                " method must be either 'uniform', 'constant', 'exponential', or 'draw_from_data' ")
 
-        if method == 'uniform':
-
-            self.mem_potential = np.random.uniform( low=self.neuronal_consts['u_initial']['min'], 
-                                                   high=self.neuronal_consts['u_initial']['max'], 
-                                                   size=self.n)
-
-        elif method == 'draw_from_data':
-
-            data = np.load(os.path.join(self.path, 'all_mem_pot_' + self.name + '_tau_' + str(np.round(
-                self.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-') + '_' + self.state + '.npy'))
-            
-            y_dist = data.reshape(int(data.shape[0] * data.shape[1]), 1)
-            self.mem_potential = draw_random_from_data_pdf(y_dist, 
-                                                           self.n, 
-                                                           bins=20)
-
-        elif method == 'constant':
-              self.mem_potential = np.full(self.n, self.neuronal_consts['u_rest']['mean'])
-
-        elif method == 'exponential':  # Doesn't work with linear interpolation of IF, diverges
-            lower, upper, scale = 0, self.neuronal_consts['spike_thresh']['mean'] - \
-                self.u_rest, 30
-            X = stats.truncexpon(b=(upper-lower) / scale, loc=lower, scale=scale)
-            self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(
-                self.n)
         
     def normalize_synaptic_weight_by_N(self):
         self.synaptic_weight = {
@@ -3511,7 +3565,7 @@ def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay
 
 
 def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
-    # print(len(I_rise), len(tau_rise))
+    # print(I_rise.shape, inputs.shape)
     I_rise = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
     I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
     return I, I_rise
@@ -5037,13 +5091,17 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_
 
     for name in list_of_nuc_with_trans_inp:
         
+        nucleus = nuclei_dict[name][0]
+
         t_start = t_start_inp_dict[name]
         t_list_trimmed = t_list[ t_start: ]
-        nucleus = nuclei_dict[name][0]
         f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
-            (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt)))
-        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * np.average(nucleus.rest_ext_input ) * f / \
-                                                    np.trapz(f, t_list_trimmed)
+            (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
+        f_normalized = f / np.trapz(f, t_list_trimmed)
+        
+        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * \
+                                                np.average(nucleus.rest_ext_input ) * f_normalized
+                                                    
                                                                                 
         if plot:
             
@@ -7010,6 +7068,9 @@ def longestSubstringFinder(string1, string2):
                 match = ""
     return answer
 
+def get_max_value_dict(dictionary):
+    ''' return maximum length between items of a dictionary'''
+    return max([ max(v) for k, v in dictionary.items()])
 
 def read_sheets_of_xls_data(filepath, sheet_name_extra = 'Response'):
     

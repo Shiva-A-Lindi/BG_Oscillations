@@ -182,33 +182,33 @@ K_all = {'rest': K_real, 'DD_anesth': K_real_DD, 'awake_rest': K_real, 'mvt': K_
 # K_real_STN_Proto_diverse = K_real.copy()
 # K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
 
-T = {
-    # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
-    ('STN', 'Proto'): 1.3,     # 1.3 +/- 0.3 range = (0.8,2.5) Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
-    ('Proto', 'STN'): 2.8,  # ms kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 /  Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75/
-    #  Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72 
-    ('Proto', 'Proto'): 5, # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
-    ('Arky', 'Proto'): 5,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5
-    ('D2', 'Arky'): 4.9,     # Glajch et al. 2016 [Fig. 1] mice in vitro optogenetic temp: 20-22. estimate was 7 before Sep 2021.
-    ('FSI', 'Proto'): 4.3,     # Glajch et al. 2016 [Fig. 2] mice  in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
-    ('Proto', 'D2'):  7.34,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 
-    # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37 Fig 6
-    ('D2', 'FSI'): 0.93,  # Gittis et al 2010 mice in vitro electric stim temp = 31-33
-    ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
-    ('D2', 'Ctx'): 13.4 - 5} # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
-#       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
-#       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
-#       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
-#       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011
-#       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-#       ('Arky', 'STN'):  4.35, # Ketzef & Silberberg 2020 #  kita & Kitai (1991) - [firing rate]  reports 2ms
-#       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
-#       ('Th', 'GPi'): 5, # Xu et al. (2008)
-#       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
-#       ('FSI' , 'FSI'): 1, # estimate based on proximity
-#       ('Ctx','Th'): 5.6, # Walker et al. (2012)
-#       ('D1', 'D2'): 1,
-#       ('D2', 'D2'): 1}
+# T = {
+#     # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
+#     ('STN', 'Proto'): 1.3,     # 1.3 +/- 0.3 range = (0.8,2.5) Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
+#     ('Proto', 'STN'): 2.8,  # ms kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 /  Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75/
+#     #  Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72 
+#     ('Proto', 'Proto'): 5, # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
+#     ('Arky', 'Proto'): 5,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5
+#     ('D2', 'Arky'): 4.9,     # Glajch et al. 2016 [Fig. 1] mice in vitro optogenetic temp: 20-22. estimate was 7 before Sep 2021.
+#     ('FSI', 'Proto'): 4.3,     # Glajch et al. 2016 [Fig. 2] mice  in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
+#     ('Proto', 'D2'):  7.34,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 
+#     # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37 Fig 6
+#     ('D2', 'FSI'): 0.93,  # Gittis et al 2010 mice in vitro electric stim temp = 31-33
+#     ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
+#     ('D2', 'Ctx'): 13.4 - 5} # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
+# #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
+# #       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
+# #       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
+# #       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011
+# #       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
+# #       ('Arky', 'STN'):  4.35, # Ketzef & Silberberg 2020 #  kita & Kitai (1991) - [firing rate]  reports 2ms
+# #       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
+# #       ('Th', 'GPi'): 5, # Xu et al. (2008)
+# #       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
+# #       ('FSI' , 'FSI'): 1, # estimate based on proximity
+# #       ('Ctx','Th'): 5.6, # Walker et al. (2012)
+# #       ('D1', 'D2'): 1,
+# #       ('D2', 'D2'): 1}
 
 
 T = {
@@ -2983,7 +2983,7 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.2
-t_sim = 5300
+t_sim = 2300
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -3009,7 +3009,6 @@ g = -0.012 # 'awake_rest'
 # state = 'mvt' # set
 # g = -0.008 # 'mvt'
 
-# g = 0
 G = {}
 
 G[(name1, name2)], G[(name2, name1)] = g, -g
@@ -3017,8 +3016,7 @@ G = {k: v * K[k] for k, v in G.items()}
 
 plot_start = t_sim - 600
 plot_start_raster = plot_start
-# plot_start = 100
-# plot_start_raster = 100
+
 
 # T[('Proto', 'STN')] = 4
 # T[('STN', 'Proto')] = 4.75
@@ -3037,6 +3035,7 @@ receiving_pop_list = {(name1, '1'):  [(name2, '1')],
 
 pop_list = [1]
 init_method = 'heterogeneous'
+# init_method = 'homogeneous'
 syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
