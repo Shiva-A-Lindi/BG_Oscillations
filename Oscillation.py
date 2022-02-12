@@ -19,19 +19,16 @@ from sklearn.linear_model import LinearRegression
 import os
 from itertools import chain
 import xlsxwriter
+
 root = '/home/shiva/BG_Oscillations'
 # root =  r"C:/Users/azizp/BG_Oscillations"
 # root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
 path_rate = os.path.join(root, 'Outputs_rate_model')
-
-
-# import patsy
 file_dir = os.path.dirname(__file__)
 sys.path.append(file_dir)
 
-#from scipy.ndimage.filters import generic_filter
 
 N_sim = 1000
 N = {'STN': N_sim, 'Proto': N_sim, 'Arky': N_sim, 'FSI': N_sim,
@@ -43,28 +40,7 @@ N_real = {'STN': 13560, 'Proto': 46000*0.70,
           'D2': int(0.475*N_Str), 'D1': int(0.475*N_Str),
           'FSI': int(0.02*N_Str)}  # Oorschot 1998 , FSI-MSN: (Gerfen et al., 2010; Tepper, 2010)
 
-# firing rates before Dec 2021
-# A = { 'STN': 15 ,# De la Crompe (2020) [Fig. 6f] Are you blind?!
-#      'Proto': 45, ### AWAKE # Mallet et al. 2016, De la Crompe (2020)
-#      'Arky': 8, ### AWAKE Mallet et al. 2016, De la Crompe (2020) --> 15
-#          ## Corbit et al.: GPe neurons fired at 24.5 Hz in control and 18.9 Hz in the DD model ( Fig. 3B)(Boraud et al., 2001; Kita and Kita, 2011)
-#      'FSI': 18.5, # FSI average firing rates:10–15 Hz. 60–80 Hz during behavioral tasks(Berke et al., 2004; Berke, 2008) or 18.5 Hz # Gage et al. 2010
-#              # 21 Corbit et al. from HErnandez et al. 2013
-#      'D2': 1.1, # Gage et al. 2010
-#      'GPi':26} # Benhamou & Cohen (2001)
 
-# A_DD = { 'STN': 24 ,  # De la Crompe (2020) [Fig. 6f]
-#  		'Proto' : 22,  # De la Crompe (2020) [Fig. 4d] (This is for Sep 8th 2021. What was I thinking before?)
-#         'Arky': 12, # De la Crompe (2020) [Fig. 4f]
-#  		'FSI': 24, # Corbit et al. 2016
-#  		'D2': 6.6} # Kita & Kita. 2011, Corbit et al. 2016 This is their simulation dumby!
-
-# A_mvt = { 'STN': 50 ,
-#          'Proto': 22,  # Mirzaei et al. 2017 Fig 1.F
-#           'Arky':38, # Dodson et al. 2015 (mice)
-#           'FSI': 32,
-#           'D2': 4} # Mirzaei et al. 2017  Fig 1.F
-############################
 # Dec 2021 FR rest set to anesthetized
 FSI_DD = np.average( np.array([8.7, 10.56, 8, 11.2, 10.3]) ) / 19.78 * 10
 
@@ -233,10 +209,10 @@ T = {
     # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37    
     ('D2', 'FSI'): {'mean': 0.93, 'sd' : 0.29, 'truncmin': 0.8, 'truncmax': 2},  
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33
-    ('STN', 'Ctx'): {'mean': 5.5, 'sd' : 0.5, 'truncmin': 1, 'truncmax': 10}, 
-    # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
-    ('D2', 'Ctx'): {'mean': 13.4-5, 'sd' : 0.5, 'truncmin': 1, 'truncmax': 10}} 
-    # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
+    ('STN', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}, 
+    # Fujimoto & Kita 1993 3 +/- 1.3 ipsi Sensorimotor Ctx stim
+    ('D2', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}} 
+    # Jaeger & Kita 2016 assumes it's similar to Ctx-STN
 
 
 # Gerstner. synaptic time scale for excitation and inhibition
@@ -4406,28 +4382,28 @@ t_transient = 350  # ms
 duration = 10
 n_run = 1
 
-ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1} } # instant increase
+ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1} } # step input
+tau_rise = 0; tau_decay = 0
 
-ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1} } # exponetial tau 1.
-ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 merged
-tau_rise = 100; tau_decay = 5
+# ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1} } # exponetial tau 1.
+# ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 merged
+# tau_rise = 100; tau_decay = 5
 
-ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 only labeled
-tau_rise = 250; tau_decay = 4.
+# ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1} } # exponetial tau 6 only labeled
+# tau_rise = 250; tau_decay = 4.
 
 
 
 
 syn_trans_delay_dict = {'STN' : 0}
 
-
-avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
+avg_act = average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
                                        Act[state], G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,
-                                        n_FR, all_FR_list, end_of_nonlinearity,
-                                       t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
-                                       A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
-                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state,
-                                       exponential_ext_inp= True,  tau_rise = tau_rise, tau_decay = tau_decay, plot = False)
+                                        n_FR, all_FR_list, end_of_nonlinearity, t_transient=int(t_transient/dt), 
+                                        duration=int(duration/dt), n_run=n_run, A_mvt=None, D_mvt=0, t_mvt=t_mvt, 
+                                        ext_inp_dict=ext_inp_dict, noise_amplitude=None, noise_variance=None, 
+                                        reset_init_dist=True, color_dict=color_dict, state = state, exponential_ext_inp= True,
+                                        tau_rise = tau_rise, tau_decay = tau_decay, plot = False, ext_inp_method = 'step')
 
 
 
@@ -4454,9 +4430,9 @@ ax = fig.gca()
 filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_merged.xlsx'
 proto_shift = -4.5
 sheet_name_extra = ''
-filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
-proto_shift = -5.8
-sheet_name_extra = 'Label'
+# filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
+# proto_shift = -5.8
+# sheet_name_extra = 'Label'
 FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
 
 fig, ax = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
@@ -4477,7 +4453,7 @@ ax.plot(x * .1, y/ np.trapz(y, x))
 # ax.plot(500- x * np.log(x/ ( 100 + x)))
 
 
-# %% effect of MC-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays of MC-STR and MC-STN single neuron
+# %% effect of MC-induced transient input on a STR-GPe-STN network single neuron
 
 # plt.close('all')
 N_sim = 1000
@@ -4599,7 +4575,7 @@ plt.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
 # fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.pdf'), dpi = 300, facecolor='w', edgecolor='w',
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-# %% effect of MC-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays of MC-STR and MC-STN collective
+# %% effect of MC-induced transient input on a STR-GPe-STN network collective
 
 plt.close('all')
 N_sim = 1000
@@ -4700,22 +4676,26 @@ def get_syn_trans_delay(T):
         k[0]: v for k, v in T.items() if k[0] == 'D2' and k[1] == 'Ctx'}
     syn_trans_delay_dict = {
         **syn_trans_delay_dict_STN, **syn_trans_delay_dict_STR}
-    syn_trans_delay_dict = {k: v / dt for k, v in syn_trans_delay_dict.items()}
+    # syn_trans_delay_dict = {k: v / dt for k, v in syn_trans_delay_dict.items()}
     return syn_trans_delay_dict
 
 
 syn_trans_delay_dict = get_syn_trans_delay(T)
 
+syn_trans_delay_dict = {key: (truncated_normal_distributed(v['mean'],
+                                                           v['sd'], N_sim,
+                                                           truncmin = v['truncmin'],
+                                                           truncmax = v['truncmax']) / dt ).astype(int)
+                           for key, v in syn_trans_delay_dict.items()}
 
-# nuc1[0].low_pass_filter( dt, 1,200, order = 6)
-# nuc2[0].low_pass_filter( dt, 1,200, order = 6)
-
-avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
+avg_act = average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
                                        Act[state], G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,
-                                       list_of_nuc_with_trans_inp, n_FR, all_FR_list, end_of_nonlinearity,
-                                       t_transient=int(t_transient/dt), duration=int(duration/dt), n_run=n_run, 
-                                       A_mvt=None, D_mvt=0, t_mvt=t_mvt, ext_inp_dict=ext_inp_dict, noise_amplitude=None, 
-                                       noise_variance=None, reset_init_dist=True, color_dict=color_dict, state = state)
+                                        n_FR, all_FR_list, end_of_nonlinearity, t_transient=int(t_transient/dt), 
+                                        duration=int(duration/dt), n_run=n_run, A_mvt=None, D_mvt=0, t_mvt=t_mvt, 
+                                        ext_inp_dict=ext_inp_dict, noise_amplitude=None, noise_variance=None, 
+                                        reset_init_dist=True, color_dict=color_dict, state = state, exponential_ext_inp= True,
+                                        tau_rise = tau_rise, tau_decay = tau_decay, plot = False, ext_inp_method = 'step',
+                                        stim_method = 'Projection')
 
 for nuclei_list in nuclei_dict.values():
     for k, nucleus in enumerate(nuclei_list):
@@ -4730,7 +4710,7 @@ plt.axvspan(t_transient, (t_transient + duration), alpha=0.2, color='yellow')
 save_pdf_png(fig, os.path.join(path, 'MC_trans_stim_' + str(duration) +'ms_onto_D2-STN-Proto'), size = (8,4))
 
 
-# %% effect of D2-induced transient input on a STR-GPe-STN network taking into accound relative transmission delays  collective
+# %% effect of D2-induced transient input on a STR-GPe-STN network collective
 
 plt.close('all')
 N_sim = 1000

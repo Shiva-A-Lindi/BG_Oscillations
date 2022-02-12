@@ -141,7 +141,7 @@ class Nucleus:
         self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
         self.path = path
         self.pop_act = np.zeros((n_timebins))  # time series of population activity
-        self.external_inp_t_series = np.zeros((n_timebins))
+        self.external_inp_t_series = np.zeros((self.n, n_timebins))
         self.t_sim = t_sim
         self.sqrt_dt = np.sqrt(dt)
         self.half_dt = dt/2
@@ -513,7 +513,7 @@ class Nucleus:
     def cal_ext_inp(self, dt, t):
 
         # choose method of exerting external input from dictionary of methods
-        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[t]
+        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[:, t]
         
         self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, dt,
                                                                             I_rise = self.I_rise['ext_pop', '1'],
@@ -824,7 +824,7 @@ class Nucleus:
             self.input[:] = 0
             self.neuron_act[:] = 0
             self.mvt_ext_input = np.zeros_like(self.mvt_ext_input)
-            self.external_inp_t_series[:] = 0
+            self.external_inp_t_series[:, :] = 0
 
         if self.neuronal_model == 'spiking':
 
@@ -3737,6 +3737,12 @@ def create_sparse_matrix(matrix, end=None, start=0):
         end = n_cols
     return np.array([np.where(matrix[i, int(start):int(end)] == 1)[0] for i in range(n_rows)], dtype=object) + int(start)
 
+def get_corr_key_to_val(mydict, value):
+    
+	""" return all the keys corresponding to the specified value"""
+    
+	return [k for k, v in mydict.items() if v == value]
+
 
 def get_axes(ax, figsize=(6, 5)):
     if ax == None:
@@ -4675,8 +4681,22 @@ def run(receiving_class_dict, t_list, dt, nuclei_dict):
     
     return nuclei_dict
 
+
+
+def reset_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt, t_mvt, t_list, dt):
+    
+	K = calculate_number_of_connections(N, N_real, K_DD)
+	for nuclei_list in nuclei_dict.values():
+		for nucleus in nuclei_list:
+			nucleus.set_connections(K, N)
+			# nucleus.set_synaptic_weights(G_DD)
+			nucleus.set_ext_input(A_DD, A_mvt, D_mvt, t_mvt, t_list, dt)
+
+
 def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict, DD_init_filepaths, K_DD, N, N_real, 
                                    A_DD, A_mvt, D_mvt, t_mvt, t_transition=None):
+    
+	''' Transition to DD single neuron FR_ext initialization'''
     
 	if t_transition == None:
 		t_transition = t_list[int(len(t_list) / 3)]
@@ -4709,112 +4729,12 @@ def run_transition_to_DA_depletion(receiving_class_dict, t_list, dt, nuclei_dict
 	print("t = ", stop - start)
 	return nuclei_dict
 
-def run_transition_to_DA_depletion_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
-                                                     FR_ext_all_nuclei_DD, K_DD, N, N_real, A_DD,
-                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
-	if t_transition == None:
-		t_transition = t_list[int(len(t_list) / 3)]
-	start = timeit.default_timer()
 
-	for t in t_list:
+def run_transition_to_movement(receiving_class_dict, t_list, dt, nuclei_dict, mvt_init_filepaths, 
+							   N, N_real, A_mvt, D_mvt, t_mvt, t_transition=None):
+	
+	''' Transition to mvt single neuron FR_ext initialization'''
 
-		for nuclei_list in nuclei_dict.values():
-			for k, nucleus in enumerate(nuclei_list):
-
-				nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k+1))])
-
-		if t == t_transition:
-			print('transitioning..')
-			change_basal_firing_all_nuclei(A_DD, nuclei_dict)
-			nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
-			receiving_class_dict  = set_connec_ext_inp(A_DD, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_DD, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_DD, normalize_G_by_N=False,
-                                          state = 'DD')
-
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-	return nuclei_dict
-
-def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
-                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, 
-                                            state_1, state_2, K_all, N, N_real,
-                                            A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
-    if t_transition == None:
-        t_transition = t_list[int(len(t_list) / 3)]
-    start = timeit.default_timer()
-    
-    for t in t_list:
-            
-        for nuclei_list in nuclei_dict.values():
-            k = 0
-            for nucleus in nuclei_list:
-                k += 1
-                
-                nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k))])
-
-        if t == t_transition:
-            print('transitioning..')
-            nuceli_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
-            nuclei_dict = change_state_all_nuclei(state_2, nuclei_dict)
-            nuclei_dict = change_noise_all_nuclei( nuclei_dict, noise_variance[state_2], noise_amplitude)
-            
-            if 'DD' in state_2 and ('Proto', 'Proto') in list(G.keys()): 
-                nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
-
-            receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
-                                                                   receiving_pop_list, nuclei_dict, t_list,
-                                                                   all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
-                                                                   end_of_nonlinearity=end_of_nonlinearity,
-                                                                   set_FR_range_from_theory=False, method='collective',  save_FR_ext=False,
-                                                                   use_saved_FR_ext = True, normalize_G_by_N=False, state=state_2)
-            
-    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
-
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
-    return nuclei_dict
-
-def run_transition_to_mvt_collective_setting(receiving_class_dict, receiving_pop_list, t_list, dt, nuclei_dict,
-                                                     FR_ext_all_nuclei_mvt, K, N, N_real, A,
-                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition=None):
-	if t_transition == None:
-		t_transition = t_list[int(len(t_list) / 3)]
-	start = timeit.default_timer()
-
-	for t in t_list:
-
-		for nuclei_list in nuclei_dict.values():
-			for k, nucleus in enumerate(nuclei_list):
-
-				nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k+1))])
-
-		if t == t_transition:
-			print('transitioning..')
-			change_basal_firing_all_nuclei(A_mvt, nuclei_dict)
-			receiving_class_dict  = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K, receiving_pop_list, nuclei_dict,t_list, 
-                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, end_of_nonlinearity = end_of_nonlinearity, 
-                                          set_FR_range_from_theory=False, method = 'collective', return_saved_FR_ext= False, 
-                                          use_saved_FR_ext= True, FR_ext_all_nuclei_saved=FR_ext_all_nuclei_mvt, normalize_G_by_N=False, state = 'mvt')
-
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-	return nuclei_dict
-
-def reset_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt, t_mvt, t_list, dt):
-	K = calculate_number_of_connections(N, N_real, K_DD)
-	for nuclei_list in nuclei_dict.values():
-		for nucleus in nuclei_list:
-			nucleus.set_connections(K, N)
-			# nucleus.set_synaptic_weights(G_DD)
-			nucleus.set_ext_input(A_DD, A_mvt, D_mvt, t_mvt, t_list, dt)
-
-
-def run_transition_to_movement(receiving_class_dict, t_list, dt, nuclei_dict, mvt_init_filepaths, N, N_real, A_mvt, D_mvt, t_mvt, t_transition=None):
 	if t_transition == None:
 		t_transition = t_list[int(len(t_list) / 3)]
 	start = timeit.default_timer()
@@ -4847,141 +4767,113 @@ def run_transition_to_movement(receiving_class_dict, t_list, dt, nuclei_dict, mv
 	return nuclei_dict
 
 
-def run_with_transient_external_input(receiving_class_dict, t_list, dt, nuclei_dict, rest_init_filepaths,
-									  transient_init_filepaths, A, A_trans, list_of_nuc_with_trans_inp,
-									  t_transient=10, duration=10):
-	'''
-		run normaly til "t_transient" then exert an external transient input to "list_of_nuc_with_trans_inp" then resume to normal state until the end of simulation
-	'''
-	start = timeit.default_timer()
-	# basal firing
-	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
-	            t_start=0, t_end=t_transient)
-	# transient external input to the network
-	# , A_mvt, D_mvt, t_mvt, t_list, dt)
-	selective_reset_ext_input(
-	    nuclei_dict, transient_init_filepaths, list_of_nuc_with_trans_inp, A_trans)
-	# interate through the duration of transient input
-	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
-	            t_start=t_transient, t_end=t_transient + duration)
-	# reset back to rest
-	# , A_mvt, D_mvt, t_mvt, t_list, dt)
-	selective_reset_ext_input(
-	    nuclei_dict, rest_init_filepaths, list_of_nuc_with_trans_inp, A)
-	# look at the decay of the transient input
-	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
-	            t_start=t_transient + duration, t_end=t_list[-1])
-
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-	return nuclei_dict
-
-
-def get_corr_key_to_val(mydict, value):
-	""" return all the keys corresponding to the specified value"""
-	return [k for k, v in mydict.items() if v == value]
-
-
-def run_with_transient_external_input_including_transmission_delay(receiving_class_dict, t_list, dt, nuclei_dict, rest_init_filepaths,
-																   transient_init_filepaths, A, A_trans,  syn_trans_delay_dict,
-																   t_transient=10, duration=10):
-	'''
-		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation.
-		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to different nuclei (e.g. MC to STN and MC to D2)
-	'''
-
-	min_syn_trans_delays = min(
-	    syn_trans_delay_dict, key=syn_trans_delay_dict. get)
-	# synaptic trans delay relative to the nucleus with minimum delay.
-	t_start_inp_dict = {k: t_transient + v -
-	    syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()}
-	# synaptic trans delay relative to the nucleus with minimum delay.
-	t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
-
-# 	print('stimulation start times = ', t_start_inp_dict*dt)
-# 	print('stimulation end times = ', t_end_inp_dict)
-
-	start = timeit.default_timer()
-
-	for t in t_list:
-		# if it's the start of external input to (a) nucleus(ei)
-		if t in list(t_start_inp_dict.values()):
- 			# print("stim at {} for {}".format(t*dt, get_corr_key_to_val(t_start_inp_dict, t)))
- 			selective_reset_ext_input(nuclei_dict, transient_init_filepaths,
-									 get_corr_key_to_val(t_start_inp_dict, t),
-									 A_trans)
-		# if it's the end of external input to (a) nucleus(ei)
-		if t in list(t_end_inp_dict.values()):
-# 			print("stim end at {} for {}".format(t*dt, get_corr_key_to_val(t_end_inp_dict, t)))
-			selective_reset_ext_input(nuclei_dict, rest_init_filepaths,
-									 get_corr_key_to_val(t_end_inp_dict, t),
-									 A)
-		for nuclei_list in nuclei_dict.values():
-			for k, nucleus in enumerate(nuclei_list):
-				k += 1
-				nucleus.solve_IF(t, dt, receiving_class_dict[(nucleus.name, str(k))])
-
-	stop = timeit.default_timer()
-	print("t = ", stop - start)
-
-	return nuclei_dict
-
-
-##### seting ext input with respect to all corresponding nuclei going to A of transient (Seems wrong because the external input should be independent of the synaptic input)
-# def run_with_transient_external_input_including_transmission_delay(receiving_class_dict, t_list, dt, nuclei_dict, rest_init_filepaths,
-# 																   A, A_trans,  syn_trans_delay_dict, transient_init_filepaths = None,
-# 																   t_transient=10, duration=10, inp_method='reset', ext_inp_dict = None):
+def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
+                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                                            K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                                            end_of_nonlinearity, t_transition=None):
     
-#     '''
-#     		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation.
-#     		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to different nuclei (e.g. MC to STN and MC to D2)
-#     '''
-#     min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
+    ''' Transition from <state_1> to <state_2> collective FR_ext setting'''
     
+    if t_transition == None:
+        t_transition = t_list[int(len(t_list) / 3)]
+        
+    start = timeit.default_timer()
     
-#     # synaptic trans delay relative to the nucleus with minimum delay.
-#     t_start_inp_dict = {k: t_transient + v -
-# 	    syn_trans_delay_dict[min_syn_trans_delays] for k, v in syn_trans_delay_dict.items()}
-# 	# synaptic trans delay relative to the nucleus with minimum delay.
-#     t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
+    for t in t_list:
+            
+        for nuclei_list in nuclei_dict.values():
+            for k, nucleus in enumerate(nuclei_list):
+                
+                nucleus.solve_IF(t, dt, receiving_class_dict[(
+					    nucleus.name, str(k + 1))])
 
-# #     print('stimulation start times = ', t_start_inp_dict*dt)
-# #     print('stimulation end times = ', t_end_inp_dict)
+        if t == t_transition:
+            print('transitioning..')
+            nuclei_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
+            nuclei_dict = change_state_all_nuclei(state_2, nuclei_dict)
+            nuclei_dict = change_noise_all_nuclei( nuclei_dict, noise_variance[state_2], noise_amplitude)
+            
+            if 'DD' in state_2 and ('Proto', 'Proto') in list(G.keys()): 
+                nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
 
-#     start = timeit.default_timer()
+            receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
+                                                                   receiving_pop_list, nuclei_dict, t_list,
+                                                                   all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
+                                                                   end_of_nonlinearity=end_of_nonlinearity,
+                                                                   set_FR_range_from_theory=False, method='collective',  save_FR_ext=False,
+                                                                   use_saved_FR_ext = True, normalize_G_by_N=False, state=state_2)
+            
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
-#     for t in t_list:
-#         # if it's the start of external input to (a) nucleus(ei)
-#         if t in list(t_start_inp_dict.values()):
-#             if inp_method == 'reset':
-#              # print("stim at {} for {}".format(t*dt, get_corr_key_to_val(t_start_inp_dict, t)))             
-#              selective_reset_ext_input(nuclei_dict, transient_init_filepaths, 
-#                                          get_corr_key_to_val(t_start_inp_dict, t), 
-#                                          A_trans) 
-#             elif inp_method == 'add':
-#                 selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict)
+    stop = timeit.default_timer()
+    print("t = ", stop - start)
+    return nuclei_dict
 
-                    
-#         # if it's the end of external input to (a) nucleus(ei)
-#         if t in list( t_end_inp_dict.values() ):
-# #             print("stim end at {} for {}".format(t*dt, get_corr_key_to_val(t_end_inp_dict, t)))
-#             # if inp_method == 'reset':
-#             selective_reset_ext_input(nuclei_dict, rest_init_filepaths, 
-#                                      get_corr_key_to_val(t_end_inp_dict, t), 
-#                                      A)
-#             # elif inp_method == 'add':
-#             #     ext_inp_dict_end = {k: {k1: -v1 for k1, v1 in v.items()} for k,v in ext_inp_dict.items()}
-#             #     selective_additive_ext_input(nuclei_dict, get_corr_key_to_val(t_start_inp_dict, t), ext_inp_dict_end)
 
-#         for nuclei_list in nuclei_dict.values():
-#             for k, nucleus in enumerate(nuclei_list):
-#                 k+=1
-#                 nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))])
-
-#     stop = timeit.default_timer()
-#     print("t = ", stop - start)
+def cal_average_activity(nuclei_dict, n_run, avg_act):
     
-#     return nuclei_dict
+    ''' calculate average population firing activity of multiple runs
+    '''
+    
+    for nuclei_list in nuclei_dict.values():
+            for k,nucleus in enumerate( nuclei_list) :
+                avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
+                
+    return avg_act
+
+
+
+def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, 
+                     stim_duration = 10, ax = None, time_shift_dict = None, sheet_name_extra = '',
+                     legend_loc = 'upper right'):
+    
+    fig, ax = get_axes( ax )
+    
+    if time_shift_dict == None:
+        time_shift_dict = { key: 0 for key in list(FR_df.keys())}
+
+    for name in list(FR_df.keys()):
+        
+        name_adj = name.split('_')[-1].replace( sheet_name_extra, '')
+        time = FR_df[name]['Time'] * 1000 - time_shift_dict[name_adj]
+        fr = FR_df[name].drop(columns = ['Time'])
+        fr_mean = fr.mean(axis=1)
+        # print( name, ' rest firing rate = ', np.average( fr_mean[time < 0] ))
+        fr_std = fr.std(axis=1)
+        n_cells = len(FR_df[name].columns) - 1
+        ax.plot(time, fr_mean, c = color_dict[name_adj], label = name_adj + ' n =' + str(n_cells))
+        ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
+                        color = color_dict[name_adj], alpha = 0.1)
+        
+    title = filename.split('.')[0].split('_')[-1] 
+    ax.set_title(title, fontsize = 15)
+    ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
+    ax.set_xlabel('Time (ms)', fontsize = 14)
+    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
+    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
+    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axhline(0, c= 'grey', ls = ':')
+
+    if xlim != None:
+        ax.set_xlim(xlim)
+    if ylim != None:
+        ax.set_ylim(ylim)
+
+    remove_frame(ax)
+    return fig, ax
+
+def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_inp_dict):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            if nucleus.name in list_of_nuc_with_trans_inp:
+                
+                ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'] * np.average( nucleus.rest_ext_input), 
+                                            ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
+                nucleus.additive_ext_input(ext_inp)
+                
+    return nuclei_dict
 
 
 def run_with_transient_external_input_including_transmission_delay(receiving_class_dict, t_list, dt, nuclei_dict, rest_init_filepaths,
@@ -5036,56 +4928,82 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
     return nuclei_dict
 
 
-
-def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
-                                                                              A, syn_trans_delay_dict,
-                                                                              t_transient=10, duration=10, ext_inp_dict = None):
+def exp_rise_and_decay_transient_ext_inp_ChR2_like( trans_coef, mean_ext_inp, t_list, t_start, tau_rise, tau_decay, dt, n):
     
+    ''' return an n by n_timebin matrix as the additive external input filled with 
+        a normalized exponential rise and decay with  AUC equal to trans_coef * mean_ext_input
+        timing of input is the same for all neurons mimicking ChR2 laser activation population wide
     '''
-    		run normaly til "t_transient" then exert an external transient input to the concerned nuclei then resume to normal state until the end of simulation.
-    		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to different nuclei (e.g. MC to STN and MC to D2)
-    '''
-    min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
     
-    # synaptic trans delay relative to the nucleus with minimum delay.
-    t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
-                        for k, v in syn_trans_delay_dict.items()}
-    t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
-    start = timeit.default_timer()
-
+    t_list_trimmed = t_list[ t_start: ]
     
-    for t in t_list:
+    f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
+        (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
         
-        # if it's the start of external input to (a) nucleus(ei)
-        if t in list(t_start_inp_dict.values()):
-            key_start = get_corr_key_to_val(t_start_inp_dict, t)
+    f_normalized = f / np.trapz(f, t_list_trimmed)
+    ext_inp =  (trans_coef * mean_ext_inp * f_normalized).reshape(-1, 1).T
+    # print(ext_inp.shape)
+    return  np.repeat( ext_inp, n, axis = 0)
 
-            nuclei_dict = selective_additive_ext_input(nuclei_dict, key_start, ext_inp_dict)
-
-            print("stim start at {} for {} average is {}".format(t * dt, key_start , 
-                                                                 np.average(nuclei_dict[key_start[0]][0].rest_ext_input)))
-
-        # if it's the end of external input to (a) nucleus(ei)
-        if t in list( t_end_inp_dict.values() ):
-            
-            key_end = get_corr_key_to_val(t_end_inp_dict, t)
-            nuclei_dict = selective_reset_ext_input_collective(nuclei_dict, 
-                                                               key_end, A)
-            
-            print("stim end at {} for {} average is {}".format(t * dt, key_end , 
-                                                           np.average(nuclei_dict[key_end[0]][0].rest_ext_input)))
-        for nuclei_list in nuclei_dict.values():
-            for k, nucleus in enumerate(nuclei_list):
-                nucleus.solve_IF(t, dt, receiving_class_dict[(nucleus.name,str(k + 1))])
-    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
-
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
+def step_like_norm_dist_transient_ext_inp_ChR2_like(trans_coef, mean_ext_inp, sigma, n, t_list, t_start, t_end):
     
-    return nuclei_dict
+    ''' return an n by n_timebin matrix as the additive external input filled with 
+        normally distributed (for neurons) step like external inputs
+        timing of input is the same for all neurons mimicking ChR2 laser activation population wide
+    '''
+
+    f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
+    ext_inp = np.zeros(( n, len (t_list[ t_start:]) ))
+    ext_inp[:, :(t_end - t_start) ] = np.repeat(f, t_end - t_start, axis = 1)
+    
+    return ext_inp
+
+def step_like_norm_dist_transient_ext_inp_projected(trans_coef, mean_ext_inp, sigma, n, t_list, t_start, t_end):
+    
+    ''' return an n by n_timebin matrix as the additive external input filled with 
+        normally distributed (for neurons) step like external inputs
+        timing of input is based on transmission delay distribution
+    '''
+
+    f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
+    # print(t_start)
+    # t_size = len (t_list[ t_start:]) 
+
+    ext_inp = np.array( [ np.hstack( ( np.zeros( t_start[i] ),  
+                                       np.full( t_end[i] - t_start[i], f[i] ), 
+                                       np.zeros(  len(t_list[t_start[i]:]) - ( t_end[i] - t_start[i] ))
+                                    ) ) 
+                         for i in range(n)])
+    print(ext_inp.shape)
+    return ext_inp
+
+def exp_rise_and_decay_transient_ext_inp_projected( trans_coef, mean_ext_inp, t_list, t_start, tau_rise, tau_decay, dt, n):
+    
+    ''' return an n by n_timebin matrix as the additive external input filled with 
+        a normalized exponential rise and decay with  AUC equal to trans_coef * mean_ext_input
+        timing of input is based on transmission delay distribution
+    '''
+    
+    t_list_trimmed = t_list[ t_start: ]
+    
+    f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
+        (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
+        
+    f_normalized = f / np.trapz(f, t_list_trimmed)
+    ext_inp =  (trans_coef * mean_ext_inp * f_normalized).reshape(-1, 1).T
+    # print(ext_inp.shape)
+    return  np.repeat( ext_inp, n, axis = 0)
+
+
+
 
 def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
-                                             t_start_inp_dict, dt, duration = 10, plot = False):
+                                             t_start_inp_dict, t_end_inp_dict, dt, duration = 10, 
+                                             plot = False, method = 'exponential', stim_method = 'ChR2'):
+    
+    ''' filling the values of the extrernal_inp_t_series with a transient input according to when the stimulus starts
+        which is the same for all neurons.
+    '''
     
     list_of_nuc_with_trans_inp = list(t_start_inp_dict.keys())
 
@@ -5094,14 +5012,30 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_
         nucleus = nuclei_dict[name][0]
 
         t_start = t_start_inp_dict[name]
-        t_list_trimmed = t_list[ t_start: ]
-        f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
-            (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
-        f_normalized = f / np.trapz(f, t_list_trimmed)
+        t_end = t_end_inp_dict[name]
         
-        nucleus.external_inp_t_series[t_start:] = ext_inp_dict[name]['mean'] * \
-                                                np.average(nucleus.rest_ext_input ) * f_normalized
-                                                    
+        if method == 'exponential':
+            
+            f_add = exp_rise_and_decay_transient_ext_inp_ChR2_like(ext_inp_dict[name]['mean'],
+                                                                   np.average(nucleus.rest_ext_input),
+                                                                   t_list, t_start, tau_rise, tau_decay, 
+                                                                   dt, nucleus.n)
+        elif method == 'step':
+            if stim_method == 'ChR2':
+            
+                f_add = step_like_norm_dist_transient_ext_inp_ChR2_like( ext_inp_dict[nucleus.name]['mean'],
+                                                                        np.average( nucleus.rest_ext_input), 
+                                                                        ext_inp_dict[nucleus.name]['sigma'], 
+                                                                        nucleus.n, t_list, t_start, t_end)
+            else:
+                
+                f_add = step_like_norm_dist_transient_ext_inp_projected( ext_inp_dict[nucleus.name]['mean'],
+                                                                        np.average( nucleus.rest_ext_input), 
+                                                                        ext_inp_dict[nucleus.name]['sigma'], 
+                                                                        nucleus.n, t_list, t_start, t_end)
+        # nucleus.external_inp_t_series[ :, t_start:] = f_add
+        nucleus.external_inp_t_series = f_add # change ChR2s to return the whole matrix
+  
                                                                                 
         if plot:
             
@@ -5111,9 +5045,20 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_
 
     return nuclei_dict
 
-def run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
-                                                                    A, syn_trans_delay_dict, tau_rise = 50, tau_decay = 50,
-                                                                    t_transient=10, duration=10, ext_inp_dict = None, plot = False):
+def create_stim_start_end_dict(t_transient, duration, syn_trans_delay_dict):
+    
+    t_start_inp_dict = {k: t_transient + v 
+                        for k, v in syn_trans_delay_dict.items()}
+    t_end_inp_dict = {k: duration + v 
+                      for k, v in t_start_inp_dict.items()}
+    
+    return t_start_inp_dict, t_end_inp_dict
+
+def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
+                                                        A, syn_trans_delay_dict, tau_rise = 50, tau_decay = 50,
+                                                        t_transient=10, duration=10, ext_inp_dict = None, 
+                                                        plot = False, ext_inp_method = 'exponential',
+                                                        stim_method = 'ChR2'):
     
     '''
     		run normaly til "t_transient" then exert an external transient input ( as an exponential rise and decay) 
@@ -5121,109 +5066,49 @@ def run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_cl
     		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to 
             different nuclei (e.g. MC to STN and MC to D2)
     '''
-    min_syn_trans_delays = min(syn_trans_delay_dict, key=syn_trans_delay_dict. get)
+    # min_syn_trans_delays = min(syn_trans_delay_dict, key = syn_trans_delay_dict. get)
     
-    # synaptic trans delay relative to the nucleus with minimum delay.
-    t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
-                        for k, v in syn_trans_delay_dict.items()}
-    t_end_inp_dict = {k: duration + v for k, v in t_start_inp_dict.items()}
-    start = timeit.default_timer()
+    # # synaptic trans delay relative to the nucleus with minimum delay.
+    # t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
+    #                     for k, v in syn_trans_delay_dict.items()}
+    
 
+    t_start_inp_dict, t_end_inp_dict = create_stim_start_end_dict(t_transient, duration, syn_trans_delay_dict)
     nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
-                                                           t_start_inp_dict, dt,  duration=10, plot = plot)
-    for t in t_list:
-        for nuclei_list in nuclei_dict.values():
-            for k, nucleus in enumerate(nuclei_list):
-                
-                nucleus.solve_IF(t, dt, receiving_class_dict[(nucleus.name,str(k + 1))])
-                
-    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
-
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
+                                                           t_start_inp_dict, t_end_inp_dict, dt,  
+                                                           duration=10, plot = plot, method = ext_inp_method,
+                                                           stim_method = stim_method)
+    
+    nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
     
     return nuclei_dict
 
-def cal_average_activity(nuclei_dict, n_run, avg_act):
-    
-    for nuclei_list in nuclei_dict.values():
-            for k,nucleus in enumerate( nuclei_list) :
-                avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
-    return avg_act
 
-
-
-def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, 
-                     stim_duration = 10, ax = None, time_shift_dict = None, sheet_name_extra = '',
-                     legend_loc = 'upper right'):
-    
-    fig, ax = get_axes( ax )
-    
-    if time_shift_dict == None:
-        time_shift_dict = { key: 0 for key in list(FR_df.keys())}
-
-    for name in list(FR_df.keys()):
-        
-        name_adj = name.split('_')[-1].replace( sheet_name_extra, '')
-        time = FR_df[name]['Time'] * 1000 - time_shift_dict[name_adj]
-        fr = FR_df[name].drop(columns = ['Time'])
-        fr_mean = fr.mean(axis=1)
-        # print( name, ' rest firing rate = ', np.average( fr_mean[time < 0] ))
-        fr_std = fr.std(axis=1)
-        n_cells = len(FR_df[name].columns) - 1
-        ax.plot(time, fr_mean, c = color_dict[name_adj], label = name_adj + ' n =' + str(n_cells))
-        ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
-                        color = color_dict[name_adj], alpha = 0.1)
-        
-    title = filename.split('.')[0].split('_')[-1] 
-    ax.set_title(title, fontsize = 15)
-    ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
-    ax.set_xlabel('Time (ms)', fontsize = 14)
-    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
-    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
-    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axhline(0, c= 'grey', ls = ':')
-
-    if xlim != None:
-        ax.set_xlim(xlim)
-    if ylim != None:
-        ax.set_ylim(ylim)
-
-    remove_frame(ax)
-    return fig, ax
-
-def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict,t_list, dt, nuclei_dict, A, G, N, N_real, K_real, 
-                                 syn_trans_delay_dict, poisson_prop,  n_FR, all_FR_list, 
-                                 end_of_nonlinearity, t_transient = 10, duration = 10 ,n_run = 1, A_mvt = None, D_mvt = None, 
-                                 t_mvt = None, ext_inp_dict = None, noise_amplitude = None, noise_variance = None, 
-                                 reset_init_dist = True, color_dict = None, state = 'rest', exponential_ext_inp = False,
-                                 tau_rise = 5, tau_decay = 10, plot = False):
+def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, 
+                                 nuclei_dict, A, G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,  
+                                 n_FR, all_FR_list, end_of_nonlinearity, t_transient = 10, duration = 10, 
+                                 n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None, ext_inp_dict = None, 
+                                 noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
+                                 color_dict = None, state = 'rest', exponential_ext_inp = False,
+                                 tau_rise = 5, tau_decay = 10, plot = False, ext_inp_method = 'exponential',
+                                 stim_method = 'ChR2'):
     
     avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
                for nuc in list( nuclei_dict.keys() ) }
     
     for i in range(n_run):
-        
-        if exponential_ext_inp:
-            nuclei_dict = run_with_trans_exponential_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
-                                                                                        t_list, dt, nuclei_dict,
-                                                                                        A, syn_trans_delay_dict,
-                                                                                        t_transient = t_transient, 
-                                                                                        duration = duration, 
-                                                                                        ext_inp_dict = ext_inp_dict,
-                                                                                        tau_rise = tau_rise, 
-                                                                                        tau_decay = tau_decay, plot = plot)  
-        else:
-            
-            nuclei_dict = run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
-                                                                                                t_list, dt, nuclei_dict,
-                                                                                                A, syn_trans_delay_dict,
-                                                                                                t_transient = t_transient, 
-                                                                                                duration = duration, 
-                                                                                                ext_inp_dict = ext_inp_dict)  
 
-
+        nuclei_dict = run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
+                                                                            t_list, dt, nuclei_dict,
+                                                                            A, syn_trans_delay_dict,
+                                                                            t_transient = t_transient, 
+                                                                            duration = duration, 
+                                                                            ext_inp_dict = ext_inp_dict,
+                                                                            tau_rise = tau_rise, 
+                                                                            tau_decay = tau_decay, 
+                                                                            plot = plot, 
+                                                                            ext_inp_method = ext_inp_method,
+                                                                            stim_method = stim_method)
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
         nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
@@ -5266,20 +5151,9 @@ def iterate_SNN(nuclei_dict, dt,receiving_class_dict, t_start = 0, t_end = 500):
     for t in range(t_start,t_end):
         for nuclei_list in nuclei_dict.values():
             for k, nucleus in enumerate(nuclei_list):
-                k+=1
-                nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k))])
+                nucleus.solve_IF(t,dt,receiving_class_dict[(nucleus.name,str(k + 1))])
                 
-def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_inp_dict):
-    
-    for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
-            if nucleus.name in list_of_nuc_with_trans_inp:
-                
-                ext_inp = np.random.normal(ext_inp_dict[nucleus.name]['mean'] * np.average( nucleus.rest_ext_input), 
-                                           ext_inp_dict[nucleus.name]['sigma'], nucleus.n)
-                nucleus.additive_ext_input(ext_inp)
-                
-    return nuclei_dict
+
 
 def selective_reset_ext_input(nuclei_dict, init_filepaths, list_of_nuc_with_trans_inp, A, A_mvt = None, D_mvt = None, t_mvt = None, t_list = None, dt = None):
 
@@ -6071,61 +5945,7 @@ def reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
     return nuclei_dict
 
-# def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
-#                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
-#                       t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
-    
-#     def set_time_scale( nuclei_dict, synaptic_time_constant):
-#         for nucleus_list in nuclei_dict.values():
-#             for nucleus in nucleus_list:
-#                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
-#         return nuclei_dict
-    
-#     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
-#     data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
-#     count =0 ; i=0
-#     for t_decay_1 in t_decay_series_1:
-#         j = 0
-#         for t_decay_2 in t_decay_series_2:
 
-            # synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
-#             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
-#             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
-#             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
-
-#             run(receiving_class_dict,t_list, dt, nuclei_dict)
-#             data['tau'][i,j,:] = [t_decay_1,t_decay_2]
-            
-#             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
-#     #                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
-#             for nucleus in nucleus_list:
-#                 data[(nucleus.name, 'g_transient')][i,j] = g_transient
-#                 data[(nucleus.name, 'g_stable')][i,j] = g_stable
-#                 data[(nucleus.name,'trans_n_half_cycle')][i,j] = n_half_cycle
-#                 data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
-#                 _,_, data[nucleus.name,'trans_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
-#                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
-            
-#             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
-            
-#                 for k,g_ratio in G_ratio_dict.items():
-#                     G[k] = g_stable * g_ratio
-#                 # G[('STN','Proto')] = g_stable
-#                 # G[('Proto','Proto')] = g_stable * g_ratio
-#                 nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
-#                 run(receiving_class_dict,t_list, dt, nuclei_dict)
-                
-#                 for nucleus in nucleus_list:
-#                     _,_, data[nucleus.name,'stable_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
-#                     _,_, data[nucleus.name,'stable_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
-
-#             count +=1
-#             print(count, "from ", len(t_decay_series_1)*len(t_decay_series_2))
-#             j+=1
-#         i +=1
-#     output = open(filename, 'wb')
-#     pickle.dump(data, output)
-#     output.close()
     
 def save_freq_analysis_to_df_2d(data, state, i, j, nucleus, dt, duration, check_stability = True):
     
@@ -6843,82 +6663,7 @@ def remove_all_x_labels(fig):
         
     return fig
    
-# def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, 
-#                                                  y_list, c_list, colormap = 'hot', x_axis = 'multiply', title = "", 
-#                                                  x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', 
-#                                                  vline_txt = True, colorbar = True):
-    
-    
-#     fig = plt.figure(figsize=(8,7))
-#     ax = fig.add_subplot(111)
-    
-#     vmax, vmin = get_extremes_from_all_dfs(filename_list, name_list, c_list)
-    
-#     for i in range(len(filename_list)):
-        
-#         pkl_file = open(filename_list[i], 'rb')
-#         data = pickle.load(pkl_file)
-        
-#         if x_axis == 'multiply':
-            
-#             g = np.squeeze(data['g'][:,:,0] * 
-#                            data['g'][:,:,1])
-#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
-#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_stable_boundary'][0][g_cte_ind[i]] 
-#             x_label = r'$G_{Loop}$'
-            
-#         else:
-#             g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
-#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
-#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]
 
-#         ax.plot(g * x_scale_factor, 
-#                 np.squeeze(data[(name_list[i],y_list[i])]),
-#                 c = color_list[i], lw = 3, 
-#                 label= label_list[i], zorder=1)
-        
-#         img = ax.scatter(g * x_scale_factor, 
-#                          np.squeeze(data[(name_list[i],y_list[i])]),
-#                          vmin = vmin, vmax = vmax, 
-#                          c=data[(name_list[i],c_list[i])], 
-#                          cmap=plt.get_cmap(colormap), lw = 1, 
-#                          edgecolor = 'k', zorder = 2, s = 80)
-        
-#         ax.axvline(g_transient * x_scale_factor, 
-#                    linestyle = '-.', c = color_list[i],
-#                    alpha = 0.3, lw = 2) 
-        
-#         ax.axvline(g_stable * x_scale_factor, 
-#                    c = color_list[i], lw = 2) 
-        
-#     if vline_txt :
-#         ax.text(g_stable * x_scale_factor-0.5, 0.6, 
-#                 'Stable oscillation',
-#                 fontsize=18, rotation = -90)
-#         ax.text(g_transient * x_scale_factor, 0.6, 
-#                 'Transient Oscillation', 
-#                 fontsize=18, rotation = -90)
-        
-#     ax.set_xlabel(x_label,fontsize = 20)
-#     ax.set_ylabel('frequency(Hz)',fontsize=20)
-#     ax.set_title(title,fontsize=20)
-#     ax_label_adjust(ax, fontsize = 18, nbins = 8)
-#     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
-#     remove_frame(ax)
-    
-#     if colorbar:
-        
-#         axins1 = inset_axes(ax,
-#                         width="5%",  # width = 50% of parent_bbox width
-#                         height="70%",  # height : 5%
-#                         loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
-#         clb = fig.colorbar(img, cax=axins1, orientation="vertical")
-#         clb.ax.locator_params(nbins=4)
-#         clb.set_label('% Oscillation', 
-#                       labelpad=20, y=.5, 
-#                       rotation=-90,fontsize=15)
-    
-#     return fig
 
 def multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
                                    key = None, tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
@@ -7325,6 +7070,196 @@ def _generate_filename_3_nuclei(nuclei_dict, G_dict, noise_variance, fft_method)
     gs = [gs[i].replace('.','-') for i in range( len (gs))]
     nucleus = nuclei_dict[names[0]][0]
     
+    
+# def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label_list, color_list, g_cte_ind, g_ch_ind, 
+#                                                  y_list, c_list, colormap = 'hot', x_axis = 'multiply', title = "", 
+#                                                  x_label = "G", x_scale_factor = 1, leg_loc = 'upper right', 
+#                                                  vline_txt = True, colorbar = True):
+    
+    
+#     fig = plt.figure(figsize=(8,7))
+#     ax = fig.add_subplot(111)
+    
+#     vmax, vmin = get_extremes_from_all_dfs(filename_list, name_list, c_list)
+    
+#     for i in range(len(filename_list)):
+        
+#         pkl_file = open(filename_list[i], 'rb')
+#         data = pickle.load(pkl_file)
+        
+#         if x_axis == 'multiply':
+            
+#             g = np.squeeze(data['g'][:,:,0] * 
+#                            data['g'][:,:,1])
+#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_transient_boundary'][0][g_cte_ind[i]] 
+#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]* data[name_list[i],'g_stable_boundary'][0][g_cte_ind[i]] 
+#             x_label = r'$G_{Loop}$'
+            
+#         else:
+#             g = np.squeeze(data['g'][:,:,g_ch_ind[i]])
+#             g_transient = data[name_list[i],'g_transient_boundary'][0][g_ch_ind[i]]
+#             g_stable = data[name_list[i],'g_stable_boundary'][0][g_ch_ind[i]]
+
+#         ax.plot(g * x_scale_factor, 
+#                 np.squeeze(data[(name_list[i],y_list[i])]),
+#                 c = color_list[i], lw = 3, 
+#                 label= label_list[i], zorder=1)
+        
+#         img = ax.scatter(g * x_scale_factor, 
+#                          np.squeeze(data[(name_list[i],y_list[i])]),
+#                          vmin = vmin, vmax = vmax, 
+#                          c=data[(name_list[i],c_list[i])], 
+#                          cmap=plt.get_cmap(colormap), lw = 1, 
+#                          edgecolor = 'k', zorder = 2, s = 80)
+        
+#         ax.axvline(g_transient * x_scale_factor, 
+#                    linestyle = '-.', c = color_list[i],
+#                    alpha = 0.3, lw = 2) 
+        
+#         ax.axvline(g_stable * x_scale_factor, 
+#                    c = color_list[i], lw = 2) 
+        
+#     if vline_txt :
+#         ax.text(g_stable * x_scale_factor-0.5, 0.6, 
+#                 'Stable oscillation',
+#                 fontsize=18, rotation = -90)
+#         ax.text(g_transient * x_scale_factor, 0.6, 
+#                 'Transient Oscillation', 
+#                 fontsize=18, rotation = -90)
+        
+#     ax.set_xlabel(x_label,fontsize = 20)
+#     ax.set_ylabel('frequency(Hz)',fontsize=20)
+#     ax.set_title(title,fontsize=20)
+#     ax_label_adjust(ax, fontsize = 18, nbins = 8)
+#     ax.legend(fontsize=15, frameon = False, framealpha = 0.1, loc = leg_loc)
+#     remove_frame(ax)
+    
+#     if colorbar:
+        
+#         axins1 = inset_axes(ax,
+#                         width="5%",  # width = 50% of parent_bbox width
+#                         height="70%",  # height : 5%
+#                         loc='center right')#,borderpad=-1)#, bbox_to_anchor=(0.5, 0.5, 0.5, 0.5),)
+#         clb = fig.colorbar(img, cax=axins1, orientation="vertical")
+#         clb.ax.locator_params(nbins=4)
+#         clb.set_label('% Oscillation', 
+#                       labelpad=20, y=.5, 
+#                       rotation=-90,fontsize=15)
+    
+#     return fig
+
+
+# def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+#                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
+#                       t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
+    
+#     def set_time_scale( nuclei_dict, synaptic_time_constant):
+#         for nucleus_list in nuclei_dict.values():
+#             for nucleus in nucleus_list:
+#                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
+#         return nuclei_dict
+    
+#     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
+#     data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
+#     count =0 ; i=0
+#     for t_decay_1 in t_decay_series_1:
+#         j = 0
+#         for t_decay_2 in t_decay_series_2:
+
+            # synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
+#             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
+#             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
+
+#             run(receiving_class_dict,t_list, dt, nuclei_dict)
+#             data['tau'][i,j,:] = [t_decay_1,t_decay_2]
+            
+#             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
+#     #                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+#             for nucleus in nucleus_list:
+#                 data[(nucleus.name, 'g_transient')][i,j] = g_transient
+#                 data[(nucleus.name, 'g_stable')][i,j] = g_stable
+#                 data[(nucleus.name,'trans_n_half_cycle')][i,j] = n_half_cycle
+#                 data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
+#                 _,_, data[nucleus.name,'trans_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+            
+#             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
+            
+#                 for k,g_ratio in G_ratio_dict.items():
+#                     G[k] = g_stable * g_ratio
+#                 # G[('STN','Proto')] = g_stable
+#                 # G[('Proto','Proto')] = g_stable * g_ratio
+#                 nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#                 run(receiving_class_dict,t_list, dt, nuclei_dict)
+                
+#                 for nucleus in nucleus_list:
+#                     _,_, data[nucleus.name,'stable_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                     _,_, data[nucleus.name,'stable_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+
+#             count +=1
+#             print(count, "from ", len(t_decay_series_1)*len(t_decay_series_2))
+#             j+=1
+#         i +=1
+#     output = open(filename, 'wb')
+#     pickle.dump(data, output)
+#     output.close()
+    
+# def sweep_time_scales(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+#                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
+#                       t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill=True):
+    
+#     def set_time_scale( nuclei_dict, synaptic_time_constant):
+#         for nucleus_list in nuclei_dict.values():
+#             for nucleus in nucleus_list:
+#                 nucleus.set_synaptic_time_scales(synaptic_time_constant) 
+#         return nuclei_dict
+    
+#     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) ; t_decay_series_2 = list(syn_decay_dict['tau_2']['tau_list'])
+#     data  = create_data_dict(nuclei_dict, [len(t_decay_series_1), len(t_decay_series_2)], 2,len(t_list))    
+#     count =0 ; i=0
+#     for t_decay_1 in t_decay_series_1:
+#         j = 0
+#         for t_decay_2 in t_decay_series_2:
+
+            # synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2)
+#             nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#             nuclei_dict = set_time_scale(nuclei_dict,synaptic_time_constant)
+#             n_half_cycle,g_transient,g_stable, nuclei_dict, if_stable = find_oscillation_boundary(g_list, nuclei_dict, G,G_ratio_dict, A, A_mvt,t_list,dt, receiving_class_dict, D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle =  lim_n_cycle , find_stable_oscill=find_stable_oscill)
+
+#             run(receiving_class_dict,t_list, dt, nuclei_dict)
+#             data['tau'][i,j,:] = [t_decay_1,t_decay_2]
+            
+#             nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
+#     #                plot(Proto, STN, dt, t_list, A, A_mvt, t_mvt, D_mvt,plot_ob = None, title = r"$\tau_{GABA_A}$ = "+ str(round(gaba_a,2))+r' $\tau_{GABA_B}$ ='+str(round(gaba_b,2)))
+#             for nucleus in nucleus_list:
+#                 data[(nucleus.name, 'g_transient')][i,j] = g_transient
+#                 data[(nucleus.name, 'g_stable')][i,j] = g_stable
+#                 data[(nucleus.name,'trans_n_half_cycle')][i,j] = n_half_cycle
+#                 data[(nucleus.name,'trans_pop_act')][i,j,:] = nucleus.pop_act
+#                 _,_, data[nucleus.name,'trans_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                 _,_, data[nucleus.name,'trans_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt, peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+            
+#             if find_stable_oscill: # only run if you want to checkout the stable oscillatory regime
+            
+#                 for k,g_ratio in G_ratio_dict.items():
+#                     G[k] = g_stable * g_ratio
+#                 # G[('STN','Proto')] = g_stable
+#                 # G[('Proto','Proto')] = g_stable * g_ratio
+#                 nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+#                 run(receiving_class_dict,t_list, dt, nuclei_dict)
+                
+#                 for nucleus in nucleus_list:
+#                     _,_, data[nucleus.name,'stable_mvt_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_mvt,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+#                     _,_, data[nucleus.name,'stable_base_freq'][i,j],_ = find_freq_of_pop_act_spec_window(nucleus,*duration_base,dt ,peak_threshold = nucleus.oscil_peak_threshold, smooth_kern_window=nucleus.smooth_kern_window)
+
+#             count +=1
+#             print(count, "from ", len(t_decay_series_1)*len(t_decay_series_2))
+#             j+=1
+#         i +=1
+#     output = open(filename, 'wb')
+#     pickle.dump(data, output)
+#     output.close()
     filename = (  names[0] + '_' + names[1] + '_'+  names[2] + '_G(FD)=' + gs[0]+ '_G(DP)=' +gs[1] + '_G(PF)= '  + gs[2] + 
               '_' + nucleus.init_method + '_' + nucleus.ext_inp_method + '_noise=' + 'input_integ_ext_' + nucleus.ext_input_integ_method + '_syn_' + nucleus.syn_input_integ_method+ '_' +
               str(noise_variance[names[0]]) + '_' + str(noise_variance[names[1]]) + '_' + str(noise_variance[names[2]]) 
@@ -7557,3 +7492,34 @@ def save_trans_stable_figs(fig_trans, fig_stable_list, path_rate, filename, figs
     #     self.reset_potential(spiking_ind)
     #     self.cal_population_activity()
     #     self.voltage_trace[t] = self.mem_potential[0]
+
+
+
+# def run_with_transient_external_input(receiving_class_dict, t_list, dt, nuclei_dict, rest_init_filepaths,
+# 									  transient_init_filepaths, A, A_trans, list_of_nuc_with_trans_inp,
+# 									  t_transient=10, duration=10):
+# 	'''
+# 		run normaly til "t_transient" then exert an external transient input to "list_of_nuc_with_trans_inp" then resume to normal state until the end of simulation
+# 	'''
+# 	start = timeit.default_timer()
+# 	# basal firing
+# 	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
+# 	            t_start=0, t_end=t_transient)
+# 	# transient external input to the network
+# 	# , A_mvt, D_mvt, t_mvt, t_list, dt)
+# 	selective_reset_ext_input(
+# 	    nuclei_dict, transient_init_filepaths, list_of_nuc_with_trans_inp, A_trans)
+# 	# interate through the duration of transient input
+# 	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
+# 	            t_start=t_transient, t_end=t_transient + duration)
+# 	# reset back to rest
+# 	# , A_mvt, D_mvt, t_mvt, t_list, dt)
+# 	selective_reset_ext_input(
+# 	    nuclei_dict, rest_init_filepaths, list_of_nuc_with_trans_inp, A)
+# 	# look at the decay of the transient input
+# 	iterate_SNN(nuclei_dict, dt, receiving_class_dict,
+# 	            t_start=t_transient + duration, t_end=t_list[-1])
+
+# 	stop = timeit.default_timer()
+# 	print("t = ", stop - start)
+# 	return nuclei_dict
