@@ -4927,34 +4927,44 @@ def run_with_transient_external_input_including_transmission_delay(receiving_cla
     
     return nuclei_dict
 
-
-def exp_rise_and_decay_transient_ext_inp_ChR2_like( trans_coef, mean_ext_inp, t_list, t_start, tau_rise, tau_decay, dt, n):
+def exp_rise_and_decay_f(t_series, tau_rise, tau_decay, dt):
+    
+    f = (1- np.exp(- t_series / (tau_rise / dt))) * \
+            (np.exp(- t_series/ (tau_decay / dt))) 
+    return f / np.trapz(f, t_series)
+            
+def exp_rise_and_decay_transient_ext_inp_ChR2_like( trans_coef, mean_ext_inp, t_list, t_start_all_n, 
+                                                   tau_rise, tau_decay, dt, n):
     
     ''' return an n by n_timebin matrix as the additive external input filled with 
         a normalized exponential rise and decay with  AUC equal to trans_coef * mean_ext_input
         timing of input is the same for all neurons mimicking ChR2 laser activation population wide
     '''
+    t_start = t_start_all_n[0] # cause activation onset is homogeneous among neurons 
     
     t_list_trimmed = t_list[ t_start: ]
-    
-    f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
-        (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
-        
-    f_normalized = f / np.trapz(f, t_list_trimmed)
-    ext_inp =  (trans_coef * mean_ext_inp * f_normalized).reshape(-1, 1).T
-    # print(ext_inp.shape)
-    return  np.repeat( ext_inp, n, axis = 0)
 
-def step_like_norm_dist_transient_ext_inp_ChR2_like(trans_coef, mean_ext_inp, sigma, n, t_list, t_start, t_end):
+    f = exp_rise_and_decay_f(t_list_trimmed - t_start, tau_rise, tau_decay, dt) 
+        
+    ext_inp =  (trans_coef * mean_ext_inp * f).reshape(-1, 1).T
+    ext_inp_at_onset = np.repeat( ext_inp, n, axis = 0)
+    
+    return  np.pad(ext_inp_at_onset, ( (0,0), (t_start,0)), constant_values=0)
+
+def step_like_norm_dist_transient_ext_inp_ChR2_like(trans_coef, mean_ext_inp, sigma, n, t_list, 
+                                                    t_start_all_n, t_end_all_n):
     
     ''' return an n by n_timebin matrix as the additive external input filled with 
-        normally distributed (for neurons) step like external inputs
-        timing of input is the same for all neurons mimicking ChR2 laser activation population wide
+        normally distributed (for neurons) step like external inputs.
+        Note that timing of input is the same for all neurons mimicking ChR2 laser activation population wide
     '''
-
+    t_start = t_start_all_n[0] # cause activation onset is homogeneous among neurons 
+    t_end = t_end_all_n[0]
+    
     f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
-    ext_inp = np.zeros(( n, len (t_list[ t_start:]) ))
-    ext_inp[:, :(t_end - t_start) ] = np.repeat(f, t_end - t_start, axis = 1)
+    ext_inp = np.zeros(( n, len (t_list) ))
+    
+    ext_inp[:, t_start : t_start + (t_end - t_start) ] = np.repeat(f, t_end - t_start, axis = 1)
     
     return ext_inp
 
@@ -4966,38 +4976,35 @@ def step_like_norm_dist_transient_ext_inp_projected(trans_coef, mean_ext_inp, si
     '''
 
     f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
-    # print(t_start)
-    # t_size = len (t_list[ t_start:]) 
 
     ext_inp = np.array( [ np.hstack( ( np.zeros( t_start[i] ),  
                                        np.full( t_end[i] - t_start[i], f[i] ), 
                                        np.zeros(  len(t_list[t_start[i]:]) - ( t_end[i] - t_start[i] ))
                                     ) ) 
                          for i in range(n)])
-    print(ext_inp.shape)
+
     return ext_inp
 
 def exp_rise_and_decay_transient_ext_inp_projected( trans_coef, mean_ext_inp, t_list, t_start, tau_rise, tau_decay, dt, n):
     
     ''' return an n by n_timebin matrix as the additive external input filled with 
-        a normalized exponential rise and decay with  AUC equal to trans_coef * mean_ext_input
-        timing of input is based on transmission delay distribution
+        a normalized exponential rise and decay with  AUC equal to trans_coef * mean_ext_input.
+        Note that timing of input is based on transmission delay distribution
     '''
     
-    t_list_trimmed = t_list[ t_start: ]
     
-    f = (1- np.exp(-( t_list_trimmed - t_start) / (tau_rise / dt))) * \
-        (np.exp(-( t_list_trimmed - t_start) / (tau_decay / dt))) 
-        
-    f_normalized = f / np.trapz(f, t_list_trimmed)
-    ext_inp =  (trans_coef * mean_ext_inp * f_normalized).reshape(-1, 1).T
-    # print(ext_inp.shape)
-    return  np.repeat( ext_inp, n, axis = 0)
+    ext_inp = np.array( [ np.hstack( ( np.zeros( t_start[i] ),  
+                                       trans_coef * mean_ext_inp * \
+                                       exp_rise_and_decay_f(t_list[ t_start[i]: ] - t_start[i], tau_rise, tau_decay, dt)
+                                   ) ) 
+                     for i in range(n)])
+
+    return  ext_inp
 
 
 
 
-def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
+def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
                                              t_start_inp_dict, t_end_inp_dict, dt, duration = 10, 
                                              plot = False, method = 'exponential', stim_method = 'ChR2'):
     
@@ -5015,11 +5022,19 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_
         t_end = t_end_inp_dict[name]
         
         if method == 'exponential':
-            
-            f_add = exp_rise_and_decay_transient_ext_inp_ChR2_like(ext_inp_dict[name]['mean'],
-                                                                   np.average(nucleus.rest_ext_input),
-                                                                   t_list, t_start, tau_rise, tau_decay, 
-                                                                   dt, nucleus.n)
+            if stim_method == 'ChR2':
+                # print(tau_rise , dt)
+                f_add = exp_rise_and_decay_transient_ext_inp_ChR2_like(ext_inp_dict[name]['mean'],
+                                                                       np.average(nucleus.rest_ext_input),
+                                                                       t_list, t_start, ext_inp_dict[name]['tau_rise'], 
+                                                                       ext_inp_dict[name]['tau_decay'], 
+                                                                       dt, nucleus.n)
+            else:
+                f_add = exp_rise_and_decay_transient_ext_inp_projected(ext_inp_dict[name]['mean'],
+                                                                       np.average(nucleus.rest_ext_input),
+                                                                       t_list, t_start, ext_inp_dict[name]['tau_rise'], 
+                                                                       ext_inp_dict[name]['tau_decay'], 
+                                                                       dt, nucleus.n)
         elif method == 'step':
             if stim_method == 'ChR2':
             
@@ -5054,8 +5069,37 @@ def create_stim_start_end_dict(t_transient, duration, syn_trans_delay_dict):
     
     return t_start_inp_dict, t_end_inp_dict
 
+def filter_transmission_delay_for_downstream_projection(T, list_of_receiving_nuclei, projecting = 'Ctx'):
+
+    syn_trans_delay_dict = {
+        k[0]: v  for k, v in T.items() if k[0] in list_of_receiving_nuclei and k[1] == projecting}
+
+    return syn_trans_delay_dict
+
+def syn_trans_delay_heterogeneous( syn_trans_delay_dict, dt, n ):
+    
+    ''' Return a normally distributed array of size n
+        for each transmission delay specs given in <syn_trans_delay_dict> 
+    '''
+    syn_trans_delay_dict = {key: (truncated_normal_distributed(v['mean'],
+                                                                v['sd'], n,
+                                                                truncmin = v['truncmin'],
+                                                                truncmax = v['truncmax']) / dt ).astype(int)
+                                for key, v in syn_trans_delay_dict.items()}
+    return syn_trans_delay_dict
+
+def syn_trans_delay_homogeneous( syn_trans_delay_dict, dt, n ):
+    
+    ''' 
+        Return a uniformly distributed array of size n
+        for each transmission delay specs given in <syn_trans_delay_dict> 
+    '''
+    syn_trans_delay_dict = {key: (np.full(n, v['mean']) / dt ).astype(int)
+                                for key, v in syn_trans_delay_dict.items()}
+    return syn_trans_delay_dict
+
 def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_list, dt, nuclei_dict,
-                                                        A, syn_trans_delay_dict, tau_rise = 50, tau_decay = 50,
+                                                        A, syn_trans_delay_dict,
                                                         t_transient=10, duration=10, ext_inp_dict = None, 
                                                         plot = False, ext_inp_method = 'exponential',
                                                         stim_method = 'ChR2'):
@@ -5066,15 +5110,9 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     		Where the syn_trans_delay_dict contains the synaptic transmission delays of the input to 
             different nuclei (e.g. MC to STN and MC to D2)
     '''
-    # min_syn_trans_delays = min(syn_trans_delay_dict, key = syn_trans_delay_dict. get)
     
-    # # synaptic trans delay relative to the nucleus with minimum delay.
-    # t_start_inp_dict = {k: t_transient + v - syn_trans_delay_dict[min_syn_trans_delays] 
-    #                     for k, v in syn_trans_delay_dict.items()}
-    
-
     t_start_inp_dict, t_end_inp_dict = create_stim_start_end_dict(t_transient, duration, syn_trans_delay_dict)
-    nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, tau_rise, tau_decay, ext_inp_dict,
+    nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, ext_inp_dict,
                                                            t_start_inp_dict, t_end_inp_dict, dt,  
                                                            duration=10, plot = plot, method = ext_inp_method,
                                                            stim_method = stim_method)
@@ -5089,8 +5127,7 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                  n_FR, all_FR_list, end_of_nonlinearity, t_transient = 10, duration = 10, 
                                  n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None, ext_inp_dict = None, 
                                  noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
-                                 color_dict = None, state = 'rest', exponential_ext_inp = False,
-                                 tau_rise = 5, tau_decay = 10, plot = False, ext_inp_method = 'exponential',
+                                 color_dict = None, state = 'rest', plot = False, ext_inp_method = 'exponential',
                                  stim_method = 'ChR2'):
     
     avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
@@ -5104,8 +5141,6 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                                                             t_transient = t_transient, 
                                                                             duration = duration, 
                                                                             ext_inp_dict = ext_inp_dict,
-                                                                            tau_rise = tau_rise, 
-                                                                            tau_decay = tau_decay, 
                                                                             plot = plot, 
                                                                             ext_inp_method = ext_inp_method,
                                                                             stim_method = stim_method)
@@ -5257,12 +5292,13 @@ def get_start_end_plot(plot_start, plot_end, dt, t_list):
     
     return plot_start, plot_end
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, title_fontsize = 12, plot_start = 0,
-         ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, 
-         plt_freq = False, ylim = None, include_std = True, round_dec = 2, legend_loc = 'upper right', 
-         continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', tick_label_fontsize = 18, plot_filtered = False,
-         low_f = 8, high_f = 30, filter_order = 6, vspan = False, tick_length = 8, title_pad = None,
-         ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True):    
+def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, 
+         title_fontsize = 12, plot_start = 0, ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, 
+         figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, 
+         round_dec = 2, legend_loc = 'upper right', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
+         tick_label_fontsize = 18, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
+         tick_length = 8, title_pad = None, ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True,
+         xlim = None):    
 
     fig, ax = get_axes (ax)
     
@@ -5328,23 +5364,30 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
             
             count = count + 1
 
-    if vspan:
-        ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color=axvspan_color)
-        
+
     ax.set_title(title, fontsize = title_fontsize, pad = title_pad)
     ax.set_xlabel("time (ms)", fontsize = 15)
     ax.set_ylabel("firing rate (spk/s)", fontsize = 15,labelpad=ylabelpad)
-    if legend:
-        ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
-    # ax.tick_params(axis='both', which='major', labelsize=10)
-    ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)
-    ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
-    
+    ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)    
     ax.tick_params(axis='y', length = tick_length)
     ax.tick_params(axis='x', length = tick_length)
+    remove_frame(ax)
+    
+    if vspan:
+        ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color=axvspan_color)
+        
+    if legend:
+        ax.legend(fontsize = 15, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
+        
     if ylim != None:
         ax.set_ylim(ylim)
-    remove_frame(ax)
+        
+    if xlim != None:
+        ax.set_xlim(xlim)
+        
+    else:
+        ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
+    
     return fig
 
 def _str_G_with_key(key):
@@ -6578,6 +6621,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
     ax.tick_params(axis='y', length = 8)
     fig = set_y_ticks(fig, [0, 50, 100])
     remove_frame(ax)
+    
     if xlim != None:
         ax.set_xlim(xlim)
     if colorbar:
