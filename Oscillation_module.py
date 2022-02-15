@@ -49,7 +49,9 @@ dictfilt = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
 
 
 def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=None, maxfev=None, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
+    
     ''' All firing rates in Hz'''
+    
     slope, intercept = linear_regresstion(FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear(desired_FR, slope, intercept)
     print(FR_ext_extrapolated * slope + intercept)
@@ -62,6 +64,7 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, des
 
 
 def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, if_plot=False, end_of_nonlinearity=25, maxfev=5000, g_ext=0, N_ext=0, tau=0, ax=None, noise_var=0, c='grey'):
+    
     ''' All firing rates in Hz'''
 
     xdata, ydata = get_non_linear_part(
@@ -72,14 +75,19 @@ def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, 
                                                 find_y_normalizing_factor(ydata, desired_FR),
                                                 find_x_mid_point_sigmoid(ydata, xdata))
     if if_plot:
+        
         plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs=coefs,
                             FR_to_I_coef=tau * g_ext * N_ext / 1000, 
                             ax=ax, noise_var=noise_var, c=c)
+        
     if FR_ext == np.nan or FR_ext == np.inf:
+        
         print(desired_FR, find_y_normalizing_factor(ydata, desired_FR))
         print('Corr FR_ext =', FR_ext)
         plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs=coefs,
-                            FR_to_I_coef=tau * g_ext * N_ext / 1000, ax=ax, noise_var=noise_var, c=c)
+                            FR_to_I_coef=tau * g_ext * N_ext / 1000, 
+                            ax=ax, noise_var=noise_var, c=c)
+        
     return FR_ext / 1000  # FR_ext is in Hz, we want spk/ms
 
 
@@ -107,25 +115,11 @@ class Nucleus:
         self.mvt_firing = A_mvt[name]
         self.threshold = threshold[name]
         self.gain = gain[name]
+        
         # filter based on the receiving nucleus# dictfilt(synaptic_time_constant, self.trans_types) # synaptic time scale based on neuron type
-        self.synaptic_time_constant = {
-            k: v for k, v in synaptic_time_constant.items() if k[1] == name}
-        # filter based on the receiving nucleus
-        self.T_specs = {k: v for k, v in T.items() 
-                          if k[0] == self.name and 
-                             k[1] in self.receiving_from_pop_name_list}
-        
-        self.transmission_delay = {k: np.zeros( self.n ) 
-                                   for k, v in self.T_specs.items()}
-        
-        # self.transmission_delay = {k: v for k, v in T.items() if k[0] == name}
 
         self.ext_inp_delay = ext_inp_delay
-        
-        self.synaptic_weight = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
         self.K_connections = None
-        # stored history in ms derived from the longest transmission delay of the projections
-
         sending_to_dict = find_sending_pop_dict(receiving_from_list)
         self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))]
         self.rest_ext_input = None
@@ -145,8 +139,21 @@ class Nucleus:
         self.t_sim = t_sim
         self.sqrt_dt = np.sqrt(dt)
         self.half_dt = dt/2
+        self.synaptic_time_constant = {
+            k: v for k, v in synaptic_time_constant.items() if k[1] == name}
+        # filter based on the receiving nucleus
+        self.T_specs = {k: v for k, v in T.items() 
+                          if k[0] == self.name and 
+                             k[1] in self.receiving_from_pop_name_list}
+        
+        self.transmission_delay = {k: np.zeros( self.n ) 
+                                   for k, v in self.T_specs.items()}
         
         
+        # self.synaptic_weight = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
+        self.synaptic_weight_specs = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
+        self.create_syn_weight_mean_dict()
+
         if neuronal_model == 'rate':
             
             self.output = {k: np.zeros((self.n, int( T[ k[0], self.name] / dt ))) 
@@ -244,6 +251,15 @@ class Nucleus:
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
+    def create_syn_weight_mean_dict(self):
+        
+        if len(self.receiving_from_list) > 0:
+            
+            if type(self.synaptic_weight_specs[self.name, self.receiving_from_list[0][0]]) is not dict :
+                self.synaptic_weight = {k: v for k, v in self.synaptic_weight_specs.items()}
+            else:
+                self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
+                
     def set_init_distribution(self, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
         
         if self.init_method == 'homogeneous':
@@ -323,6 +339,22 @@ class Nucleus:
                                        for key in list (self.T_specs.keys())}
             
             self.history_duration = get_max_value_dict(self.transmission_delay )
+            
+    # def intialize_synaptic_weight(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
+    #                                       bins=50, color='grey',
+    #                                       plot_G_hist = False):
+        
+    #     ''' initialize axonal transmission delays with a truncated normal distribution
+    #         Note: dt incorporated in tau for time efficiency
+    #     '''
+
+    #     if len(self.receiving_from_pop_name_list) > 0:
+    #         self.synaptic_weight = {key: (truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
+    #                                                                    self.synaptic_weight_specs[key]['sd'], self.n,
+    #                                                                    truncmin = self.synaptic_weight_specs[key]['truncmin'],
+    #                                                                    truncmax = self.synaptic_weight_specs[key]['truncmax']))
+    #                                    for key in list (self.synaptic_weight_specs.keys())}
+            
 
     def intialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
@@ -428,7 +460,9 @@ class Nucleus:
                                                   lower_bound_perc = lower_bound_perc, 
                                                   upper_bound_perc = upper_bound_perc)
 
-        
+        # self.intialize_synaptic_weight(dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
+        #                                   bins=50, color='grey',
+        #                                   plot_G_hist = False)
 
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         
@@ -463,16 +497,93 @@ class Nucleus:
                                              ] )
                             for tc in tc_list
                             }
-            # print( self.tau[key]['rise'] .shape)
             
             
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
-            
+          
+    def reset_synaptic_weights(self, G, N):
+
+        # filter based on the receiving nucleus
+        self.synaptic_weight_specs = {k: v for k, v in G.items() if k[0] == self.name}
+        self.revert_connectivity_mat_to_binary()
+        self.multiply_connectivity_mat_by_G(N)
+        
     def normalize_synaptic_weight(self):
 
-        self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean'])
-                                        for k, v in self.synaptic_weight.items() if k[0] == self.name}
+        # self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
+        #                                 self.neuronal_consts['u_rest']['mean'])
+        #                         for k, v in self.synaptic_weight.items() }
+
+        self.synaptic_weight_specs = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
+                                              self.neuronal_consts['u_rest']['mean'])
+                                    for k, v in self.synaptic_weight_specs.items() }
+        
+        self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
+                                              self.neuronal_consts['u_rest']['mean'])
+                                    for k, v in self.synaptic_weight.items() }
+        
+    def revert_connectivity_mat_to_binary(self):
+        
+        self.connectivity_matrix = {
+            k: v / v for k, v in self.connectivity_matrix.items()}
+        
+    def normalize_synaptic_weight_by_N(self):
+        
+        self.synaptic_weight = {
+            k: v / self.K_connections[k] for k, v in self.synaptic_weight.items()}
+        
+        self.connectivity_matrix = {
+            k: v / self.K_connections[self.name, k[0]] for k, v in self.connectivity_matrix.items()}
+
+    def set_connections(self, K, N):
+        
+        ''' 
+            create J_{ij} connection matrix with values corresponding to synaptic weight
+
+        '''
+        self.K_connections = {k: v for k, v in K.items() if k[0] == self.name}
+        
+        for projecting in self.receiving_from_list:
+            same_pop = False
+            proj_name = projecting[0]
+            n_connections = self.K_connections[(self.name, proj_name)]
+            
+            if self.name == proj_name:
+                same_pop = True
+            self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[proj_name], 
+                                                                           n_connections, 
+                                                                           same_pop = same_pop)
+            
+        self.multiply_connectivity_mat_by_G(N)
+            
+    def multiply_connectivity_mat_by_G(self, N):
+        
+        for projecting in self.receiving_from_list:
+            
+            proj_name = projecting[0]
+    
+            key = (self.name, proj_name)
+            
+    
+            if self.init_method == 'heterogeneous' and type(self.synaptic_weight_specs[key]) is dict:
+                
+                synaptic_weights = truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
+                                                                self.synaptic_weight_specs[key]['sd'], 
+                                                                (self.n, N[proj_name]), 
+                                                                truncmin = self.synaptic_weight_specs[key]['truncmin'],
+                                                                truncmax = self.synaptic_weight_specs[key]['truncmax'])
+                
+            else:
+                
+                if type(self.synaptic_weight_specs[key]) is dict:
+                    synaptic_weights = self.synaptic_weight_specs[key]['mean'],
+                else:
+                    synaptic_weights = self.synaptic_weight_specs[key]
+                
+            self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
+                                                                self.connectivity_matrix[proj_name,projecting[1]]
+                                                                    
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):
         ''' RATE MODEL: I = Sum (G * m * J) and then
@@ -482,7 +593,7 @@ class Nucleus:
         for projecting in receiving_from_class_list:
             num = str(projecting.population_num)
             syn_inputs += ( 
-                            self.synaptic_weight[(self.name, projecting.name)] * 
+                            # self.synaptic_weight[(self.name, projecting.name)] * 
                            np.matmul(
                                    self.connectivity_matrix[ (projecting.name, num) ]  ,
                                    projecting.output[ (self.name, str(self.population_num))][:, - self.transmission_delay[(self.name, 
@@ -561,18 +672,16 @@ class Nucleus:
         
         num = str(projecting.population_num)
         name = projecting.name
-        # print(projecting.spikes[:, t - self.transmission_delay[(self.name, name)]].shape)
-        self.syn_inputs[name, num] = (self.synaptic_weight[(self.name, name)] *
-                                    np.matmul(self.connectivity_matrix[(name, num)],
+        
+        self.syn_inputs[name, num] = (
+                                      # self.synaptic_weight[(self.name, name)] *
+                                      np.matmul(self.connectivity_matrix[(name, num)],
                                                np.diagonal( projecting.spikes[:, 
                                                    t - self.transmission_delay[(self.name, name)]])
                                             ) / dt * \
-                                    self.membrane_time_constant).reshape(-1,)
+                                          self.membrane_time_constant).reshape(-1,)
                                     
-        # print(name, np.average(np.matmul(self.connectivity_matrix[(name, num)],
-        #                                         projecting.spikes[:, int(
-        #                                             t - self.transmission_delay[(self.name, name)] / dt)]
-        #                                     ) ))
+
         
     def sum_synaptic_input(self, receiving_from_class_list, dt, t):
         ''' Sum the synaptic input from all projections'''
@@ -794,26 +903,6 @@ class Nucleus:
         self.noise_std = np.sqrt(noise_variance[self.name])
         self.noise_amplitude = noise_amplitude[self.name]
 
-    def set_connections(self, K, N):
-        ''' creat J_{ij} connection matrix
-
-        '''
-        same_pop = False
-        self.K_connections = {k: v for k, v in K.items() if k[0] == self.name}
-        for projecting in self.receiving_from_list:
-
-            n_connections = self.K_connections[(self.name, projecting[0])]
-            if self.name == projecting[0]:
-                same_pop = True
-            self.connectivity_matrix[projecting] = build_connection_matrix(
-                self.n, N[projecting[0]], n_connections, same_pop = same_pop)
-
-
-        
-    def normalize_synaptic_weight_by_N(self):
-        self.synaptic_weight = {
-            k: v / self.K_connections[k] for k, v in self.synaptic_weight.items()}
-
     def clear_history(self, mem_pot_init_method=None):
 
         self.pop_act[:] = 0
@@ -856,11 +945,6 @@ class Nucleus:
         std = np.std(self.pop_act[ind_start : ind_end])
         return average, std
     
-    def set_synaptic_weights(self, G):
-
-        # filter based on the receiving nucleus
-        self.synaptic_weight = {k: v for k, v in G.items() if k[0] == self.name}
-
     def set_synaptic_time_scales(self, synaptic_time_constant):
 
         self.synaptic_time_constant = {
@@ -868,8 +952,7 @@ class Nucleus:
 
     def incoming_rest_I_syn(self, proj_list, A, dt):
         
-        # I_syn = np.sum([self.synaptic_weight[self.name, proj] * A[proj] / 1000 * self.K_connections[self.name, proj]
-        #                * len(self.tau[self.name, proj]['rise']) for proj in proj_list])*self.membrane_time_constant
+
         I_syn = np.sum([self.synaptic_weight[self.name, proj] * 
                         A[proj] / 1000  * 
                         self.K_connections[self.name, proj] *
@@ -879,12 +962,7 @@ class Nucleus:
 
         return I_syn
 
-#     def incoming_rest_I_syn_multi_comp_synapses(self, proj_list, A):
 
-#         I_syn = np.sum( [ self.synaptic_weight[self.name,proj] * A[proj] / 1000 * self.K_connections[self.name,proj] * len ( self.tau[self.name,proj]['rise'] )
-#                           for proj in proj_list]) * self.membrane_time_constant
-
-#         return I_syn
 
     def set_ext_input(self, A, A_mvt, D_mvt, t_mvt, t_list, dt, end_of_nonlinearity=25):
 
@@ -907,7 +985,6 @@ class Nucleus:
             
             I_syn = self.incoming_rest_I_syn(proj_list, A, dt)
 
-            # print('I_syn', np.average(I_syn))
             self.sum_syn_inp_at_rest = I_syn
 
             if self.ext_inp_method == 'Poisson':
@@ -920,7 +997,6 @@ class Nucleus:
                 raise ValueError('external input handling method not right!')
             self._save_init()
 
-        # self.external_inp_t_series =  mvt_step_ext_input(D_mvt,t_mvt,self.ext_inp_delay,self.mvt_ext_input, t_list*dt)
 
     def set_init_from_pickle(self, filepath, set_noise=True):
 
@@ -1172,7 +1248,9 @@ class Nucleus:
     def scale_synaptic_weight(self):
         if self.scale_g_with_N:
             self.synaptic_weight = {
-                k: v/self.K_connections[k] for k, v in self.synaptic_weight.items() if k[0] == self.name}
+                k: v/self.K_connections[k] for k, v in self.synaptic_weight.items()}
+            self.connectivity_matrix = {
+                k: v/self.K_connections[self.name, k[0]] for k, v in self.connectivity_matrix.items() }
 
     def change_pop_firing_rate(self, FR_ext, A, A_mvt = None, D_mvt = None , t_mvt = None, t_list = None,
                                   dt = None, end_of_nonlinearity=30):
@@ -1553,8 +1631,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
         Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
 
     K = calculate_number_of_connections(N, N_real, K_real)
-    receiving_class_dict = create_receiving_class_dict(
-        receiving_pop_list, nuclei_dict)
+    receiving_class_dict = create_receiving_class_dict(receiving_pop_list, nuclei_dict)
     FR_ext_all_nuclei = {}
     FR_ext_filename_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
 
@@ -1578,39 +1655,47 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                                                                         if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
                                                                         maxfev = maxfev, c=c, n_FR=n_FR)
                         FR_ext_all_nuclei[nucleus.name] = FR_ext
+                        
                         if save_FR_ext:
+                            
                             pickle_obj(nucleus.FR_ext, FR_ext_filename_dict[nucleus.name])
+                            
                     elif method == 'single_neuron':
+                        
                         if nucleus.basal_firing > end_of_nonlinearity:
+                            
                             nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
                                                                             n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
                             
                         else:
+                            
                             nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
                                                                    end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
                                                                    n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
                     elif use_saved_FR_ext:
-                        # print(os.path.split(FR_ext_filename_dict[nucleus.name])[1] )
+                        
                         nucleus.FR_ext = load_pickle(FR_ext_filename_dict[nucleus.name])
                     
                 if normalize_G_by_N:
+                    
                     nucleus.normalize_synaptic_weight_by_N()
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                       end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
-                # print(nucleus.name, 
-                #       {key: np.round(value,2) for key,value in nucleus.synaptic_weight.items()})
 
     return receiving_class_dict, nuclei_dict
 
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
+    
     if list_of_nuc_with_trans_inp != None:
-        filtered_nuclei_dict = {key: value for key, value in nuclei_dict.items(
-        ) if key in list_of_nuc_with_trans_inp}
+        filtered_nuclei_dict = {key: value for key, value in nuclei_dict.items() 
+                                if key in list_of_nuc_with_trans_inp}
 
     else:
+        
         filtered_nuclei_dict = nuclei_dict
     for nuclei_list in filtered_nuclei_dict.values():
+        
         for nucleus in nuclei_list:
             if filepaths == None:
                 filepath = os.path.join(nucleus.path, nucleus.name + '_N_' +
@@ -1623,29 +1708,37 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
 def reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
                             mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
-
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            nucleus.clear_history(mem_pot_init_method=mem_pot_init_method)
-            nucleus.set_synaptic_weights(G)
+            
+            nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
+            
+            if reset_init_dist:
+                nucleus.set_init_distribution( tau, poisson_prop, dt, t_sim)
+            
+            nucleus.reset_synaptic_weights(G)
             nucleus.normalize_synaptic_weight()
+            
             if normalize_G_by_N:
                 nucleus.normalize_synaptic_weight_by_N()
             
             if set_noise:
                 nucleus.set_noise_param(noise_variance, noise_amplitude)
-            if reset_init_dist:
-                nucleus.set_init_distribution( tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = False)
-            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
-                                  dt, end_of_nonlinearity=end_of_nonlinearity)
+            
+
+            nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
+                                  end_of_nonlinearity=end_of_nonlinearity)
     return nuclei_dict
 
 def set_ext_input_all_nuclei(nuclei_dict, A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity):
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                   dt, end_of_nonlinearity=end_of_nonlinearity)
+            
 def bandpower(f, pxx, fmin, fmax):
     ''' return the average power at the given range of frequency'''
     ind_min = np.argmin(f[f > fmin])
@@ -3565,7 +3658,7 @@ def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay
 
 
 def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
-    # print(I_rise.shape, inputs.shape)
+
     I_rise = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
     I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
     return I, I_rise
@@ -4689,7 +4782,7 @@ def reset_connec_ext_input_DD(nuclei_dict, K_DD, N, N_real, A_DD, A_mvt, D_mvt, 
 	for nuclei_list in nuclei_dict.values():
 		for nucleus in nuclei_list:
 			nucleus.set_connections(K, N)
-			# nucleus.set_synaptic_weights(G_DD)
+			# nucleus.reset_synaptic_weights(G_DD)
 			nucleus.set_ext_input(A_DD, A_mvt, D_mvt, t_mvt, t_list, dt)
 
 
@@ -5236,7 +5329,11 @@ def calculate_number_of_connections(N_sim,N_real,number_of_connection):
     KK = number_of_connection.copy()
     
     for k, v in number_of_connection.items():
-        KK[k] = int(1/(1/v-1/N_real[k[1]]+1/N_sim[k[0]]))
+        KK[k] = int(1 / ( 1 / v - 
+                          1 / N_real[ k[1] ] + 
+                          1 / N_sim[ k[0] ] 
+                         ) 
+                    )
         
     return KK
 
@@ -5247,35 +5344,30 @@ def transfer_func(Threshold, gain, x):
     
     return gain* np.maximum(np.zeros_like(x), (x - Threshold))
     
-# def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
-#     ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving'''
-#     # produce a matrix listing received projections for each neuron in row i
-#     projection_list = np.random.rand(n_receiving, n_projecting).argpartition(n_connections,axis=1)[:,:n_connections]
-#     JJ = np.zeros((n_receiving, n_projecting),dtype = int)
-#     rows = ((np.ones((n_connections,n_receiving))*np.arange(n_receiving)).T).flatten().astype(int)
-#     cols = projection_list.flatten().astype(int)
-#     JJ[rows,cols] = int(1)
-#     return JJ
+
 
 def build_connection_matrix(n_receiving,n_projecting,n_connections, same_pop = False):
     
-    ''' return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in projectin population to neuron i in receiving
+    ''' 
+        return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in 
+        projection population to neuron i in receiving
         Arguments:
                 same_pop: optional bool (default = False)
-                    if the neuron type of pre and post are the same this value shows if they are in the same population as to avoid 
-                    connecting a neuron to itself    
+                    if the neuron type of pre and post are the same this value shows if they 
+                    are in the same population as to avoid connecting a neuron to itself    
     '''
-    # projection_list = np.random.rand(n_receiving, n_projecting).argpartition(n_connections,axis=1)[:,:n_connections] ### What the fuck? why this way? [Sep 2021]
     connection_prob = np.random.rand(n_receiving, n_projecting)
     
     if same_pop: # if connecting the population to itself, avoid autapses
         np.fill_diagonal(connection_prob, 0)
+        
     projection_list = np.argsort(connection_prob, axis = 1)[::-1][:,:n_connections]
     
-    JJ = np.zeros((n_receiving, n_projecting),dtype = int)
-    rows = ((np.ones((n_connections,n_receiving))*np.arange(n_receiving)).T).flatten().astype(int)
+    JJ = np.zeros( (n_receiving, n_projecting), dtype = int)
+    rows = ((np.ones((n_connections,n_receiving)) * np.arange(n_receiving)).T).flatten().astype(int)
     cols = projection_list.flatten().astype(int)
     JJ[rows,cols] = int(1)
+
     return JJ
 
 def get_start_end_plot(plot_start, plot_end, dt, t_list):
@@ -5531,7 +5623,6 @@ def scatter_3d_wireframe_plot_2_data_series(x1,y1,z1,c_mark1,c_wire1, x2,y2,z2,c
     # clb = fig.colorbar(img,pad = 0.15)
     # clb.set_label(label[3], labelpad=-40, y=1.05, rotation=0)
     plt.show()
-# build_connection_matrix(4,10,2)
    
 def max_non_empty_array(array):
     if len(array) == 0:
@@ -5812,7 +5903,7 @@ def fill_Gs_in_data(data, i, G):
         data['g'][key ][i] = value
     return data
 
-def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
+def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
                                       G_list, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, 
                                       color_dict, if_plot = False, G_ratio_dict = None, plot_start_trans = 0, 
                                       plot_start_stable = 0, plot_duration = 600,
@@ -5835,7 +5926,7 @@ def synaptic_weight_space_exploration(G, A, A_mvt, D_mvt, t_mvt, t_list, dt,file
         G = multiply_G_by_key_ratio(g, G, G_ratio_dict)
         data = fill_Gs_in_data(data, i, G)
             
-        nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+        nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
         run(receiving_class_dict,t_list, dt, nuclei_dict)
         
         nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
@@ -5924,7 +6015,9 @@ def G_sweep_title(G_dict, g_1, g_2):
     return title
 
 def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
+    
     ''' make a list of classes that project to one class form the given list'''
+    
     receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
     for key in receiving_class_dict.keys():
         receiving_class_dict[key] = [nuclei_dict[name][int(k)-1] for name,k in list(receiving_pop_list[key])]
@@ -5935,7 +6028,10 @@ def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
 def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end, cut_plateau_epsilon = 0.1):
     
     def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
-        ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
+        
+        ''' detect if there are peaks with larger amplitudes than 
+            noise in mean subtracted data before plateau'''
+        
         fluctuations = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
         peaks,_ = signal.find_peaks(sig, height = peak_threshold)
         troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
@@ -5978,14 +6074,21 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end, cut
     else:
         print("no oscillation")
     
-def reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
-    ''' Clear history of the population. Reinitialize the synaptic weights and corresponding external inputs '''
+def reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt):
+    
+    ''' Clear history of the population. Reinitialize the synaptic 
+        weights and corresponding external inputs '''
+        
+    K = calculate_number_of_connections(N, N_real, K_real)
+
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
             nucleus.clear_history()
-            nucleus.set_synaptic_weights(G)
+            nucleus.set_connections(K, N)
+            nucleus.reset_synaptic_weights(G)
             nucleus.scale_synaptic_weight() 
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            
     return nuclei_dict
 
 
@@ -6052,13 +6155,13 @@ def set_time_scale( nuclei_dict, synaptic_time_constant):
             
     return nuclei_dict
     
-def run_and_derive_freq(data, receiving_class_dict, nuclei_dict, g_transient, duration, i, j , state,
+def run_and_derive_freq(data, N, N_real, K_real, receiving_class_dict, nuclei_dict, g_transient, duration, i, j , state,
                         G, G_ratio_dict, A, A_mvt, 
                         D_mvt,t_mvt, t_list, dt, check_stability = False):
     
     G = multiply_G_by_key_ratio(g_transient, G, G_ratio_dict)
     
-    nuclei_dict = reinitialize_nuclei(nuclei_dict, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+    nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
     run(receiving_class_dict,t_list, dt, nuclei_dict)
 
     nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
@@ -6068,7 +6171,7 @@ def run_and_derive_freq(data, receiving_class_dict, nuclei_dict, g_transient, du
         
     return data
 
-def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, 
+def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, N, N_real, K_real,
                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
                       t_list,dt, duration_base, duration_mvt, lim_n_cycle, find_stable_oscill=True, 
                       check_transient = False, if_track_tau_2 = True):
@@ -6090,7 +6193,7 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
             synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, 
                                                                          t_decay_1, t_decay_2, if_track_tau_2 = if_track_tau_2 )
             print(synaptic_time_constant)
-            nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
             nuclei_dict = set_time_scale(nuclei_dict, synaptic_time_constant)
             
             g_transient, g_stable = find_oscillation_boundary(g_list, nuclei_dict.copy(), G,
@@ -6132,7 +6235,7 @@ def middle_range(range_ends):
     
     return (range_ends[1] - range_ends[0]) / 2
 
-def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_list,dt, receiving_class_dict, 
+def find_oscillation_boundary(g_list,nuclei_dict,N, N_real, K_real, G, G_ratio_dict,A, A_mvt,t_list,dt, receiving_class_dict, 
                               D_mvt, t_mvt, duration_mvt, duration_base, lim_n_cycle = [6,10], 
                               find_stable_oscill = False):
     
@@ -6147,7 +6250,7 @@ def find_oscillation_boundary(g_list,nuclei_dict, G, G_ratio_dict,A, A_mvt,t_lis
         
         G = multiply_G_by_key_ratio(g, G, G_ratio_dict)
         
-        nuclei_dict = reinitialize_nuclei(nuclei_dict,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+        nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
         run(receiving_class_dict,t_list, dt, nuclei_dict)
         
         nucleus = list(nuclei_dict.values())[0][0]

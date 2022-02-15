@@ -308,7 +308,8 @@ tau = {
     ('Proto', 'STN'): {'rise': {'mean' : [0.2], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
                        'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Glut estimate
-    # Asier 2021 extrapolated from one trace rise = 0.26, decay = 1.041
+                       # 'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
+    # decayJerome measurements in Asier et al. 2021
     ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
                          'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14 ( in thesis it was 2 and 10)
@@ -3007,10 +3008,12 @@ g = -0.012 # 'awake_rest'
 # state = 'mvt' # set
 # g = -0.008 # 'mvt'
 
-G = {}
+G = {(name1, name2) :{'mean': g * K[name1, name2], 'sd': 0.5 , 'truncmin': -1000, 'truncmax': 0 },
+     (name2, name1) :{'mean': -g * K[name2, name1], 'sd': 0.5, 'truncmin': 0, 'truncmax': 1000}
+     }
 
-G[(name1, name2)], G[(name2, name1)] = g, -g
-G = {k: v * K[k] for k, v in G.items()}
+# G[(name1, name2)], G[(name2, name1)] = g, -g
+# G = {k: {}v * K[k] for k, v in G.items()}
 
 plot_start = t_sim - 600
 plot_start_raster = plot_start
@@ -4315,7 +4318,7 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi=500, facecolor='
 
 # %% effect of transient increase in STN activity onto GPe (with/without GABA-B) collective
 
-# plt.close('all')
+plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
@@ -4333,7 +4336,6 @@ name2 = 'STN'
 name3 = 'Arky'
 state = 'trans_Nico_mice'
 name_list = [name1, name2]#, name3]
-g = -0.008
 G = {}
 
 # syn_coef_GABA_b = 1
@@ -4349,23 +4351,42 @@ G = {}
 #     ('D2', 'Arky'): [1]
 # }
 
+# note = '_tau_PS_6'
 
-g_SP = 0.028 ## # exponetial tau 6 merged
 
-g_SP = 0.018 ## # exponetial tau 6 merged
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)] = -0.0001, g_SP, -0.001  # same strength GABA_a and b
+
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0012, 0.024, -0.001, -0.000
+
+note = '_tau_PS_1-8_with_PS' 
+STN_shift = -1
+tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.000
+ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
+
+
+note = '_tau_PS_1-8_with_PS_PP' 
+STN_shift = -1
+tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.0004
+ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
+
+note = '_tau_PS_1-8_with_PP' 
+STN_shift = 0
+tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.00, 0.02, -0.001, -0.001
+ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 5} } # exponetial tau 2 merged
+
 
 G = {k: v * K[k] for k, v in G.items()}
+print_G_items(G)
 
-# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.041]}
-# T[('Proto', 'STN')] = 0.1
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
                 'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'):  [(name2, '1')],  # , (name1, '1')],
+receiving_pop_list = {(name1, '1'): [(name2, '1'), (name1, '1')],
                       (name2, '1'): [(name1, '1')],
                       (name3, '1'): [(name1, '1')]}
 
@@ -4403,14 +4424,10 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 
 duration = 10
-n_run = 1
+n_run =  5
 
 # ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1, 'tau_rise': 0, 'tau_decay': 0} } # step input
-
-
-# ext_inp_dict = {'STN': {'mean' : 100., 'sigma': .5 * .1, 'tau_rise': 100, 'tau_decay': 5} } # exponetial tau 1.
-ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 100, 'tau_decay': 5} } # exponetial tau 6 merged
-
+# ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 100, 'tau_decay': 5} } # exponetial tau 6 merged
 # ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 250, 'tau_decay': 4} } # exponetial tau 6 only labeled
 
 
@@ -4452,10 +4469,10 @@ ax = fig.gca()
 # save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_' + str(duration) +'ms_onto_Proto' + str(n_run) + '_run'), size = (5,3))
 
 
-
 ######## Plot experimental on top
 filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_merged.xlsx'
-proto_shift = -4.5
+# STN_shift = 0
+proto_shift = -4.5 + STN_shift 
 sheet_name_extra = ''
 # filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
 # proto_shift = -5.8
@@ -4463,11 +4480,13 @@ sheet_name_extra = ''
 FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
 
 fig, ax = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
-                                           ax = ax, time_shift_dict = {'STN': 0, 'Arky': 0, 'Proto': proto_shift}, 
+                                           ax = ax, time_shift_dict = {'STN': STN_shift, 'Arky': 0, 'Proto': proto_shift}, 
                                            sheet_name_extra = sheet_name_extra)
 
 ax.set_xlim(-15, 90)
-save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_onto_Proto' + str(n_run) + '_run_compared_with_experiment_' + filename.split('.')[0].split('_')[-1] ), size = (5,3))
+save_pdf_png(fig, os.path.join(path, 'STN_trans_stim_onto_Proto' + str(n_run) + 
+                               '_run_compared_with_experiment_' + 
+                               filename.split('.')[0].split('_')[-1] + note), size = (5,3))
 # %% exp rise and decay test
 
 x = np.linspace(0, 5000, num = 5000)
@@ -4638,7 +4657,8 @@ G = {}
 #     ('D2', 'Arky'): [1]
 # }
 
-
+tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+note = '_tau_PS_1-8'
 G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name1, name1)] = -0.006, 0.006, -0.0002, -0.000  # same strength GABA_a and b
 
 G = {k: v * K[k] for k, v in G.items()}
@@ -4742,7 +4762,7 @@ fig = set_x_ticks(fig, np.arange(0, 600, 100))
 fig = set_y_ticks(fig, np.arange(0, 175, 25))
 fig.gca().set_ylim(-10, 150)
 plt.axvspan(0, duration, alpha=0.2, color='yellow')
-save_pdf_png(fig, os.path.join(path, 'MC_trans_stim_' + str(duration) +'ms_onto_D2-STN-Proto'), size = (8,3.5))
+save_pdf_png(fig, os.path.join(path, 'MC_trans_stim_' + str(duration) +'ms_onto_D2-STN-Proto' + note), size = (8,3.5))
 
 
 peak_threshold = 0.1
@@ -4786,7 +4806,7 @@ G = {}
 
 
 ( G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], 
- G[(name4, name1)], G[(name1, name1)] ) = -0.006, 0.002, -0.0007, -0.002, -0.001 ## real tau
+ G[(name4, name1)], G[(name1, name1)] ) = -0.006, 0.002, -0.0007, -0.002, -0.002 ## real tau
 # G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name4, name1)] = -0.005, 0.0008, -0.0022, -0.002 
 
 G = {k: v * K[k] for k, v in G.items()}
@@ -4838,7 +4858,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 
 duration = 10
-n_run = 1
+n_run = 5
 
 
 ext_inp_dict = {'D2': {'mean' : 150., 'sigma': .5 * .1, 'tau_rise': 100, 'tau_decay': 5} } # exponetial tau 6 merged
