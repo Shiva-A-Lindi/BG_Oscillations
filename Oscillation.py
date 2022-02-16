@@ -22,7 +22,7 @@ import xlsxwriter
 
 root = '/home/shiva/BG_Oscillations'
 # root =  r"C:/Users/azizp/BG_Oscillations"
-root = '/Users/apple/BG_Oscillations'
+# root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
 path_rate = os.path.join(root, 'Outputs_rate_model')
@@ -2982,7 +2982,7 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.2
-t_sim = 2300
+t_sim = 1300
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
 D_mvt = t_sim - t_mvt
@@ -3008,8 +3008,8 @@ g = -0.012 # 'awake_rest'
 # state = 'mvt' # set
 # g = -0.008 # 'mvt'
 
-G = {(name1, name2) :{'mean': g * K[name1, name2], 'sd': 5 , 'truncmin': -100, 'truncmax': 0 },
-     (name2, name1) :{'mean': -g * K[name2, name1], 'sd': 5, 'truncmin': 0, 'truncmax': 100}
+G = {(name1, name2) :{'mean': g * K[name1, name2], 'sd': 2 , 'truncmin': 0, 'truncmax': 10 },
+     (name2, name1) :{'mean': -g * K[name2, name1], 'sd': 2, 'truncmin': 0, 'truncmax': 10}
      }
 
 # G[(name1, name2)], G[(name2, name1)] = g, -g
@@ -3032,8 +3032,7 @@ poisson_prop = {name:
 receiving_pop_list = {(name1, '1'):  [(name2, '1')],
                       (name2, '1'): [(name1, '1')]}
 
-# tau[('Proto', 'STN')] = {'rise': [0.26], 'decay': [1.255]}
-
+# print_G_items(G)
 pop_list = [1]
 init_method = 'heterogeneous'
 # init_method = 'homogeneous'
@@ -4357,28 +4356,33 @@ G = {}
 
 G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0012, 0.024, -0.001, -0.000
 
+
 note = '_tau_PS_1-8_with_PS' 
 STN_shift = -1
 tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
 G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.000
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.02, -0.001, -0.000
+
 ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
 
+G = {key: {'mean': v * K[key], 'sd': 2 , 'truncmin': 0, 'truncmax': 10}
+     for key, v in G.items()}
 
-note = '_tau_PS_1-8_with_PS_PP' 
-STN_shift = -1
-tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.0004
-ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
+# note = '_tau_PS_1-8_with_PS_PP' 
+# STN_shift = -1
+# tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+# G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.0004
+# ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
 
-note = '_tau_PS_1-8_with_PP' 
-STN_shift = 0
-tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.00, 0.02, -0.001, -0.001
-ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 5} } # exponetial tau 2 merged
+# note = '_tau_PS_1-8_with_PP' 
+# STN_shift = 0
+# tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
+# G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.00, 0.02, -0.001, -0.001
+# ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 5} } # exponetial tau 2 merged
 
 
-G = {k: v * K[k] for k, v in G.items()}
-print_G_items(G)
+# G = {k: v * K[k] for k, v in G.items()}
+# print_G_items(G)
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {

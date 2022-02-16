@@ -340,20 +340,6 @@ class Nucleus:
             
             self.history_duration = get_max_value_dict(self.transmission_delay )
             
-    # def intialize_synaptic_weight(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
-    #                                       bins=50, color='grey',
-    #                                       plot_G_hist = False):
-        
-    #     ''' initialize axonal transmission delays with a truncated normal distribution
-    #         Note: dt incorporated in tau for time efficiency
-    #     '''
-
-    #     if len(self.receiving_from_pop_name_list) > 0:
-    #         self.synaptic_weight = {key: (truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
-    #                                                                    self.synaptic_weight_specs[key]['sd'], self.n,
-    #                                                                    truncmin = self.synaptic_weight_specs[key]['truncmin'],
-    #                                                                    truncmax = self.synaptic_weight_specs[key]['truncmax']))
-    #                                    for key in list (self.synaptic_weight_specs.keys())}
             
 
     def intialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
@@ -534,9 +520,9 @@ class Nucleus:
 
                                     for key, val in self.connectivity_matrix.items() }
     def revert_connectivity_mat_to_binary(self):
-        
-        self.connectivity_matrix = {
-            k: v / v for k, v in self.connectivity_matrix.items()}
+
+        for k, v in self.connectivity_matrix.items():
+            self.connectivity_matrix[k][np.nonzero(self.connectivity_matrix[k])] = 1
         
     def normalize_synaptic_weight_by_N(self):
         
@@ -572,7 +558,7 @@ class Nucleus:
             
         self.multiply_connectivity_mat_by_G(N)
             
-    def multiply_connectivity_mat_by_G(self, N):
+    def multiply_connectivity_mat_by_G(self, N, plot_G_hist = False):
         
         for projecting in self.receiving_from_list:
             
@@ -582,7 +568,8 @@ class Nucleus:
             
     
             if self.init_method == 'heterogeneous' and type(self.synaptic_weight_specs[key]) is dict:
-                synaptic_weights = truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
+                synaptic_weights = np.sign(self.synaptic_weight_specs[key]['mean']) * \
+                                    truncated_normal_distributed(abs(self.synaptic_weight_specs[key]['mean']),
                                                                 self.synaptic_weight_specs[key]['sd'], 
                                                                 (self.n, N[proj_name]), 
                                                                 truncmin = self.synaptic_weight_specs[key]['truncmin'],
@@ -597,7 +584,10 @@ class Nucleus:
                 
             self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
                                                                 self.connectivity_matrix[proj_name,projecting[1]]
-                                                                    
+            if plot_G_hist:
+                 ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
+                 plot_histogram(self.connectivity_matrix[proj_name,projecting[1]][ind].flatten(), 
+                                bins = 25, title =  proj_name + ' to '+ self.name  )                                              
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):
         ''' RATE MODEL: I = Sum (G * m * J) and then
@@ -967,7 +957,7 @@ class Nucleus:
 
     def incoming_rest_I_syn(self, proj_list, A, dt):
         
-        # proj = proj_list[0]
+        proj = proj_list[0]
         # print(np.sum(self.connectivity_matrix[proj, '1'], axis = 1),
         #       self.synaptic_weight[self.name, proj] * self.K_connections[self.name, proj])
         # I_syn_1 = np.sum([
@@ -988,7 +978,7 @@ class Nucleus:
                         A[proj] / 1000  * 
                         # self.K_connections[self.name, proj] *
                         np.sum(self.syn_component_weight[self.name, proj]) \
-                            for proj in proj_list]).reshape(-1,1), axis = 1) * \
+                            for proj in proj_list]), axis = 0) * \
                 self.membrane_time_constant
 
         # print(I_syn_1 - I_syn)
@@ -1736,7 +1726,7 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
+def reinitialize_nuclei_SNN(nuclei_dict, tau,N,  G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
                             mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
     
@@ -1748,7 +1738,7 @@ def reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance
             if reset_init_dist:
                 nucleus.set_init_distribution( tau, poisson_prop, dt, t_sim)
             
-            nucleus.reset_synaptic_weights(G)
+            nucleus.reset_synaptic_weights(G, N)
             nucleus.normalize_synaptic_weight()
             
             if normalize_G_by_N:
@@ -5275,7 +5265,7 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                                                             stim_method = stim_method)
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, N, G, noise_amplitude, noise_variance, A,
                                               A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True) 
@@ -6121,7 +6111,7 @@ def reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt
         for nucleus in nucleus_list:
             nucleus.clear_history()
             nucleus.set_connections(K, N)
-            nucleus.reset_synaptic_weights(G)
+            nucleus.reset_synaptic_weights(G, N)
             nucleus.scale_synaptic_weight() 
             nucleus.set_ext_input(A, A_mvt, D_mvt,t_mvt, t_list, dt)
             
