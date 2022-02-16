@@ -22,7 +22,7 @@ import xlsxwriter
 
 root = '/home/shiva/BG_Oscillations'
 # root =  r"C:/Users/azizp/BG_Oscillations"
-# root = '/Users/apple/BG_Oscillations'
+root = '/Users/apple/BG_Oscillations'
 
 path = os.path.join(root, 'Outputs_SNN')
 path_rate = os.path.join(root, 'Outputs_rate_model')
@@ -886,21 +886,21 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 # %% Deriving F_ext from response curve of collective behavior in heterogeneous mode
 
 plt.close('all')
-name = 'D2'
+name = 'Proto'
 # state = 'rest'
-# state = 'awake_rest'
+state = 'awake_rest'
 # state = 'DD_anesth'
 # state = 'mvt'
 # state = 'trans_Nico_mice'
-state = 'trans_Kita_rat'
+# state = 'trans_Kita_rat'
 
 save_mem_pot_dist = True
 # save_mem_pot_dist = False
 
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
-dt = 0.1
-t_sim = 2000
+dt = 0.2
+t_sim = 1000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -917,7 +917,7 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
+mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
@@ -2984,7 +2984,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.2
 t_sim = 2300
 t_list = np.arange(int(t_sim/dt))
-t_mvt = t_sim
+t_mvt = t_sim 
 D_mvt = t_sim - t_mvt
 duration = [int(300/dt), int(t_sim/dt)]
 
@@ -3008,8 +3008,8 @@ g = -0.012 # 'awake_rest'
 # state = 'mvt' # set
 # g = -0.008 # 'mvt'
 
-G = {(name1, name2) :{'mean': g * K[name1, name2], 'sd': 0.5 , 'truncmin': -1000, 'truncmax': 0 },
-     (name2, name1) :{'mean': -g * K[name2, name1], 'sd': 0.5, 'truncmin': 0, 'truncmax': 1000}
+G = {(name1, name2) :{'mean': g * K[name1, name2], 'sd': 5 , 'truncmin': -100, 'truncmax': 0 },
+     (name2, name1) :{'mean': -g * K[name2, name1], 'sd': 5, 'truncmin': 0, 'truncmax': 100}
      }
 
 # G[(name1, name2)], G[(name2, name1)] = g, -g
@@ -3053,7 +3053,7 @@ nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 # filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
