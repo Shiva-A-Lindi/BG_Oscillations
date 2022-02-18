@@ -149,7 +149,7 @@ class Nucleus:
         self.transmission_delay = {k: np.zeros( self.n ) 
                                    for k, v in self.T_specs.items()}
         
-        
+        self.G_heterogeneity = False
         self.synaptic_weight = {} # filter based on the receiving nucleus
         self.synaptic_weight_specs = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
         self.create_syn_weight_mean_dict()
@@ -256,8 +256,10 @@ class Nucleus:
         if len(self.receiving_from_list) > 0:
             
             if type(self.synaptic_weight_specs[self.name, self.receiving_from_list[0][0]]) is not dict :
-                self.synaptic_weight = {k: v for k, v in self.synaptic_weight_specs.items()}
+                
+                self.synaptic_weight = self.synaptic_weight_specs
             else:
+                self.G_heterogeneity = True
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
     def set_init_distribution(self, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
@@ -293,7 +295,8 @@ class Nucleus:
                                                                        lower_bound_perc=lower_bound_perc, upper_bound_perc=upper_bound_perc)
         
         if plot_mem_tau_hist:
-            plot_histogram(self.membrane_time_constant, bins = 25, title = self.name)
+            plot_histogram(self.membrane_time_constant, bins = 25, 
+                           title = self.name, xlabel = r'$\tau_{m} \; (ms)$')
             
     def intialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
@@ -460,10 +463,10 @@ class Nucleus:
                                    for key in list (self.T_specs.keys())}
         
         self.spike_thresh = np.full( self.n, 
-                                    self.neuronal_consts['spike_thresh']['mean'])
+                                     self.neuronal_consts['spike_thresh']['mean'])
         
         self.u_rest = np.full( self.n, 
-                              self.neuronal_consts['u_rest']['mean'])
+                               self.neuronal_consts['u_rest']['mean'])
         
         self.mem_potential = np.random.uniform( low=self.neuronal_consts['u_rest']['mean'], 
                                                 high=self.spike_thresh, size=self.n)  # membrane potential
@@ -499,26 +502,22 @@ class Nucleus:
         
     def normalize_synaptic_weight(self):
 
-        # self.synaptic_weight = {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
-        #                                 self.neuronal_consts['u_rest']['mean'])
-        #                         for k, v in self.synaptic_weight.items() }
-            
-        self.synaptic_weight_specs = {key: 
-                                          {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
-                                                    self.neuronal_consts['u_rest']['mean']) 
-                                            for k, v in self.synaptic_weight_specs[key].items() 
-                                            }
-                                          for key, val in self.synaptic_weight_specs.items() }
-        
+
         self.synaptic_weight = {key:  val * (self.neuronal_consts['spike_thresh']['mean'] - 
-                                              self.neuronal_consts['u_rest']['mean']) 
-
-                                    for key, val in self.synaptic_weight.items() }
+                                             self.neuronal_consts['u_rest']['mean']) 
+                                for key, val in self.synaptic_weight.items() }
         
-        self.connectivity_matrix = {key:  val * (self.neuronal_consts['spike_thresh']['mean'] - 
-                                              self.neuronal_consts['u_rest']['mean']) 
+        if self.G_heterogeneity:
+            self.synaptic_weight_specs = {key: 
+                                              {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
+                                                        self.neuronal_consts['u_rest']['mean']) 
+                                                for k, v in self.synaptic_weight_specs[key].items() 
+                                                }
+                                              for key, val in self.synaptic_weight_specs.items() }
+        else:
+            self.synaptic_weight_specs = self.synaptic_weight
 
-                                    for key, val in self.connectivity_matrix.items() }
+
     def revert_connectivity_mat_to_binary(self):
 
         for k, v in self.connectivity_matrix.items():
@@ -529,13 +528,18 @@ class Nucleus:
         self.synaptic_weight = { key: val / self.K_connections[key] 
                                 for key, val in self.synaptic_weight.items()}
         
-        self.synaptic_weight_specs = { key: 
-                                      { k: v / self.K_connections[key] for k,v in 
-                                       self.synaptic_weight_specs[key].items()}
-                                      for key, val in self.synaptic_weight_specs.items()}
-        
         self.connectivity_matrix = { key: val / self.K_connections[self.name, key[0]] 
                                     for key, val in self.connectivity_matrix.items()}
+        
+        if self.G_heterogeneity:
+            self.synaptic_weight_specs = { key: 
+                                          { k: v / self.K_connections[key] for k,v in 
+                                           self.synaptic_weight_specs[key].items()}
+                                          for key, val in self.synaptic_weight_specs.items()}
+        else:
+            self.synaptic_weight_specs = self.synaptic_weight
+            
+
         
     def set_connections(self, K, N):
         
@@ -566,8 +570,8 @@ class Nucleus:
     
             key = (self.name, proj_name)
             
-    
-            if self.init_method == 'heterogeneous' and type(self.synaptic_weight_specs[key]) is dict:
+            if self.init_method == 'heterogeneous' and self.G_heterogeneity:
+                
                 synaptic_weights = np.sign(self.synaptic_weight_specs[key]['mean']) * \
                                     truncated_normal_distributed(abs(self.synaptic_weight_specs[key]['mean']),
                                                                 self.synaptic_weight_specs[key]['sd'], 
@@ -576,9 +580,8 @@ class Nucleus:
                                                                 truncmax = self.synaptic_weight_specs[key]['truncmax'])
                 
             else:
-                
-                if type(self.synaptic_weight_specs[key]) is dict:
-                    synaptic_weights = self.synaptic_weight_specs[key]['mean'],
+                if self.G_heterogeneity:
+                    synaptic_weights = self.synaptic_weight_specs[key]['mean']
                 else:
                     synaptic_weights = self.synaptic_weight_specs[key]
                 
@@ -587,7 +590,8 @@ class Nucleus:
             if plot_G_hist:
                  ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
                  plot_histogram(self.connectivity_matrix[proj_name,projecting[1]][ind].flatten(), 
-                                bins = 25, title =  proj_name + ' to '+ self.name  )                                              
+                                bins = 25, title =  proj_name + ' to '+ self.name ,
+                                xlabel = 'normalizd G')                                              
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):
         ''' RATE MODEL: I = Sum (G * m * J) and then
@@ -957,9 +961,6 @@ class Nucleus:
 
     def incoming_rest_I_syn(self, proj_list, A, dt):
         
-        proj = proj_list[0]
-        # print(np.sum(self.connectivity_matrix[proj, '1'], axis = 1),
-        #       self.synaptic_weight[self.name, proj] * self.K_connections[self.name, proj])
         # I_syn_1 = np.sum([
         #             self.synaptic_weight[self.name, proj] * 
         #                 A[proj] / 1000  * 
@@ -968,11 +969,6 @@ class Nucleus:
         #                     for proj in proj_list]) * \
         #         self.membrane_time_constant
 
-        # return I_syn
-
-    # def incoming_rest_I_syn(self, proj_list, A, dt):
-
-        
         I_syn = np.sum(np.array([
                         np.sum(self.connectivity_matrix[proj, '1'], axis = 1) * 
                         A[proj] / 1000  * 
@@ -981,7 +977,6 @@ class Nucleus:
                             for proj in proj_list]), axis = 0) * \
                 self.membrane_time_constant
 
-        # print(I_syn_1 - I_syn)
         return I_syn
 
 
@@ -1402,11 +1397,11 @@ def change_noise_all_nuclei( nuclei_dict, noise_variance, noise_amplitude):
             
     return nuclei_dict
 
-def plot_histogram(y, bins = 50, title = "", color = 'k'):
+def plot_histogram(y, bins = 50, title = "", color = 'k', xlabel = 'control parameter'):
     fig, ax = plt.subplots()
     ax.hist(y, bins, color = color)
     ax.set_title(title, fontsize = 15)
-    ax.set_xlabel(r'$\tau_{m}(ms)$', fontsize = 15)
+    ax.set_xlabel(xlabel, fontsize = 15)
     
 # def wrap_angles(x):
 #     ''' Wrap angles to [-pi, pi)'''
@@ -5271,13 +5266,13 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                               normalize_G_by_N= True) 
         
         receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, 
-                                                               receiving_pop_list, nuclei_dict,t_list, 
-                                                               all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, 
-                                                               end_of_nonlinearity = end_of_nonlinearity, 
-                                                               set_FR_range_from_theory = False, method = 'collective', 
-                                                               use_saved_FR_ext= True,
-                                                               normalize_G_by_N= False, save_FR_ext=False,
-                                                               state = state)
+                                                                receiving_pop_list, nuclei_dict,t_list, 
+                                                                all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, 
+                                                                end_of_nonlinearity = end_of_nonlinearity, 
+                                                                set_FR_range_from_theory = False, method = 'collective', 
+                                                                use_saved_FR_ext= True,
+                                                                normalize_G_by_N= False, save_FR_ext=False,
+                                                                state = state)
 
 
         print(i+1,'from',n_run)

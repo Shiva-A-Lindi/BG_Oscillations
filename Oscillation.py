@@ -165,34 +165,6 @@ K_all = {'rest': K_real, 'DD_anesth': K_real_DD, 'awake_rest': K_real, 'mvt': K_
 # K_real_STN_Proto_diverse = K_real.copy()
 # K_real_STN_Proto_diverse[('Proto', 'STN')] = K_real_STN_Proto_diverse[('Proto', 'STN')] / N_sub_pop # because one subpop in STN contacts all subpop in Proto
 
-# T = {
-#     # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
-#     ('STN', 'Proto'): 1.3,     # 1.3 +/- 0.3 range = (0.8,2.5) Kita et al. (1983) Fig 5G. rat n=102 in vivo electric stim
-#     ('Proto', 'STN'): 2.8,  # ms kita & Kitai (1991) rat in vivo electrric stim. temp = 37, n = 18 /  Before Dec 2021: Ketzef & Silberberg 2020 mice in vivo optogenetic temp = 36.5 reports 4.75/
-#     #  Fujimoto & Kita (1983) Fig 3C. reports 1.2 ms antidromic response with GP stim rat in vivo n=72 
-#     ('Proto', 'Proto'): 5, # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ or 0.96 ms Bugaysen et al. 2013 [IPSP]?
-#     ('Arky', 'Proto'): 5,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5
-#     ('D2', 'Arky'): 4.9,     # Glajch et al. 2016 [Fig. 1] mice in vitro optogenetic temp: 20-22. estimate was 7 before Sep 2021.
-#     ('FSI', 'Proto'): 4.3,     # Glajch et al. 2016 [Fig. 2] mice  in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
-#     ('Proto', 'D2'):  7.34,     # Ketzef & Silberberg (2020) mice in vivo optogenetic temp = 36.5/ 
-#     # Kita & Kitai (1991) range = (2.2,11.8), n = 33 in-vivo electric stim temp = 37 Fig 6
-#     ('D2', 'FSI'): 0.93,  # Gittis et al 2010 mice in vitro electric stim temp = 31-33
-#     ('STN', 'Ctx'): 5.5, # kita & Kita (2011) [firing rate]/ Fujimoto & Kita 1993 say an early excitaion of 2.5
-#     ('D2', 'Ctx'): 13.4 - 5} # short inhibition latency of MC--> Proto Kita & Kita (2011) - D2-Proto of Kita & Kitai (1991)
-# #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
-# #       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
-# #       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
-# #       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011
-# #       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
-# #       ('Arky', 'STN'):  4.35, # Ketzef & Silberberg 2020 #  kita & Kitai (1991) - [firing rate]  reports 2ms
-# #       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
-# #       ('Th', 'GPi'): 5, # Xu et al. (2008)
-# #       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
-# #       ('FSI' , 'FSI'): 1, # estimate based on proximity
-# #       ('Ctx','Th'): 5.6, # Walker et al. (2012)
-# #       ('D1', 'D2'): 1,
-# #       ('D2', 'D2'): 1}
-
 
 T = {
     # ('STN', 'Proto'): 4, # Fujimoto & Kita (1993) - [firing rate] Before Dec 2021
@@ -220,7 +192,19 @@ T = {
     # Fujimoto & Kita 1993 3 +/- 1.3 ipsi Sensorimotor Ctx stim
     ('D2', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}} 
     # Jaeger & Kita 2016 assumes it's similar to Ctx-STN
-
+# #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
+# #       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
+# #       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
+# #       ('GPi', 'D1'): 7.2, #  Kita et al. 2001 - [IPSP] / 13.5 (MC-GPi) early inhibition - 10.5 = 3? Kita et al. 2011
+# #       ('GPi', 'STN'): 1.7, #  STN-EP Nakanishi et al. 1991 [EPSP] /1ms # STN-SNr Nakanishi et al 1987 / 6 - 5.5  (early excitaion latency of MC--> GPi Kita & Kita (2011) - Ctx-STN) - [firing rate]
+# #       ('Arky', 'STN'):  4.35, # Ketzef & Silberberg 2020 #  kita & Kitai (1991) - [firing rate]  reports 2ms
+# #       ('GPi', 'Proto'): 3, # Kita et al 2001 --> short latency of 2.8 and long latency 5.9 ms [IPSP]/ (4 - 2) ms Nakanishi et al. 1991: the IPSP following the EPSP with STN activation in EP, supposedly being due to STN-Proto-GPi circuit?
+# #       ('Th', 'GPi'): 5, # Xu et al. (2008)
+# #       ('D1' , 'FSI'): 1, #0.84 ms mice Gittis et al 2010
+# #       ('FSI' , 'FSI'): 1, # estimate based on proximity
+# #       ('Ctx','Th'): 5.6, # Walker et al. (2012)
+# #       ('D1', 'D2'): 1,
+# #       ('D2', 'D2'): 1}
 
 # Gerstner. synaptic time scale for excitation and inhibition
 decay_time_scale = {'GABA-A': 6, 'GABA-B': 200,
@@ -247,15 +231,14 @@ neuronal_consts = {
     'Proto': {
         # 'u_rest': {'mean': -66.3, 'var': 0.8, 'truncmin': -1000, 'truncmax': -40}, # Stanford & cooper 2000 [type A] trun bounds of RMP is estimated
         'nonlin_thresh': -20, 'nonlin_sharpness': 1, 'u_initial': {'min': -67.1, 'max': -54.8},
-        # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1 rat in vitro electric stim temp = 35-37
         'u_rest': {'mean': -67.1, 'var': 2.1, 'truncmin': -1000, 'truncmax': -56},
-        # Jerome's measurements temp = 32
-        'membrane_time_constant': {'mean': 43, 'var': 15, 'truncmin': 0.5, 'truncmax': 100},
+        # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto u_rest_sd = 2.1 rat in vitro electric stim temp = 35-37
+        'membrane_time_constant': {'mean': 43, 'var': 15, 'truncmin': 0.5, 'truncmax': 100}, # Jerome's measurements temp = 32
         'spike_thresh': {'mean': -54.8, 'var': 3.64}},  # Abdi et al 2015 Table. 1 : average of PV+ and PV- proto rat in vitro electric stim temp = 35-37
 
     # 'spike_thresh': {'mean':-37.57,'var':4.79}}, #  Karube et al. 2019
-    # 'membrane_time_constant':{'mean':12.94,'var':2},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :# Projecting to STN from Karube et al 2019
-    # 'membrane_time_constant':{'mean':25,'var':1.5},'spike_thresh': {'mean':-37,'var':5}}, # tau_m :Cooper & Stanford 2000 (25) spike_thresh: Karube et al 2019
+    # 'membrane_time_constant':{'mean':12.94,'var':2}}, # tau_m :# Projecting to STN from Karube et al 2019
+    # 'membrane_time_constant':{'mean':25,'var':1.5}}, # tau_m :Cooper & Stanford 2000 (25) 
 
     'Arky': {
         # 'u_rest': {'mean': -58.1, 'var': 1.1, 'truncmin': -1000, 'truncmax': -50}, # Stanford & cooper 2000 [type B]
@@ -306,10 +289,9 @@ tau = {
     # Fan et. al 2012 decay = 6.48 +/- 1.92 n = 26 temp not mentioned (possibly RT)
     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 +/- 1.92 n = 26 temp not mentioned Fan et. al 2012
     ('Proto', 'STN'): {'rise': {'mean' : [0.2], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
-                       'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}},
-    # Glut estimate
-                       # 'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
-    # decayJerome measurements in Asier et al. 2021
+                        'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
+    # decay Jerome measurements in Asier et al. 2021
+                           # 'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}}, # Glut estimate
     ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
                          'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [1000]}},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14 ( in thesis it was 2 and 10)
@@ -4350,23 +4332,20 @@ G = {}
 #     ('D2', 'Arky'): [1]
 # }
 
-# note = '_tau_PS_6'
 
 
-
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0012, 0.024, -0.001, -0.000
-
+# note = '_tau_PS_1-8' 
+# STN_shift = -1
+# G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.00, 0.024, -0.00, -0.000
+# ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
 
 note = '_tau_PS_1-8_with_PS' 
 STN_shift = -1
 tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.000
-G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.02, -0.001, -0.000
-
+# G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.022, -0.001, -0.000
+G[(name2, name1)], G[(name1, name2)], G[(name3, name1)],  G[(name1, name1)] = -0.0019, 0.017, -0.001, -0.000
 ext_inp_dict = {'STN': {'mean' : 130., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 10} } # exponetial tau 2 merged
 
-G = {key: {'mean': v * K[key], 'sd': 2 , 'truncmin': 0, 'truncmax': 10}
-     for key, v in G.items()}
 
 # note = '_tau_PS_1-8_with_PS_PP' 
 # STN_shift = -1
@@ -4381,6 +4360,9 @@ G = {key: {'mean': v * K[key], 'sd': 2 , 'truncmin': 0, 'truncmax': 10}
 # ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 1000, 'tau_decay': 5} } # exponetial tau 2 merged
 
 
+
+G = {key: {'mean': v * K[key], 'sd': 2 , 'truncmin': 0, 'truncmax': 10}
+      for key, v in G.items()}
 # G = {k: v * K[k] for k, v in G.items()}
 # print_G_items(G)
 
@@ -4390,7 +4372,7 @@ poisson_prop = {name:
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'): [(name2, '1'), (name1, '1')],
+receiving_pop_list = {(name1, '1'): [(name2, '1')],# (name1, '1')],
                       (name2, '1'): [(name1, '1')],
                       (name3, '1'): [(name1, '1')]}
 
@@ -4428,7 +4410,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 
 duration = 10
-n_run =  5
+n_run =  1
 
 # ext_inp_dict = {'STN': {'mean' : .5, 'sigma': .5 * .1, 'tau_rise': 0, 'tau_decay': 0} } # step input
 # ext_inp_dict = {'STN': {'mean' : 70., 'sigma': .5 * .1, 'tau_rise': 100, 'tau_decay': 5} } # exponetial tau 6 merged
@@ -4661,10 +4643,11 @@ G = {}
 #     ('D2', 'Arky'): [1]
 # }
 
-tau[('Proto', 'STN')]['decay'] = {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}
 note = '_tau_PS_1-8'
 G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name1, name1)] = -0.006, 0.006, -0.0002, -0.000  # same strength GABA_a and b
 
+# G = {key: {'mean': v * K[key], 'sd': 2 , 'truncmin': 0, 'truncmax': 10}
+#      for key, v in G.items()}
 G = {k: v * K[k] for k, v in G.items()}
 
 poisson_prop = {name: 
@@ -4714,7 +4697,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 
 duration = 10
-n_run = 5
+n_run = 1
 duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
 
 list_of_nuc_with_trans_inp = ['STN', 'D2']
