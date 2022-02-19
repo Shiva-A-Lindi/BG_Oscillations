@@ -98,7 +98,7 @@ class Nucleus:
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
         spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
-        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996):
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {}):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -236,7 +236,7 @@ class Nucleus:
             if keep_noise_all_t : 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
-            self.set_init_distribution( tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
+            self.set_init_distribution( FR_ext_specs, tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
             self.normalize_synaptic_weight()
             
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
@@ -262,8 +262,10 @@ class Nucleus:
                 self.G_heterogeneity = True
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
-    def set_init_distribution(self, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
+    def set_init_distribution(self, FR_ext_specs, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
         
+        self.FR_ext_specs = FR_ext_specs
+        print(self.FR_ext_specs)
         if self.init_method == 'homogeneous':
             
             self.initialize_homogeneously(poisson_prop, dt)
@@ -275,6 +277,7 @@ class Nucleus:
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
             
             self.FR_ext = np.zeros(self.n)
+
           
     def intialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2, 
                                          plot_mem_tau_hist = False):
@@ -1050,26 +1053,43 @@ class Nucleus:
             self.n_ext_population / self.membrane_time_constant
 
     def _set_ext_inp_const_plus_noise(self, I_syn, end_of_nonlinearity, dt):
+        
         # linear regime if decided not to derive from reponse curve (works for low noise levels)
         if self.basal_firing > end_of_nonlinearity and not self.set_input_from_response_curve:
+            
             self._set_ext_inp_poisson(I_syn)
+            
         else:
+            
+            self.distribute_FR_ext_as_normal(self.FR_ext_specs['mean'])
             self.rest_ext_input = (self.FR_ext * self.syn_weight_ext_pop * \
                                    self.n_ext_population * self.membrane_time_constant - 
                                    I_syn )#.reshape(-1,1)
             self.I_ext_0 =  np.average(self.rest_ext_input + I_syn)
-            # print(self.name, '<I_ext + I_syn> = ', self.I_ext_0)
             
-            # self.set_noise_param(self.I_ext_0/10, self.noise_amplitude)
+    def distribute_FR_ext_as_normal(self, FR_ext_mean ):
+        
+        if type (self.FR_ext_specs) is dict:
+
+            self.FR_ext = truncated_normal_distributed(FR_ext_mean,
+                                                       self.FR_ext_specs['sd'], 
+                                                       self.n,  
+                                                       truncmin = self.FR_ext_specs['truncmin'],
+                                                       truncmax = self.FR_ext_specs['truncmax'])
+            
     def set_ext_inp_const_plus_noise_collective(self, FR_range, t_list, dt, receiving_class_dict, n_FR = 50,
                                                  if_plot=False, end_of_nonlinearity=25, maxfev=5000, c='grey'):
         
         if self.basal_firing < end_of_nonlinearity:
+            
             FR_list = spacing_with_high_resolution_in_the_middle(n_FR , * FR_range)
         else:
+            
             FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
+            
         FR_sim_all_neurons = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
         FR_sim = np.average(FR_sim_all_neurons, axis = 0)
+        
         if self.basal_firing > end_of_nonlinearity:
             
             self.FR_ext = extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_list.reshape(-1,) * 1000, FR_sim, self.basal_firing, if_plot= if_plot, 
@@ -1083,6 +1103,7 @@ class Nucleus:
                                                                                    tau= np.average(self.membrane_time_constant), g_ext=self.syn_weight_ext_pop, 
                                                                                    N_ext=self.n_ext_population, noise_var=self.noise_variance, c=c)
         self.clear_history()
+        
         print(self.name, "FR_ext = ", self.FR_ext)
         return self.FR_ext
     
@@ -1091,7 +1112,7 @@ class Nucleus:
         start = timeit.default_timer()
         # provide the array for all neurons
         all_FR_list_2D = np.repeat(all_FR_list.reshape(-1, 1), self.n, axis=1)
-        FR_sim = self.Find_threshold_of_firing(
+        FR_sim = self.find_threshold_of_firing(
             all_FR_list_2D, t_list, dt, receiving_class_dict)
         FR_list = find_FR_ext_range_for_each_neuron(
             FR_sim, all_FR_list, self.init_method, n_FR=n_FR, left_pad=left_pad, right_pad=right_pad)
@@ -1123,11 +1144,15 @@ class Nucleus:
         # else:
             # FR_start = FR_range[0]
             # FR_end = FR_range[-1]
+            
         FR_list = np.repeat(np.linspace(*FR_range, n_FR).reshape(-1,1), self.n, axis = 1)
         # FR_list = np.linspace(*FR_range, n_FR).reshape(-1,1)
+        
         FR_sim = self.run_for_all_FR_ext(FR_list, t_list, dt, receiving_class_dict)
-        self. set_FR_ext_each_neuron(
-            FR_list, FR_sim, dt, extrapolate=extrapolate_FR_ext_from_neuronal_response_curve_high_act, if_plot=if_plot, ax=ax, c=c)
+        self. set_FR_ext_each_neuron( FR_list, FR_sim, dt, 
+                                     extrapolate = extrapolate_FR_ext_from_neuronal_response_curve_high_act, 
+                                     if_plot = if_plot, ax=ax, c=c)
+        
         self.clear_history()
         stop = timeit.default_timer()
         print('t for I_ext init ' + self.name + ' =', round(stop - start, 2), ' s')
@@ -1156,11 +1181,15 @@ class Nucleus:
         for i in range(FR_list.shape[0]):
 
             self.clear_history()
-            self.rest_ext_input = FR_list[i, :]  * self.membrane_time_constant * \
-                self.n_ext_population * self.syn_weight_ext_pop
+            
+            self.distribute_FR_ext_as_normal(FR_list[i, 0])
+            self.rest_ext_input = self.FR_ext  * self.membrane_time_constant * \
+                                    self.n_ext_population * self.syn_weight_ext_pop
             self. run(dt, t_list, receiving_class_dict)
+            
             FR_sim[:, i] = np.average( self.spikes[:, int(len(t_list)/2):], 
-                                      axis=1) /  (dt/1000)
+                                          axis=1) /  (dt/1000)
+            
             print('FR = ', np.average(FR_list[i, :]), np.average(FR_sim[:, i]))
 
         return FR_sim
@@ -1168,49 +1197,63 @@ class Nucleus:
     def plot_mem_potential_distribution_of_one_t(self, t,  ax=None, bins=50, color='gray'):
         
         fig, ax = get_axes(ax)
+        
         ax.hist(self.all_mem_pot[:, t] / self.n, bins=bins,
                 color=color, label=self.name, density=True, stacked=True)
+        
         ax.set_xlabel('Membrane potential (mV)', fontsize=15)
         ax.set_ylabel(r'$Probability\ density$', fontsize=15)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
 
     def plot_mem_potential_distribution_of_all_t(self, ax=None, bins=50, color='grey'):
+        
         a = self.all_mem_pot.copy()
         fig, ax = get_axes(ax)
+        
         ax.hist(a.reshape(int(a.shape[0] * a.shape[1]), 1), bins=bins,
                 color=color, label=self.name, density=True, stacked=True, alpha = 0.2)
+        
         ax.set_xlabel('Membrane potential (mV)', fontsize=15)
         ax.set_ylabel(r'$Probability$', fontsize=15)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize=15)
+        
     def plot_mem_potential_distribution_of_all_t(self, key, dt, ax=None, bins=50, 
                                                  color='grey', tc = 'decay', syn_element_no = 0):
 
         fig, ax = get_axes(ax)
+        
         ax.hist(self.tau[key][tc][syn_element_no,:] * dt, bins=bins,
                 label='from '+ key[1] , density=True, stacked=True, color=color)
+        
         ax.set_xlabel('synaptic ' + tc + ' time constant (ms)', fontsize=15)
         ax.set_ylabel(r'$Probability\ density$', fontsize=15)
-        
         ax.set_title(self.name, fontsize=15)
         ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
         
-    def Find_threshold_of_firing(self, FR_list, t_list, dt, receiving_class_dict):
+    def find_threshold_of_firing(self, FR_list, t_list, dt, receiving_class_dict):
+        
         FR_sim = np.zeros((self.n, len(FR_list)))
 
         for i in range(FR_list.shape[0]):
 
             self.clear_history()
             self.rest_ext_input = FR_list[i, :]  * self.membrane_time_constant * \
-                self.n_ext_population * self.syn_weight_ext_pop
+                                   self.n_ext_population * self.syn_weight_ext_pop
+                                   
             self. run(dt, t_list, receiving_class_dict)
-            FR_sim[:, i] = np.average(
-                self.spikes[:, int(len(t_list)/2):], axis=1)/(dt/1000)
+            FR_sim[:, i] = np.average( self.spikes[:, int(len(t_list)/2):], 
+                                       axis = 1) / ( dt /  1000 )
+            
             print('FR = ', np.average(FR_list[i, :]), np.average(FR_sim[:, i]))
+            
             if np.all(FR_sim[:, i] > 1):
+                
                 print('done!')
+                
                 break
+            
         return FR_sim
 
     def run(self, dt, t_list, receiving_class_dict):
@@ -1659,47 +1702,71 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
             if nucleus.neuronal_model == 'rate' and scale_g_with_N:
                 
                 nucleus.scale_synaptic_weight()
-                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
-                                  dt)
+                nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt)
+                
             else:
                 
                 if nucleus. der_ext_I_from_curve:
-                
+                    
                     if method == 'collective' and not use_saved_FR_ext:
-                        print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
-                        FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
-                                                                        if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
-                                                                        maxfev = maxfev, c=c, n_FR=n_FR)
-                        FR_ext_all_nuclei[nucleus.name] = FR_ext
                         
-                        if save_FR_ext:
-                            
-                            pickle_obj(nucleus.FR_ext, FR_ext_filename_dict[nucleus.name])
-                            
+                        der_ext_I_collective(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
+                                             FR_ext_all_nuclei, if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity,
+                                             maxfev = maxfev, c = c, n_FR=n_FR, save_FR_ext = save_FR_ext )
+                        
                     elif method == 'single_neuron':
                         
-                        if nucleus.basal_firing > end_of_nonlinearity:
-                            
-                            nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
-                                                                            n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
-                            
-                        else:
-                            
-                            nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
-                                                                   end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
-                                                                   n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
+                        der_ext_I_single_neuron(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
+                                                FR_ext_all_nuclei, if_plot =  if_plot, end_of_nonlinearity =end_of_nonlinearity,
+                                                maxfev = maxfev, c=c, n_FR=n_FR, set_FR_range_from_theory = set_FR_range_from_theory,
+                                                left_pad= left_pad, right_pad=right_pad, ax = ax)
+
                     elif use_saved_FR_ext:
                         
-                        nucleus.FR_ext = load_pickle(FR_ext_filename_dict[nucleus.name])
-                    
+                        nucleus.FR_ext_specs = load_pickle(FR_ext_filename_dict[nucleus.name])
+                        print(nucleus.FR_ext_specs)
                 if normalize_G_by_N:
                     
                     nucleus.normalize_synaptic_weight_by_N()
+                    
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                       end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
 
     return receiving_class_dict, nuclei_dict
 
+def der_ext_I_collective(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
+                         FR_ext_all_nuclei, if_plot = False, end_of_nonlinearity =None,
+                         maxfev = 5000, c='grey', n_FR=50, save_FR_ext = True):
+    
+    print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
+    FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
+                                                                 if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
+                                                                 maxfev = maxfev, c=c, n_FR=n_FR)
+    FR_ext_all_nuclei[nucleus.name] = {'mean': FR_ext,
+                                       'sd': nucleus.FR_ext_specs['sd'],
+                                       'truncmin': nucleus.FR_ext_specs['truncmin'],
+                                       'truncmax': nucleus.FR_ext_specs['truncmax']}
+    nucleus.FR_ext_specs['mean']= FR_ext
+     
+    if save_FR_ext:
+        
+        pickle_obj(nucleus.FR_ext, FR_ext_filename_dict[nucleus.name])
+        
+def der_ext_I_single_neuron(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
+                            FR_ext_all_nuclei, if_plot = False, end_of_nonlinearity =None,
+                            maxfev = 5000, c='grey', n_FR=50, set_FR_range_from_theory = True,
+                            left_pad=0.005, right_pad=0.005, ax = None):
+    
+    if nucleus.basal_firing > end_of_nonlinearity:
+                            
+        nucleus.estimate_needed_external_input_high_act(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot,
+                                                        n_FR=n_FR, ax=ax, c=c, set_FR_range_from_theory=set_FR_range_from_theory)
+        
+    else:
+        
+        nucleus.estimate_needed_external_input(all_FR_list[nucleus.name], dt, t_list, receiving_class_dict, if_plot=if_plot, 
+                                               end_of_nonlinearity=end_of_nonlinearity, maxfev=maxfev,
+                                               n_FR=n_FR, left_pad=left_pad, right_pad=right_pad, ax=ax, c=c)
 
 def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=None):
     
@@ -4975,7 +5042,7 @@ def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, y
         ax.set_ylim(ylim)
 
     remove_frame(ax)
-    return fig, ax
+    return fig, ax, title
 
 def selective_additive_ext_input(nuclei_dict, list_of_nuc_with_trans_inp, ext_inp_dict):
     
