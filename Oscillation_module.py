@@ -96,9 +96,10 @@ class Nucleus:
     def __init__(self, population_number, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude, N, A, A_mvt, name, G, T, t_sim, dt,
         synaptic_time_constant, receiving_from_list, smooth_kern_window, oscil_peak_threshold, syn_input_integ_method='exp_rise_and_decay', neuronal_model='rate',
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
-        spike_thresh_bound_ratio=[1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
+        spike_thresh_bound_ratio= [1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
-        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {}):
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
+        plot_spike_thresh_hist = False):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -166,7 +167,7 @@ class Nucleus:
             self.noise_induced_basal_firing = None
             self.oscil_peak_threshold = oscil_peak_threshold[self.name]
             self.scale_g_with_N = scale_g_with_N
-            self. intialize_transmission_delays(dt)
+            self. initialize_transmission_delays(dt)
 
         if neuronal_model == 'spiking':
             
@@ -236,7 +237,10 @@ class Nucleus:
             if keep_noise_all_t : 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
-            self.set_init_distribution( FR_ext_specs, tau, poisson_prop, dt, t_sim,  plot_initial_V_m_dist = plot_initial_V_m_dist)
+            self.set_init_distribution( FR_ext_specs, tau, poisson_prop, dt, t_sim,  
+                                       plot_initial_V_m_dist = plot_initial_V_m_dist, 
+                                       plot_spike_thresh_hist= plot_spike_thresh_hist)
+            
             self.normalize_synaptic_weight()
             
             self.ext_inp_method_dict = {'Poisson': self.poissonian_ext_inp,
@@ -262,10 +266,11 @@ class Nucleus:
                 self.G_heterogeneity = True
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
-    def set_init_distribution(self, FR_ext_specs, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False):
+    def set_init_distribution(self, FR_ext_specs, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
+                              plot_spike_thresh_hist = False):
         
         self.FR_ext_specs = FR_ext_specs
-        print(self.FR_ext_specs)
+
         if self.init_method == 'homogeneous':
             
             self.initialize_homogeneously(poisson_prop, dt)
@@ -274,12 +279,13 @@ class Nucleus:
         elif self.init_method == 'heterogeneous':
             
             self.initialize_heterogeneously(tau, poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
-                                            *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist)
+                                            *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist,
+                                            plot_spike_thresh_hist= plot_spike_thresh_hist)
             
             self.FR_ext = np.zeros(self.n)
 
           
-    def intialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2, 
+    def initialize_membrane_time_constant(self, lower_bound_perc=0.8, upper_bound_perc=1.2, 
                                          plot_mem_tau_hist = False):
         
         ''' initialize membrane time constant either with a specified truncation value or
@@ -301,7 +307,7 @@ class Nucleus:
             plot_histogram(self.membrane_time_constant, bins = 25, 
                            title = self.name, xlabel = r'$\tau_{m} \; (ms)$')
             
-    def intialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
+    def initialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
                                           plot_syn_tau_hist = False):
         
@@ -325,11 +331,12 @@ class Nucleus:
                                        
                 if plot_syn_tau_hist:
                     
-                    self.plot_synaptic_time_scale_distribution(key, dt, ax=None, bins=bins, 
-                                                               color=color, tc = tc_plot, 
-                                                               syn_element_no = syn_element_no)
+                    plot_histogram(self.tau[key][tc_plot], bins = bins, 
+                                   title = self.name,
+                                   xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')
+
               
-    def intialize_transmission_delays(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
+    def initialize_transmission_delays(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey',
                                           plot_T_hist = False):
         
@@ -348,7 +355,7 @@ class Nucleus:
             
             
 
-    def intialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
+    def initialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
         tc_list = ['rise', 'decay']
         # dt incorporated for time efficiency
@@ -359,14 +366,23 @@ class Nucleus:
                                                              upper_bound_perc=upper_bound_perc) / dt
                             for tc in tc_list}
                   
-    def initialize_spike_threshold(self, spike_thresh_bound_ratio, lower_bound_perc=0.8, upper_bound_perc=1.2):
+    def initialize_spike_threshold(self, spike_thresh_bound_ratio, lower_bound_perc=0.8, 
+                                   upper_bound_perc=1.2, plot_spike_thresh_hist = False,
+                                   bins=20):
         
         self.spike_thresh = truncated_normal_distributed(self.neuronal_consts['spike_thresh']['mean'],
-                                                         self.neuronal_consts['spike_thresh']['var'], self.n,
-                                                         scale_bound=scale_bound_with_arbitrary_value, scale=(
-                                                         self.neuronal_consts['spike_thresh']['mean'] - self.neuronal_consts['u_rest']['mean']),
-                                                         lower_bound_perc=spike_thresh_bound_ratio[0], upper_bound_perc=spike_thresh_bound_ratio[1])
-    
+                                                         self.neuronal_consts['spike_thresh']['var'], 
+                                                         self.n,
+                                                         scale_bound = scale_bound_with_arbitrary_value, 
+                                                         scale = ( self.neuronal_consts['spike_thresh']['mean'] - 
+                                                                  self.neuronal_consts['u_rest']['mean']),
+                                                         lower_bound_perc = spike_thresh_bound_ratio[0], 
+                                                         upper_bound_perc = spike_thresh_bound_ratio[1])
+        if plot_spike_thresh_hist:
+            
+            plot_histogram(self.spike_thresh, bins = bins, 
+                           title = self.name,
+                           xlabel = r'spike threshold (mV)')
     def initialize_resting_membrane_potential(self, plot_initial_V_m_dist = False):
     
         self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
@@ -420,38 +436,39 @@ class Nucleus:
             
         self.voltage_trace[0] = self.mem_potential[0] 
         
-    def initialize_heterogeneously(self, tau, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
-                                   lower_bound_perc=0.8, upper_bound_perc=1.2,
+    def initialize_heterogeneously( self, tau, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
+                                    lower_bound_perc = 0.8, upper_bound_perc = 1.2,
                                     plot_initial_V_m_dist=False, plot_mem_tau_hist = False,
                                     bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
-                                    plot_syn_tau_hist = False):
+                                    plot_syn_tau_hist = False, plot_spike_thresh_hist = False):
         
         ''' cell properties and boundary conditions come from distributions'''
         
         self. initialize_resting_membrane_potential()
         
-        self. intialize_transmission_delays(dt, 
+        self. initialize_transmission_delays(dt, 
                                             lower_bound_perc = lower_bound_perc, 
                                             upper_bound_perc = upper_bound_perc)
         
         self. initialize_spike_threshold( spike_thresh_bound_ratio,
                                          lower_bound_perc = lower_bound_perc, 
-                                         upper_bound_perc = upper_bound_perc)
+                                         upper_bound_perc = upper_bound_perc,
+                                         plot_spike_thresh_hist= plot_spike_thresh_hist)
         
         self. initialize_mem_potential(method=self.mem_pot_init_method, 
                                        plot_initial_V_m_dist = plot_initial_V_m_dist)
         
-        self. intialize_membrane_time_constant(lower_bound_perc = lower_bound_perc, 
+        self. initialize_membrane_time_constant(lower_bound_perc = lower_bound_perc, 
                                                upper_bound_perc = upper_bound_perc,
                                                plot_mem_tau_hist = plot_mem_tau_hist)
         
-        self. intialize_synaptic_time_constant(dt, tau, bins = bins, color= color, tc_plot = tc_plot, 
+        self. initialize_synaptic_time_constant(dt, tau, bins = bins, color= color, tc_plot = tc_plot, 
                                                syn_element_no = syn_element_no, 
                                                plot_syn_tau_hist = plot_syn_tau_hist,
                                                lower_bound_perc = lower_bound_perc, 
                                                upper_bound_perc = upper_bound_perc)
         
-        self.intialize_ext_synaptic_time_constant(poisson_prop, dt, 
+        self.initialize_ext_synaptic_time_constant(poisson_prop, dt, 
                                                   lower_bound_perc = lower_bound_perc, 
                                                   upper_bound_perc = upper_bound_perc)
 
@@ -1060,7 +1077,7 @@ class Nucleus:
             self._set_ext_inp_poisson(I_syn)
             
         else:
-            
+            print(self.FR_ext_specs)
             self.distribute_FR_ext_as_normal(self.FR_ext_specs['mean'])
             self.rest_ext_input = (self.FR_ext * self.syn_weight_ext_pop * \
                                    self.n_ext_population * self.membrane_time_constant - 
@@ -1219,8 +1236,8 @@ class Nucleus:
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize=15)
         
-    def plot_mem_potential_distribution_of_all_t(self, key, dt, ax=None, bins=50, 
-                                                 color='grey', tc = 'decay', syn_element_no = 0):
+    def plot_syn_tau_dist(self, key, dt, ax=None, bins=50, 
+                          color='grey', tc = 'decay', syn_element_no = 0):
 
         fig, ax = get_axes(ax)
         
@@ -1724,7 +1741,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                     elif use_saved_FR_ext:
                         
                         nucleus.FR_ext_specs = load_pickle(FR_ext_filename_dict[nucleus.name])
-                        print(nucleus.FR_ext_specs)
+                        print('FR ext specs = ', nucleus.FR_ext_specs)
                 if normalize_G_by_N:
                     
                     nucleus.normalize_synaptic_weight_by_N()
@@ -1740,8 +1757,8 @@ def der_ext_I_collective(nucleus, all_FR_list, t_list, dt, receiving_class_dict,
     
     print("external input is being set collectively for {0} at {1}...".format(nucleus.name, state))
     FR_ext = nucleus.set_ext_inp_const_plus_noise_collective(all_FR_list[nucleus.name], t_list, dt, receiving_class_dict,
-                                                                 if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
-                                                                 maxfev = maxfev, c=c, n_FR=n_FR)
+                                                             if_plot = if_plot, end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state],
+                                                             maxfev = maxfev, c=c, n_FR=n_FR)
     FR_ext_all_nuclei[nucleus.name] = {'mean': FR_ext,
                                        'sd': nucleus.FR_ext_specs['sd'],
                                        'truncmin': nucleus.FR_ext_specs['truncmin'],
@@ -1750,7 +1767,7 @@ def der_ext_I_collective(nucleus, all_FR_list, t_list, dt, receiving_class_dict,
      
     if save_FR_ext:
         
-        pickle_obj(nucleus.FR_ext, FR_ext_filename_dict[nucleus.name])
+        pickle_obj(nucleus.FR_ext_specs, FR_ext_filename_dict[nucleus.name])
         
 def der_ext_I_single_neuron(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
                             FR_ext_all_nuclei, if_plot = False, end_of_nonlinearity =None,
@@ -2001,7 +2018,9 @@ def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
             phase = phase_sine
     return phase
 
-def mean_std_multiple_sets(means, stds, nums):
+def mean_std_multiple_sets(means, stds, nums, sem_instead_of_std = False):
+    if sem_instead_of_std:
+        stds = stds * np.sqrt(nums)
     mean_all = np.sum( means * nums ) / np.sum(nums)
     std_all = np.sqrt(np.sum( (nums - 1) * 
                       np.power(stds, 2) + 
@@ -3539,11 +3558,13 @@ def remove_whole_frame(ax):
     ax.spines['bottom'].set_visible(False)
     
 def plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict, ax = None):
+    
     fig, ax = get_axes(ax)
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            nucleus.plot_mem_potential_distribution_of_all_t(
-                ax=ax, color=color_dict[nucleus.name], bins=100)
+            nucleus.plot_mem_potential_distribution_of_all_t( ax = ax, 
+                                                             color=color_dict[nucleus.name], 
+                                                             bins=100)
     remove_frame(ax)
     return fig, ax
 
@@ -3624,14 +3645,17 @@ def write_obj_to_json(obj, filepath):
 
 
 def load_json_file_as_obj(filepath):
+    
     o = open(filepath, 'r')
     file_ = o.read()
     return jsonpickle.decode(file_)
 
 
 def ax_label_adjust(ax, fontsize=18, nbins=5, ybins=None):
+    
     if ybins == None:
         ybins = nbins
+        
     ax.locator_params(axis='y', nbins=ybins)
     ax.locator_params(axis='x', nbins=nbins)
     plt.rcParams['xtick.labelsize'] = fontsize
@@ -3639,46 +3663,63 @@ def ax_label_adjust(ax, fontsize=18, nbins=5, ybins=None):
 
 
 def plot_fitted_sigmoid(xdata, ydata, x_scaled, desired_FR, FR_to_I_coef=0, coefs=[], ax=None,  noise_var=0, c='grey'):
+    
     fig, ax = get_axes(ax)
+    
     ax.plot(xdata * FR_to_I_coef, ydata, 'o', label=r'$\sigma^{2} =$' + str(noise_var),
             c=c, markersize=7, markerfacecolor='none', markeredgewidth=1.5)
+    
     if coefs != []:
+        
         y = sigmoid(x_scaled, *coefs)
         I_ext = (x_scaled + find_x_mid_point_sigmoid(ydata, xdata)) * FR_to_I_coef
         FR = y * find_y_normalizing_factor(ydata, desired_FR)
         ax.plot(I_ext, FR, c=c, label='fitted curve', lw=2)
+        
     ax.legend(framealpha=0.1, frameon=False)
     ax.set_xlabel(r'$I_{ext} \; (mV)$', fontsize=15)
     ax.set_ylabel('FR (Hz)', fontsize=15)
     ax_label_adjust(ax)
     remove_frame(ax)
+    
     if ax != None:
+        
         ax.legend()
 
 
 def plot_fitted_line(x, y, slope, intercept, FR_to_I_coef=0, ax=None, noise_var=0, c='grey'):
+    
     fig, ax = get_axes(ax)
+    
     ax.plot(x * FR_to_I_coef, y, 'o', label=r'$\sigma^{2} =$' + str(noise_var),
             c=c, markersize=7, markerfacecolor='none', markeredgewidth=1.5)
+    
     ax.plot(x * FR_to_I_coef, slope * x + intercept,
             c=c, label='fitted curve', lw=2)
+    
     ax.set_xlabel(r'$I_{ext} \; (mV)$', fontsize=15)
     ax.set_ylabel('FR (Hz)', fontsize=15)
     ax_label_adjust(ax)
     remove_frame(ax)
+    
     if ax != None:
+        
         ax.legend(framealpha=0.1, frameon=False)
 
 
 def scale_bound_with_mean(mean, lower_bound_perc, upper_bound_perc, scale=None):
+    
     lower_bound = mean * lower_bound_perc
     upper_bound = mean * upper_bound_perc
+    
     return lower_bound, upper_bound
 
 
 def scale_bound_with_arbitrary_value(mean, lower_bound_perc, upper_bound_perc, scale=1):
+    
     lower_bound = mean - scale * lower_bound_perc
     upper_bound = mean + scale * upper_bound_perc
+    
     return lower_bound, upper_bound
 
 
@@ -3687,9 +3728,11 @@ def truncated_normal_distributed(mean, sigma, size, scale_bound=scale_bound_with
                                  truncmin=None, truncmax=None):
     
     if truncmin != None and truncmax != None:
+        
         lower_bound, upper_bound = truncmin, truncmax
         
     else:
+        
         lower_bound, upper_bound = scale_bound(mean, lower_bound_perc, 
                                                upper_bound_perc, scale=scale)
     # print(mean, sigma, lower_bound, upper_bound, (lower_bound-mean)/sigma)
