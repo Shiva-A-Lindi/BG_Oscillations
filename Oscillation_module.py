@@ -99,7 +99,7 @@ class Nucleus:
         spike_thresh_bound_ratio= [1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
-        plot_spike_thresh_hist = False):
+        plot_spike_thresh_hist = False, plot_RMP_to_APth = False):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -239,7 +239,8 @@ class Nucleus:
                 
             self.set_init_distribution( FR_ext_specs, tau, poisson_prop, dt, t_sim,  
                                        plot_initial_V_m_dist = plot_initial_V_m_dist, 
-                                       plot_spike_thresh_hist= plot_spike_thresh_hist)
+                                       plot_spike_thresh_hist= plot_spike_thresh_hist,
+                                       plot_RMP_to_APth = plot_RMP_to_APth )
             
             self.normalize_synaptic_weight()
             
@@ -267,7 +268,7 @@ class Nucleus:
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
     def set_init_distribution(self, FR_ext_specs, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
-                              plot_spike_thresh_hist = False):
+                              plot_spike_thresh_hist = False, plot_RMP_to_APth = False):
         
         self.FR_ext_specs = FR_ext_specs
 
@@ -280,7 +281,8 @@ class Nucleus:
             
             self.initialize_heterogeneously(tau, poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist,
-                                            plot_spike_thresh_hist= plot_spike_thresh_hist)
+                                            plot_spike_thresh_hist= plot_spike_thresh_hist, 
+                                            plot_RMP_to_APth = plot_RMP_to_APth)
             
             self.FR_ext = np.zeros(self.n)
 
@@ -440,7 +442,8 @@ class Nucleus:
                                     lower_bound_perc = 0.8, upper_bound_perc = 1.2,
                                     plot_initial_V_m_dist=False, plot_mem_tau_hist = False,
                                     bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
-                                    plot_syn_tau_hist = False, plot_spike_thresh_hist = False):
+                                    plot_syn_tau_hist = False, plot_spike_thresh_hist = False,
+                                    plot_RMP_to_APth = False):
         
         ''' cell properties and boundary conditions come from distributions'''
         
@@ -472,8 +475,10 @@ class Nucleus:
                                                   lower_bound_perc = lower_bound_perc, 
                                                   upper_bound_perc = upper_bound_perc)
 
-
-
+        if plot_RMP_to_APth:
+            plot_histogram(self.spike_thresh - self.u_rest, bins = bins, 
+                           title = self.name,
+                           xlabel = r'spike threshold - RMP (mV)')
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         
         ''' cell properties and boundary conditions are constant for all cells'''
@@ -3726,8 +3731,11 @@ def scale_bound_with_arbitrary_value(mean, lower_bound_perc, upper_bound_perc, s
 def truncated_normal_distributed(mean, sigma, size, scale_bound=scale_bound_with_mean, 
                                  scale=None, lower_bound_perc=0.8, upper_bound_perc=1.2, 
                                  truncmin=None, truncmax=None):
+    if sigma == 0:
     
-    if truncmin != None and truncmax != None:
+        return np.full(size, mean)
+    
+    elif truncmin != None and truncmax != None:
         
         lower_bound, upper_bound = truncmin, truncmax
         
@@ -3735,7 +3743,7 @@ def truncated_normal_distributed(mean, sigma, size, scale_bound=scale_bound_with
         
         lower_bound, upper_bound = scale_bound(mean, lower_bound_perc, 
                                                upper_bound_perc, scale=scale)
-    # print(mean, sigma, lower_bound, upper_bound, (lower_bound-mean)/sigma)
+
     return stats.truncnorm.rvs((lower_bound-mean)/sigma, 
                                (upper_bound-mean)/sigma, 
                                loc=mean, scale=sigma, size=size)
@@ -4087,13 +4095,14 @@ def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'a
                         hatch = hatch, edgecolor = edgecolor,   
                         zorder = zorder, lw = 2)
                 plt.rcParams['hatch.linewidth'] = 3
-    
+                
                 ax.annotate( r'$ FR = {0} \pm {1} \; Hz$'.format( round (np.average( FR) , 2) , round( np.std( FR), 2) ),
                             xy=(0.5,0.7),xycoords='axes fraction', color = color_dict[name],
                             fontsize=14, alpha = alpha)
                 print(name, state,
                       ' mean = ', np.round( np.average(FR), 2), 
-                      ' std = ', np.round( np.std(FR), 2) )
+                      ' std = ', np.round( np.std(FR), 2),
+                      ' n = ', len(FR))
             except ValueError:
                 pass
         ax.set_title(state, fontsize =15)
@@ -4216,10 +4225,14 @@ def get_all_ISI_of_neurons(nucleus, start, dt):
     return  ISI_all_t_neurons, ISI_all_t_neurons_sd
 
 def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
-    ''' plot the firing rate distribution of neurons of different populations '''
+    
+    ''' plot the spike amplitude distribution of neurons of different populations '''
+    
     fig, ax = plt.subplots()
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+            
             spk_amplitude = nucleus.spike_thresh - nucleus.u_rest
             freq, edges = np.histogram(spk_amplitude, bins = bins)
             width = np.diff(edges[:-1])
@@ -4230,6 +4243,7 @@ def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
     ax.set_ylabel('% of population', fontsize=15)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
     ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    
     return fig
 
 def set_axis_thickness(ax, linewidth  = 1):
