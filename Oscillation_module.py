@@ -4120,20 +4120,31 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     ''' plot the firing rate distribution of neurons of different populations '''
     
     fig, ax = get_axes(ax)
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            FR_mean_neurons = np.average(nucleus.spikes[:,start:] , axis = 1) / (dt/1000)
+            
+            FR_mean_neurons_all = np.average(nucleus.spikes[:,start:], axis = 1) / (dt/1000)
+                                                                                                          
             if only_non_zero:
-                FR_mean_neurons = FR_mean_neurons[ FR_mean_neurons > 0]
-
+                FR_mean_neurons = FR_mean_neurons_all[ FR_mean_neurons_all > 0]
+                print('percentage of spontaneously active = ', 
+                      np.round( len(FR_mean_neurons) / nucleus.n * 100 , 2), 
+                      ' %')
+                
+                print(r'non-silent only FR = {0} ±  {1}  Hz'.format( round (np.average( FR_mean_neurons) , 2) , 
+                                                                    round( np.std(FR_mean_neurons) , 2) ))
+            else: FR_mean_neurons = FR_mean_neurons_all
             FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins)
             width = np.diff(edges[:-1])
-            ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , round( FR_std_neurons, 2) ),
+            ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , 
+                                                             round( FR_std_neurons, 2) ),
                         xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize=14, alpha = alpha)
             
-            
+            print(r' FR = {0} ±  {1}  Hz'.format( round (np.average( FR_mean_neurons_all) , 2) , 
+                                                  round(np.std(FR_mean_neurons_all) , 2) ))
             if box_plot:
                 bp = ax.boxplot(FR_mean_neurons, labels = [nucleus.name], patch_artist=True, whis = (0,100), 
                                 widths = 0.6, zorder = 0 )
@@ -4144,7 +4155,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                     median.set(color = 'k', 
                                linewidth = 0.5) 
                 xs = np.random.normal(1, 0.04, n_pts)
-                print(len(xs), len(FR_mean_neurons[:n_pts]))
+                # print(len(xs), len(FR_mean_neurons[:n_pts]))
                 ax.scatter(xs, FR_mean_neurons[:n_pts], c= color_dict[nucleus.name], alpha=0.4, s = 10, ec = 'k', zorder = 1)
                 ax.tick_params(axis='x', labelsize= 10)
                 ax.tick_params(axis='y', labelsize= 12)
@@ -4157,7 +4168,8 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     ax.set_ylabel('% of population', fontsize=15)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
     ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
-    
+    if only_non_zero:
+        ax.set_title(' Only spontaneously active' , fontsize=15)
     return fig
 
 def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
