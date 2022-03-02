@@ -147,8 +147,7 @@ class Nucleus:
                           if k[0] == self.name and 
                              k[1] in self.receiving_from_pop_name_list}
         
-        self.transmission_delay = {k: np.zeros( self.n ) 
-                                   for k, v in self.T_specs.items()}
+
         
         self.G_heterogeneity = False
         self.synaptic_weight = {} # filter based on the receiving nucleus
@@ -157,8 +156,12 @@ class Nucleus:
 
         if neuronal_model == 'rate':
             
-            self.output = {k: np.zeros((self.n, int( T[ k[0], self.name] / dt ))) 
+            self.transmission_delay = {k: int( v['mean'] / dt )
+                           for k, v in self.T_specs.items()}
+            
+            self.output = {k: np.zeros((self.n, int( T[ k[0], self.name]['mean'] / dt ) + 1)) 
                            for k in self.sending_to_dict}
+            
             self.input = np.zeros((self.n))
             self.neuron_act = np.zeros((self.n))
             # external input mimicing movement
@@ -167,11 +170,12 @@ class Nucleus:
             self.noise_induced_basal_firing = None
             self.oscil_peak_threshold = oscil_peak_threshold[self.name]
             self.scale_g_with_N = scale_g_with_N
-            self. initialize_transmission_delays(dt)
 
         if neuronal_model == 'spiking':
             
             print('Initializing ', name)
+            self.transmission_delay = {k: np.zeros( self.n ) 
+                           for k, v in self.T_specs.items()}
             self.state = state
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             self.tau_specs = {k: v for k, v in tau.items() 
@@ -625,12 +629,16 @@ class Nucleus:
         syn_inputs = np.zeros((self.n, 1))  # = 
         for projecting in receiving_from_class_list:
             num = str(projecting.population_num)
+            # print(projecting.name, self.name, self.transmission_delay[(self.name, projecting.name)],
+            #       projecting.output[ (self.name, str(self.population_num))].shape,
+            #       t - self.transmission_delay[(self.name, projecting.name)])
             syn_inputs += ( 
                             # self.synaptic_weight[(self.name, projecting.name)] * 
                            np.matmul(
                                    self.connectivity_matrix[ (projecting.name, num) ]  ,
-                                   projecting.output[ (self.name, str(self.population_num))][:, - self.transmission_delay[(self.name, 
-                                                                                                                           projecting.name)]].reshape(-1, 1)
+                                   projecting.output[ (self.name, str(self.population_num))][:, 
+                                                             - self.transmission_delay[(self.name, 
+                                                                                       projecting.name)]].reshape(-1, 1)
                                    )
                            )
 
@@ -947,7 +955,7 @@ class Nucleus:
             self.input[:] = 0
             self.neuron_act[:] = 0
             self.mvt_ext_input = np.zeros_like(self.mvt_ext_input)
-            self.external_inp_t_series[:, :] = 0
+            self.external_inp_t_series[:] = 0
 
         if self.neuronal_model == 'spiking':
 
@@ -1356,12 +1364,12 @@ class Nucleus:
         if method not in ["fft", "zero_crossing"]:
             raise ValueError("method must be either 'fft', or 'zero_crossing'")
 
-        sig = trim_start_end_sig_rm_offset(
-            self.pop_act, start, end, method=self.trim_sig_method_dict[self.neuronal_model])
+        sig = trim_start_end_sig_rm_offset( self.pop_act, start, end, 
+                                            method = 
+                                            self.trim_sig_method_dict[self.neuronal_model])
         # cut_sig_ind = cut_plateau(sig,  epsilon=cut_plateau_epsilon)
         # plateau_y = find_mean_of_signal(sig, cut_sig_ind)
         mean_sig = np.average(sig)
-        # _plot_signal(plot_sig, start, end, dt, sig, plateau_y, cut_sig_ind)
         if_stable = False
         # if len(cut_sig_ind) > 0:  # if it's not all plateau from the beginning
 
@@ -1396,23 +1404,25 @@ class Nucleus:
 
         if freq != 0:  # then check if there's oscillations
 
-            # perc_oscil = max_non_empty_array(cut_sig_ind) / len(sig) * 100
 
-            # if check_stability:
-            #     if_stable = if_stable_oscillatory(sig, max(
-            #         cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh=- 0.05)
             if divide_beta_band_in_power:
+
                 if save_gamma:
+
                     return n_half_cycles, 0, freq, if_stable, [low_beta_band_power, high_beta_band_power, low_gamma_band_power], f, pxx
+
                 else:
+
                     return n_half_cycles, 0, freq, if_stable, [low_beta_band_power, high_beta_band_power], f, pxx
 
             else:
+
                 return n_half_cycles, 0, freq, if_stable, beta_band_power, f, pxx
 
         else:
             
-            print("Freq = 0")
+            print( " Freq = 0 " )
+
             return 0, 0, 0, False, None, f, pxx
 
 
@@ -1694,12 +1704,17 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
     filename_dict = {}
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            filename_dict[nucleus.name] = os.path.join(path, 'FR_ext_' + nucleus.name + 
+            filename_dict[nucleus.name] = os.path.join(path, 
+                                                       'FR_ext_' + nucleus.name + 
                                                        '_noise_var_' + str( round(
                                                                            nucleus.noise_variance , 2)
                                                                            ).replace('.', '-') +
                                                        '_dt_' + str(0.1).replace('.', '-') +
                                                        '_A_' + str(nucleus.basal_firing).replace('.', '-') +
+                                                        '_tau_m_' + str( round(
+                                                                          nucleus.neuronal_consts[
+                                                                         'membrane_time_constant']['mean'], 2)
+                                                                        ).replace('.', '-') +
                                                        '.pkl')
     return filename_dict
 
@@ -1714,7 +1729,8 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
     K = calculate_number_of_connections(N, N_real, K_real)
     receiving_class_dict = create_receiving_class_dict(receiving_pop_list, nuclei_dict)
     FR_ext_all_nuclei = {}
-    FR_ext_filename_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
+    if nuclei_dict[ list( nuclei_dict.keys())[0]][0].neuronal_model != 'rate':
+        FR_ext_filename_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -1746,6 +1762,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                     elif use_saved_FR_ext:
                         
                         nucleus.FR_ext_specs = load_pickle(FR_ext_filename_dict[nucleus.name])
+
                         print('FR ext specs = ', nucleus.FR_ext_specs)
                 if normalize_G_by_N:
                     
@@ -1810,7 +1827,7 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, tau,N,  G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
+def reinitialize_nuclei_SNN(nuclei_dict, tau, N, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
                             mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
     
     
@@ -1820,8 +1837,7 @@ def reinitialize_nuclei_SNN(nuclei_dict, tau,N,  G, noise_amplitude, noise_varia
             nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
             
             if reset_init_dist:
-                nucleus.set_init_distribution( tau, poisson_prop, dt, t_sim)
-            
+                nucleus.set_init_distribution( nucleus.FR_ext_specs, tau, poisson_prop, dt, t_sim)
             nucleus.reset_synaptic_weights(G, N)
             nucleus.normalize_synaptic_weight()
             
@@ -3816,7 +3832,7 @@ def f_LIF(tau, V, V_rest, I_ext, I_syn):
 def save_all_mem_potential(nuclei_dict, path, state):
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
-            np.save(os.path.join(path, 'all_mem_pot_' + nucleus.name + '_tau_' + str(np.round(
+            np.save(os.path.join(nucleus.path, 'all_mem_pot_' + nucleus.name + '_tau_' + str(np.round(
                 nucleus.neuronal_consts['membrane_time_constant']['mean'], 1)).replace('.', '-')) + '_' + state, nucleus.all_mem_pot)
 
 
@@ -4518,19 +4534,19 @@ def possion_spike_generator(n_pop, n_sending, r, dt):
 	# x[~spikes] = 0
 	return x.astype(int)
 
-def pad_high_res_spacing_with_linspace(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_high_res):
+def pad_high_res_spacing_with_linspace(start_before, mid_start, n_before, mid_end, end_after,  n_after, n_high_res, base = 1.1):
     
     linspace_before = np.linspace(start_before, mid_start, n_before)
     linspace_after = np.linspace(mid_end, end_after, n_after)
-    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end, base = base).reshape(-1,)
     
     return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
 
-def pad_high_res_spacing_with_arange(start_before, mid_start, bin_before, mid_end, end_after,  bin_after, n_high_res):
+def pad_high_res_spacing_with_arange(start_before, mid_start, bin_before, mid_end, end_after,  bin_after, n_high_res, base = 1.1):
     
     linspace_before = np.linspace(start_before, mid_start, int( ( mid_start - start_before) / bin_before) )
     linspace_after = np.linspace(mid_end, end_after, int( ( end_after - mid_end) / bin_after) )
-    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end).reshape(-1,)
+    high_res = spacing_with_high_resolution_in_the_middle(n_high_res, mid_start, mid_end, base = base).reshape(-1,)
     
     return np.concatenate((linspace_before, high_res, linspace_after), axis  = 0)
 
@@ -4542,19 +4558,23 @@ def three_different_linspace_arrays(start_before, mid_start, n_before, mid_end, 
     
     return np.concatenate((linspace_before, linspace_mid, linspace_after), axis  = 0)
 
-def spacing_with_high_resolution_in_the_middle(n_points, start, end):
-	'''return a series with lower spacing and higher resolution in the middle'''
-    
-	R = (start - end) / 2
-	x = R * np.linspace(-1, 1, n_points)
-	y = np.sqrt(R ** 2 - x ** 2)
-	half_y = y[: len(y) // 2]
-	diff = - np.diff(np.flip(half_y))
-	series = np.concatenate((half_y, np.cumsum(diff) + y[len(y) // 2])) + start
+def spacing_with_high_resolution_in_the_middle(n_points, start, end, base = 1.1):
+    '''return a series with lower spacing and higher resolution in the middle'''    
+    R = (end - start) / 2
+    x = R * np.linspace(-1, 0, int(n_points/2))
+    # y = np.sqrt(R ** 2 - x ** 2)
+    # fig, ax = plt.subplots()
+    # ax.plot(y, np.ones_like(y), 'o')    
 # 	if len(series) < n_points: # doesn't work with odd number of points!!!!!!
 # 		series = np.concatenate((series, series[-1]))
 
-	return series.reshape(-1, 1)
+    y = 1- np.logspace(0, -10 , int( n_points /2) , base = base, endpoint = True) 
+    y = y / y[-1] * R # scale because of base
+    diff = - np.diff(np.flip(y))
+    series = np.concatenate((y, np.cumsum(diff) + y[-1])) + start
+    
+    # ax.plot(series, np.ones_like(series) + 1, 'o')
+    return series.reshape(-1, 1)
 
 
 def noise_generator(amplitude, std, n, dt, sqrt_dt, tau = 0, noise_dt_before = 0):
@@ -5371,6 +5391,24 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     
     return nuclei_dict
 
+def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig,  alpha = 1 ):
+    
+    for nuclei_list in nuclei_dict.values():
+        for k, nucleus in enumerate(nuclei_list):
+            
+            peak_threshold =  peak_jiggle_dict[nucleus.name] * nucleus.basal_firing
+            pop_act = gaussian_filter1d(nucleus.pop_act[ int(t_transient /dt): ] - 
+                                        np.average(nucleus.pop_act[int(t_transient /dt):]), 10)
+            troughs,_ = signal.find_peaks(-pop_act, height =peak_threshold )
+            peaks,_ =signal.find_peaks(pop_act, height = peak_threshold)
+            fig.gca().plot(peaks * dt , nucleus.pop_act[peaks + int(t_transient /dt)], 
+                           'x', markersize = 10, c = color_dict[nucleus.name], alpha = alpha)
+            fig.gca().plot(troughs * dt , nucleus.pop_act[troughs + int(t_transient /dt)], 
+                           'x', markersize = 10, c = color_dict[nucleus.name], alpha = alpha)
+            print( nucleus.name, ' peaks at :', peaks * dt)
+            print( nucleus.name, ' troughs at :', troughs * dt)
+            
+    return fig
 
 def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, 
                                  nuclei_dict, A, G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,  
@@ -5541,13 +5579,13 @@ def get_start_end_plot(plot_start, plot_end, dt, t_list):
     
     return plot_start, plot_end
 
-def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, 
+def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, 
          title_fontsize = 12, plot_start = 0, ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, 
          figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, 
          round_dec = 2, legend_loc = 'upper right', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
          tick_label_fontsize = 18, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
          tick_length = 8, title_pad = None, ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True,
-         xlim = None):    
+         xlim = None, lw = 1.5):    
 
     fig, ax = get_axes (ax)
     
@@ -5575,7 +5613,8 @@ def plot( nuclei_dict,color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None
             
             else:
                 ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], 
-                        line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],lw = 1.5, alpha = alpha)
+                        line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],
+                        lw = lw, alpha = alpha)
                 
             if continuous_firing_base_lines:
             
@@ -5911,78 +5950,74 @@ def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0
     
     ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
     the plateau and in case it is oscillation determine the frequency '''
+    
     sig = trim_start_end_sig_rm_offset(nucleus.pop_act,start, end)
     cut_sig_ind = cut_plateau( sig, epsilon= cut_plateau_epsilon)
     plateau_y = find_mean_of_signal(sig, cut_sig_ind)
-    # fig, ax = plt.subplots()
-    # ax.plot(sig - plateau_y)
-    # ax.axhline(plateau_y)
-    # ax.plot(sig[cut_sig_ind])
+
     if_stable = False
+    
     if len(cut_sig_ind) > 0: # if it's not all plateau from the beginning
+    
         sig = sig - plateau_y
-        # print('trimmed plateau removed', np.average(sig))
-#        if if_oscillatory(sig, max(cut_sig_ind),nucleus.oscil_peak_threshold, nucleus.smooth_kern_window): # then check if there's oscillations
-#            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
-# freq = freq_from_fft(sig[cut_sig_ind],dt/1000)
-#            _,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
-#            return perc_oscil, freq
-#        else:
-#            return 0,0
-        n_half_cycles,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
+
+        n_half_cycles, freq = zero_crossing_freq_detect(sig[cut_sig_ind], dt / 1000)
+        
         if freq != 0: # then check if there's oscillations
-            perc_oscil = max_non_empty_array(cut_sig_ind)/len(sig)*100
+        
+            # perc_oscil = max_non_empty_array(cut_sig_ind)/ len(sig) * 100
+            
             if check_stability:
-                if_stable = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05)
-            return n_half_cycles, perc_oscil, freq, if_stable
+                
+                if_stable, last_first_peak_ratio = if_stable_oscillatory(sig, max(cut_sig_ind), peak_threshold, 
+                                                                         smooth_kern_window, amp_env_slope_thresh = - 0.05)
+            
+            return n_half_cycles, last_first_peak_ratio , freq, if_stable
+        
         else:
-            return 0,0,0, False
+            
+            return 0, 0, 0, False
     else:
-        return 0,0,0, False
+        
+        return 0, 0, 0, False
 
 def if_stable_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, amp_env_slope_thresh = - 0.05, 
-                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.95,1.05]):
+                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.995,1.1]):
     
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
-    if  x_plateau > len(sig) * oscil_perc_as_stable : # if the whole signal is oscillatory
+    
+    # if  x_plateau > len(sig) * oscil_perc_as_stable : # if the whole signal is oscillatory
 
         # sig = gaussian_filter1d(sig[:x_plateau],smooth_kern_window)
-        peaks, properties = signal.find_peaks(sig, height = peak_threshold)
-        # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
-        # if len(peaks)-1 == 0: # if no peaks are found error will be raised, so we might as well plot to see the reason
-            # troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
-        # plt.figure()
-        # plt.plot(sig)
-        # plt.plot(peaks, sig[peaks], 'x')
-            # plt.axhline(np.average(sig))
-        # relative first and last peak ratio thresholding
-        if len(peaks) > 5 : 
-            last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[5]]
-            print('last_first_peak_ratio = ', last_first_peak_ratio)
-        else: return False
-        if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
-            # plt.figure()
-            # plt.plot(sig)
-            # plt.axvline(x_plateau)
-            # plt.plot(peaks,slope*peaks+intercept,'-')
-        #    plt.plot(fluctuations, label = "Gaus kern smoothed")
-            # plt.plot(peaks,sig[peaks],"x", markersize = 10,markeredgewidth = 2)
-            # plt.plot(troughs,sig[troughs],"x", markersize = 10, markeredgewidth = 2)
-        #    plt.legend()
-            # print('peaks, slope = ', slope)
+    peaks, properties = signal.find_peaks(sig, height = peak_threshold)
 
-        # amplitude envelope Slope thresholding method
-        # slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
-        # print('slope = ', slope)
-        # if slope > amp_env_slope_thresh: 
+    # relative first and last peak ratio thresholding
+    if len(peaks) > 8 : 
+        
+        last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[2]]
+        
+        print('last_first_peak_ratio = ', last_first_peak_ratio)
+        
+    else: 
+        
+        return False, 0
+    
+    if last_first_peak_ratio_thresh[0] < last_first_peak_ratio < last_first_peak_ratio_thresh[1]:
 
-            return True
+    # amplitude envelope Slope thresholding method
+    # slope, intercept, r_value, p_value, std_err = stats.linregress(peaks[1:],sig[peaks[1:]]) # discard the first peak because it's prone to errors
+    # print('slope = ', slope)
+    # if slope > amp_env_slope_thresh: 
 
+        return True, last_first_peak_ratio
 
-        else:
-            return False
-    else: # it's transient
-        return False
+    else:
+        
+        return False, last_first_peak_ratio
+        
+    # else: # it's transient
+    
+        # return False, 0
 
 def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window):
     ''' detect if there are peaks with larger amplitudes than noise in mean subtracted data before plateau'''
@@ -6009,8 +6044,8 @@ def create_data_dict_G_sweep(nuclei_dict, G, n):
         nucleus = nucleus_list[0] # get only on class from each population
         data[(nucleus.name, 'mvt_freq')] = np.zeros(n)
         data[(nucleus.name, 'base_freq')] = np.zeros(n)
-        data[(nucleus.name, 'perc_t_oscil_mvt')] = np.zeros(n)
-        data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros(n)
+        data[(nucleus.name, 'last_first_peak_ratio_mvt')] = np.zeros(n)
+        data[(nucleus.name, 'last_first_peak_ratio_base')] = np.zeros(n)
         data[(nucleus.name, 'n_half_cycles_mvt')] = np.zeros(n)
         data[(nucleus.name, 'n_half_cycles_base')] = np.zeros(n)
         data[(nucleus.name,'g_transient')] = []
@@ -6023,10 +6058,11 @@ def create_data_dict_G_sweep(nuclei_dict, G, n):
         
         data['g'][k] = np.zeros(n)
     return data
+
 def save_freq_analysis_to_df(data, state, i, nucleus, dt, duration):
     
     (data[(nucleus.name, 'n_half_cycles_' + state)][i],
-    data[(nucleus.name,'perc_t_oscil_' + state)][i], 
+    data[(nucleus.name,'last_first_peak_ratio_' + state)][i], 
     data[(nucleus.name, state + '_freq')][i],
     if_stable )= find_freq_of_pop_act_spec_window(nucleus,*duration,dt, peak_threshold =nucleus.oscil_peak_threshold, 
                                                     smooth_kern_window = nucleus.smooth_kern_window, check_stability = True)
@@ -6060,7 +6096,22 @@ def fill_Gs_in_data(data, i, G):
         data['g'][key ][i] = value
     return data
 
-def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
+def plot_unconnected_network(G, G_ratio_dict, receiving_class_dict, nuclei_dict, 
+                             N, N_real, K_real, A, A_mvt, D_mvt,t_mvt, t_list, dt,
+                             color_dict, plot_start_trans, plot_duration,
+                             legend_loc):
+    
+    G = multiply_G_by_key_ratio(0, G, G_ratio_dict)
+    nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+    nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
+    
+    fig_unconnected = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
+                            include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc,
+                            title_fontsize = 15, title = 'Unconnected', ax = None, continuous_firing_base_lines = False,
+                            vspan = True)
+    return fig_unconnected
+
+def synaptic_weight_space_exploration(N, N_real, K_real, G, A, A_mvt, D_mvt, t_mvt, t_list, dt,filename, lim_n_cycle, 
                                       G_list, nuclei_dict, duration_mvt, duration_base, receiving_class_dict, 
                                       color_dict, if_plot = False, G_ratio_dict = None, plot_start_trans = 0, 
                                       plot_start_stable = 0, plot_duration = 600,
@@ -6075,16 +6126,22 @@ def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mv
     if if_plot:
         fig = plt.figure()
         
+    fig_trans, ax_trans = plt.subplots()
+    fig_stable, ax_stable = plt.subplots()
     found_g_transient = {k: False for k in nuclei_dict.keys()}
     found_g_stable = {k: False for k in nuclei_dict.keys()}
-
+    
+    fig_unconnected = plot_unconnected_network(G, G_ratio_dict, receiving_class_dict, nuclei_dict, 
+                                               N, N_real, K_real, A, A_mvt, D_mvt,t_mvt, t_list, dt,
+                                               color_dict, plot_start_trans, plot_duration,
+                                               legend_loc)
     for i, g in enumerate( sorted(G_list, key=abs) ):
 
         G = multiply_G_by_key_ratio(g, G, G_ratio_dict)
         data = fill_Gs_in_data(data, i, G)
             
         nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real,G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
-        run(receiving_class_dict,t_list, dt, nuclei_dict)
+        nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
         
         nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
         
@@ -6095,14 +6152,15 @@ def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mv
             data, if_stable_base = save_freq_analysis_to_df(data, 'base', i, nucleus, dt, duration_base)
                                                   
 
-            print(nucleus.name,' g = ', round(multiply_values_of_dict(G), 2), 
+            print(nucleus.name,' Loop G = ', round(multiply_values_of_dict(G), 2), 
                   'n_cycles =', data[(nucleus.name, 'n_half_cycles_mvt')][i],
-                  round(data[(nucleus.name, 'perc_t_oscil_mvt')][i],2),
+                  round(data[(nucleus.name, 'last_first_peak_ratio_mvt')][i],2),
                   '%',  'f = ', round(data[(nucleus.name,'mvt_freq')][i],2) )
 
             if ( not found_g_transient[nucleus.name]  and 
                 data[(nucleus.name, 'n_half_cycles_mvt')][i] > lim_n_cycle[0] and 
-                data[(nucleus.name, 'n_half_cycles_mvt')][i]< lim_n_cycle[1] ):
+                data[(nucleus.name, 'n_half_cycles_mvt')][i]< lim_n_cycle[1] 
+                ):
                 
                 data[(nucleus.name,'g_transient')] = abs(g) # save the the threshold g to get transient oscillations
                 found_g_transient[nucleus.name] = True
@@ -6115,10 +6173,11 @@ def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mv
                                       
                     fig_trans = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
                                      include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc,
-                                     title_fontsize = 15, title = 'Transient Oscillation', ax = None, continuous_firing_base_lines = False,
+                                     title_fontsize = 15, title = 'Transient Oscillation', continuous_firing_base_lines = False,
                                      vspan = True)
                     
             if found_g_stable[nucleus.name] == False and if_stable_mvt: 
+                
                 found_g_stable[nucleus.name] = True
                 data[(nucleus.name,'g_stable')] = abs(g)
                 data['g_loop_stable'] =  abs( multiply_values_of_dict(G) )
@@ -6127,17 +6186,18 @@ def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mv
                     
                     if_stable_plotted = True
                     print("stable plotted")
-                    fig_stable1 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_stable + plot_duration,
-                                      include_FR = False, plot_start = 0, legend_loc = legend_loc, 
-                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
-                                      vspan = vspan_stable )
-                    fig_stable2 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
-                                      include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc, 
-                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
-                                      vspan = True )
-                    fig_stable3 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = t_mvt + 200 + plot_duration,
+                    
+                    # fig_stable1 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_stable + plot_duration,
+                    #                   include_FR = False, plot_start = 0, legend_loc = legend_loc, 
+                    #                   title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                    #                   vspan = vspan_stable )
+                    # fig_stable2 = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = plot_start_trans + plot_duration,
+                    #                   include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc, 
+                    #                   title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                    #                   vspan = True )
+                    fig_stable = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, plot_end = t_mvt + 200 + plot_duration,
                                       include_FR = False, plot_start =t_mvt + 200, legend_loc = legend_loc, 
-                                      title_fontsize = 15, title = 'Stable Oscillation', ax = None, continuous_firing_base_lines = False,
+                                      title_fontsize = 15, title = 'Stable Oscillation', continuous_firing_base_lines = False,
                                       vspan = True )
                         
             if if_plot:
@@ -6153,27 +6213,32 @@ def synaptic_weight_space_exploration(N, N_real, K_real,G, A, A_mvt, D_mvt, t_mv
 
 
     data['G_ratio'] = G_ratio_dict 
+    
     if if_plot:
         fig.text(0.5, 0.01, 'time (ms)', ha='center')
         fig.text(0.01, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical')
         fig.tight_layout() # Or equivalently,  "plt.tight_layout()"
 
-    output = open(filename, 'wb')
-    pickle.dump(data, output)
-    output.close()
-    return fig_trans, [fig_stable1, fig_stable2, fig_stable3]
+    pickle_obj(data, filename)
+
+            
+    return fig_unconnected, fig_trans, fig_stable
 
 def G_sweep_title(G_dict, g_1, g_2):
+    
     title = ( r"$G_{" + list(G_dict.keys())[0][1] + "-" + 
-                        list(G_dict.keys())[0][0] + "}$ = " + str(round(g_1, 2)) + r"$\; G_{" +
+                        list(G_dict.keys())[0][0] + "}$ = " + 
+                        str(round(g_1, 2)) + r"$\; G_{" +
                         list(G_dict.keys())[1][1] + "-" +
-                        list(G_dict.keys())[1][0] + "}$ =" + str(round(g_2, 2))
+                        list(G_dict.keys())[1][0] + "}$ =" + 
+                        str(round(g_2, 2))
             )
     return title
 
 def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
     
-    ''' make a list of classes that project to one class form the given list'''
+    ''' make a list of nuclei classes that project to one 
+        nuclei class form the given list of pop names'''
     
     receiving_class_dict = {key: None for key in receiving_pop_list.keys()}
     for key in receiving_class_dict.keys():
@@ -6813,7 +6878,7 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
                                                  x_label = "G",  leg_loc = 'upper right', g_key = None,
                                                  vline_txt = True, colorbar = True, ylabel = 'frequency(Hz)',
                                                  vline_width = 2, lw = 1, xlim = None, markersize = 80,
-                                                 alpha_transient = 1):
+                                                 alpha_transient = 1, mark_pts_with = 'line'):
     
     
     fig = plt.figure(figsize=(8,7))
@@ -6856,13 +6921,9 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
                              np.squeeze(data[(name_list[i],y_list[i])]),
                              c = color_list[i],  lw = 1, 
                               s = markersize, edgecolor = 'k')
-        ax.axvline(g_transient , alpha = alpha_transient,
-                   linestyle = '-.', c = color_list[i],
-                    lw = vline_width) 
-        
-        ax.axvline(g_stable , 
-                   c = color_list[i], lw = vline_width) 
-        
+
+    ax =  mark_transient_stable_oscillation_pts(ax, mark_pts_with, g_transient, g_stable, data, i, name_list, 
+                                          y_list, color_list, vline_width, alpha_transient)
     if vline_txt :
         shift = (g[-1] - g[0])/20
         ax.text(g_stable - shift, 0.6, 
@@ -6898,6 +6959,33 @@ def synaptic_weight_transition_multiple_circuits(filename_list, name_list, label
                       rotation=-90,fontsize=15)
     
     return fig
+
+def mark_transient_stable_oscillation_pts(ax, mark_pts_with, g_transient, g_stable, data, i, name_list, 
+                                          y_list, color_list, vline_width, alpha_transient):
+    
+    if mark_pts_with == 'line':
+                
+        ax.axvline(g_transient , alpha = alpha_transient,
+                   linestyle = '-.', c = color_list[i],
+                    lw = vline_width) 
+        
+        ax.axvline(g_stable , 
+                   c = color_list[i], lw = vline_width) 
+        
+    if mark_pts_with == 'arrow':
+        
+        trans_i = np.where( abs(Product_G(data)) == g_transient)[0][0]
+
+        ax.arrow(g_transient,  np.squeeze(data[(name_list[i],y_list[i])])[trans_i] + 0.2, 
+                 0, -0.12, head_length = 0.05, width = 0.05, edgecolor = None, alpha = 0.5,
+                 facecolor = 'k', head_starts_at_zero = True, length_includes_head = True)
+        
+        stab_i = np.where( abs(Product_G(data)) == g_stable )[0][0]
+
+        ax.arrow(g_stable,  np.squeeze(data[(name_list[i],y_list[i])])[stab_i] + 0.2, 
+                 0, -0.12, head_length = 0.05, width = 0.05, edgecolor = None, alpha = 1,
+                 facecolor = 'k', head_starts_at_zero = True, length_includes_head = True)
+    return ax
 
 def set_max_dec_tick(ax):
     ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -7583,53 +7671,42 @@ def save_figs(nuclei_dict, figs, G, noise_variance, path, fft_method, pre_prefix
         figs[i].savefig(os.path.join(path, prefix[i] + filename+ '.pdf'), dpi = 300, facecolor='w', edgecolor='w',
                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-def set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = [100, 100], ymin = [-4, -4]):
+def set_ylim_trans_stable_figs(figs, ymax = [100, 100], ymin = [-4, -4]):
     
-    for i, fig in enumerate( [fig_trans, fig_stable] ) :
+    for i, fig in enumerate( figs ) :
     
         ax = fig.axes
         ax[0].set_ylim(ymin[i], ymax[i])
     
-    return fig_trans , fig_stable
+    return figs
 
-# def save_trans_stable_figs(fig_trans, fig_stable, path_rate, filename, figsize = (10,5)):
+def save_trans_stable_figs( figs, states, path_rate, filename, figsize = (10,5), 
+                            ymax = [100, 100], ymin = [-4, -4]):
     
+    figs = set_ylim_trans_stable_figs(figs, ymax = ymax , ymin = ymin)
+    for (fig, state) in zip( figs, states):
+        save_pdf_png(fig, filename + '_' + state + '_plot', size = figsize)
+
+# def save_trans_stable_figs(fig_trans, fig_stable_list, path_rate, filename, figsize = (10,5), ymax = [100, 100], ymin = [-4, -4]):
+    
+
 #     fig_trans.set_size_inches(figsize, forward=False)
-        
-#     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
-#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
     
-#     fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-    
-#     fig_stable.set_size_inches(figsize, forward=False)
-    
-#     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
-#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-    
-#     fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-#                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+#     for i, fig_stable in enumerate(fig_stable_list):
+#         fig_trans , fig_stable = set_ylim_trans_stable_figs([fig_trans, fig_stable], ymax = ymax , ymin = ymin)
+#         fig_stable.set_size_inches(figsize, forward=False)
 
-def save_trans_stable_figs(fig_trans, fig_stable_list, path_rate, filename, figsize = (10,5), ymax = [100, 100], ymin = [-4, -4]):
-    
-
-    fig_trans.set_size_inches(figsize, forward=False)
-    
-    for i, fig_stable in enumerate(fig_stable_list):
-        fig_trans , fig_stable = set_ylim_trans_stable_figs(fig_trans, fig_stable, ymax = ymax , ymin = ymin)
-        fig_stable.set_size_inches(figsize, forward=False)
-
-        fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.png')),dpi = 300, facecolor='w', edgecolor='w',
-                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+#         fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.png')),dpi = 300, facecolor='w', edgecolor='w',
+#                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
         
-        fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+#         fig_stable.savefig(os.path.join(path_rate, (filename + '_stable_plot_' + str(i) + '.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+#                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
     
-        fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
-                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+#         fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.png')),dpi = 300, facecolor='w', edgecolor='w',
+#                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
         
-        fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
-                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+#         fig_trans.savefig(os.path.join(path_rate, (filename + '_tansient_plot.pdf')),dpi = 300, facecolor='w', edgecolor='w',
+#                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
         
 
 # def sweep_time_scales_STN_GPe(g_list,g_ratio,nuclei_dict, GABA_A,GABA_B, Glut, filename, G, A,A_mvt, D_mvt,t_mvt, receiving_class_dict,t_list,dt, duration_base, duration_mvt, lim_n_cycle,find_stable_oscill):
