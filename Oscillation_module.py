@@ -241,7 +241,7 @@ class Nucleus:
             if keep_noise_all_t : 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
-            self.set_init_distribution( FR_ext_specs, tau, poisson_prop, dt, t_sim,  
+            self.set_init_distribution( FR_ext_specs, poisson_prop, dt, t_sim,  
                                        plot_initial_V_m_dist = plot_initial_V_m_dist, 
                                        plot_spike_thresh_hist= plot_spike_thresh_hist,
                                        plot_RMP_to_APth = plot_RMP_to_APth )
@@ -271,7 +271,7 @@ class Nucleus:
                 self.G_heterogeneity = True
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
-    def set_init_distribution(self, FR_ext_specs, tau, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
+    def set_init_distribution(self, FR_ext_specs, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
                               plot_spike_thresh_hist = False, plot_RMP_to_APth = False):
         
         self.FR_ext_specs = FR_ext_specs
@@ -283,7 +283,7 @@ class Nucleus:
             
         elif self.init_method == 'heterogeneous':
             
-            self.initialize_heterogeneously(tau, poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
+            self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist,
                                             plot_spike_thresh_hist= plot_spike_thresh_hist, 
                                             plot_RMP_to_APth = plot_RMP_to_APth)
@@ -313,24 +313,25 @@ class Nucleus:
             plot_histogram(self.membrane_time_constant, bins = 25, 
                            title = self.name, xlabel = r'$\tau_{m} \; (ms)$')
             
-    def initialize_synaptic_time_constant(self, dt, tau, lower_bound_perc=0.8, upper_bound_perc=1.2,
+    def initialize_synaptic_time_constant(self, dt, tau_specs, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
                                           plot_syn_tau_hist = False):
         
         ''' initialize synaptic time constant with a truncated normal distribution
             Note: dt incorporated in tau for time efficiency
         '''
+        
         if len(self.receiving_from_pop_name_list) > 0:
             
-            tc_list = list (self.tau_specs[ list(self.tau_specs.keys()) [0] ].keys() ) 
+            tc_list = list (tau_specs[ list(tau_specs.keys()) [0] ].keys() ) 
             
-            for key in list (self.tau_specs.keys()):
+            for key, val in tau_specs.items():
                 
-                self.tau[key] = {tc : np.array( [truncated_normal_distributed(self.tau_specs[key][tc]['mean'][i],
-                                                                              self.tau_specs[key][tc]['sd'][i], self.n,
-                                                                              truncmin = self.tau_specs[key][tc]['truncmin'][i],
-                                                                              truncmax = self.tau_specs[key][tc]['truncmax'][i]) / dt 
-                                                 for i in range( len(self.tau_specs[key][tc]['mean'] )) 
+                self.tau[key] = {tc : np.array( [truncated_normal_distributed(val[tc]['mean'][i],
+                                                                              val[tc]['sd'][i], self.n,
+                                                                              truncmin = val[tc]['truncmin'][i],
+                                                                              truncmax = val[tc]['truncmax'][i]) / dt 
+                                                 for i in range( len(tau_specs[key][tc]['mean'] )) 
                                                  ] )
                                 for tc in tc_list
                                 }
@@ -342,7 +343,7 @@ class Nucleus:
                                    xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')
 
               
-    def initialize_transmission_delays(self, dt, lower_bound_perc=0.8, upper_bound_perc=1.2,
+    def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey',
                                           plot_T_hist = False):
         
@@ -351,11 +352,12 @@ class Nucleus:
         '''
 
         if len(self.receiving_from_pop_name_list) > 0:
-            self.transmission_delay = {key: (truncated_normal_distributed(self.T_specs[key]['mean'],
-                                                                          self.T_specs[key]['sd'], self.n,
-                                                                          truncmin = self.T_specs[key]['truncmin'],
-                                                                          truncmax = self.T_specs[key]['truncmax']) / dt ).astype(int)
-                                       for key in list (self.T_specs.keys())}
+            
+            self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
+                                                                                  v['sd'], self.n,
+                                                                                  truncmin = v['truncmin'],
+                                                                                  truncmax = v['truncmax']) / dt ).astype(int)
+                                       for key, v in T_specs.items()}
             
             self.history_duration = get_max_value_dict(self.transmission_delay )
             
@@ -442,7 +444,7 @@ class Nucleus:
             
         self.voltage_trace[0] = self.mem_potential[0] 
         
-    def initialize_heterogeneously( self, tau, poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
+    def initialize_heterogeneously( self,  poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
                                     lower_bound_perc = 0.8, upper_bound_perc = 1.2,
                                     plot_initial_V_m_dist=False, plot_mem_tau_hist = False,
                                     bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
@@ -453,7 +455,7 @@ class Nucleus:
         
         self. initialize_resting_membrane_potential()
         
-        self. initialize_transmission_delays(dt, 
+        self. initialize_transmission_delays(dt, self.T_specs,
                                             lower_bound_perc = lower_bound_perc, 
                                             upper_bound_perc = upper_bound_perc)
         
@@ -469,7 +471,7 @@ class Nucleus:
                                                upper_bound_perc = upper_bound_perc,
                                                plot_mem_tau_hist = plot_mem_tau_hist)
         
-        self. initialize_synaptic_time_constant(dt, tau, bins = bins, color= color, tc_plot = tc_plot, 
+        self. initialize_synaptic_time_constant(dt, self.tau_specs, bins = bins, color= color, tc_plot = tc_plot, 
                                                syn_element_no = syn_element_no, 
                                                plot_syn_tau_hist = plot_syn_tau_hist,
                                                lower_bound_perc = lower_bound_perc, 
@@ -1090,7 +1092,7 @@ class Nucleus:
             self._set_ext_inp_poisson(I_syn)
             
         else:
-            print(self.FR_ext_specs)
+            
             self.distribute_FR_ext_as_normal(self.FR_ext_specs['mean'])
             self.rest_ext_input = (self.FR_ext * self.syn_weight_ext_pop * \
                                    self.n_ext_population * self.membrane_time_constant - 
@@ -1763,7 +1765,6 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                         
                         nucleus.FR_ext_specs = load_pickle(FR_ext_filename_dict[nucleus.name])
 
-                        print('FR ext specs = ', nucleus.FR_ext_specs)
                 if normalize_G_by_N:
                     
                     nucleus.normalize_synaptic_weight_by_N()
@@ -1827,8 +1828,10 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
             nucleus.set_init_from_pickle(filepath)
 
 
-def reinitialize_nuclei_SNN(nuclei_dict, tau, N, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, t_list, dt, state = 'rest', poisson_prop = None,
-                            mem_pot_init_method=None, set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, normalize_G_by_N = False):
+def reinitialize_nuclei_SNN( nuclei_dict, N, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, 
+                             t_list, dt, state = 'rest', poisson_prop = None, mem_pot_init_method=None, 
+                             set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, 
+                             normalize_G_by_N = False):
     
     
     for nuclei_list in nuclei_dict.values():
@@ -1837,7 +1840,7 @@ def reinitialize_nuclei_SNN(nuclei_dict, tau, N, G, noise_amplitude, noise_varia
             nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
             
             if reset_init_dist:
-                nucleus.set_init_distribution( nucleus.FR_ext_specs, tau, poisson_prop, dt, t_sim)
+                nucleus.set_init_distribution( nucleus.FR_ext_specs, poisson_prop, dt, t_sim)
             nucleus.reset_synaptic_weights(G, N)
             nucleus.normalize_synaptic_weight()
             
@@ -2351,7 +2354,8 @@ def print_G_items(G_dict):
     
         print(k, np.round( values, 2) )
 
-def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
+                                    t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2369,29 +2373,10 @@ def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_b
     
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = get_max_len_dict(G_dict)
-    # print("n_inter = ", n_iter)
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_run, duration_base[1] - duration_base[0]))
-        if find_phase:
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
 
-        if divide_beta_band_in_power:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, len_f_pxx))
-
-    data['g'] = G_dict
+    data = create_df_for_iteration_SNN(nuclei_dict, G_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
+                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
+                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'g')
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
@@ -2434,7 +2419,7 @@ def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_b
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2537,24 +2522,110 @@ def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_b
         pickle_obj(data, filepath)
     return figs, title, data
 
-def reset_tau_all_nuclei(tau_dict, nuclei_dict, i, dt):
+def reset_tau_specs_all_nuclei(tau_dict, nuclei_dict, i, dt):
     
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
             for k, v in tau_dict.items():
+                
                 if k[0] == nucleus.name:
-                    nucleus.tau[k]['decay'] = np.array([tau_dict[k][ i ]  / dt ])
+                    
+                    nucleus.tau_specs[k]['decay'] = { key : [ val[i] ] for key, val in tau_dict[k].items() }
+                    
     return nuclei_dict
 
-def reset_T_all_nuclei(T_dict, nuclei_dict, i, dt):
+def reset_T_specs_all_nuclei(T_dict, nuclei_dict, i, dt):
     
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
             for k, v in T_dict.items():
                 if k[0] == nucleus.name:
-                    nucleus.transmission_delay[k] = T_dict[k][ i ] 
+                    nucleus.T_specs[k]['decay'] = { key : [ val[i] ] for key, val in T_dict[k].items() }
     return nuclei_dict
 
+def update_tau_dict(tau, tau_dict, i):
+    
+    ''' update the tau according to the ith element of the existing keys within tau_dict '''
+    
+    for k, val in tau_dict.items():
+        
+        tau[k]['decay']['mean'] = np.array([tau_dict[k]['mean'][ i ] ])
+        tau[k]['decay']['sd'] = np.array([tau_dict[k]['sd'][ i ] ])
+        
+    return tau
+
+def create_df_for_iteration_SNN(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_run, n_phase_bins = 180, 
+                                len_f_pxx = 200, save_pop_act = False, 
+                                find_phase = False, divide_beta_band_in_power = False, iterating_name = 'g'):
+    
+    data = {}
+    
+    for nucleus_list in nuclei_dict.values():
+        
+        nucleus = nucleus_list[0]  # get only on class from each population
+        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
+        # data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
+        data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
+        
+        if save_pop_act :
+            
+            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_run, duration_base[1] - duration_base[0]))
+        
+        if find_phase:
+        
+            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
+            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
+
+        if divide_beta_band_in_power:
+            
+            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
+        
+        else:
+            
+            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
+        
+        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, len_f_pxx))
+        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, len_f_pxx))
+
+    data[iterating_name] = iterating_param_dict
+    
+    return data
+
+
+def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
+                                len_f_pxx = 200, save_pop_act = False, find_phase = False, divide_beta_band_in_power = False, 
+                                iterating_name = 'g', check_peak_significance = False, save_gamma = False):
+    
+    data = {}
+    for nucleus_list in nuclei_dict.values():
+        
+        nucleus = nucleus_list[0]  # get only on class from each population
+        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
+        
+        if save_pop_act :
+            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, n_run,  duration_base[1] - duration_base[0]))
+                                                       
+        if check_peak_significance:
+            data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
+        
+        if find_phase:
+            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_iter_2, n_run, 2, n_phase_bins-1))
+            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_iter_2, n_run))
+
+        if divide_beta_band_in_power:
+            if save_gamma:
+                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
+            else:
+                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 2))
+            
+        else:
+            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2,  n_run))
+        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
+        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
+        
+    data[iterating_name] = iterating_param_dict
+    
 def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
@@ -2572,30 +2643,11 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
 
     
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
-    n_iter = get_max_len_dict(tau_dict)
+    n_iter = get_max_len_dict({k : v['mean'] for k, v in tau_dict.items()} )
     # print("n_inter = ", n_iter)
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_run, duration_base[1] - duration_base[0]))
-        if find_phase:
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
-
-        if divide_beta_band_in_power:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, len_f_pxx))
-
-    data['tau'] = tau_dict
+    data = create_df_for_iteration_SNN(nuclei_dict, tau_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
+                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
+                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'tau')
     count = 0
 
     if n_run > 1:  # don't plot all the runs
@@ -2621,8 +2673,8 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
     for i in range(n_iter):
         
         start = timeit.default_timer()
-        nuclei_dict = reset_tau_all_nuclei(tau_dict, nuclei_dict, i, dt)
-        
+        nuclei_dict = reset_tau_specs_all_nuclei(tau_dict, nuclei_dict, i, dt)
+        # tau =  update_tau_dict(tau, tau_dict, i)
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
 
@@ -2632,21 +2684,24 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
         title = ''
         G.update({k: gg * (i  + 50) / 50  for k, gg in G_copy.items()})
         print_G_items(G)
+        
         for j in range(n_run):
             
+            
+
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
             if reset_init_dist:
                 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                          end_of_nonlinearity = end_of_nonlinearity, 
-                                                          set_FR_range_from_theory = False, method = 'collective', 
-                                                          use_saved_FR_ext= use_saved_FR_ext,
-                                                          normalize_G_by_N= False, save_FR_ext=False,
-                                                          state = state)
+                                                                       all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
+                                                                       end_of_nonlinearity = end_of_nonlinearity, 
+                                                                       set_FR_range_from_theory = False, method = 'collective', 
+                                                                       use_saved_FR_ext= use_saved_FR_ext,
+                                                                       normalize_G_by_N= False, save_FR_ext=False,
+                                                                       state = state)
 
 
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
@@ -2757,30 +2812,11 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
 
     
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
-    n_iter = get_max_len_dict(T_dict)
-    # print("n_inter = ", n_iter)
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'perc_t_oscil_base')] = np.zeros((n_iter, n_run))
-        # data[(nucleus.name, 'n_half_cycles_base')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_run, duration_base[1] - duration_base[0]))
-        if find_phase:
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
+    n_iter = n_iter = get_max_len_dict({k : v['mean'] for k, v in T_dict.items()} )
 
-        if divide_beta_band_in_power:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run, 2))
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_run, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_run, len_f_pxx))
-
-    data['T'] = T_dict
+    data = create_df_for_iteration_SNN(nuclei_dict, T_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
+                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
+                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'T')
     count = 0
 
     if n_run > 1:  # don't plot all the runs
@@ -2807,7 +2843,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
     for i in range(n_iter):
         
         start = timeit.default_timer()
-        nuclei_dict = reset_T_all_nuclei(T_dict, nuclei_dict, i, dt)
+        nuclei_dict = reset_T_specs_all_nuclei(T_dict, nuclei_dict, i, dt)
         
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
@@ -2821,7 +2857,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2955,35 +2991,11 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = len(G_dict[loop_key_lists[0][0]])
     n_iter_2 = len(G_dict[loop_key_lists[1][0]])
-    # print('size = ', n_iter, n_iter_2)
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
-        
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, n_run,  duration_base[1] - duration_base[0]))
-                                                       
-        if check_peak_significance:
-            data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        
-        if find_phase:
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_iter_2, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_iter_2, n_run))
 
-        if divide_beta_band_in_power:
-            if save_gamma:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
-            else:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 2))
-            
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2,  n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        
-    data['g'] = G_dict
+    data = create_df_for_iteration_SNN_2d(nuclei_dict, G_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = n_phase_bins, 
+                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
+                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'g',
+                                       check_peak_significance=check_peak_significance, save_gamma = save_gamma)
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
@@ -3029,7 +3041,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
             for j in range(n_run):
                 
                 print(' {} from {} runs'.format(j + 1 , n_run))
-                nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+                nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                                       A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                       reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                       normalize_G_by_N= True)  
@@ -3209,7 +3221,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -3304,7 +3316,7 @@ def coherence_exploration(path, tau, nuclei_dict, G_dict, noise_amplitude, noise
         for k, values in G_dict.items():
             G[k] = values[i]
             print(k, values[i])
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau,  G, noise_amplitude, noise_variance, A,
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                               A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True)  
@@ -5434,7 +5446,7 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                                                             stim_method = stim_method)
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, tau, N, G, noise_amplitude, noise_variance, A,
+        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                               A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                               reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                               normalize_G_by_N= True) 

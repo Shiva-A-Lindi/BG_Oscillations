@@ -36,8 +36,9 @@ neuronal_consts = {
         
         'nonlin_thresh': -20, 'nonlin_sharpness': 1, 'u_initial': {'min': -65, 'max': -54.84},
 
-         'u_rest': {'mean': -65, 'var': .1 , 'truncmin': -85, 'truncmax': -60}, 
-         # 'u_rest': {'mean': -65, 'var': 1.2 , 'truncmin': -85, 'truncmax': -60}, 
+          'u_rest': {'mean': -65, 'var': 1. , 'truncmin': -85, 'truncmax': -60}, # fitted to tau_m = 13
+         # 'u_rest': {'mean': -65, 'var': .1 , 'truncmin': -85, 'truncmax': -60}, # fitted to tau_m = 4
+          # 'u_rest': {'mean': -65, 'var': 1.2 , 'truncmin': -85, 'truncmax': -60}, # fitted to tau_m = 25.4
         # Also similar to traces of Fig 7. Abdi et al. 2015 ~ -65        
         # Abdi et al 2015 Table. 1 : average of "AHP" PV+ and PV- proto is -67.08 ±  6.45 n = 19 juvenile rat (P20-P35) in vitro electric stim temp = 35-37
         # 'u_rest': {'mean': -53, 'var': 4 , 'truncmin': -1000, 'truncmax': -45}, 
@@ -46,16 +47,17 @@ neuronal_consts = {
         # Stanford & cooper 2000 [type A] -66.3 ±  9.19 sem = 0.8, n = 132 Table 2.  temp = 32-34 in vitro whole cell patch
 
 
-        'membrane_time_constant':{'mean': 4, 'var': 0.1, 'truncmin': 0.2, 'truncmax': 20}, 
+        # 'membrane_time_constant':{'mean': 4, 'var': 0.1, 'truncmin': 0.2, 'truncmax': 20}, 
         # 'membrane_time_constant':{'mean': 25.4,'var': 6, 'truncmin': 3, 'truncmax': 50}, 
         # Stanford & cooper 2000 [type A] 25.4 ±  11.49 sem = 1.0, n = 132 Table 2. temp = 32-34 in vitro whole cell patch
         # 'membrane_time_constant': {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}, 
         # Jerome's measurements temp = 32
-        # 'membrane_time_constant':{'mean':12.94,'var': 1, 'truncmin': 3, 'truncmax': 100},
+        'membrane_time_constant':{'mean':12.94,'var': 1.3, 'truncmin': 2.25, 'truncmax': 45},
           # Karube et al. 2019 Table 1 12.94 ±  10.23 range = (2.25, 79.75) n = 108 in vitro whole cell patch (P30-P65) temp = 32
 
-        'spike_thresh': {'mean': -54.84, 'var': .1}},  
-        # 'spike_thresh': {'mean': -54.84, 'var': 7.11}},  
+        'spike_thresh': {'mean': -54.84, 'var': 1.}},   # fitted to tau_m = 13
+        # 'spike_thresh': {'mean': -54.84, 'var': .1}},   # fitted to tau_m = 4
+        # 'spike_thresh': {'mean': -54.84, 'var': 7.11}},   # fitted to tau_m = 25.4
         # Abdi et al 2015 Table. 1 : -54.84 ±  7.11 average of PV+ and PV- proto n = 19 juvenile rat (P20-P35) in vitro electric stim temp = 35-37 
         # 'spike_thresh': {'mean': -44, 'var': 5}},  
         # Bugaysen et al. 2010 [type B] -44 ±  5 n = 24 temp = 34 (P12-P21)
@@ -248,38 +250,37 @@ Act = {'rest': A_anesthetized, 'awake_rest': A_awake, 'mvt': A_mvt,
 #                                                                                      np.array( [0, 8.5]), 
 #                                                                                      np.array( [264, 100])))
 tau = {
-    ('D2', 'FSI'): {'rise': {'mean': [1.5], 'sd' : [2.9], 'truncmin': [0.1], 'truncmax': [100]}, 
-                    'decay': {'mean' : [11.4], 'sd': [2.1], 'truncmin': [0.1], 'truncmax': [100]}},  
-    # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 ±  2.9 and decay: 11.4 ±  2.1 .
+    ('D2', 'FSI'): {'rise': {'mean': [1.5], 'sd' : [2.9], 'truncmin': [0.6], 'truncmax': [3]}, 
+                    'decay': {'mean' : [11.4], 'sd': [2.1], 'truncmin': [0.5], 'truncmax': [30]}},  
+    # Koos et al. 2004 rat in vitro electric stm temp= RT or 35. rise: 1.5 ±  2.9 range = (0.6, 3) and decay: 11.4 ±  2.1 .
     # Straub et al. 2016 Fig 1E. mice in vitro optogenetic temp = 33-34 14.4 ±  0.5 n = 41/15  Before Dec 2021
-    # Gittis et al 2010 mice in vitro electric stim temp = 31-33 Fig 7E reports 7.6±  2.3 ms n=26 
-    ('STN', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
-                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [100]}},
-    # Baufreton et al. 2009 rise = 1.1 ±  0.4, decay = 7.8 ±  4.4 n = 8 temp = 37
+    # Gittis et. al 2010 decay = 7.6 +/ 2.3 Fig 7E range estimated from fig mice in vitro electric stim temp = 31-33
+    ('STN', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.8], 'truncmax': [1.6]},
+                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [4.6], 'truncmax': [18.4]}},
+    # Baufreton et al. 2009 rise = 1.1 ±  0.4 range = (0.8, 1,6), decay = 7.8 ±  4.4 range = (4.6, 18.4) n = 8 temp = 37
     # Fan et. al 2012 decay = 6.48 ±  1.92 n = 26 temp not mentioned (possibly RT)
     # ('STN','Proto'): {'rise':[1.1, 40],'decay':[7.8, 200]},  # Baufreton et al. 2009, decay=6.48 ±  1.92 n = 26 temp not mentioned Fan et. al 2012
-    ('Proto', 'STN'): {'rise': {'mean' : [0.6], 'sd' : [0.2], 'truncmin': [0.1], 'truncmax': [100]},
+    ('Proto', 'STN'): {'rise': {'mean' : [0.6], 'sd' : [0.2], 'truncmin': [0.1], 'truncmax': [10]},
                         'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
     # decay Jerome measurements in Asier et al. 2021
                            # 'decay' : {'mean' : [6], 'sd' : [1], 'truncmin': [0.1], 'truncmax': [1000]}}, # Glut estimate
-    ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
-                         'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [100]}},
+    ('Proto', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncm5in': [0.1], 'truncmax': [10]},
+                         'decay' : {'mean' : [4.91], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [30]}},
     # Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14 ( in thesis it was 2 and 10)
-    ('Proto', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.06], 'truncmin': [0.1], 'truncmax': [100]},
-                      'decay' : {'mean' :[6.13], 'sd' : [.38], 'truncmin': [0.1], 'truncmax': [100]}},
+    ('Proto', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.06], 'truncmin': [0.2], 'truncmax': [100]},
+                      'decay' : {'mean' :[6.13], 'sd' : [.38], 'truncmin': [0.5], 'truncmax': [30]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32 n = 14,
     # Asier 2021  extrapolated from one trace rise = 0.43, deacy = 6.77
-    ('FSI', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.1], 'truncmax': [100]},
-                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.1], 'truncmax': [100]}},
+    ('FSI', 'Proto'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.2], 'truncmax': [10]},
+                       'decay' : {'mean' : [7.8], 'sd' : [4.4], 'truncmin': [0.5], 'truncmax': [30]}},
     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
-    # Gittis et. al 2010 decay = 7.6 +/ 2.3 Fig 7E range estimated from fig mice in vitro electric stim temp = 31-33
     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
     # (estimate was 6 before Sep 2021)
-    ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.1], 'truncmax': [100]},
-                        'decay' : {'mean' : [4.9], 'sd' : [0.29], 'truncmin': [0.1], 'truncmax': [100]}},
+    ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.04], 'truncmin': [0.2], 'truncmax': [10]},
+                        'decay' : {'mean' : [4.9], 'sd' : [0.29], 'truncmin': [0.5], 'truncmax': [30]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
-    ('D2', 'Arky'): {'rise': {'mean' : [1.], 'sd' : [0.5], 'truncmin': [0.1], 'truncmax': [100]},
-                     'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.1], 'truncmax': [100]}},
+    ('D2', 'Arky'): {'rise': {'mean' : [1.], 'sd' : [0.5], 'truncmin': [0.2], 'truncmax': [10]},
+                     'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.], 'truncmax': [30]}},
     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
 }
@@ -384,25 +385,32 @@ noise_variance = {
     
      'rest' : {
                 # 'Proto': 16, # tau_m = 25.4
-                'Proto': 9, # tau_m = 4
+                # 'Proto': 9, # tau_m = 4
+                'Proto': 12, # tau_m = 13
                'STN': 5., 
                'FSI':  18, 
                'D2': 16,
                'Arky': 14} , # tau_m = 19.9
      
-      'awake_rest' : {'Proto': 18, 
+      'awake_rest' : {
+                      # 'Proto': 18, # tau_m = 25.4
+                      'Proto': 13, # tau_m = 13
                       'STN': 5, 
                       'FSI': 19, 
                       'D2': 16, # tau_m = 4.9
                       'Arky': 15},
       
-      'DD_anesth' : {'Proto': 12, # tau_m = 25.4
+      'DD_anesth' : {
+                      # 'Proto': 12, # tau_m = 25.4
+                      'Proto': 10, # tau_m = 13
                       'STN': 6, 
                       'FSI': 18, 
                       'D2': 17, 
                       'Arky': 14} ,# tau_m = 19.9
       
-      'mvt' : {'Proto': 12,  # tau_m = 25.4
+      'mvt' : {
+              # 'Proto': 12,  # tau_m = 25.4
+              'Proto': 10,  # tau_m = 13
                'STN': 6, 
                'FSI': 21, 
                'D2': 17, 
@@ -410,7 +418,8 @@ noise_variance = {
       # Nico's in mice
       'trans_Nico_mice' : {
                           # 'Proto': 21, # tau_m = 25
-                          'Proto': 6, # tau_m = 4
+                          'Proto': 10, # tau_m = 13
+                          # 'Proto': 6, # tau_m = 4
                           'STN': 5, 
                            # 'FSI': 29.5, 
                            'D2': 14.5, 
@@ -419,7 +428,7 @@ noise_variance = {
       # Kia & Kita 2011 rats
      'trans_Kita_rat' : {
                           # 'Proto': 14, # tau_m = 25
-                         # 'Proto': 11, # tau_m = 12
+                         # 'Proto': 11, # tau_m = 13
                           'Proto': 8, # tau_m = 4
                           'STN': 5, 
                          'D2': 15, 
@@ -428,18 +437,20 @@ noise_variance = {
 FR_ext_range = {
  
     ### tau_m = 4
-    'Proto': {'rest': np.array([18/1000, 22/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
-              'DD_anesth': [1./300, 3./300], 'mvt': [1/300, 3/300],  
-              'trans_Nico_mice': [3/300, 6/300],  'trans_Kita_rat': [18/1000, 22/1000]},
-    
-    ### tau_m = 12
-    # 'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
+    # 'Proto': {'rest': np.array([18/1000, 22/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
     #           'DD_anesth': [1./300, 3./300], 'mvt': [1/300, 3/300],  
-    #           'trans_Nico_mice': [1/300, 2/300],  'trans_Kita_rat': [5/1000, 10/1000]},
+    #           'trans_Nico_mice': [3/300, 6/300],  'trans_Kita_rat': [18/1000, 22/1000]},
+    
+    ### tau_m = 13
+    'Proto': {'rest': np.array([7/1000, 12/1000]), 'awake_rest': np.array([7/1000, 12/1000]), 
+              'DD_anesth': [6/1000, 11/1000], 'mvt': [6/1000, 11/1000],  
+              'trans_Nico_mice': [2/300, 4/300],  'trans_Kita_rat': [5/1000, 10/1000]},
+    
     ### tau_m = 25
     # 'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
     #           'DD_anesth': [1./300, 3./300], 'mvt': [1/300, 3/300],  
     #           'trans_Nico_mice': [1/300, 2/300],  'trans_Kita_rat': [4/1000, 9/1000]},
+    
     ### tau_m = 43
     # 'Proto': {'rest': np.array([10/1000, 30/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
     #           'DD_anesth': [1/300, 2/300], 'mvt': [1/300, 2/300],  
@@ -448,14 +459,17 @@ FR_ext_range = {
     'STN': {'rest': np.array([8/1000, 11/1000]), 'awake_rest': np.array([9.5/1000, 11.5/1000]), 
             'DD_anesth': [5/1000, 20/1000], 'mvt':  [9/1000, 12/1000], 
             'trans_Nico_mice': np.array([8.5/1000, 12/1000]), 'trans_Kita_rat': np.array([8/1000, 11/1000])}, # high FR sigma
+   
     ### tau_m = 3
     'FSI': {'rest': np.array([48/1000, 65/1000]), 'awake_rest': np.array([61/1000, 68/1000]), 
             'DD_anesth': [50/1000, 68/1000], 'mvt':[63/1000, 75/1000]},
+    
     ### tau_m = 9
     # 'FSI': {'rest': np.array([22/1000, 30/1000]), 'awake_rest': np.array([28/1000, 32/1000]), 
     #         'DD_anesth': [22/1000, 31.5/1000], 'mvt':[30/1000, 35/1000]},
 
     ### tau_m = 4.9
+    
     'D2': {'rest': np.array([25/1000, 38/1000]), 'awake_rest': np.array([25/1000, 38/1000]), 
            'DD_anesth': [34/1000, 38/1000], 'mvt': [25/1000, 38/1000], 
            'trans_Nico_mice': np.array([20/1000, 38/1000]), 'trans_Kita_rat': np.array([22/1000, 38/1000])},
@@ -466,9 +480,11 @@ FR_ext_range = {
     #        'trans_Nico_mice': np.array([6/1000, 13/1000]), 'trans_Kita_rat': np.array([6/1000, 13/1000])},
     
     ### tau_m = 19.9
+    
     'Arky': {'rest': np.array([7/1000, 9/1000]), 'awake_rest': np.array([4/1000, 7/1000]), 
              'DD_anesth': [7/1000, 9/1000], 'mvt': [6/1000, 8/1000], 
              'trans_Nico_mice': np.array([3/1000, 5/1000])}
+    
     ### tau_m = 36
     # 'Arky': {'rest': np.array([5/1000, 7/1000]), 'awake_rest': np.array([3/1000, 5/1000]), 
     #      'DD_anesth': [5/1000, 7/1000], 'mvt': [4/1000, 7/1000], 
@@ -980,7 +996,8 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 
 FR_ext_sd_dict = {   
-    'Proto': {'rest' : 0.0005, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001},
+    # 'Proto': {'rest' : 0.0005, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001}, # tau_m = 25
+    'Proto': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001}, # tau_m = 13
     'STN': {'rest' : 0.0008, 'awake_rest' : 0.0018, 'DD_anesth' : 0, 'mvt' : 0.001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001},
     'FSI': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0, 'mvt' : 0, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0},
     'D2': {'rest' : 0.002, 'awake_rest' : 0.00001, 'DD_anesth' : 0.0001, 'mvt' : 0.0001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001},
@@ -995,20 +1012,20 @@ name = 'D2'
 # name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
-# state = 'rest'
-# state = 'awake_rest'
+state = 'rest'
+state = 'awake_rest'
 # state = 'DD_anesth'
 # state = 'mvt'
-state = 'trans_Nico_mice'
+# state = 'trans_Nico_mice'
 # state = 'trans_Kita_rat'
 
-save_mem_pot_dist = True
-# save_mem_pot_dist = False
+# save_mem_pot_dist = True
+save_mem_pot_dist = False
 
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1    
-t_sim = 2000
+t_sim = 5000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -1025,7 +1042,7 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-mem_pot_init_method = 'uniform'
+# mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
@@ -1036,7 +1053,7 @@ if_plot = True
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = False
-# use_saved_FR_ext = True
+use_saved_FR_ext = True
 
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
@@ -1140,7 +1157,7 @@ if name in ['STN', 'Arky', 'Proto'] and state in ['rest', 'DD_anesth']:
                                     ax=figs[name].gca(), alpha=1, zorder=0, start=int(t_sim / dt / 2))
 
 elif state in list (bins[name].keys() ):
-    if name == 'D2':
+    if name == '':
         
         only_non_zero= True; box_plot =False
     
@@ -3345,32 +3362,29 @@ G = {}
 
 state = 'rest' # set
 g = -0.007 # anesthetized all equal G
-g = -0.012 # G(DF) = g x 1.6
+g = -0.01 # G(DF) = g x 1.6
 
 # state = 'DD_anesth' # set
 # g = -0.005 # anesthetized all equal G
-# g = -0.0045 # anesthetized G(DF) = g x 1.6
+# g = -0.008 # anesthetized G(DF) = g x 1.6
 
 # state = 'awake_rest' # set
 # g = -0.0055  # awake all equal G
-# g = -0.00472  # awake G(DF) = g x 1.6
+# g = -0.007  # awake G(DF) = g x 1.6
 
 # state = 'mvt' # set
 # g = -0.0035 # 'mvt'  all equal G
-# g = -0.0032 # 'mvt' G(DF) = g x 1.6
+# g = -0.007 # 'mvt' G(DF) = g x 1.6
 
 # g = -0.004  # anesthetized FR_D2 = 15
 
 plot_start = 0 # t_sim - 600
 plot_start_raster = plot_start
 
-# plot_start = 2000
-# plot_start_raster = 2000
 
-# G[(name2, name1)], G[(name3, name2)], G[(name1, name3)] = g * 1.4,  g, g # rest
+
 G[(name2, name1)], G[(name3, name2)], G[(name1, name3)] = g * 1.6,  g , g
 
-# G[(name2, name1)] , G[(name3, name2)] , G[(name1, name3)], G[(name3, name3)]  = g,g,g,g
 G = {k: v * K[k] for k, v in G.items()}
 
 poisson_prop = {name: 
@@ -3402,7 +3416,7 @@ use_saved_FR_ext = True
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path, save_init=save_init,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
                syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
@@ -8124,34 +8138,33 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.15
-t_sim = 3300
+dt = 0.1
+t_sim = 5000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration_base = [int( 300/dt), int(t_sim/dt)]
-
+n_windows = 4
 name1 = 'FSI'  # projecting
 name2 = 'D2'  # recieving
 name3 = 'Proto'
 
+
 state = 'rest' # set
 g = -0.007 # anesthetized all equal G
-g = -0.007 # G(DF) = g x 1.6
+g = -0.01075 # G(DF) = g x 1.6
 
-state = 'DD_anesth' # set
-g = -0.005 # anesthetized all equal G
-g = -0.0048 # anesthetized G(DF) = g x s1.6
+# state = 'DD_anesth' # set
+# g = -0.005 # anesthetized all equal G
+# g = -0.008 # anesthetized G(DF) = g x 1.6
 
-state = 'awake_rest' # set
-g = -0.0055  # awake all equal G
-g = -0.00472  # awake G(DF) = g x 1.6
-
-g = -0.0042  # awake G(DF) = g x 1.6
+# state = 'awake_rest' # set
+# g = -0.0055  # awake all equal G
+# g = -0.007  # awake G(DF) = g x 1.6
 
 # state = 'mvt' # set
 # g = -0.0035 # 'mvt'  all equal G
-# g = -0.0032 # 'mvt' G(DF) = g x 1.6
+# g = -0.007 # 'mvt' G(DF) = g x 1.6
 
 name_list = [name1, name2, name3]
 
@@ -8188,7 +8201,7 @@ use_saved_FR_ext = True
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path, save_init=save_init,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
                syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
 
 n_FR = 20
@@ -8202,22 +8215,25 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
 
 
 # n_run = 1; plot_firing = True; plot_spectrum = True; plot_raster = True; plot_phase = True; low_pass_filter = False; save_pkl = False; save_figures = False; save_pxx = False
-n_run = 3; plot_firing = False; plot_spectrum= False; plot_raster = False; plot_phase = False; low_pass_filter= False ;save_pkl = True ; save_figures = False; save_pxx = True
+n_run = 5; plot_firing = False; plot_spectrum= False; plot_raster = False; plot_phase = False; low_pass_filter= False ;save_pkl = True ; save_figures = False; save_pxx = True
 round_dec = 1
 include_std = False
-plot_start = t_sim - 800
+plot_start = t_sim - 1000
 plot_raster_start = plot_start
 n_neuron = 30
 legend_loc = 'center right'
 low_f = 5; high_f = 20
 
-x = np.linspace(5, 15, num = 15)
-tau_dict = {('D2', 'FSI'):   x,
-            ('FSI', 'Proto'):   x}
+x = np.linspace(5, 20, num = 10, endpoint = True)
+
+tau_dict = {('FSI', 'Proto'):{ 'mean': x, 'sd': x/5, 
+                              'truncmin': x - 2 * (x / 5), 
+                              'truncmax': x + 2 * (x / 5)}}
+
 n = len(x)
 filename = 'D2_Proto_FSI_tau_sweep_N_1000_T_' + str(t_sim) + '_' + str(n) + '_pts_' + str(
     n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') +'_' + state + '_' + noise_method +  \
-     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '_3.pkl'
+     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '.pkl'
        
 
 
@@ -8225,11 +8241,11 @@ fft_method = 'Welch'
 filepath = os.path.join(path, 'Beta_power', filename)
 ref_nuc_name = 'Proto'
 nuc_order = ['Proto', 'D2', 'FSI']
-figs, title, data = synaptic_tau_exploration_SNN(path, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, receiving_class_dict,
+figs, title, data = synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, receiving_class_dict,
                                                     noise_amplitude, noise_variance, lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
                                                     lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
                                                     plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
-                                                    find_beta_band_power=True, fft_method=fft_method, n_windows=3, include_beta_band_in_legend=True, save_pkl=save_pkl,
+                                                    find_beta_band_power=True, fft_method=fft_method, n_windows= n_windows, include_beta_band_in_legend=True, save_pkl=save_pkl,
                                                     reset_init_dist=True, all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
                                                     state=state, K_real=K_real, N_real=N_real, N=N, divide_beta_band_in_power=True,
                                                     receiving_pop_list=receiving_pop_list, poisson_prop=poisson_prop, return_saved_FR_ext=False,
@@ -8306,13 +8322,13 @@ for m in range(n_iter):
 
         
         # data_avg[( name, 'peak_significance_all_runs')][m] = check_significance_of_PSD_peak(f, pxx,  
-        #                                                                                                  n_std_thresh = 2, 
-        #                                                                                                  min_f = 0, max_f = 250,
-        #                                                                                                  n_pts_above_thresh = 3,
-        #                                                                                                  if_plot = False, 
-        #                                                                                                  name = name, 
-        #                                                                                                  AUC_ratio_thresh = 0.2)
-        
+#                                                                                                  n_std_thresh = 2, 
+#                                                                                                  min_f = 0, max_f = 250,
+#                                                                                                  n_pts_above_thresh = 3,
+#                                                                                                  if_plot = False, 
+#                                                                                                  name = name, 
+#                                                                                                  AUC_ratio_thresh = 0.2)
+
         data_avg[(name, 'peak_freq_all_runs')][m ] = f[ np.argmax( pxx ) ]
         low_beta_band_power = beta_bandpower(f, pxx, *low_beta_range)
         high_beta_band_power = beta_bandpower(f, pxx, *high_beta_range)
