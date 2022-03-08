@@ -391,6 +391,7 @@ class Nucleus:
             plot_histogram(self.spike_thresh, bins = bins, 
                            title = self.name,
                            xlabel = r'spike threshold (mV)')
+            
     def initialize_resting_membrane_potential(self, plot_initial_V_m_dist = False):
     
         self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
@@ -485,6 +486,7 @@ class Nucleus:
             plot_histogram(self.spike_thresh - self.u_rest, bins = bins, 
                            title = self.name,
                            xlabel = r'spike threshold - RMP (mV)')
+            
     def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
         
         ''' cell properties and boundary conditions are constant for all cells'''
@@ -602,14 +604,14 @@ class Nucleus:
             key = (self.name, proj_name)
             
             if self.init_method == 'heterogeneous' and self.G_heterogeneity:
-                
-                synaptic_weights = np.sign(self.synaptic_weight_specs[key]['mean']) * \
-                                    truncated_normal_distributed(abs(self.synaptic_weight_specs[key]['mean']),
-                                                                self.synaptic_weight_specs[key]['sd'], 
-                                                                (self.n, N[proj_name]), 
-                                                                truncmin = self.synaptic_weight_specs[key]['truncmin'],
-                                                                truncmax = self.synaptic_weight_specs[key]['truncmax'])
-                
+                                                    # np.sign(self.synaptic_weight_specs[key]['mean']) * \
+
+                synaptic_weights = (truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
+                                                                 self.synaptic_weight_specs[key]['sd'], 
+                                                                 (self.n, N[proj_name]), 
+                                                                 truncmin = self.synaptic_weight_specs[key]['truncmin'],
+                                                                 truncmax = self.synaptic_weight_specs[key]['truncmax'])
+                                    )            
             else:
                 if self.G_heterogeneity:
                     synaptic_weights = self.synaptic_weight_specs[key]['mean']
@@ -1441,7 +1443,21 @@ class Nucleus:
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
-       
+     
+
+def set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2):
+    
+    for key, val in G.items():
+        
+        sign = np.sign(val['mean'])
+        G[key]['sd'] = abs( val['mean'] ) * sd_to_mean_ratio
+        abs_truncmin = max( 0 ,  abs( val['mean'] ) - 
+                                 n_sd_trunc * G[key]['sd'] )
+        abs_truncmax = abs( val['mean'] ) + n_sd_trunc * G[key]['sd']
+        G[key]['truncmin'] = min( sign * abs_truncmin, sign * abs_truncmax)
+        G[key]['truncmax'] = max( sign * abs_truncmin, sign * abs_truncmax)
+    
+    return G
 def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5):
     
     for nuclei_list in nuclei_dict.values():
@@ -2354,7 +2370,7 @@ def print_G_items(G_dict):
     
         print(k, np.round( values, 2) )
 
-def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
+def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
                                     t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
@@ -2372,7 +2388,7 @@ def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_b
 
     
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
-    n_iter = get_max_len_dict(G_dict)
+    n_iter = get_max_len_dict({k : v['mean'] for k, v in G_dict.items()} )
 
     data = create_df_for_iteration_SNN(nuclei_dict, G_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
                                        len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
@@ -2405,21 +2421,23 @@ def synaptic_weight_exploration_SNN(path, tau, nuclei_dict, filepath, duration_b
         start = timeit.default_timer()
         
         for k, values in G_dict.items():
-            
-            G[k] = values[i]
-            print(k, np.round( values[i], 2) )
+            G[k] = {}
+            G[k]['mean'] = values['mean'][i]
+            print(k, np.round( values['mean'][i], 2) )
+        
+        G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
 
         else: ax_spec = None
 
-        title = G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
+        title = ''#G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, G, noise_amplitude, noise_variance, A,
+            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
@@ -2674,16 +2692,25 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
         
         start = timeit.default_timer()
         nuclei_dict = reset_tau_specs_all_nuclei(tau_dict, nuclei_dict, i, dt)
-        # tau =  update_tau_dict(tau, tau_dict, i)
+        
         if plot_spectrum:
+            
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
 
         else: ax_spec = None
 
         # title = G_element_as_txt(tau_dict, i, display=display, decimal=decimal) 
         title = ''
-        G.update({k: gg * (i  + 50) / 50  for k, gg in G_copy.items()})
-        print_G_items(G)
+        
+        if nuclei_dict[ list(nuclei_dict.keys() )[0]] [0].G_heterogeneity:
+            
+            G.update({k: {'mean': gg['mean'] * (i  + 50) / 50}  for k, gg in G_copy.items()})
+            G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
+
+        else:
+            
+            G.update({k: gg * (i  + 50) / 50  for k, gg in G_copy.items()})
+            print_G_items(G)
         
         for j in range(n_run):
             
@@ -2812,7 +2839,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
 
     
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
-    n_iter = n_iter = get_max_len_dict({k : v['mean'] for k, v in T_dict.items()} )
+    n_iter = get_max_len_dict({k : v['mean'] for k, v in T_dict.items()} )
 
     data = create_df_for_iteration_SNN(nuclei_dict, T_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
                                        len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
@@ -5048,6 +5075,50 @@ def run_transition_to_movement(receiving_class_dict, t_list, dt, nuclei_dict, mv
 	print("t = ", stop - start)
 	return nuclei_dict
 
+def change_synaptic_weight( nuclei_dict, name, projection_name, multiply_by = 1):
+
+    if nuclei_dict[name][0].G_heterogeneity:
+        
+        nuclei_dict[name][0].synaptic_weight_specs[(name, projection_name)]['mean'] *= multiply_by  
+        
+    else:
+        
+        nuclei_dict[name][0].synaptic_weight_specs[(name, projection_name)] *= multiply_by 
+        
+    nuclei_dict[name][0].create_syn_weight_mean_dict()
+    
+    return nuclei_dict
+    
+def change_states(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
+                              receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                              K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                              end_of_nonlinearity ):
+    
+    print('transitioning..')
+    nuclei_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
+    nuclei_dict = change_state_all_nuclei(state_2, nuclei_dict)
+    nuclei_dict = change_noise_all_nuclei( nuclei_dict, noise_variance[state_2], noise_amplitude)
+    
+    if 'DD' in state_2 :
+        
+        if ('Proto', 'Proto') in list(G.keys()): 
+            
+            nuclei_dict = change_synaptic_weight( nuclei_dict, 'Proto', 'Proto', multiply_by = 2)
+
+            
+        if ('STN', 'Proto') in list(G.keys()): 
+        
+            nuclei_dict = change_synaptic_weight( nuclei_dict, 'STN', 'Proto', multiply_by = 2)
+            
+    receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, 
+                                                           K_all[state_2], receiving_pop_list, nuclei_dict, t_list,
+                                                           all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
+                                                           end_of_nonlinearity=end_of_nonlinearity,
+                                                           set_FR_range_from_theory=False, method='collective',  
+                                                           save_FR_ext = False, use_saved_FR_ext = True, 
+                                                           normalize_G_by_N = False, state=state_2)
+    
+    return nuclei_dict
 
 def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
                                             receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
@@ -5059,36 +5130,16 @@ def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  
     if t_transition == None:
         t_transition = t_list[int(len(t_list) / 3)]
         
-    start = timeit.default_timer()
+    nuclei_dict = run(receiving_class_dict, t_list[:t_transition], dt, nuclei_dict)
+
+    nuclei_dict = change_states(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
+                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                                            K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                                            end_of_nonlinearity )
     
-    for t in t_list:
-            
-        for nuclei_list in nuclei_dict.values():
-            for k, nucleus in enumerate(nuclei_list):
-                
-                nucleus.solve_IF(t, dt, receiving_class_dict[(
-					    nucleus.name, str(k + 1))])
-
-        if t == t_transition:
-            print('transitioning..')
-            nuclei_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
-            nuclei_dict = change_state_all_nuclei(state_2, nuclei_dict)
-            nuclei_dict = change_noise_all_nuclei( nuclei_dict, noise_variance[state_2], noise_amplitude)
-            
-            if 'DD' in state_2 and ('Proto', 'Proto') in list(G.keys()): 
-                nuclei_dict['Proto'][0].synaptic_weight[('Proto', 'Proto')] *= 2 
-
-            receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_2], 
-                                                                   receiving_pop_list, nuclei_dict, t_list,
-                                                                   all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
-                                                                   end_of_nonlinearity=end_of_nonlinearity,
-                                                                   set_FR_range_from_theory=False, method='collective',  save_FR_ext=False,
-                                                                   use_saved_FR_ext = True, normalize_G_by_N=False, state=state_2)
-            
+    nuclei_dict = run(receiving_class_dict, t_list[ t_transition: ], dt, nuclei_dict)
     nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
     return nuclei_dict
 
 
@@ -5099,6 +5150,7 @@ def cal_average_activity(nuclei_dict, n_run, avg_act):
     
     for nuclei_list in nuclei_dict.values():
             for k,nucleus in enumerate( nuclei_list) :
+                
                 avg_act[ nucleus.name][:, k] += nucleus.pop_act/n_run
                 
     return avg_act
