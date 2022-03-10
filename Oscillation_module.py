@@ -10,7 +10,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.patheffects as pe
-from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter, AutoMinorLocator
 import matplotlib.gridspec as gridspec
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
@@ -29,6 +29,9 @@ try:
 except ImportError or ModuleNotFoundError:
     subprocess.check_call(
         [sys.executable, '-m', 'pip', 'install', 'jsonpickle'])
+import imageio
+from pygifsicle import optimize
+from PIL import Image
 
 # import jsonpickle
 # import decimal
@@ -1317,6 +1320,7 @@ class Nucleus:
     def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = [], n_bins = 20, 
                                     total_phase = 360, ref_nuc_name = 'self', neurons_ind = 'all', troughs = False):
         
+        ''' Note that it counts the spikes of all the neurons in the population '''
         all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
         if len( ref_peaks ) == 0: # if peaks are given as argument phases are calculated relative to them
             ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
@@ -1605,6 +1609,38 @@ def deg_to_rad(theta):
 def rad_to_deg(theta):
     return theta / np.pi * 180
 
+def create_gif_from_images(images_path, gif_filename, image_ext = 'png', fps = 24, 
+                           optimize_gif = False, loop = 1):
+    
+    images =[f for f in os.listdir(images_path) if f.endswith(image_ext)]
+    image_list = []
+    
+    for file_name in sorted(images):
+        image_list.append(imageio.imread( os.path.join(images_path, file_name)))    
+        
+    imageio.mimwrite( os.path.join(images_path, gif_filename + '.gif'), image_list, fps = fps, loop = loop)
+
+    if optimize_gif :
+        
+        optimize(os.path.join(images_path, gif_filename + '.gif'))
+        
+        
+def find_duration_gif(img_obj):
+    
+    img_obj.seek(0)  # move to the start of the gif, frame 0
+    tot_duration = 0
+    # run a while loop to loop through the frames
+    while True:
+        try:
+            frame_duration = img_obj.info['duration']  # returns current frame duration in milli sec.
+            tot_duration += frame_duration
+            # now move to the next frame of the gif
+            img_obj.seek(img_obj.tell() + 1)  # image.tell() = current frame
+        except EOFError:
+            return tot_duration # this will return the tot_duration of the gif
+        
+    return tot_duration
+
 def circular_bar_plot_as_hist(ax, frq, edges, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0):
     """
     Produce a circular histogram of angles on ax.
@@ -1744,7 +1780,7 @@ def reset_connections(nuclei_dict, K_real, N, N_real):
         for nucleus in nuclei_list:
 
             nucleus.set_connections(K, N)
-            
+
     return nuclei_dict
 
 def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list, c='grey', scale_g_with_N=True,
@@ -1868,6 +1904,7 @@ def reinitialize_nuclei_SNN( nuclei_dict, N, G, noise_amplitude, noise_variance,
             
             if reset_init_dist:
                 nucleus.set_init_distribution( nucleus.FR_ext_specs, poisson_prop, dt, t_sim)
+                
             nucleus.reset_synaptic_weights(G, N)
             nucleus.normalize_synaptic_weight()
             
@@ -2139,12 +2176,43 @@ def save_pop_act_into_dataframe_2d(nuclei_dict, start,data, i,m, j):
             
     return data
 
-
+def set_minor_locator(ax, n = 2, axis = 'x'):
+    
+    minor_locator = AutoMinorLocator(n)
+    
+    if axis == 'y':
+        ax.yaxis.set_minor_locator(minor_locator)
+        
+    if axis == 'x':
+        ax.xaxis.set_minor_locator(minor_locator)
+        
+    if axis == 'both':
+        ax.yaxis.set_minor_locator(minor_locator)
+        minor_locator = AutoMinorLocator(n)
+        ax.xaxis.set_minor_locator(minor_locator)
+        
+def set_minor_locator_all_axes(fig, n = 2, axis = 'x'):
+    
+    
+    for ax in fig.axes:
+        minor_locator = AutoMinorLocator(n)
+        
+        if axis == 'y':
+            ax.yaxis.set_minor_locator(minor_locator)
+            
+        if axis == 'x':
+            ax.xaxis.set_minor_locator(minor_locator)
+            
+        if axis == 'both':
+            ax.yaxis.set_minor_locator(minor_locator)
+            minor_locator = AutoMinorLocator(n)
+            ax.xaxis.set_minor_locator(minor_locator)
+        
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
                   ylabel = r'$ Mean \; neuron \; spike \; count/(4^{\circ} \; degrees)$',
-                  xlabel = 'phase (deg)'):
+                  xlabel = 'phase (deg)', coef = 1):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
@@ -2163,8 +2231,8 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             edges = data[(name,'rel_phase_hist')][0,0,1,:]
             centers = get_centers_from_edges(edges)
             
-            phase_hist_mean, phase_hist_std = get_mean_and_std_of_phase(data, n_g, name, n)
-            plot_mean_phase_plus_std(phase_hist_mean, phase_hist_std, name, n_g, ax, color_dict, centers, lw = 0.5)
+            phase_hist_mean, phase_hist_std, phase_frq_rel_sem = get_stats_of_phase(data, n_g, name, n, coef = coef)
+            plot_mean_phase_plus_std(phase_hist_mean , phase_hist_std, name, n_g, ax, color_dict, centers, lw = 0.5)
             phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = shift_phase)
             
             box_width = y_max_series[name] / 5
@@ -2174,35 +2242,75 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
                            box_y, y_max_series[name] , phase_txt_fontsize = phase_txt_fontsize)
             
             ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
-            ax.annotate(name, xy=(0.8,0.3),xycoords='axes fraction', color = color_dict[name],
+            ax.annotate(name, xy=(0.8,0.05),xycoords='axes fraction', color = color_dict[name],
                         fontsize= phase_txt_fontsize )
             fig.add_subplot(ax)
-            ax.set_xticks([0,180,360,540,720])
-            ax.yaxis.set_major_locator(MaxNLocator(2)) 
-            ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+            # ax.yaxis.set_major_locator(MaxNLocator(2)) 
 
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
             # ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
             #             np.max(phase_hist_mean + phase_hist_std))
             y_max = ( np.min(phase_hist_mean - phase_hist_std) * 0.5 + 
                      np.max(phase_hist_mean + phase_hist_std) )
             if set_ylim:
-                ax.set_ylim(0, y_max_series[name])
-                        
+                ax.set_ylim(0, y_max_series[name]  + y_max_series[name] * .1)
+            
+            
+            set_x_ticks_one_ax(ax, [0, 360, 720])
+            ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+            set_y_ticks_one_ax(ax, [0, y_max_series[name]])
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
             remove_frame(ax)
-    fig.text(0.5, 0.02, xlabel, ha='center',
+    
+    set_minor_locator_all_axes(fig, n = 2, axis = 'both')         
+    fig.text(0.5, 0.05, xlabel, ha='center',
                  va='center', fontsize=xlabel_fontsize)
     fig.text(-0.1, 0.5, ylabel, ha='center', va='center',
                  rotation='vertical', fontsize=ylabel_fontsize)
     return fig
 
+def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name, box_width, box_y, max_y, 
+                   phase_txt_fontsize = 10):
+    
+    highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
+    lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
+    middle = ( highest_point + lowest_point ) / 2
+    width = ( highest_point - lowest_point)
+    
+    width = max_y
+    bp = ax.boxplot(phases, positions = [box_y], vert=False,
+                sym = '', widths = box_width, whis =  (0, 100))
+    if np.average(phases) < 100:
+        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
+                xy=(np.average(phases), box_y -box_width * 1.5), color = color_dict[name], fontsize = phase_txt_fontsize)
+    else:
+        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
+                    xy=(np.average(phases) - 150, box_y - box_width* 1.5), color = color_dict[name], fontsize = phase_txt_fontsize)
+
+    bp = set_boxplot_prop(bp, [color_dict[name]])
+        
 def save_pdf_png(fig, figname, size = (8,6)):
     fig.set_size_inches(size, forward=False)
     fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    fig.savefig(figname + '.pdf', dpi = 500, #facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+def save_png(fig, figname, size = (8,6)):
+    fig.set_size_inches(size, forward=False)
+    fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+    
+def save_pdf(fig, figname, size = (8,6)):
+    fig.set_size_inches(size, forward=False)
     fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
+def set_x_tick_colors(ax, color_list):
+    
+    [t.set_color(i) for (i,t) in
+     zip(color_list,ax.xaxis.get_ticklabels())]
+    
     
 def normalize_PSDs(data, n_run, name, n_g):
     for run in range(n_run):
@@ -2216,8 +2324,9 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                 plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
                 normalize_PSD = True, include_AUC_ratio = False, x_y_label_size = 10,
                 ylabel_norm = 'Norm. Power ' + r'$(\times 10^{-2})$',
-                ylabel_PSD = 'PSD',
-                xlabel = 'Frequency (Hz)', peak_f_sd = False):
+                ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
+                xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
+                leg_lw = 4):
     
     fig = plt.figure()    
     data = load_pickle(filename)
@@ -2245,14 +2354,15 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                                                                      max_f = 250, n_pts_above_thresh = 3, 
                                                                      ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
 
-            
-            
-                   
+            leg_label = name 
+            if f_in_leg:
+                
+                leg_label += ' f= '+\
+                        r'$' + "{:.0f}". format(mean_peak_f)+ '\;Hz$'
+            if peak_f_sd:
+                leg_label += '$' +' \pm ' + "{:.1f}". format(sd_peak_f) + '$' + ' Hz'
             if err_plot == 'fill_between':
-                leg_label = name + ' f= '+\
-                        r'$' + "{:.2f}". format(mean_peak_f)+ '$'
-                if peak_f_sd:
-                    leg_label += '$' +' \pm ' + "{:.2f}". format(sd_peak_f) + '$' + ' Hz'
+
                 ax.plot(f, pxx_mean, color = color_dict[name], lw = .5, label = leg_label)
                 ax.fill_between(f, pxx_mean - pxx_std ,
                                 pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
@@ -2275,23 +2385,30 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
         ax.set_ylim(-0, max_pxx)
         ax.yaxis.set_major_locator(MaxNLocator(4)) 
         rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
-        ax.tick_params(axis='both', labelsize=tick_label_fontsize, pad=1)
+        ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
+        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
         remove_frame(ax)
         if xlim == None:
             ax.set_xlim(8,60)
         else:
             ax.set_xlim(xlim)
             
-        ax.legend(fontsize = legend_font_size, loc = legend_loc,  framealpha = 0.1, frameon = False)
+        if legend:
+            
+            leg = ax.legend(fontsize = legend_font_size, loc = legend_loc,  framealpha = 0.1, frameon = False)
+            [l.set_linewidth(leg_lw) for l in leg.get_lines()]
 
-    fig.text(0.5, -0.0005, xlabel, ha='center',
+    fig.text(0.5, -0.05, xlabel, ha='center',
                  va='center', fontsize=x_y_label_size)
     if normalize_PSD:
-        fig.text(0.001, 0.5, ylabel_norm, ha='center', va='center',
+        fig.text(-0.05, 0.5, ylabel_norm, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
     else:
-        fig.text(0.03, 0.5, ylabel_PSD, ha='center', va='center',
+        fig.text(0.01, 0.5, ylabel_PSD, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
+    if vspan:
+        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color)
+
     return fig
 
 def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
@@ -2308,11 +2425,14 @@ def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2',
         axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
         axins.yaxis.set_label_position(inset_yaxis_loc)
 
-def get_mean_and_std_of_phase(data, n_g, name, n):
+def get_stats_of_phase(data, n_g, name, n_neuron, coef):
     
-    phase_frq_rel_mean = np.average(data[(name,'rel_phase_hist')][n_g,:,0,:] / n, axis = 0)
-    phase_frq_rel_std = np.std(data[(name,'rel_phase_hist')][n_g,:,0,:] / n, axis = 0)
-    return phase_frq_rel_mean, phase_frq_rel_std
+    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g,:,0,:] / n_neuron * coef
+    phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
+    phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
+    phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = 0)
+    
+    return phase_frq_rel_mean, phase_frq_rel_std, phase_frq_rel_sem
 
 def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name, n_g, ax, color_dict, centers, lw = 1):
 
@@ -2332,26 +2452,7 @@ def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name
     phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
     return phases
 
-def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name, box_width, box_y, max_y, 
-                   phase_txt_fontsize = 10):
-    
-    highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
-    lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
-    middle = ( highest_point + lowest_point ) / 2
-    width = ( highest_point - lowest_point)
-    
-    width = max_y
-    bp = ax.boxplot(phases, positions = [box_y], vert=False,
-                sym = '', widths = box_width, whis =  (0, 100))
-    if np.average(phases) < 100:
-        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                xy=(np.average(phases), box_y -box_width), color = color_dict[name], fontsize = phase_txt_fontsize)
-    else:
-        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                    xy=(np.average(phases) - 100, box_y - box_width), color = color_dict[name], fontsize = phase_txt_fontsize)
 
-    bp = set_boxplot_prop(bp, [color_dict[name]])
-        
 def set_boxplot_prop(bp, color_list):
     # for patch, color in zip(bp['boxes'], colors): 
     #     patch.set_facecolor(color) 
@@ -2461,7 +2562,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                                           normalize_G_by_N= False, save_FR_ext=False,
                                                           state = state)
 
-            print_syn_weights(nuclei_dict)
+            # print_syn_weights(nuclei_dict)
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             if save_pop_act:
                 data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
@@ -2617,25 +2718,29 @@ def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict,
             
             print(' {} from {} runs'.format(j + 1 , n_run))
             # print(G)
-            nuclei_dict = reset_connections(nuclei_dict, K_real, N, N_real)
+            nuclei_dict = reset_connections(nuclei_dict, K_all[state_1], N, N_real)
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance[state_1], Act[state_1],
                                                   A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                   reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                                   normalize_G_by_N= True)  
-            
+            # print_syn_weights(nuclei_dict)
+
             if reset_init_dist:
-                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                                       all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                                       end_of_nonlinearity = end_of_nonlinearity, 
-                                                                       set_FR_range_from_theory = False, method = 'collective', 
-                                                                       use_saved_FR_ext= use_saved_FR_ext,
-                                                                       normalize_G_by_N= False, save_FR_ext=False,
-                                                                       state = state_1)
+                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_all[state_1], 
+                                                                      receiving_pop_list, nuclei_dict,t_list, 
+                                                                        all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
+                                                                        end_of_nonlinearity = end_of_nonlinearity, 
+                                                                        set_FR_range_from_theory = False, method = 'collective', 
+                                                                        use_saved_FR_ext= use_saved_FR_ext,
+                                                                        normalize_G_by_N= False, save_FR_ext=False,
+                                                                        state = state_1)
+                
             nuclei_dict = change_states(G, noise_variance, noise_amplitude,  path, receiving_class_dict, 
                                         receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
                                         K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
                                         end_of_nonlinearity )
             # print_syn_weights(nuclei_dict)
+            # print_syn_weights_in_connectivity_mat(nuclei_dict)
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
             if save_pop_act:
@@ -4206,7 +4311,7 @@ def create_sparse_matrix(matrix, end=None, start=0):
     n_cols = matrix.shape[1]
     if end == None:
         end = n_cols
-    return np.array([np.where(matrix[i, int(start):int(end)] == 1)[0] for i in range(n_rows)], dtype=object) + int(start)
+    return np.array([np.where(matrix[i, int(start):int(end)] == 1)[0] for i in range(n_rows)], dtype=object)  + int(start)
 
 def get_corr_key_to_val(mydict, value):
     
@@ -4221,34 +4326,7 @@ def get_axes(ax, figsize=(6, 5)):
     return plt.gcf(), ax
 
 
-def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label_fontsize=10, title_fontsize=15, linelengths=2.5, lw=3,
-                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal',
-                xlim=None, include_nuc_name = True, x_tick_length = 7, remove_ax_frame = False, y_tick_length = 2):
-    
-    fig, ax = get_axes(ax)
 
-    ax.eventplot(spikes_sparse, colors=color_dict[name],
-                 linelengths=linelengths, lw=lw, orientation= orientation)
-    
-    if include_nuc_name:
-        ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
-        
-    if axvspan:
-        ax.axvspan(span_start, span_end, alpha=0.2, color=axvspan_color)
-
-    if xlim != None:
-        ax.set_xlim(xlim)
-        
-    ax.legend(loc='upper right', framealpha=0.1, frameon=False)
-    ax.tick_params(axis='y', length = y_tick_length)
-    ax.tick_params(axis='x', length = x_tick_length)
-    ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-    
-    if remove_ax_frame:
-        remove_frame(ax)
-    ax_label_adjust(ax, fontsize=tick_label_fontsize, nbins=4)
-    
-    return ax
 
 
 
@@ -4313,7 +4391,9 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
     return fig
 
 def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'auto', 
-                               alpha = 0.2, hatch = '/', zorder = 1, edgecolor = None):
+                               alpha = 0.2, hatch = '/', zorder = 1, edgecolor = None,
+                               annotate_fontsize = 14, nbins = 4, ticklabel_fontsize = 12,
+                               title_fontsize = 18):
     figs = {}
     FR_df = {}
     for state in state_list:
@@ -4330,31 +4410,36 @@ def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'a
                 ax.bar( edges[:-1], freq / len(FR) * 100,  
                        width=np.append(width, width[-1]), 
                        align = 'edge', facecolor = color_dict[name],
-                        label = name + ' De La Crompe (2020)',  alpha = alpha, 
+                        label = 'De La Crompe (2020)',  alpha = alpha, 
                         hatch = hatch, edgecolor = edgecolor,   
                         zorder = zorder, lw = 2)
                 plt.rcParams['hatch.linewidth'] = 3
                 
                 ax.annotate( r'$ FR = {0} \pm {1} \; Hz$'.format( round (np.average( FR) , 2) , round( np.std( FR), 2) ),
-                            xy=(0.5,0.7),xycoords='axes fraction', color = color_dict[name],
-                            fontsize=14, alpha = alpha)
+                            xy=(0.5,0.6),xycoords='axes fraction', color = color_dict[name],
+                            fontsize= annotate_fontsize, alpha = alpha)
                 print(name, state,
                       ' mean = ', np.round( np.average(FR), 2), 
                       ' std = ', np.round( np.std(FR), 2),
                       ' n = ', len(FR))
             except ValueError:
                 pass
-        ax.set_title(state, fontsize =15)
+        ax.set_title(state + ' ' + name, fontsize =15)
         ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
         ax.set_ylabel('% of population', fontsize=15)
+        ax.locator_params(axis='y', nbins=nbins)
+        ax.locator_params(axis='x', nbins=nbins)
+        ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-        ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
-        
+        ax.legend(fontsize=15,  framealpha = 0.1, frameon = False, loc = 'upper right')
+        remove_frame(ax)
     return figs
 
 def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
                          alpha = 0.2, start = 0, log_hist = False, box_plot = False, 
-                         n_pts = 50, only_non_zero = False):
+                         n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
+                         label_fontsize = 18, ticklabel_fontsize = 12,
+                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest'):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
@@ -4379,8 +4464,8 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
             width = np.diff(edges[:-1])
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , 
                                                              round( FR_std_neurons, 2) ),
-                        xy=(0.5,0.55),xycoords='axes fraction', color = color_dict[nucleus.name],
-             fontsize=14, alpha = alpha)
+                        xy=(0.5,0.5),xycoords='axes fraction', color = color_dict[nucleus.name],
+             fontsize= annotate_fontsize, alpha = alpha)
             
             print(r' FR = {0} ±  {1}  Hz'.format( round (np.average( FR_mean_neurons_all) , 2) , 
                                                   round(np.std(FR_mean_neurons_all) , 2) ))
@@ -4394,21 +4479,28 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                     median.set(color = 'k', 
                                linewidth = 0.5) 
                 xs = np.random.normal(1, 0.04, n_pts)
-                # print(len(xs), len(FR_mean_neurons[:n_pts]))
                 ax.scatter(xs, FR_mean_neurons[:n_pts], c= color_dict[nucleus.name], alpha=0.4, s = 10, ec = 'k', zorder = 1)
-                ax.tick_params(axis='x', labelsize= 10)
-                ax.tick_params(axis='y', labelsize= 12)
+
             else:
                 ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
-                       label=nucleus.name,  alpha =alpha, zorder = zorder)
+                       label='Simulation',  alpha =alpha, zorder = zorder)
+                
     if log_hist and not box_plot:
         ax.set_xscale("log")
-    ax.set_xlabel('Firing Rate (spk/s)', fontsize=15)
-    ax.set_ylabel('% of population', fontsize=15)
+        
+    ax.set_title(state + ' ' + nucleus.name, fontsize = title_fontsize)
+    ax.set_xlabel('Firing Rate (spk/s)', fontsize=label_fontsize)
+    ax.set_ylabel('% of population', fontsize= label_fontsize)
     # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+    ax.locator_params(axis='y', nbins=nbins)
+    ax.locator_params(axis='x', nbins=nbins)
+    ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+    remove_frame(ax)
+    
     if only_non_zero:
         ax.set_title(' Only spontaneously active' , fontsize=15)
+        
     return fig
 
 def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
@@ -4436,7 +4528,7 @@ def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zor
                     label=nucleus.name,  alpha =alpha, zorder = zorder)
             ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI) , 2) , round( ISI_std, 2) ),
                         xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
-             fontsize=14, alpha = alpha)
+                        fontsize=14, alpha = alpha)
             
     if log_hist:
         ax.set_xscale("log")
@@ -4514,11 +4606,43 @@ def get_str_of_A_with_state(name_list, Act, state):
         As += name + '_' + str(np.round(Act[state][name], 2)).replace('.', '-') + '_'
     return As[:-1]
 
+def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label_fontsize=10, title_fontsize=15, linelengths=2.5, lw=3,
+                axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal',
+                xlim=None, include_nuc_name = True, y_tick_length = 2, x_tick_length = 5, remove_ax_frame = False):
+    
+    fig, ax = get_axes(ax)
+
+    ax.eventplot(spikes_sparse, colors=color_dict[name],
+                 linelengths=linelengths, lw=lw, orientation= orientation)
+    
+    if include_nuc_name:
+        ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
+        
+    if axvspan:
+        ax.axvspan(span_start, span_end, alpha=0.2, color=axvspan_color)
+
+    if xlim != None:
+        ax.set_xlim(xlim)
+        
+    ax.legend(loc='upper right', framealpha=0.1, frameon=False)
+    ax.tick_params(which = 'both', axis='x', length = x_tick_length, labelsize=tick_label_fontsize)
+    ax.tick_params(which = 'both', axis='y', length = y_tick_length, labelsize=tick_label_fontsize)
+
+    if remove_ax_frame:
+        remove_frame(ax)
+    
+    return ax
+def rm_ax_unnecessary_labels_in_fig(fig):
+    
+    n = len(fig.axes)
+    for j, ax in enumerate(fig.axes):
+        rm_ax_unnecessary_labels_in_subplots(j, n, ax)
+        
 def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_end=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, neurons =[],
-                            ylabel_x = 0.03, include_nuc_name = True, name_list = None, remove_ax_frame = True, y_tick_length = 2, 
-                            x_tick_length = 5, axis_linewidth = 0.5):
+                            ylabel_x = 0.03, include_nuc_name = True, name_list = None, remove_ax_frame = True, 
+                            tick_length = 10, axis_linewidth = 0.5, t_shift = 0,  x_tick_length = 5, y_tick_length = 2):
     
     if name_list == None:
         name_list = list(nuclei_dict.keys())
@@ -4548,24 +4672,38 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
             neurons = np.random.choice(nucleus.n, n_neuron, replace=False)
             
         spikes_sparse = create_sparse_matrix(nucleus.spikes[neurons, :], end=(
-                                            plot_end / dt), start=(plot_start / dt)) * dt
+                                            plot_end / dt), start=(plot_start / dt)) * dt - t_shift
         if set_xlim:
-            xlim = [plot_start, plot_end]
+            xlim = [plot_start - t_shift, plot_end - t_shift]
             
         else: 
             xlim = None
             
+        if span_end != None:
+            span_end_n = span_end - t_shift
+            
+        else: span_end_n = span_end
+        
+        if span_start != None:
+            span_start_n = span_start - t_shift
+            
+        else:  span_start_n = span_start
+        
         c_dict = color_dict.copy()
         c_dict['Arky'] = 'darkorange'
         ax = raster_plot(spikes_sparse, nucleus.name, c_dict,  ax=ax, tick_label_fontsize=tick_label_fontsize, 
                          title_fontsize=title_fontsize, linelengths=linelengths, lw=lw, xlim=xlim,
-                        axvspan=axvspan, span_start=span_start, span_end=span_end, axvspan_color=axvspan_color,
+                        axvspan=axvspan, span_start = span_start_n, span_end = span_end_n, axvspan_color=axvspan_color,
                         include_nuc_name = include_nuc_name, remove_ax_frame = remove_ax_frame, 
-                        y_tick_length = y_tick_length, x_tick_length = x_tick_length)
+                         x_tick_length = x_tick_length, y_tick_length = y_tick_length)
         fig.add_subplot(ax)
         set_axis_thickness(ax, linewidth  = axis_linewidth)
+        set_y_ticks_one_ax(ax, [0, n_neuron])
         rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
 
+    set_minor_locator_all_axes(fig, n = 2, axis = 'x')
+
+    
     if ax_label:
         fig.text(0.5, 0.03, 'time (ms)', ha='center',
                  va='center', fontsize=labelsize)
@@ -4573,21 +4711,24 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
                  rotation='vertical', fontsize=labelsize)
     return fig
 
-def raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=0, plot_=None, tick_label_fontsize=18,
+def raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',  plot_=None, tick_label_fontsize=18,
                             labelsize=15, title_fontsize=15, lw=1, linelengths=1, n_neuron=None, include_title=True, set_xlim=True,
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, n = 1000, 
-                            t_transition = None, t_sim = None, ylabel_x = 0.03, include_nuc_name = True):
+                            t_transition = None, t_sim = None, ylabel_x = 0.03, include_nuc_name = True,
+                            plot_start_state_1=0, plot_end_state_1=0, plot_start_state_2=0, plot_end_state_2=0):
     
     neurons = np.random.choice(n, n_neuron, replace=False )
     
-    fig_state_1 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start, plot_end = t_transition - 10,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=True,
-                            neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x, include_nuc_name=include_nuc_name)
+    fig_state_1 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_state_1, plot_end = plot_end_state_1,
+                                         labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=set_xlim,
+                                         neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x, include_nuc_name=include_nuc_name,
+                                         t_shift = plot_start_state_1)
     
-    fig_state_2 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = t_sim - (t_transition-10-plot_start), plot_end = t_sim,
-                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=True,
-                            axvspan = True, span_start = t_transition, span_end = t_sim, axvspan_color = axvspan_color, include_nuc_name=include_nuc_name,
-                            neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x)
+    fig_state_2 = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer = None, fig = None,  title = '', plot_start = plot_start_state_2, plot_end = plot_end_state_2,
+                            labelsize = labelsize, title_fontsize = title_fontsize, lw  = lw, linelengths = linelengths, n_neuron = n_neuron, include_title = include_title, set_xlim=set_xlim,
+                            axvspan = True, span_start = plot_start_state_2, span_end = plot_end_state_2 , axvspan_color = axvspan_color, include_nuc_name=include_nuc_name,
+                            neurons = neurons, ax_label = True, tick_label_fontsize = tick_label_fontsize, ylabel_x = ylabel_x,
+                            t_shift = plot_start_state_2)
     
     return fig_state_1, fig_state_2
 
@@ -5309,6 +5450,15 @@ def print_syn_weights(nuclei_dict):
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             print(nucleus.synaptic_weight_specs , '\n')
+      
+def print_syn_weights_in_connectivity_mat(nuclei_dict):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            for proj in nucleus.receiving_from_pop_name_list:
+                print( proj, 
+                      np.mean( nucleus.connectivity_matrix [proj, '1'][
+                          np.nonzero( nucleus.connectivity_matrix [proj, '1'] )] ) , '\n')
             
 def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
                                             receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
@@ -5839,7 +5989,8 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
          round_dec = 2, legend_loc = 'upper right', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
          tick_label_fontsize = 18, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
          tick_length = 8, title_pad = None, ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True,
-         xlim = None, lw = 1.5, legend_fontsize = 12, label_fontsize = 15):    
+         xlim = None, lw = 1.5, legend_fontsize = 12, label_fontsize = 15,
+         xlabel = "time (ms)"):    
 
     fig, ax = get_axes (ax)
     
@@ -5908,11 +6059,12 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
 
 
     ax.set_title(title, fontsize = title_fontsize, pad = title_pad)
-    ax.set_xlabel("time (ms)", fontsize = label_fontsize)
+    ax.set_xlabel(xlabel, fontsize = label_fontsize)
     ax.set_ylabel("firing rate (spk/s)", fontsize = label_fontsize,labelpad=ylabelpad)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)    
-    ax.tick_params(axis='y', length = tick_length)
-    ax.tick_params(axis='x', length = tick_length)
+    ax.tick_params(which = 'major', axis='both', length = tick_length)
+    ax.tick_params(which = 'minor', axis='both', length = tick_length * .75)
+
     remove_frame(ax)
     
     if vspan:
@@ -6462,7 +6614,7 @@ def synaptic_weight_space_exploration(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                          title_fontsize = 24, title = r'$|G_{Loop}|=$' + str(round(multiply_values_of_dict(G), 2)), continuous_firing_base_lines = False,
                          vspan = True, legend_fontsize=legend_fontsize, label_fontsize = 20)
             fig_t.set_size_inches((7, 5), forward=False)
-            fig_t.savefig( os.path.join(path, 'STN-Proto_n_' + str(i) + '.png'), dpi = 700, facecolor='w', edgecolor='w',
+            fig_t.savefig( os.path.join(path, 'STN-Proto_n_{:03d}.png'.format(i)), dpi = 150, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
             plt.close(fig_t)
@@ -7265,6 +7417,26 @@ def set_y_ticks(fig, label_list):
         ax.yaxis.set_major_locator(y_locator)
         
     return fig
+
+def set_y_ticks_one_ax(ax, label_list):
+    
+    
+    y_formatter = FixedFormatter([str(x) for x in label_list])
+    y_locator = FixedLocator(label_list)
+    ax.yaxis.set_major_formatter(y_formatter)
+    ax.yaxis.set_major_locator(y_locator)
+    
+    return ax
+
+def set_x_ticks_one_ax(ax, label_list):
+    
+    
+    x_formatter = FixedFormatter([str(x) for x in label_list])
+    x_locator = FixedLocator(label_list)
+    ax.xaxis.set_major_formatter(x_formatter)
+    ax.xaxis.set_major_locator(x_locator)
+    
+    return ax
 
 def set_y_lim_all_axis(fig, ylim):
     
