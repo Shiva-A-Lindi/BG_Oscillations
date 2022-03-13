@@ -627,9 +627,9 @@ create_gif_from_images(os.path.join(path, 'Loop_rest_freq'),
                         'Loop_rest_freq', image_ext = 'png', fps = 2, loop = 1)
 create_gif_from_images(os.path.join(path, 'Loop_state_freq'), 
                         'Loop_state_freq', image_ext = 'png', fps = 2, loop = 1)
-# create_gif_from_images(os.path.join(path_rate, 'STN-GP_anim'), 
-#                         'STN-GP_anim', image_ext = 'png', fps = 12, 
-#                         optimize_gif = True, loop = 1)
+create_gif_from_images(os.path.join(path_rate, 'STN-GP_anim'), 
+                        'STN-GP_anim', image_ext = 'png', fps = 12, 
+                        optimize_gif = True, loop = 1, ext = '.mp4')
 
 # filepath = os.path.join(path_rate, 'STN-GP_anim', 'STN-GP_anim.gif')
 # filepath = os.path.join(path_rate, 'STN-GP_anim', 'STN-Proto_amplitude_ratio.gif')
@@ -1036,7 +1036,7 @@ FR_ext_specs = { name : { state : {'mean': 0, 'sd': sd, 'truncmin': 0, 'truncmax
                 for name, sd_dict in FR_ext_sd_dict.items() }
 plt.close('all')
 name = 'D2'
-# name = 'FSI'
+name = 'FSI'
 # name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
@@ -1209,7 +1209,8 @@ elif state in list (bins[name].keys() ):
                                         bins = _bins,
                                         ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
                                         log_hist = log_hist, only_non_zero= only_non_zero, box_plot =box_plot,
-                                        annotate_fontsize = 18, state = state)
+                                        legend_fontsize = 18, label_fontsize = 20, ticklabel_fontsize = 20,
+                                        annotate_fontsize = 20, nbins = 4, state = state)
 try:
     save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_' + state + '_'),
               size=(6, 5))
@@ -10964,7 +10965,7 @@ filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_100
 y_max_series = {'D2': 0.05, 'STN': 0.50, 'Arky': 0.25, 'Proto': 0.32, 'FSI': .08}
 coef = 10**2
 y_max_series = {k: v * coef for k, v in y_max_series.items()}
-name_list = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
+name_list = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto']
 n_g_list = np.array([0])
 ref_nuc_name = 'D2'
 # ylabel = r'$ Mean \; neuron \; spike \; count/(4^{\circ} \; degrees)$'
@@ -12988,41 +12989,62 @@ scatter_2d_plot(np.squeeze(data['g'][:, :, 1]), np.squeeze(data[(name, param)]),
 plt.axvline(g_transient[1], c='k')
 # %% RATE MODEL : FSI-D2-Proto loop without GPe-GPe
 
-g = -1.7
+plt.close('all')
+N_sim = 100
+N = dict.fromkeys(N, N_sim)
+
+if_plot = False
 dt = 0.1
-t_sim = 1700
+t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
-t_mvt = 1000
+t_mvt = 700
 D_mvt = t_sim - t_mvt
 duration_mvt = [int((t_mvt)/dt), int((t_mvt+D_mvt)/dt)]
 duration_base = [0, int(t_mvt/dt)]
-G = {}
+plot_start = t_mvt - 200
+plot_duration = 600
 
-name_list = {'Proto', 'D2', 'FSI'}
+name1 = 'Proto'
+name2 = 'D2'
+name3 = 'FSI'
+name_list = [name1, name2, name3]
 
-G[('D2', 'FSI')], G[('FSI', 'Proto')], G[('Proto', 'D2')] = g, g, g
+g = - np.power( 1.5 , 1/3 )
+G = {
+    (name2, name3): g,
+    (name3, name1): g,
+    (name1, name2): g
+}
 
-receiving_pop_list = {('FSI', '1'): [('Proto', '1')],
-                      ('Proto', '1'): [('D2', '1')],
-                      ('D2', '1'): [('FSI', '1')]}
-
-(synaptic_time_constant[('D2', 'FSI')],
- synaptic_time_constant[('FSI', 'Proto')],
- synaptic_time_constant[('Proto', 'D2')]) = [10], [10], [10]
+state_1 = 'awake_rest'
+state_2 = 'mvt'
 
 
+receiving_pop_list = {(name3, '1'): [(name1, '1')],
+                      (name1, '1'): [(name2, '1')],
+                      (name2, '1'): [(name3, '1')]}
+
+(synaptic_time_constant[(name2, name3)],
+ synaptic_time_constant[(name3, name1)],
+ synaptic_time_constant[(name1, name2)]) = [10], [10], [10]
+
+
+lim_n_cycle = [6, 10]
 pop_list = [1]
-
-nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance, noise_amplitude,
-                              N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude,
+                              N, Act[state_1], Act[state_2], name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
-receiving_class_dict = set_connec_ext_inp(
-    A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
+    Act[state_1], Act[state_2], D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list)
+
 
 run(receiving_class_dict, t_list, dt, nuclei_dict)
-fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax=None, plot_start=500, title_fontsize=15, include_FR=False, axvspan_color='lightskyblue',
-           title=r"$G_{FD}="+str(round(G[('D2', 'FSI')], 2))+"$ "+", $G_{PF}="+str(round(G[('FSI', 'Proto')], 2))+"$"+", $G_{DP}="+str(round(G[('Proto', 'D2')], 2))+"$")
+                                      
+fig_trans = plot(nuclei_dict,color_dict, dt, t_list, Act[state_1], Act[state_2], t_mvt, D_mvt, 
+                 plot_end = plot_start + plot_duration, include_FR = False, plot_start = plot_start_trans,
+                 title_fontsize = 15, title = 'Transient Oscillation', continuous_firing_base_lines = False,
+                 vspan = True)
 
 name = 'FSI'
 nucleus = nuclei_dict[name][0]
@@ -13031,10 +13053,11 @@ state = 'Transient'
 # figname = 'FSI-Proto-D2 loop without Proto-Proto_' + state
 # fig.savefig(os.path.join(path_rate, figname+'.png'),dpi = 300)
 # fig.savefig(os.path.join(path_rate, figname+'.pdf'),dpi = 300)
-find_freq_of_pop_act_spec_window(nucleus, *duration_mvt, dt, peak_threshold=nucleus.oscil_peak_threshold,
-                                 smooth_kern_window=nucleus.smooth_kern_window, check_stability=True)
-temp_oscil_check(nuclei_dict[name][0].pop_act,
-                 oscil_peak_threshold[name], 3, dt, *duration_base)
+n_half_cycles, last_first_peak_ratio , freq, if_stable = find_freq_of_pop_act_spec_window(nucleus, *duration_mvt, dt, peak_threshold=nucleus.oscil_peak_threshold, 
+                                                                                          cut_plateau_epsilon = 0.001,
+                                                                                          smooth_kern_window=nucleus.smooth_kern_window, check_stability=True, plot_oscil = True)
+print( "n_half_cycles = {0}, last_first_peak_ratio = {1} , \n \
+      freq = {2}, if_stable = {3}".format( n_half_cycles, last_first_peak_ratio , freq, if_stable))
 # %% RATE MODEL : FSI-D2-Proto tau-sweep
 
 n = 10
@@ -13211,7 +13234,7 @@ N = dict.fromkeys(N, N_sim)
 
 if_plot = False
 dt = 0.1
-t_sim = 2500
+t_sim = 20000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 700
 D_mvt = t_sim - t_mvt
@@ -13234,8 +13257,9 @@ name_list = {name1, name2, name3}
 # G_list = np.linspace(-5.8, 0, n, endpoint = True)
 
 transition_range = [2.46 - (2.695 - 2.46), 2.695]  # FSI Loop dt = 0.5
-transition_range = np.array([ -10**-8 , 10** -10]) + 2.7538740986# FSI Loop dt = 0.1
-
+transition_range = np.array([ -10**-8 , 10** -10]) + 2.753874098# FSI Loop dt = 0.1
+half = (2.886417402 -  2.7538740981 ) /2
+transition_range = np.array([  2.7538740981 - half , 2.886417402 - half])# FSI Loop dt = 0.1
 
 # transition_range = [1.903 - (1.915 - 1.903), 1.915]  # Arky Loop dt = 0.1
 
@@ -13243,7 +13267,7 @@ transition_range = np.array([ -10**-8 , 10** -10]) + 2.7538740986# FSI Loop dt =
 # G_list = pad_high_res_spacing_with_arange(
 #     1, transition_range[0], 1/25, transition_range[1], 5.8,  1/8, 22, base = 1.05)
 G_list = pad_high_res_spacing_with_arange(
-    1, transition_range[0], 1/4, transition_range[1], 6.2,  1/3, 50, base = 4)
+    1, transition_range[0], 1/35, transition_range[1], 6.2,  1/10, 50, base = 1.2)
 
 G_list = - np.power(abs(G_list), 1/3)
 n = len(G_list)
@@ -13617,7 +13641,7 @@ anim = animation.FuncAnimation(fig, animate, frames=len(r),
 # saving to gif using ffmpeg writer
 writer = animation.FFMpegWriter(fps= 12)
 # writer=animation.PillowWriter(fps=12)
-anim.save( os.path.join(path_rate, 'STN-GP_anim' , 'STN-Proto_amplitude_ratio.gif'), writer=writer)
+anim.save( os.path.join(path_rate, 'STN-GP_anim' , 'STN-Proto_amplitude_ratio.mp4'), writer=writer)
 plt.close()
 
 
