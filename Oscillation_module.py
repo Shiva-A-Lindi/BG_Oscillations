@@ -1610,21 +1610,25 @@ def rad_to_deg(theta):
     return theta / np.pi * 180
 
 def create_gif_from_images(images_path, gif_filename, image_ext = 'png', fps = 24, 
-                           optimize_gif = False, loop = 1, ext = '.gif'):
+                           optimize_gif = False, loop = None, ext = '.gif'):
     
     images =[f for f in os.listdir(images_path) if f.endswith(image_ext)]
     image_list = []
-    
+    kargs = { 'macro_block_size': None }
+
     for file_name in sorted(images):
         image_list.append(imageio.imread( os.path.join(images_path, file_name)))    
         
     if ext == '.gif':
-        imageio.mimwrite( os.path.join(images_path, gif_filename + ext), image_list, fps = fps, loop = loop)
+        if loop != None:
+            imageio.mimwrite( os.path.join(images_path, gif_filename + ext), image_list, fps = fps, loop = loop)
+        else:
+            imageio.mimwrite( os.path.join(images_path, gif_filename + ext), image_list, fps = fps)
         if optimize_gif:
         
             optimize(os.path.join(images_path, gif_filename + ext))
     else:
-        imageio.mimwrite( os.path.join(images_path, gif_filename + ext), image_list, fps = fps)
+        imageio.mimwrite( os.path.join(images_path, gif_filename + ext), image_list, fps = fps)#, **kargs)
 
 
         
@@ -2211,12 +2215,106 @@ def set_minor_locator_all_axes(fig, n = 2, axis = 'x'):
             ax.yaxis.set_minor_locator(minor_locator)
             minor_locator = AutoMinorLocator(n)
             ax.xaxis.set_minor_locator(minor_locator)
+
+def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name = 'Proto', total_phase = 720, 
+                        n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
+                        ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
+                        ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
+                        xlabel = 'phase (deg)', coef = 1, lw = 0.5, name_fontsize = 8, 
+                        name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.15,
+                        xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8,
+                        phase_txt_yshift_coef = 1.4, name_side = 'right',
+                        print_stat_phase = True, strip_plot = False, box_plot = True,
+                        phase_text_x_shift = 150):
+    
+    fig = plt.figure(figsize = (5, 15))
+    outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
+    
         
+
+    inner = gridspec.GridSpecFromSubplotSpec(len(name_list), 1,
+            subplot_spec=outer[0], wspace=0.1, hspace=0.1)
+    
+    for j, name in enumerate(name_list):
+        ax = plt.Subplot(fig, inner[j])
+    
+        
+        plot_mean_phase_plus_std(phase_dict[name]['count'] , phase_dict[name]['SEM'], name, ax, 
+                                 color_dict, angles, lw = lw, alpha = alpha)
+        
+        box_width = y_max_series[name] / 5
+        box_y = y_max_series[name] / 3
+        
+        if box_plot:
+            boxplot_phases(ax, color_dict, phase_dict[name]['phase'], name, box_width, 
+                           box_y, y_max_series[name] , phase_txt_fontsize = phase_txt_fontsize,
+                           phase_txt_yshift_coef = phase_txt_yshift_coef ,
+                           print_stat_phase = print_stat_phase,
+                           text_x_shift = phase_text_x_shift)
+            
+        ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
+        xy_dict_n_plot = {'STN' : (0.7, 0.8),
+                          'Proto': (0.7, 0.4),
+                          'Arky': (0.7, 0.8)}
+        print_n_neurons(ax, phase_dict[name]['n'] , name, color_dict[name], n_fontsize,xy_dict_n_plot[name])
+
+        fig.add_subplot(ax)
+
+        if set_ylim:
+            ax.set_ylim(0, y_max_series[name]  + y_max_series[name] * .1)
+        
+        
+        set_x_ticks_one_ax(ax, [0, 360, 720])
+        ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+        set_y_ticks_one_ax(ax, [0, y_max_series[name]])
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax, axis = 'x')
+        remove_frame(ax)
+        
+    if strip_plot:
+        
+        fig = remove_all_labels(fig)
+    else:
+        
+        fig.text(0.5, xlabel_y, xlabel, ha='center',
+                     va='center', fontsize=xlabel_fontsize)
+        fig.text(ylabel_x, 0.5, ylabel, ha='center', va='center',
+                     rotation='vertical', fontsize=ylabel_fontsize)
+    return fig
+
+def read_Brice_phase_hist(filename, name_list, fig_ind_hist, fig_ind_phase, angle_header):
+    
+
+    name_list_Brice = ['STN', 'Arkypallidal', 'Prototypic']
+    
+    xls = pd.ExcelFile(filename)
+    data = pd.read_excel(xls, 'Fig 3', header = [0, 1, 2])#, skiprows = [0])
+
+    coef = 1000
+    
+    angles = data[fig_ind_hist, angle_header, 'Angle(in °)'].values
+    angles = angles[~ np.isnan( angles) ]
+    n_angles = len(angles)
+    
+    phase_dict = {name: {'count' : data[fig_ind_hist, name_k, 'MEAN count/degree'].values [:n_angles]  * coef,
+                         'SEM': data[fig_ind_hist, name_k, 'SEM'].values [:n_angles] * coef,
+                         'phase': data[fig_ind_phase, name_k, 'Phase Angle'].values [
+                                  ~ np.isnan(data[fig_ind_phase, name_k, 'Phase Angle'].values)] ,
+                              
+                         'n' : int( data[fig_ind_hist, name_k, 'NB'].values[0]) }
+                  for name_k, name  in zip(name_list_Brice, name_list)}
+    
+    return angles, phase_dict
+
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
-                  ylabel = r'$ Mean \; neuron \; spike \; count/(4^{\circ} \; degrees)$',
-                  xlabel = 'phase (deg)', coef = 1):
+                  ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
+                  xlabel = 'phase (deg)', coef = 1, lw = 0.5, name_fontsize = 8, 
+                  name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.1,
+                  xlabel_y = 0.05, ylabel_x = -0.1, phase_txt_yshift_coef = 1.5,
+                  name_side = 'right', print_stat_phase = True, strip_plot = False,
+                  box_plot = True, phase_text_x_shift = 150):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
@@ -2225,72 +2323,187 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
     
     n_run = data[(name_list[0], 'rel_phase')].shape[1] 
     
+    name_ylabel_pad = handle_label_pads(name_list, name_ylabel_pad)
+    
     for i, n_g in enumerate(n_g_list):
+        
         inner = gridspec.GridSpecFromSubplotSpec(len(name_list), 1,
                 subplot_spec=outer[i], wspace=0.1, hspace=0.1)
         
         for j, name in enumerate(name_list):
+            
             ax = plt.Subplot(fig, inner[j])
             
             edges = data[(name,'rel_phase_hist')][0,0,1,:]
             centers = get_centers_from_edges(edges)
             
             phase_hist_mean, phase_hist_std, phase_frq_rel_sem = get_stats_of_phase(data, n_g, name, n, coef = coef)
-            plot_mean_phase_plus_std(phase_hist_mean , phase_hist_std, name, n_g, ax, color_dict, centers, lw = 0.5)
-            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = shift_phase)
+            plot_mean_phase_plus_std(phase_hist_mean , phase_hist_std, name,ax, 
+                                     color_dict, centers, lw = lw, alpha = alpha)
+            
+            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, 
+                                              shift_phase = shift_phase)
             
             box_width = y_max_series[name] / 5
             box_y = y_max_series[name] / 3
             
-            boxplot_phases(ax, phase_hist_mean, phase_hist_std, color_dict, phases, name, box_width, 
-                           box_y, y_max_series[name] , phase_txt_fontsize = phase_txt_fontsize)
+            if box_plot:
+                boxplot_phases(ax, color_dict, phases, name, box_width, 
+                               box_y, y_max_series[name] , 
+                               text_x_shift=phase_text_x_shift,
+                               phase_txt_fontsize = phase_txt_fontsize,
+                               phase_txt_yshift_coef = phase_txt_yshift_coef,
+                               print_stat_phase = print_stat_phase)
+                
             
-            ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
-            ax.annotate(name, xy=(0.8,0.05),xycoords='axes fraction', color = color_dict[name],
-                        fontsize= phase_txt_fontsize )
-            fig.add_subplot(ax)
-            # ax.yaxis.set_major_locator(MaxNLocator(2)) 
-
-            # ax.set_ylim(np.min(phase_hist_mean - phase_hist_std), 
-            #             np.max(phase_hist_mean + phase_hist_std))
-            y_max = ( np.min(phase_hist_mean - phase_hist_std) * 0.5 + 
-                     np.max(phase_hist_mean + phase_hist_std) )
+            print_pop_name(ax, name, color_dict[name], name_ylabel_pad[j], name_fontsize, 
+                           name_place, name_side)
+            
             if set_ylim:
                 ax.set_ylim(0, y_max_series[name]  + y_max_series[name] * .1)
-            
-            
+                
+            fig.add_subplot(ax)
+            ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
             set_x_ticks_one_ax(ax, [0, 360, 720])
             ax.tick_params(axis='both', labelsize=tick_label_fontsize)
             set_y_ticks_one_ax(ax, [0, y_max_series[name]])
             ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-            rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax)
+            rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax, axis = 'x')
             remove_frame(ax)
+            
+    set_minor_locator_all_axes(fig, n = 2, axis = 'both') 
     
-    set_minor_locator_all_axes(fig, n = 2, axis = 'both')         
-    fig.text(0.5, 0.05, xlabel, ha='center',
-                 va='center', fontsize=xlabel_fontsize)
-    fig.text(-0.1, 0.5, ylabel, ha='center', va='center',
-                 rotation='vertical', fontsize=ylabel_fontsize)
+    if strip_plot:
+        
+        fig = remove_all_labels(fig)
+    else:
+        
+        fig.text(0.5, xlabel_y, xlabel, ha='center',
+                     va='center', fontsize=xlabel_fontsize)
+        fig.text(ylabel_x, 0.5, ylabel, ha='center', va='center',
+                     rotation='vertical', fontsize=ylabel_fontsize)
     return fig
 
-def boxplot_phases(ax, phase_frq_rel_mean, phase_frq_rel_std, color_dict, phases,name, box_width, box_y, max_y, 
-                   phase_txt_fontsize = 10):
+def handle_label_pads(name_list, name_ylabel_pad):
     
-    highest_point = np.max(phase_frq_rel_mean + phase_frq_rel_std)
-    lowest_point = np.min(phase_frq_rel_mean - phase_frq_rel_std)
-    middle = ( highest_point + lowest_point ) / 2
-    width = ( highest_point - lowest_point)
-    
-    width = max_y
-    bp = ax.boxplot(phases, positions = [box_y], vert=False,
-                sym = '', widths = box_width, whis =  (0, 100))
-    if np.average(phases) < 100:
-        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                xy=(np.average(phases), box_y -box_width * 1.5), color = color_dict[name], fontsize = phase_txt_fontsize)
-    else:
-        ax.annotate(r'$' + "{:.1f}". format(np.average(phases)) + ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + '^{\circ}$', 
-                    xy=(np.average(phases) - 150, box_y - box_width* 1.5), color = color_dict[name], fontsize = phase_txt_fontsize)
+    if type(name_ylabel_pad) == int:
+        name_ylabel_pad = [name_ylabel_pad] * len(name_list)
+        
+    if len(name_ylabel_pad) < len(name_list):
+        raise('unequal labelpad lengths as nuclei')
 
+    return name_ylabel_pad
+
+def print_pop_name(ax, name, color, label_pad, name_fontsize, name_place, name_side):
+    
+    if name_place == 'in plot':
+        
+        ax.annotate(name, xy = (0.8,0.05), xycoords='axes fraction', color = color,
+                    fontsize = name_fontsize )
+        
+    elif name_place == 'ylabel':
+        if name_side == 'right':
+            
+            ax.yaxis.set_label_position("right")
+        ax.set_ylabel(name, fontsize = name_fontsize, color = color, labelpad = label_pad)
+       
+def print_n_neurons(ax, n, name, color, name_fontsize, xy):
+
+        
+    ax.annotate('n=' + str(n), xy = xy, xycoords='axes fraction', color = color,
+                    fontsize = name_fontsize )
+
+def print_average_phase(ax, phases , text_x_shift,  phase_txt_fontsize, color, y = 0):
+
+    text = r'$' + "{:.1f}". format(np.average(phases)) + \
+            ' ^{\circ} \pm ' + "{:.1f}". format(np.std(phases)) + \
+            '^{\circ}$'
+            
+    x = np.average(phases)
+    
+    if np.average(phases) > 100:
+        x = x - text_x_shift
+
+    ax.annotate( text,  xy = (x, y), 
+                    color = color, fontsize = phase_txt_fontsize)
+        
+
+def get_stats_of_phase(data, n_g, name, n_neuron, coef):
+    
+    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g,:,0,:] / n_neuron * coef
+    phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
+    phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
+    phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = 0)
+    
+    return phase_frq_rel_mean, phase_frq_rel_std, phase_frq_rel_sem
+
+def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name,ax, color_dict, 
+                             centers, lw = 1, alpha = 0.1):
+
+    ax.plot(centers, phase_frq_rel_mean, color = color_dict[name], lw = lw)
+    ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
+                    phase_frq_rel_mean + phase_frq_rel_std, alpha = alpha , color = color_dict[name])
+    
+def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = None):
+    
+    phases= np.zeros(n_run)
+    ws= np.zeros(n_run)
+
+    for run in range(n_run):
+
+        y = data[(name,'rel_phase_hist')][n_g,run,0,:]
+        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
+    phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
+    return phases
+
+
+def pairwise(iterable):
+    ''' iterate through list pair by pair'''
+    "s -> (s0, s1), (s2, s3), (s4, s5), ..."
+    
+    a = iter(iterable)
+    
+    return zip(a, a)
+
+def set_boxplot_prop(bp, color_list, 
+                     linewidths = {'box': 0.8, 'whiskers': 0.5,
+                                   'caps': 0.5, 'median': 1}):
+
+    for color, patch in zip( color_list, bp['boxes']): 
+        patch.set(color = color, linewidth = linewidths['box']) 
+
+    # whiskers
+    for color, whiskers in zip(color_list, pairwise(bp['whiskers'])):
+        for whisker in list( whiskers) : 
+            whisker.set(color = color, 
+                        linewidth = linewidths['whiskers'])               
+
+    # caps 
+    for color, caps in zip(color_list, pairwise(bp['caps'])):    
+        for cap in caps: 
+            cap.set(color = color, 
+                    linewidth = linewidths['caps']) 
+           
+    # medians 
+    for color, median in zip( color_list, bp['medians']): 
+        median.set(color =color, 
+                    linewidth =linewidths['median']) 
+
+    return bp
+
+def boxplot_phases(ax, color_dict, phases,name, box_width, box_y, width, 
+                   phase_txt_fontsize = 10, phase_txt_yshift_coef = 1.5,
+                   text_x_shift = 150, print_stat_phase = True):
+    
+    
+    bp = ax.boxplot(phases, positions = [box_y], vert=False,
+                    sym = '', widths = box_width, whis =  (0, 100))
+    if print_stat_phase:
+        
+        print_average_phase(ax, phases , text_x_shift,
+                            phase_txt_fontsize, color_dict[name], 
+                            y = box_y - box_width * phase_txt_yshift_coef )
+    
     bp = set_boxplot_prop(bp, [color_dict[name]])
         
 def save_pdf_png(fig, figname, size = (8,6)):
@@ -2316,6 +2529,11 @@ def set_x_tick_colors(ax, color_list):
      zip(color_list,ax.xaxis.get_ticklabels())]
     
     
+def shift_x_ticks(ax, shift_to ='right'):
+    
+    for tick in ax.xaxis.get_majorticklabels():
+        tick.set_horizontalalignment(shift_to)
+        
 def normalize_PSDs(data, n_run, name, n_g):
     for run in range(n_run):
         AUC = np.trapz( data[(name,'pxx')][n_g, run,:])
@@ -2415,6 +2633,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
 
     return fig
 
+
 def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
                      inset_props = [0.65, 0.6, 0.3, 0.3], inset_yaxis_loc = 'right'):
     
@@ -2429,55 +2648,6 @@ def plot_D2_as_inset(f_mean, pxx_mean, pxx_std, color_dict,ax, name = 'D2',
         axins.set_xticklabels(labels = axins.get_xticks().tolist(), fontsize = 12)
         axins.yaxis.set_label_position(inset_yaxis_loc)
 
-def get_stats_of_phase(data, n_g, name, n_neuron, coef):
-    
-    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g,:,0,:] / n_neuron * coef
-    phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
-    phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
-    phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = 0)
-    
-    return phase_frq_rel_mean, phase_frq_rel_std, phase_frq_rel_sem
-
-def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name, n_g, ax, color_dict, centers, lw = 1):
-
-    ax.plot(centers, phase_frq_rel_mean, color = color_dict[name], lw = lw)
-    ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
-                    phase_frq_rel_mean + phase_frq_rel_std, alpha=0.2, color = color_dict[name])
-    
-def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = None):
-    
-    phases= np.zeros(n_run)
-    ws= np.zeros(n_run)
-
-    for run in range(n_run):
-
-        y = data[(name,'rel_phase_hist')][n_g,run,0,:]
-        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
-    phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
-    return phases
-
-
-def set_boxplot_prop(bp, color_list):
-    # for patch, color in zip(bp['boxes'], colors): 
-    #     patch.set_facecolor(color) 
-       
-    # changing color and linewidth of 
-    # whiskers 
-    for whisker,color in zip(bp['whiskers'], color_list): 
-        whisker.set(color =color, 
-                    linewidth = .5)               
-    # changing color and linewidth of 
-    # caps 
-    for cap,color in zip(bp['caps'], color_list): 
-        cap.set(color = color, 
-                linewidth = .5) 
-       
-    # changing color and linewidth of 
-    # medians 
-    for median,color in zip(bp['medians'], color_list): 
-        median.set(color =color, 
-                   linewidth = 0.5) 
-    return bp
 
 def print_G_items(G_dict):
     
@@ -3867,10 +4037,23 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
 
 
     
-def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax):
-    ax.set_xlabel("")
-    ax.set_ylabel("")
+def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax, axis = 'both'):
+    
+    if axis == 'both':
+    
+        ax.set_xlabel("")
+        ax.set_ylabel("")
+    
+    elif axis == 'x':
+        
+        ax.set_xlabel("")
+        
+    elif axis == 'y':
+        
+        ax.set_ylabel("")
+        
     if count+1 < n_iter:
+        # remove the x tick labels except for the bottom plot
         ax.axes.xaxis.set_ticklabels([])
 
 
@@ -5799,21 +5982,23 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     
     return nuclei_dict
 
-def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig,  alpha = 1 ):
+def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig,  alpha = 1 ,smooth_kern_window = 10):
     
     for nuclei_list in nuclei_dict.values():
         for k, nucleus in enumerate(nuclei_list):
             
             peak_threshold =  peak_jiggle_dict[nucleus.name] * nucleus.basal_firing
             pop_act = gaussian_filter1d(nucleus.pop_act[ int(t_transient /dt): ] - 
-                                        np.average(nucleus.pop_act[int(t_transient /dt):]), 10)
+                                        np.average(nucleus.pop_act[int(t_transient /dt):]), smooth_kern_window)
             troughs,_ = signal.find_peaks(-pop_act, height =peak_threshold )
-            peaks,_ =signal.find_peaks(pop_act, height = peak_threshold)
+            fig.gca().plot(np.arange(len(nucleus.pop_act[int(t_transient /dt):])) * dt , pop_act, 
+               '-o', markersize = 2, c = color_dict[nucleus.name], alpha = alpha)
+            peaks,_ = signal.find_peaks(pop_act, height = peak_threshold)
             fig.gca().plot(peaks * dt , nucleus.pop_act[peaks + int(t_transient /dt)], 
                            'x', markersize = 10, c = color_dict[nucleus.name], alpha = alpha)
             fig.gca().plot(troughs * dt , nucleus.pop_act[troughs + int(t_transient /dt)], 
                            'x', markersize = 10, c = color_dict[nucleus.name], alpha = alpha)
-            print( nucleus.name, ' peaks at :', peaks * dt)
+            print( nucleus.name, 'peak thesh = ', peak_threshold, ' peaks at :', peaks * dt)
             print( nucleus.name, ' troughs at :', troughs * dt)
             
     return fig
@@ -6387,7 +6572,7 @@ def trim_start_end_sig_rm_offset(sig, start, end, cut_plateau_epsilon = 0.1, met
             return(trimmed[max_point:] - np.average(trimmed[max_point:]))
         
 def find_freq_of_pop_act_spec_window(nucleus, start, end, dt, peak_threshold = 0.1, smooth_kern_window= 3 , 
-                                     check_stability = False, cut_plateau_epsilon = 0.01, plot_oscil = False):
+                                     check_stability = False, cut_plateau_epsilon = 0.001, plot_oscil = False):
     
     ''' RATE MODEL : 
         trim the beginning and end of the population activity of the nucleus 
@@ -6440,7 +6625,7 @@ def if_stable_oscillatory(sig, x_plateau, peak_threshold, t_transition, dt, smoo
     # relative first and last peak ratio thresholding
     if len(peaks) > 5 : # was 8 for STN-Proto 2 March 
         
-        last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[2]]
+        last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[1]]
         
         # print('last_first_peak_ratio = ', last_first_peak_ratio)
         
@@ -6608,7 +6793,8 @@ def synaptic_weight_space_exploration(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                       color_dict, if_plot = False, G_ratio_dict = None, plot_start_trans = 0, 
                                       plot_start_stable = 0, plot_duration = 600,
                                       legend_loc = 'upper left', vspan_stable = False, path = None, 
-                                      legend_fontsize = 12, loop_name = 'STN-Proto'):
+                                      legend_fontsize = 12, loop_name = 'STN-Proto', ylim  = [-4, 76],
+                                       legend_fontsize_rec= 18):
     
     
     n = len(G_list)
@@ -6693,13 +6879,14 @@ def synaptic_weight_space_exploration(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                       title_fontsize = 15, title = 'Stable Oscillation', continuous_firing_base_lines = False,
                                       vspan = True , legend_fontsize=legend_fontsize)
                         
-        if if_plot:
-            print(plot_start_trans + plot_duration)
+        if if_plot and i > 0:
+            # fig_t = plt.figure(figsize=(9.600, 7.840), dpi=100)
             fig_t = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, 
-                         plot_end = plot_start_trans + plot_duration,
+                         plot_end = t_list[-1] * dt,# ax = fig_t.gca(),
                          include_FR = False, plot_start = plot_start_trans, legend_loc = legend_loc,
-                         title_fontsize = 24, title = r'$G_{Loop}=$' + str(round(multiply_values_of_dict(G), 2)), continuous_firing_base_lines = False,
-                         vspan = True, legend_fontsize=legend_fontsize, label_fontsize = 20)
+                         title_fontsize = 24, title = r'$G_{Loop}=$' + str(round(multiply_values_of_dict(G), 2)), 
+                         continuous_firing_base_lines = False,
+                         vspan = True, legend_fontsize= legend_fontsize_rec, label_fontsize = 25, ylim = ylim)
             fig_t.set_size_inches((7, 5), forward=False)
             fig_t.savefig( os.path.join(path, loop_name + '_n_{:03d}.png'.format(i)), dpi = 150, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
@@ -7522,9 +7709,21 @@ def remove_all_x_labels(fig):
         ax.set_xlabel('')
         
     return fig
-   
+  
+def remove_all_y_labels(fig):
+    
+    for ax in fig.axes:
+        ax.axes.yaxis.set_ticklabels([])
+        ax.set_ylabel('')
+        
+    return fig
 
-
+def remove_all_labels(fig):
+    
+    fig  = remove_all_x_labels(fig)
+    fig  = remove_all_y_labels(fig)
+    
+    return fig
 def multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label, 
                                    key = None, tau_2_ind = None, ylabelpad = -5, title = '', c_label = '', ax = None):
     fig, ax = get_axes (ax)
