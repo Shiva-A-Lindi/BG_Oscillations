@@ -102,7 +102,7 @@ class Nucleus:
         spike_thresh_bound_ratio= [1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
-        plot_spike_thresh_hist = False, plot_RMP_to_APth = False):
+        plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -139,8 +139,8 @@ class Nucleus:
         self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
         self.path = path
         self.pop_act = np.zeros((n_timebins))  # time series of population activity
-        self.external_inp_t_series = np.zeros((self.n, n_timebins))
         self.t_sim = t_sim
+        self.n_timebins = n_timebins
         self.sqrt_dt = np.sqrt(dt)
         self.half_dt = dt/2
         self.synaptic_time_constant = {
@@ -159,6 +159,7 @@ class Nucleus:
 
         if neuronal_model == 'rate':
             
+            self.external_inp_t_series = np.zeros((self.n, n_timebins))
             self.transmission_delay = {k: int( v['mean'] / dt )
                            for k, v in self.T_specs.items()}
             
@@ -237,7 +238,11 @@ class Nucleus:
             self.noise = np.zeros(( self.n, 1))
             self.noise_method = noise_method
             self.noise_tau = noise_tau 
+            self.external_input_bool = external_input_bool
             
+            if external_input_bool :
+                self.external_inp_t_series = np.zeros((self.n, n_timebins))
+
             if self.keep_mem_pot_all_t:
                 self.all_mem_pot = np.zeros((self.n, n_timebins))
                 
@@ -259,6 +264,8 @@ class Nucleus:
                                             'instantaneus_rise_expon_decay': instantaneus_rise_expon_decay, 
                                             'dirac_delta_input': _dirac_delta_input}
             
+            self.cal_ext_inp_method_dict = {True: self.cal_ext_inp_with_additional_inp, 
+                                            False: self.cal_ext_inp}
         
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
@@ -346,9 +353,8 @@ class Nucleus:
                                    xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')
 
               
-    def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc=0.8, upper_bound_perc=1.2,
-                                          bins=50, color='grey',
-                                          plot_T_hist = False):
+    def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc = 0.8, upper_bound_perc=1.2,
+                                          bins=50, color='grey', plot_T_hist = False):
         
         ''' initialize axonal transmission delays with a truncated normal distribution
             Note: dt incorporated in tau for time efficiency
@@ -633,19 +639,20 @@ class Nucleus:
         ''' RATE MODEL: I = Sum (G * m * J) and then
             A = Transfer_f (I)'''
 
-        syn_inputs = np.zeros((self.n, 1))  # = 
+        syn_inputs = np.zeros((self.n, 1))  
+        
         for projecting in receiving_from_class_list:
+            
             num = str(projecting.population_num)
-            # print(projecting.name, self.name, self.transmission_delay[(self.name, projecting.name)],
-            #       projecting.output[ (self.name, str(self.population_num))].shape,
-            #       t - self.transmission_delay[(self.name, projecting.name)])
+
+            
             syn_inputs += ( 
-                            # self.synaptic_weight[(self.name, projecting.name)] * 
                            np.matmul(
                                    self.connectivity_matrix[ (projecting.name, num) ]  ,
-                                   projecting.output[ (self.name, str(self.population_num))][:, 
-                                                             - self.transmission_delay[(self.name, 
-                                                                                       projecting.name)]].reshape(-1, 1)
+                                   projecting.output[ (self.name, 
+                                                       str(self.population_num))][:, - self.transmission_delay[
+                                                                                                       (self.name, 
+                                                                                                        projecting.name)]].reshape(-1, 1)
                                    )
                            )
 
@@ -672,14 +679,29 @@ class Nucleus:
     def cal_ext_inp(self, dt, t):
 
         # choose method of exerting external input from dictionary of methods
+        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) # + self.external_inp_t_series[:, t]
+        
+        ( self.I_syn['ext_pop', '1'], 
+         self.I_rise['ext_pop', '1']) = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, 
+                                                                                                   dt,
+                                                                                                   I_rise = self.I_rise['ext_pop', '1'],
+                                                                                                   I = self.I_syn['ext_pop', '1'],
+                                                                                                   tau_rise = self.tau_ext_pop['rise'],
+                                                                                                   tau_decay = self.tau_ext_pop['decay'])
+    def cal_ext_inp_with_additional_inp(self, dt, t):
+        
+        # choose method of exerting external input from dictionary of methods
         I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[:, t]
         
-        self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, dt,
-                                                                            I_rise = self.I_rise['ext_pop', '1'],
-                                                                            I = self.I_syn['ext_pop', '1'],
-                                                                            tau_rise = self.tau_ext_pop['rise'],
-                                                                            tau_decay = self.tau_ext_pop['decay'])
-        
+        ( self.I_syn['ext_pop', '1'], 
+         self.I_rise['ext_pop', '1']) = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, 
+                                                                                                   dt,
+                                                                                                   I_rise = self.I_rise['ext_pop', '1'],
+                                                                                                   I = self.I_syn['ext_pop', '1'],
+                                                                                                   tau_rise = self.tau_ext_pop['rise'],
+                                                                                                   tau_decay = self.tau_ext_pop['decay'])
+ 
+     
     def constant_ext_input_with_noise(self, dt):
         
         self.noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
@@ -717,22 +739,23 @@ class Nucleus:
                ).reshape(-1,)
 
     def cal_synaptic_input(self, dt, projecting, t):
+        
         ''' Calcculate synaptic input of the given projection'''
         
         num = str(projecting.population_num)
         name = projecting.name
         
         self.syn_inputs[name, num] = (
-                                      # self.synaptic_weight[(self.name, name)] *
                                       np.matmul(self.connectivity_matrix[(name, num)],
-                                               np.diagonal( projecting.spikes[:, 
+                                                np.diagonal( projecting.spikes[:, 
                                                    t - self.transmission_delay[(self.name, name)]])
-                                            ) / dt * \
-                                          self.membrane_time_constant).reshape(-1,)
+                                               ) / dt * \
+                                      self.membrane_time_constant).reshape(-1,)
                                     
 
         
     def sum_synaptic_input(self, receiving_from_class_list, dt, t):
+        
         ''' Sum the synaptic input from all projections'''
         
         synaptic_inputs = np.zeros(self.n)
@@ -812,7 +835,7 @@ class Nucleus:
 
     def solve_IF_without_syn_input(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
-        self.cal_ext_inp(dt, t)
+        self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
         synaptic_inputs = np.zeros(self.n)
         self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
         spiking_ind = self.find_spikes(t)
@@ -821,7 +844,7 @@ class Nucleus:
 
     def solve_IF(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
-        self.cal_ext_inp(dt, t)
+        self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
         synaptic_inputs = self.sum_synaptic_input(receiving_from_class_list, dt, t)
         self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
         spiking_ind = self.find_spikes(t)
@@ -840,16 +863,13 @@ class Nucleus:
         
         V_mean_t = self.average_mem_pot_over_n(start = half_t, sampling_t_distance = sampling_t_distance)
         Delta_N = np.average( np.power( V_mean_t , 2)) - \
-                  np.power( np.average( V_mean_t ),
-                            2)
-        print("Delta_N", Delta_N)
+                  np.power( np.average( V_mean_t ), 2)
 
         V_mean_n = self.average_mem_pot_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
         V_2_mean_n = self.average_mem_pot_2_over_t(start = half_t, sampling_t_distance = sampling_t_distance)
         normalizing_factor = np.average( V_2_mean_n - \
                                        np.power( V_mean_n , 2)
                                        )
-        print('normalizing factor', normalizing_factor)
         coherence = Delta_N / normalizing_factor
         
         return coherence
@@ -955,6 +975,7 @@ class Nucleus:
     def clear_history(self, mem_pot_init_method=None):
 
         self.pop_act[:] = 0
+        
         if self.neuronal_model == 'rate':
 
             for k in self.output.keys():
@@ -972,11 +993,14 @@ class Nucleus:
                 self.I_syn[k][:] = 0
                 self.representative_inp[k][:] = 0
                 self.syn_inputs[k][:] = 0
-
+                
             self.I_syn['ext_pop', '1'][:] = 0
             self.voltage_trace[:] = 0
             self.representative_inp['ext_pop', '1'][:] = 0
-
+            
+            if self.external_input_bool:
+                self.external_inp_t_series[:,:] = 0
+                
             if mem_pot_init_method == None:  # if not specified initialize as before
                 mem_pot_init_method = self.mem_pot_init_method
 
@@ -1001,18 +1025,10 @@ class Nucleus:
 
     def incoming_rest_I_syn(self, proj_list, A, dt):
         
-        # I_syn_1 = np.sum([
-        #             self.synaptic_weight[self.name, proj] * 
-        #                 A[proj] / 1000  * 
-        #                 self.K_connections[self.name, proj] *
-        #                 np.sum(self.syn_component_weight[self.name, proj]) \
-        #                     for proj in proj_list]) * \
-        #         self.membrane_time_constant
 
         I_syn = np.sum(np.array([
                         np.sum(self.connectivity_matrix[proj, '1'], axis = 1) * 
                         A[proj] / 1000  * 
-                        # self.K_connections[self.name, proj] *
                         np.sum(self.syn_component_weight[self.name, proj]) \
                             for proj in proj_list]), axis = 0) * \
                 self.membrane_time_constant
@@ -1020,37 +1036,42 @@ class Nucleus:
         return I_syn
 
 
-    def set_ext_input(self, A, A_mvt, D_mvt, t_mvt, t_list, dt, end_of_nonlinearity=25):
+    def set_ext_input(self, A, A_mvt, D_mvt, t_mvt, t_list, dt, end_of_nonlinearity = 25):
 
-        proj_list = [k[0] for k in list(self.receiving_from_list)]
+        proj_list = [ k[0] for k in list(self.receiving_from_list) ]
 
         if self.neuronal_model == 'rate':
 
-            # self.rest_ext_input = self.basal_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A[proj] for proj in proj_list]) + self.threshold
-            # self.mvt_ext_input = self.mvt_firing/self.gain - np.sum([self.synaptic_weight[self.name,proj]*A_mvt[proj] for proj in proj_list]) + self.threshold - self.rest_ext_input
-            self.rest_ext_input = self.basal_firing/self.gain - \
-                np.sum([self.synaptic_weight[self.name, proj]*A[proj] *
-                       self.K_connections[self.name, proj] for proj in proj_list]) + self.threshold
-            self.mvt_ext_input = self.mvt_firing/self.gain - \
-                np.sum([self.synaptic_weight[self.name, proj]*A_mvt[proj] * self.K_connections[self.name, proj]
-                       for proj in proj_list]) + self.threshold - self.rest_ext_input
-            self.external_inp_t_series = mvt_step_ext_input(
-                D_mvt, t_mvt, self.ext_inp_delay, self.mvt_ext_input, t_list * dt)
+            self.rest_ext_input = self.basal_firing / self.gain - \
+                                  np.sum([self.synaptic_weight[self.name, proj] * A[proj] *
+                                          self.K_connections[self.name, proj] for proj in proj_list]) + \
+                                  self.threshold
+                                  
+            self.mvt_ext_input = self.mvt_firing / self.gain - \
+                                    np.sum([self.synaptic_weight[self.name, proj]*A_mvt[proj] * \
+                                            self.K_connections[self.name, proj]
+                                            for proj in proj_list]) + self.threshold - self.rest_ext_input
+                                        
+            self.external_inp_t_series = mvt_step_ext_input( D_mvt, t_mvt, self.ext_inp_delay, 
+                                                             self.mvt_ext_input, t_list * dt)
 
-        else:  # for the firing rate model the ext input is reported as the firing rate of the ext pop needed to provide the desired firing rate.
+        elif self.neuronal_model == 'spiking':  
             
             I_syn = self.incoming_rest_I_syn(proj_list, A, dt)
 
             self.sum_syn_inp_at_rest = I_syn
 
             if self.ext_inp_method == 'Poisson':
+                
                 self._set_ext_inp_poisson(I_syn)
 
             elif self.ext_inp_method == 'const+noise' or self.ext_inp_method == 'const':
+                
                 self._set_ext_inp_const_plus_noise(I_syn, end_of_nonlinearity, dt)
                 
             else:
-                raise ValueError('external input handling method not right!')
+                raise ValueError('external input handling method is not right!')
+                
             self._save_init()
 
 
@@ -1061,11 +1082,15 @@ class Nucleus:
         self.spike_thresh = f['spike_thresh']
         self.membrane_time_constant = f['membrane_time_constant']
         self.tau_ext_pop = f['tau_ext_pop']
+        
         if set_noise:
+            
             try:
                 self.noise_variance = f['noise_variance']
                 self.noise_std = np.sqrt(self.noise_variance)
+                
             except KeyError:
+                
                 print("Watchout couldn't set noise for the " +
                       self.name + ", set it manually!")
                 pass
@@ -1230,6 +1255,22 @@ class Nucleus:
             print('FR = ', np.average(FR_list[i, :]), np.average(FR_sim[:, i]))
 
         return FR_sim
+    
+    def add_beta_ext_input(self, amplitude, dt, freq = 20, start = 0, end = None, 
+                           mean = 0, plot = False, method = 'excitaion'):
+        
+        if end == None :
+            end = self.n_timebins
+            
+        
+        periodic_inp, t_list = generate_periodic_input(start, end, dt, amplitude, freq, mean, method)
+        
+        self.external_inp_t_series[:, start : end] = np.repeat( periodic_inp,
+                                                               self.n, axis = 0)
+        if plot:
+            fig, ax = plt.subplots()
+            ax.plot(t_list, sinfunc(t_list, amplitude, 2 * np.pi * freq, 0, mean))
+            
 
     def plot_mem_potential_distribution_of_one_t(self, t,  ax=None, bins=50, color='gray'):
         
@@ -1302,48 +1343,68 @@ class Nucleus:
             
     def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
         
-        if isinstance(neurons_ind, str)  and neurons_ind == 'all':    
+        if isinstance(neurons_ind, str)  and neurons_ind == 'all':  
+            
             spike_times = np.where(self.spikes == 1)[1]
+            
         elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
-            spike_times = np.where(self.spikes[neurons_ind,:] == 1)[1]
+        
+            spike_times = np.where(self.spikes[neurons_ind,:] == 1) [1]
+            
         else:
-            raise("Invalid input for 'ind_neurons'. It has to be either 'all' or the list of indices of neurons to be included.")
+            
+            raise( "Invalid input for 'ind_neurons'. \
+                  It has to be either 'all' or the list of indices of neurons to be included.")
             
         return spike_times[spike_times > start ] - start
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0):
+        
         act = self.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
         peaks,_ = signal.find_peaks(act[start:], height = height)
+        
         return peaks
     
 
-    def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, ref_peaks = [], n_bins = 20, 
-                                    total_phase = 360, ref_nuc_name = 'self', neurons_ind = 'all', troughs = False):
+    def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, 
+                                  ref_peaks = [], n_bins = 20, total_phase = 360, ref_nuc_name = 'self', 
+                                  neurons_ind = 'all', troughs = False):
         
         ''' Note that it counts the spikes of all the neurons in the population '''
-        all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
-        if len( ref_peaks ) == 0: # if peaks are given as argument phases are calculated relative to them
-            ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, height = height, start = start)
         
-        phase_all_spikes = np.zeros(len(all_spikes) * 2 + 1)
-        count = 0
+        all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
+        
+        if len( ref_peaks ) == 0: # if peaks are given as argument, phases are calculated relative to them
+        
+            ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+                                                   height = height, start = start)
+        
+        phase_all_spikes = np.zeros( len(all_spikes) * 2 + 1)
+        
+        
         left_peak_series, right_peak_series = set_peak_iterators(total_phase, ref_peaks, troughs = troughs)
-        # print(total_phase, ref_peaks)
-        for left_peak, right_peak in zip(left_peak_series, right_peak_series): # leave out the last peaks beacause sosfiltfilt affects the data boundaries
-            # print(left_peak, right_peak)
-            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, total_phase = total_phase)
+        n_cycles = len (left_peak_series)
+
+        count = 0
+        for left_peak, right_peak in zip( left_peak_series, right_peak_series ): # leave out the last peaks beacause sosfiltfilt affects the data boundaries
+            
+            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, 
+                                                                             total_phase = total_phase)
             phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
             count += n_spikes_of_this_cycle
           
         bins = np.linspace(0, total_phase, endpoint=True, num = n_bins)
-        frq , edges = np.histogram(phase_all_spikes[:count], bins=bins)
-        self.spike_rel_phase_hist[ref_nuc_name] = frq, edges[:-1]
+        
+        frq , edges = np.histogram(phase_all_spikes[:count], bins = bins)
+        
+        self.spike_rel_phase_hist[ref_nuc_name] = frq / n_cycles, edges[:-1]
+        
         return self.spike_rel_phase_hist[ref_nuc_name]
     
-
-    
     def scale_synaptic_weight(self):
+        
         if self.scale_g_with_N:
+            
             self.synaptic_weight = {
                 k: v/self.K_connections[k] for k, v in self.synaptic_weight.items()}
             self.connectivity_matrix = {
@@ -1351,10 +1412,13 @@ class Nucleus:
 
     def change_pop_firing_rate(self, FR_ext, A, A_mvt = None, D_mvt = None , t_mvt = None, t_list = None,
                                   dt = None, end_of_nonlinearity=30):
+        
         self.FR_ext = FR_ext
         self.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list,
                                       dt, end_of_nonlinearity=end_of_nonlinearity)
+        
     def change_basal_firing(self, A_new):
+        
         self.basal_firing = A_new
         
     
@@ -1448,6 +1512,22 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
      
+def generate_periodic_input(start, end, dt, amplitude, freq, mean, method):
+    
+    t_list = np.arange(start, end) * dt/1000
+    sine_function = sinfunc(t_list, amplitude, 2 * np.pi * freq, 0, mean).reshape(1,-1) 
+
+    periodic_positive_inp = sine_function.clip( min = 0 )
+    
+    if method == 'excitation':
+        periodic_inp = periodic_positive_inp
+        
+    elif method == 'inhibition':
+        periodic_inp = - periodic_positive_inp
+    
+    else:
+        raise ( " Beta induction method should be either excitation or inhibition!")
+    return periodic_inp, t_list
 
 def set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2):
     
@@ -1993,15 +2073,19 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
         
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+            
             if only_entrained_neurons:
+                
                 neurons_ind = significance_of_oscil_all_neurons( nucleus, dt, max_f = max_f, 
-                                                          window_mov_avg = window_mov_avg, n_sd_thresh = n_sd_thresh, 
-                                                           min_f_sig_thres = min_f_sig_thres, n_window_welch = n_window_welch, 
-                                                           n_pts_above_thresh = n_pts_above_thresh,
-                                                           min_f_AUC_thres = min_f_AUC_thres ,  PSD_AUC_thresh = PSD_AUC_thresh , 
-                                                           filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
+                                                                window_mov_avg = window_mov_avg, n_sd_thresh = n_sd_thresh, 
+                                                                min_f_sig_thres = min_f_sig_thres, n_window_welch = n_window_welch, 
+                                                                n_pts_above_thresh = n_pts_above_thresh,
+                                                                min_f_AUC_thres = min_f_AUC_thres ,  PSD_AUC_thresh = PSD_AUC_thresh , 
+                                                                filter_based_on_AUC_of_PSD = filter_based_on_AUC_of_PSD)
             else:
+                
                 neurons_ind = 'all'
+                
             nucleus.find_phase_hist_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
                                               start = start, height = height, ref_peaks = ref_peaks, troughs = troughs,
                                               total_phase = total_phase, ref_nuc_name = ref_nuc_name, neurons_ind = neurons_ind)
@@ -2032,97 +2116,131 @@ def find_phase_sine_fit(x, y):
 #     return phase
 
 def shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name):
+    
     mean_phases = np.average(phases)
+    
     if nuc_name  != ref_nuc_name:
         if mean_phases > 100:
+            
             ind = np.where(phases < 30)
+            
             print(nuc_name, 'shifting forward, phase before = ', phases[ind])
             phases[ind] += 2 * np.pi / ws[ind]
             print('phase after = ', phases[ind])
+            
     return phases
 
 def shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name):
+    
     ''' If outliers (minority) are on the second peak, shift them back'''
-    mean_phases = np.average(phases)
+    
+    std_phases = np.std(phases)
+    
     if nuc_name  != ref_nuc_name:
-        if mean_phases < 180:
+        
+        if std_phases > 100:
+            
             ind = np.where(phases > 320)
             print(nuc_name, 'shifting backward, phase before = ', phases[ind])
             phases[ind] -= 2 * np.pi / ws[ind]
             print('phase after = ', phases[ind])
+            
     return phases
 
 def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+    
     ''' If the second peak is detected shift to the previous'''
+    
     if nuc_name  != ref_nuc_name:
+        
         if phase > 360 :
+            
             print(nuc_name, 'shifting to first peak, phase before = ', phase)
+            
             phase -= 2 * np.pi / w
             print('phase after = ', phase)
+            
     return phase
 
 def find_phase_from_max(x, y):
+    
     ''' find the phase of where the function maximises'''
+    
     phase_max = x[ np.argmax( y ) ]
     phase_max = equi_phase_in_0_360_range(phase_max)
     
     return phase_max
             
 def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name, shift_phase = None):
+    
     ''' In case sine fit and maximum are close (90 deg) go with maximum, 
         Otherwise sine is to be trusted'''
         
     phase_sine,fitfunc, w = find_phase_sine_fit(x, y)
     phase_max = find_phase_from_max(x, y)
-    
+    print( nuc_name, 'sine p: ', np.round( phase_sine, 1) , 'max p:', np.round( phase_max, 2))
     phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
         
     phase = shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
-    
-    # if shift_phase == 'backward':
-    #     phase = shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
-        
-    # elif shift_phase == 'forward':
-    #     phase = shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name)
-        
+
     return phase, fitfunc, w
 
 def correct_phases(phases, ws, nuc_name, ref_nuc_name, shift_phase = None):
     
     if shift_phase == 'backward':
+
         phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
         
     elif shift_phase == 'forward':
+        
         phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
         
     elif shift_phase == 'both':
+        
         phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
         phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
 
     return phases
 
-def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name):
-    if abs( phase_sine - phase_max) < 90: # two methods are consistent, max is more accurate visually
-        phase = phase_max
+def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name, preferred_when_consistent = 'sine'):
+    
+    if abs( phase_sine - phase_max) < 90: # two methods are consistent, 
+    
+        if preferred_when_consistent == 'sine':
+            
+            phase = phase_sine #     sine is more accurate for high degree resolutions
+            
+        elif preferred_when_consistent == 'max':
+            
+            phase = phase_max #     max is more accurate  for low degree resolutions
+
     else:
+        
         if phase_sine < 30 and nuc_name != ref_nuc_name: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
             phase = phase_max
             
         elif phase_max < 30 and nuc_name != ref_nuc_name:
             phase = phase_sine
+            
         else:
             phase = phase_sine
+            
     return phase
 
 def mean_std_multiple_sets(means, stds, nums, sem_instead_of_std = False):
+    
     if sem_instead_of_std:
+        
         stds = stds * np.sqrt(nums)
+        
     mean_all = np.sum( means * nums ) / np.sum(nums)
+    
     std_all = np.sqrt(np.sum( (nums - 1) * 
                       np.power(stds, 2) + 
                       nums  * 
                       np.power( means - mean_all, 2)) / \
                 (np.sum(nums) - 1) )
+        
     return mean_all, std_all
 
 def equi_phase_in_0_360_range(phase):
@@ -2139,21 +2257,36 @@ def save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name, shift_phase
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+            
             frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
-            data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            
+            ( data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], 
+              data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] ) = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            
             centers = get_centers_from_edges(edges)
-            data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
+            
+            data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, 
+                                                                                      ref_nuc_name, shift_phase = shift_phase)
+    
     return data
  
 def save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, ref_nuc_name, shift_phase = None):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+            
             frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
-            data[(nucleus.name, 'rel_phase_hist')][i,m,j,0,:], data[(nucleus.name, 'rel_phase_hist')][i,m,j,1,:] = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            
+            ( data[(nucleus.name, 'rel_phase_hist')][i,m,j,0,:], 
+             data[(nucleus.name, 'rel_phase_hist')][i,m,j,1,:]) = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            
             centers = get_centers_from_edges(edges)
-            data[(nucleus.name, 'rel_phase')][i,m,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, ref_nuc_name, shift_phase = shift_phase)
+            
+            data[(nucleus.name, 'rel_phase')][i,m,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, 
+                                                                                        ref_nuc_name, shift_phase = shift_phase)
+    
     return data
+
 def save_pxx_into_dataframe(f, pxx, name, data, i, m):
             
     data[(name, 'f')][i, m, :], data[(name, 'pxx')][i, m, :] = f, pxx
@@ -2430,7 +2563,8 @@ def print_average_phase(ax, phases , text_x_shift,  phase_txt_fontsize, color, y
 
 def get_stats_of_phase(data, n_g, name, n_neuron, coef):
     
-    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g,:,0,:] / n_neuron * coef
+    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g, :, 0, :] / n_neuron * coef
+
     phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
     phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
     phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = 0)
@@ -2446,14 +2580,16 @@ def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name,ax, col
     
 def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = None):
     
-    phases= np.zeros(n_run)
-    ws= np.zeros(n_run)
+    phases = np.zeros(n_run)
+    ws = np.zeros(n_run)
 
     for run in range(n_run):
 
-        y = data[(name,'rel_phase_hist')][n_g,run,0,:]
+        y = data[(name,'rel_phase_hist')][n_g, run, 0, :]
         phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
+    
     phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
+    
     return phases
 
 
@@ -2573,9 +2709,9 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
             pxx_std = np.std( data[(name,'pxx')][i,:,:], axis = 0)
             all_std = np.std( data[(name,'pxx')][i,:,:].flatten() )
             significance = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
-                                                                     max_f = 250, n_pts_above_thresh = 3, 
-                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
-
+                                                          max_f = 250, n_pts_above_thresh = 3, 
+                                                          ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
+            
             leg_label = name 
             if f_in_leg:
                 
@@ -2604,7 +2740,8 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, inset_pr
                 ax.annotate(r'$\frac{AUC_{> 2SD}}{AUC} = ' + "{:.3f}".format(AUC_ratio) + '$', xy=(0.2 + 0.2*j,0.8), xycoords='axes fraction', color = color_dict[name],
                             fontsize=10)
 
-        ax.set_ylim(-0, max_pxx)
+        # print(max_pxx)
+        # ax.set_ylim(0, max_pxx)
         ax.yaxis.set_major_locator(MaxNLocator(4)) 
         rm_ax_unnecessary_labels_in_subplots(i, len(n_g_list), ax)
         ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
@@ -2656,32 +2793,8 @@ def print_G_items(G_dict):
     
         print(k, np.round( values, 2) )
 
-def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
-                                    t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
-    peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
-    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
-    plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
-    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
-    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
-    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
-    plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
-
-    if set_seed:
-        np.random.seed(1956)
-
+def generate_figures_multi_run(plot_firing, plot_spectrum, plot_raster, plot_phase, n_run, n_iter):
     
-    max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
-    n_iter = get_max_len_dict({k : v['mean'] for k, v in G_dict.items()} )
-
-    data = create_df_for_iteration_SNN(nuclei_dict, G_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
-                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
-                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'g')
-    count = 0
-    G = dict.fromkeys(G_dict.keys(), None)
-
     if n_run > 1:  # don't plot all the runs
         plot_spectrum = False
         plot_firing = False
@@ -2689,19 +2802,100 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         plot_raster = False
         
     if plot_firing:
-        fig = plt.figure()
-
+        fig_FR = plt.figure()
+    else:
+        fig_FR = None
+        
     if plot_spectrum:
         fig_spec = plt.figure()
-
+    else:
+        fig_spec = None
+        
     if plot_raster:
         fig_raster = plt.figure()
-        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+        outer_raster = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+    else:
+        fig_raster = None ; outer_raster = None
         
     if plot_phase:
         fig_phase = plt.figure()
         outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+    else:
+        fig_phase = None ; outer_phase = None
         
+    return fig_FR, fig_raster, fig_spec, fig_phase, outer_raster, outer_phase
+
+def manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                          plot_firing, plot_spectrum, plot_raster, plot_phase):
+
+    figs = []
+    
+    if plot_firing:
+        fig_FR.set_size_inches((15, 15), forward=False)
+        fig_FR.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
+        fig_FR.text(0.03, 0.5, 'firing rate (spk/s)',
+                 va='center', rotation='vertical', fontsize=18)
+        figs.append(fig_FR)
+        
+    if plot_spectrum:
+        fig_spec.set_size_inches((11, 15), forward=False)
+        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
+        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
+                      rotation='vertical', fontsize=18)
+        figs.append(fig_spec)
+
+    if plot_raster:
+        fig_raster.set_size_inches((11, 15), forward=False)
+        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
+                        va='center', fontsize=18)
+        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
+                        va='center', rotation='vertical', fontsize=18)
+        figs.append(fig_raster)
+        fig_raster.show()
+        
+    if plot_phase:
+        fig_phase.set_size_inches((11, 15), forward=False)
+        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
+        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
+        #               rotation='vertical', fontsize=18)
+        figs.append(fig_phase)
+        
+    return figs
+
+def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
+                                    t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+                                    peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
+                                    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
+                                    plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
+                                    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
+                                    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, 
+                                    K_real = None, N_real = None, N = None, K_all = None, 
+                                    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
+                                    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
+                                    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+                                    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
+                                    plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
+                                    state = 'rest'):
+
+    if set_seed:
+        np.random.seed(1956)
+
+    
+    max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
+    n_iter = get_max_len_dict({k : v['mean'] for k, v in G_dict.items()} )
+    G = dict.fromkeys(G_dict.keys(), None)
+
+    data = create_df_for_iteration_SNN(nuclei_dict, G_dict, duration_base, n_iter, n_run, n_phase_bins = n_phase_bins, 
+                                       len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
+                                       divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'g')
+    
+
+    fig_FR, fig_raster, fig_spec, fig_phase, outer_raster, outer_phase = generate_figures_multi_run(plot_firing, 
+                                                                                                    plot_spectrum, 
+                                                                                                    plot_raster, 
+                                                                                                    plot_phase, 
+                                                                                                    n_run, n_iter)
+    count = 0
     for i in range(n_iter):
         
         start = timeit.default_timer()
@@ -2718,41 +2912,36 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
 
         else: ax_spec = None
 
-        title = ''#G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
-
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                  normalize_G_by_N= True)  
-            if reset_init_dist:
-                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                          end_of_nonlinearity = end_of_nonlinearity, 
-                                                          set_FR_range_from_theory = False, method = 'collective', 
-                                                          use_saved_FR_ext= use_saved_FR_ext,
-                                                          normalize_G_by_N= False, save_FR_ext=False,
-                                                          state = state)
+            
 
-            # print_syn_weights(nuclei_dict)
+            receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                        A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                        end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                        use_saved_FR_ext = use_saved_FR_ext, if_plot = if_plot, n_FR = 20,
+                                                                        normalize_G_by_N= True,  set_noise=False, state = state)
+        
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
+            
             if save_pop_act:
-                data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
-            if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
-                                                    plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
-
+                data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0], data, i,j)
+                
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, total_phase = 720, troughs = troughs)
-                # find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
-                #                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 data = save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
                 
+            if plot_raster:
+                
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer_raster[i], title = '', fig=fig_raster, plot_start=plot_start_raster,
+                                                    plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
+
+
             if plot_phase:
+                
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
                                                           density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
                                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
@@ -2769,23 +2958,20 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                 max_f = max_f, n_std_thresh= n_std_thresh, AUC_ratio_thresh = AUC_ratio_thresh)
 
         if plot_spectrum:
-            if fft_method == 'rfft':
-                x_l = 10**9
 
-            else:
-                x_l = 5
-                # ax_spec.axhline(x_l, ls='--', c='grey')
-
-            # ax_spec.set_title(title, fontsize = 18)
             ax_spec.legend(fontsize=11, loc='upper center',
                            framealpha=0.1, frameon=False)
             ax_spec.set_xlim(spec_lim[0], spec_lim[1])
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
         if plot_firing:
-            ax = fig.add_subplot(n_iter, 1, count+1)
-            plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
-                n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
+            
+            ax = fig_FR.add_subplot(n_iter, 1, count+1)
+            plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax, '', 
+                 include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
+                 n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, 
+                 plot_start = plot_start, plot_end = plot_end, ylim=firing_ylim, include_FR = include_FR)
+            
             ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
             ax.set_ylim(firing_ylim)
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax)
@@ -2793,41 +2979,21 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         count += 1
         stop = timeit.default_timer()
         print(count, "from", int(n_iter), 'gs. t=', round(stop - start, 2))
+    
+    figs = manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                                 plot_firing, plot_spectrum, plot_raster, plot_phase)
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-        #               rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
+        
     if save_pkl:
         pickle_obj(data, filepath)
-    return figs, title, data
+        
+    return figs, '', data
 
-def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
-                 t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+
+
+def multi_run_transition(
+                 path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, 
+                 t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
                  peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
                  lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
                  plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
@@ -2838,12 +3004,10 @@ def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict,
                  phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
                  total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                  plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
-                 state_1 = 'rest', state_2 = 'DD_anesth', K_all = None, Act = None):
+                 state_1 = 'rest', state_2 = 'DD_anesth', K_all = None,  state_change_func = None,
+                 beta_induc_name_list = ['D2'], amplitude_dict = None , freq_dict = None, 
+                 start_dict = None, end_dict = None, mean_dict = None):
 
-    if set_seed:
-        np.random.seed(1956)
-
-    
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = get_max_len_dict({k : v['mean'] for k, v in G_dict.items()} )
 
@@ -2853,26 +3017,6 @@ def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict,
     count = 0
     G = dict.fromkeys(G_dict.keys(), None)
 
-    if n_run > 1:  # don't plot all the runs
-        plot_spectrum = False
-        plot_firing = False
-        plot_phase = False
-        plot_raster = False
-        
-    if plot_firing:
-        fig = plt.figure()
-
-    if plot_spectrum:
-        fig_spec = plt.figure()
-
-    if plot_raster:
-        fig_raster = plt.figure()
-        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
-        
-    if plot_phase:
-        fig_phase = plt.figure()
-        outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
-        
     for i in range(n_iter):
                 
         for k, values in G_dict.items():
@@ -2881,65 +3025,41 @@ def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict,
         
         G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 
-        if plot_spectrum:
-            ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
-
-        else: ax_spec = None
-
-        title = ''#G_element_as_txt(G_dict, i, display=display, decimal=decimal) 
 
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            # print(G)
-            nuclei_dict = reset_connections(nuclei_dict, K_all[state_1], N, N_real)
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance[state_1], Act[state_1],
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                  normalize_G_by_N= True)  
-            # print_syn_weights(nuclei_dict)
 
-            if reset_init_dist:
-                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt,D_mvt,t_mvt,dt, N, N_real, K_all[state_1], 
-                                                                      receiving_pop_list, nuclei_dict,t_list, 
-                                                                        all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                                        end_of_nonlinearity = end_of_nonlinearity, 
-                                                                        set_FR_range_from_theory = False, method = 'collective', 
-                                                                        use_saved_FR_ext= use_saved_FR_ext,
-                                                                        normalize_G_by_N= False, save_FR_ext=False,
-                                                                        state = state_1)
-                
-            nuclei_dict = change_states(G, noise_variance, noise_amplitude,  path, receiving_class_dict, 
-                                        receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
-                                        K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
-                                        end_of_nonlinearity )
-            # print_syn_weights(nuclei_dict)
-            # print_syn_weights_in_connectivity_mat(nuclei_dict)
+            nuclei_dict = reset_connections(nuclei_dict, K_all[state_1], N, N_real)
+
+            receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                        A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                        end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                        use_saved_FR_ext = use_saved_FR_ext, if_plot = if_plot, n_FR = 20,
+                                                                        normalize_G_by_N= True,  set_noise=False, state = state_1)
+            
+            if state_2 == 'induction':
+                nuclei_dict = induce_beta_to_nuclei( nuclei_dict, beta_induc_name_list, dt, amplitude_dict, freq_dict, 
+                                                    start_dict, end_dict, mean_dict )
+            else:
+                nuclei_dict = change_states(G, noise_variance, noise_amplitude,  path, receiving_class_dict, 
+                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                                            K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                                            end_of_nonlinearity )
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
             if save_pop_act:
                 data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
-            if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
-                                                    plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
 
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, total_phase = 720, troughs = troughs)
-                # find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
-                #                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 data = save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
                 
-            if plot_phase:
-                fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
-                                                          projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
-                                                          tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
-                                                          include_title=True, ax_label=True, nuc_order = nuc_order)
-                
+
             data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
-                                              check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
+                                              check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=plot_spectrum,
                                               c_spec=color_dict, spec_figsize=spec_figsize, n_windows=n_windows, fft_method=fft_method, find_beta_band_power=find_beta_band_power,
                                               include_beta_band_in_legend=include_beta_band_in_legend, divide_beta_band_in_power = divide_beta_band_in_power, 
                                               half_peak_range = 5, cut_off_freq = 100, check_peak_significance=check_peak_significance, 
@@ -2947,62 +3067,19 @@ def multi_run_DD(path, nuclei_dict, filepath, duration_base, G_dict, color_dict,
                                               plot_sig_thresh = plot_sig_thresh, plot_peak_sig = plot_peak_sig, min_f = min_f, 
                                               max_f = max_f, n_std_thresh= n_std_thresh, AUC_ratio_thresh = AUC_ratio_thresh)
             
-        if plot_spectrum:
-            if fft_method == 'rfft':
-                x_l = 10**9
 
-            else:
-                x_l = 5
-                # ax_spec.axhline(x_l, ls='--', c='grey')
-
-            # ax_spec.set_title(title, fontsize = 18)
-            ax_spec.legend(fontsize=11, loc='upper center',
-                           framealpha=0.1, frameon=False)
-            ax_spec.set_xlim(spec_lim[0], spec_lim[1])
-            rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
-
-        if plot_firing:
-            ax = fig.add_subplot(n_iter, 1, count+1)
-            plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
-                n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
-            ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
-            ax.set_ylim(firing_ylim)
-            rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax)
 
         count += 1
         print(count, "from", int(n_iter), 'gs.')
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-        #               rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
     if save_pkl:
         pickle_obj(data, filepath)
-    return figs, title, data
+        
+    return  data
+
+
+
+
 def reset_tau_specs_all_nuclei(tau_dict, nuclei_dict, i, dt):
     
     for nucleus_list in nuclei_dict.values():
@@ -3107,17 +3184,17 @@ def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_b
         
     data[iterating_name] = iterating_param_dict
     
-def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
-    peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
-    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
-    plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
-    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
-    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
-    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
-    plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
+def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+                                 peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
+                                 lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
+                                 plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
+                                 include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
+                                 reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None, N_real = None, N = None,
+                                 receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
+                                 spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
+                                 phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+                                 total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
+                                 plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -3131,25 +3208,11 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
                                        divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'tau')
     count = 0
 
-    if n_run > 1:  # don't plot all the runs
-        plot_spectrum = False
-        plot_firing = False
-        plot_phase = False
-        plot_raster = False
-        
-    if plot_firing:
-        fig = plt.figure()
-
-    if plot_spectrum:
-        fig_spec = plt.figure()
-
-    if plot_raster:
-        fig_raster = plt.figure()
-        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
-        
-    if plot_phase:
-        fig_phase = plt.figure()
-        outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+    fig_FR, fig_raster, fig_spec, fig_phase, outer_raster, outer_phase = generate_figures_multi_run(plot_firing, 
+                                                                                                    plot_spectrum, 
+                                                                                                    plot_raster, 
+                                                                                                    plot_phase, 
+                                                                                                    n_run, n_iter)
     G_copy = G.copy()    
     for i in range(n_iter):
         
@@ -3180,19 +3243,12 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
             
 
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                  normalize_G_by_N= True)  
-            if reset_init_dist:
-                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                                       all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                                       end_of_nonlinearity = end_of_nonlinearity, 
-                                                                       set_FR_range_from_theory = False, method = 'collective', 
-                                                                       use_saved_FR_ext= use_saved_FR_ext,
-                                                                       normalize_G_by_N= False, save_FR_ext=False,
-                                                                       state = state)
-
+            receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                    A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                    end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                    use_saved_FR_ext = True, if_plot = False, n_FR = n_FR,
+                                                                    normalize_G_by_N= True,  set_noise=False, state = state)
+ 
 
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
@@ -3200,15 +3256,13 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
                 data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
                 
             if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer_raster[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
                                                     plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
 
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, total_phase = 720, troughs = troughs)
-                # find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
-                #                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
                 save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
                 
             if plot_phase:
@@ -3242,8 +3296,8 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
         if plot_firing:
-            ax = fig.add_subplot(n_iter, 1, count+1)
-            plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
+            ax = fig_FR.add_subplot(n_iter, 1, count+1)
+            plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                 n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
             ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
             ax.set_ylim(firing_ylim)
@@ -3253,49 +3307,24 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
         stop = timeit.default_timer()
         print(count, "from", int(n_iter), 'gs. t=', round(stop - start, 2))
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-        #               rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
+    figs = manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                                 plot_firing, plot_spectrum, plot_raster, plot_phase)
+    
     if save_pkl:
         pickle_obj(data, filepath)
     return figs, title, data
 
-def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base, G, T_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
-    peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
-    lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
-    plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
-    include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
-    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
-    receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
-    spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
-    total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
-    plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
+def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base, G, T_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+                               peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
+                               lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
+                               plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
+                               include_beta_band_in_legend=True, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
+                               reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None,  N_real = None, N = None,
+                               receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
+                               spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
+                               phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+                               total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
+                               plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
 
     if set_seed:
         np.random.seed(1956)
@@ -3309,25 +3338,11 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
                                        divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'T')
     count = 0
 
-    if n_run > 1:  # don't plot all the runs
-        plot_spectrum = False
-        plot_firing = False
-        plot_phase = False
-        plot_raster = False
-        
-    if plot_firing:
-        fig = plt.figure()
-
-    if plot_spectrum:
-        fig_spec = plt.figure()
-
-    if plot_raster:
-        fig_raster = plt.figure()
-        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
-        
-    if plot_phase:
-        fig_phase = plt.figure()
-        outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+    fig_FR, fig_raster, fig_spec, fig_phase, outer_raster, outer_phase = generate_figures_multi_run(plot_firing, 
+                                                                                                    plot_spectrum, 
+                                                                                                    plot_raster, 
+                                                                                                    plot_phase, 
+                                                                                                    n_run, n_iter)
     G_copy = G.copy()  
     
     for i in range(n_iter):
@@ -3347,26 +3362,19 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))
-            nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                                  A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                  reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                  normalize_G_by_N= True)  
-            if reset_init_dist:
-                receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                          all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                          end_of_nonlinearity = end_of_nonlinearity, 
-                                                          set_FR_range_from_theory = False, method = 'collective', 
-                                                          use_saved_FR_ext= use_saved_FR_ext,
-                                                          normalize_G_by_N= False, save_FR_ext=False,
-                                                          state = state)
-
+            receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                        A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                        end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                        use_saved_FR_ext = use_saved_FR_ext, if_plot = if_plot, n_FR = 20,
+                                                                        normalize_G_by_N= True,  set_noise=False, state = state)
+        
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
             if save_pop_act:
                 data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
                 
             if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer_raster[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
                                                     plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
 
             if find_phase:
@@ -3408,7 +3416,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
         if plot_firing:
-            ax = fig.add_subplot(n_iter, 1, count+1)
+            ax = fig_FR.add_subplot(n_iter, 1, count+1)
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                 n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
             ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
@@ -3419,37 +3427,13 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
         stop = timeit.default_timer()
         print(count, "from", int(n_iter), 'gs. t=', round(stop - start, 2))
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-        #               rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
+    figs = manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                                 plot_firing, plot_spectrum, plot_raster, plot_phase)
     if save_pkl:
         pickle_obj(data, filepath)
+        
     return figs, title, data
+
 # def extract_g_from_dict(G, loop_key_lists):
     
 #     for key,v in syn_decay_dict['tau_1']['tau_ratio'].items():    
@@ -3461,12 +3445,12 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
         
 #     return synaptic_time_constant
 
-def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
+def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
     peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
     lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
     plot_spectrum=False, spec_figsize=(6, 5), plot_raster=False, plot_start=0, plot_start_raster=0, plot_end=None, find_beta_band_power=False, n_windows=6, fft_method='rfft',
     include_beta_band_in_legend=False, n_neuron=None, save_pkl=False, include_FR = False, include_std=True, round_dec=2, legend_loc='upper right', display='normal', decimal=0,
-    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
+    reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
@@ -3496,7 +3480,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
         plot_raster = False
         
     if plot_firing:
-        fig = plt.figure()
+        fig_FR = plt.figure()
 
     if plot_spectrum:
         fig_spec = plt.figure()
@@ -3531,19 +3515,12 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
             for j in range(n_run):
                 
                 print(' {} from {} runs'.format(j + 1 , n_run))
-                nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                                      A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                                      reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                      normalize_G_by_N= True)  
-                if reset_init_dist:
-                    receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                              all_FR_list = all_FR_list , n_FR =n_FR, if_plot = if_plot, 
-                                                              end_of_nonlinearity = end_of_nonlinearity, 
-                                                              set_FR_range_from_theory = False, method = 'collective', 
-                                                              use_saved_FR_ext= use_saved_FR_ext,
-                                                              normalize_G_by_N= False, save_FR_ext=False,
-                                                              state = state)
-    
+                receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                        A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                        end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                        use_saved_FR_ext = use_saved_FR_ext, if_plot = if_plot, n_FR = 20,
+                                                                        normalize_G_by_N= True,  set_noise=False, state = state)
+        
     
                 nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
                 
@@ -3593,8 +3570,8 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
                 rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
     
             if plot_firing:
-                ax = fig.add_subplot(n_iter, n_iter_2, count+1)
-                plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
+                ax = fig_FR.add_subplot(n_iter, n_iter_2, count+1)
+                plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax, title, include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                     n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, plt_freq=True, plot_start=plot_start, plot_end=plot_end, ylim=firing_ylim, include_FR = include_FR)
                 ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
                 ax.set_ylim(firing_ylim)
@@ -3604,34 +3581,8 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
             stop = timeit.default_timer()
             print(count, "from", int(n_iter * n_iter_2), 'gs. t=', round(stop - start, 2))
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.05, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
-    if plot_phase:
-        fig_phase.set_size_inches((11, 15), forward=False)
-        # fig_phase.text(0.5, 0.05, 'Phase (deg)', ha='center', fontsize=18)
-        # fig_phase.text(0.02, 0.5, 'Spike count', va='center',
-        #               rotation='vertical', fontsize=18)
-        figs.append(fig_phase)
+    figs = manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                                 plot_firing, plot_spectrum, plot_raster, plot_phase)
     if save_pkl:
         pickle_obj(data, filepath)
     return figs, title, data
@@ -3668,21 +3619,11 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
         data[(nucleus.name, 'mean_noise')] = np.zeros((n_iter, n_run))
 
 
-    if plot_firing:
-        fig = plt.figure()
-
-    if n_run > 1:  # don't plot all the runs
-        plot_spectrum = False
-    if plot_spectrum:
-        fig_spec = plt.figure()
-
-    if plot_raster:
-        fig_raster = plt.figure()
-        outer = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
-        
-    if plot_phase:
-        fig_phase = plt.figure()
-        outer_phase = gridspec.GridSpec(n_iter, 1, wspace=0.2, hspace=0.2)
+    fig_FR, fig_raster, fig_spec, fig_phase, outer_raster, outer_phase = generate_figures_multi_run(plot_firing, 
+                                                                                                    plot_spectrum, 
+                                                                                                    plot_raster, 
+                                                                                                    plot_phase, 
+                                                                                                    n_run, n_iter)
     count = 0   
     G = dict.fromkeys(G_dict.keys(), None)
 
@@ -3728,7 +3669,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             data[(nucleus.name, 'mean_noise')][i,j] = np.average( abs(nucleus.noise_all_t) )
             if plot_raster:
-                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
+                fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer_raster[i], title=title, fig=fig_raster, plot_start=plot_start_raster,
                                                     plot_end=plot_end, labelsize=10, title_fontsize=15, lw=1.8, linelengths=1, n_neuron=n_neuron)
  
             data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
@@ -3748,7 +3689,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
             rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax_spec)
 
         if plot_firing:
-            ax = fig.add_subplot(n_iter, 1, count+1)
+            ax = fig_FR.add_subplot(n_iter, 1, count+1)
             title = ( r'$ \langle I_{0} \rangle = $' + str( np.round(data[ref_nuc_name, 'I_ext_0'], 1))  + '   mV   ' + 
                       r'$\langle \eta \rangle = $' + str( np.round(data[ref_nuc_name, 'mean_noise'][i,j], 1))) + '  mV'
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, 
@@ -3764,38 +3705,19 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
         stop = timeit.default_timer()
         print(count, "from", int(n_iter), ' t=', round(stop - start, 2))
 
-    figs = []
-    if plot_firing:
-        fig.set_size_inches((15, 15), forward=False)
-        fig.text(0.5, 0.05, 'time (ms)', ha='center', fontsize=18)
-        fig.text(0.03, 0.5, 'firing rate (spk/s)',
-                 va='center', rotation='vertical', fontsize=18)
-        figs.append(fig)
-        fig = set_y_ticks(fig, [30, 50, 70])
-    if plot_spectrum:
-        fig_spec.set_size_inches((11, 15), forward=False)
-        fig_spec.text(0.5, 0.05, 'frequency (Hz)', ha='center', fontsize=18)
-        fig_spec.text(0.02, 0.5, 'fft Power', va='center',
-                      rotation='vertical', fontsize=18)
-        figs.append(fig_spec)
-
-    if plot_raster:
-        fig.set_size_inches((11, 15), forward=False)
-        fig_raster.text(0.5, 0.005, 'time (ms)', ha='center',
-                        va='center', fontsize=18)
-        fig_raster.text(0.03, 0.5, 'neuron', ha='center',
-                        va='center', rotation='vertical', fontsize=18)
-        figs.append(fig_raster)
-        fig_raster.show()
+    figs = manage_figs_multi_run(fig_FR, fig_spec, fig_raster, fig_phase,
+                                 plot_firing, plot_spectrum, plot_raster, plot_phase)
     if save_pkl:
         pickle_obj(data, filepath)
     return figs, title, data
 
 
-def coherence_exploration(path, tau, nuclei_dict, G_dict, noise_amplitude, noise_variance, A, N, N_real, K_real, receiving_pop_list,
+def coherence_exploration(path, tau, nuclei_dict, G_dict, noise_amplitude, noise_variance, Act, 
+                          N, N_real, K_real, K_all, receiving_pop_list,
                           A_mvt, D_mvt, t_mvt, t_list, dt,  all_FR_list , n_FR, receiving_class_dict,
-                          end_of_nonlinearity, color_dict,
-                          poisson_prop, reset_init_dist = True, sampling_t_distance_ms = 1, if_plot = False):
+                          end_of_nonlinearity, color_dict, 
+                          poisson_prop, reset_init_dist = True, sampling_t_distance_ms = 1,
+                          if_plot = False, state= 'rest'):
     
     n_g = get_max_len_dict(G_dict)
     coherence_dict = {name: np.zeros(n_g) for name in list(nuclei_dict.keys())}
@@ -3806,25 +3728,20 @@ def coherence_exploration(path, tau, nuclei_dict, G_dict, noise_amplitude, noise
         for k, values in G_dict.items():
             G[k] = values[i]
             print(k, values[i])
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                              A_mvt, D_mvt, t_mvt, t_list, dt,  set_noise=False, 
-                                              reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                              normalize_G_by_N= True)  
-        if reset_init_dist:
-            receiving_class_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list, 
-                                                      all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, 
-                                                      end_of_nonlinearity = end_of_nonlinearity, 
-                                                      set_FR_range_from_theory = False, method = 'collective', 
-                                                      save_FR_ext=True, use_saved_FR_ext= True, 
-                                                      normalize_G_by_N= False, state = 'rest')
-
+            
+        receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                        A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                        end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                        use_saved_FR_ext = use_saved_FR_ext, if_plot = if_plot, n_FR = 20,
+                                                                        normalize_G_by_N= True,  set_noise=False, state = state)
+        
 
         nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
         coherence_dict = set_coherence_all_nuclei_1d(nuclei_dict, coherence_dict, i, dt, 
                                                   sampling_t_distance_ms = sampling_t_distance_ms)
         
         if if_plot:
-            fig = plot(nuclei_dict,color_dict, dt,  t_list, A, A_mvt, t_mvt, D_mvt, ax = None, 
+            fig = plot(nuclei_dict,color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = None, 
                        title_fontsize=15, plot_start = 0, title = str(dt),
                        include_FR = False, include_std=False, plt_mvt=False,
                        legend_loc='upper right', ylim =None)
@@ -5602,9 +5519,9 @@ def change_synaptic_weight( nuclei_dict, name, projection_name, multiply_by = 1)
     return nuclei_dict
     
 def change_states(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
-                              receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
-                              K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
-                              end_of_nonlinearity ):
+                  receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                  K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                  end_of_nonlinearity ):
     
     print('transitioning..')
     nuclei_dict = change_basal_firing_all_nuclei(Act[state_2], nuclei_dict)
@@ -5660,15 +5577,42 @@ def run_transition_state_collective_setting(G, noise_variance,noise_amplitude,  
     nuclei_dict = run(receiving_class_dict, t_list[:t_transition], dt, nuclei_dict)
 
     nuclei_dict = change_states(G, noise_variance,noise_amplitude,  path, receiving_class_dict, 
-                                            receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
-                                            K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
-                                            end_of_nonlinearity )
+                                receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
+                                K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
+                                end_of_nonlinearity )
 
     nuclei_dict = run(receiving_class_dict, t_list[ t_transition: ], dt, nuclei_dict)
     nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
 
     return nuclei_dict
 
+def induce_beta_to_nuclei( nuclei_dict, name_list, dt, amplitude_dict, 
+                           freq_dict, start_dict, end_dict, mean_dict, method = 'excitation' ):
+    
+    for name in name_list:
+        
+        nuclei_dict[name][0].add_beta_ext_input(amplitude_dict[name], dt, freq = freq_dict[name], 
+                                                start = start_dict[name], end = end_dict[name], 
+                                                mean = mean_dict[name], method = method)
+    return nuclei_dict
+
+def run_transition_to_beta_induction( receiving_class_dict,  name_list, dt, amplitude_dict, freq_dict, 
+                                     start_dict, end_dict, mean_dict,
+                                     t_list, nuclei_dict, t_transition=None, 
+                                     method = 'excitation'):
+    
+    ''' Transition from <state_1> to <state_2> collective FR_ext setting'''
+    
+    if t_transition == None:
+        t_transition = t_list[int(len(t_list) / 3)]
+        
+    nuclei_dict = run(receiving_class_dict, t_list[:t_transition], dt, nuclei_dict)
+    nuclei_dict = induce_beta_to_nuclei( nuclei_dict, name_list, dt, amplitude_dict, freq_dict, 
+                                        start_dict, end_dict, mean_dict, method = method)
+    nuclei_dict = run(receiving_class_dict, t_list[ t_transition: ], dt, nuclei_dict)
+    nuclei_dict = cal_population_activity_all_nuc_all_t(nuclei_dict, dt)
+
+    return nuclei_dict
 
 def cal_average_activity(nuclei_dict, n_run, avg_act):
     
@@ -5884,13 +5828,14 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
         
         if method == 'exponential':
             if stim_method == 'ChR2':
-                # print(tau_rise , dt)
+
                 f_add = exp_rise_and_decay_transient_ext_inp_ChR2_like(ext_inp_dict[name]['mean'],
                                                                        np.average(nucleus.rest_ext_input),
                                                                        t_list, t_start, ext_inp_dict[name]['tau_rise'], 
                                                                        ext_inp_dict[name]['tau_decay'], 
                                                                        dt, nucleus.n)
             else:
+                
                 f_add = exp_rise_and_decay_transient_ext_inp_projected(ext_inp_dict[name]['mean'],
                                                                        np.average(nucleus.rest_ext_input),
                                                                        t_list, t_start, ext_inp_dict[name]['tau_rise'], 
@@ -5909,7 +5854,7 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
                                                                         np.average( nucleus.rest_ext_input), 
                                                                         ext_inp_dict[nucleus.name]['sigma'], 
                                                                         nucleus.n, t_list, t_start, t_end)
-        # nucleus.external_inp_t_series[ :, t_start:] = f_add
+
         nucleus.external_inp_t_series = f_add # change ChR2s to return the whole matrix
   
                                                                                 
@@ -5982,18 +5927,24 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     
     return nuclei_dict
 
-def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig,  alpha = 1 ,smooth_kern_window = 10):
+def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig,  
+                      alpha = 1, smooth_kern_window = 10, plot_gaus_smoothed = True):
     
     for nuclei_list in nuclei_dict.values():
         for k, nucleus in enumerate(nuclei_list):
             
             peak_threshold =  peak_jiggle_dict[nucleus.name] * nucleus.basal_firing
+            
             pop_act = gaussian_filter1d(nucleus.pop_act[ int(t_transient /dt): ] - 
                                         np.average(nucleus.pop_act[int(t_transient /dt):]), smooth_kern_window)
+            
             troughs,_ = signal.find_peaks(-pop_act, height =peak_threshold )
-            fig.gca().plot(np.arange(len(nucleus.pop_act[int(t_transient /dt):])) * dt , pop_act, 
-               '-o', markersize = 2, c = color_dict[nucleus.name], alpha = alpha)
             peaks,_ = signal.find_peaks(pop_act, height = peak_threshold)
+            
+            if plot_gaus_smoothed:
+                fig.gca().plot(np.arange(len(nucleus.pop_act[int(t_transient /dt):])) * dt , pop_act, 
+                               '-o', markersize = 2, c = color_dict[nucleus.name], alpha = alpha)
+            
             fig.gca().plot(peaks * dt , nucleus.pop_act[peaks + int(t_transient /dt)], 
                            'x', markersize = 10, c = color_dict[nucleus.name], alpha = alpha)
             fig.gca().plot(troughs * dt , nucleus.pop_act[troughs + int(t_transient /dt)], 
@@ -6003,8 +5954,31 @@ def plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict
             
     return fig
 
+def reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                end_of_nonlinearity, reset_init_dist= True, poisson_prop = None,
+                                use_saved_FR_ext = True, if_plot = False, n_FR = 20,
+                                normalize_G_by_N= True,  set_noise=False, state = 'rest'):
+    
+    nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance[state], Act[state],
+                                          A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
+                                          reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
+                                          normalize_G_by_N= True)  
+
+    if reset_init_dist:
+        receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, 
+                                                               N_real, K_all[state], receiving_pop_list, 
+                                                               nuclei_dict, t_list, all_FR_list = all_FR_list , 
+                                                               n_FR =n_FR, if_plot = if_plot, 
+                                                               end_of_nonlinearity = end_of_nonlinearity, 
+                                                               set_FR_range_from_theory = False, method = 'collective', 
+                                                               use_saved_FR_ext= use_saved_FR_ext,
+                                                               normalize_G_by_N= False, save_FR_ext=False,
+                                                               state = state)
+    return receiving_class_dict, nuclei_dict
+
 def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_dict, t_list, dt, 
-                                 nuclei_dict, A, G, N, N_real, K_real, syn_trans_delay_dict, poisson_prop,  
+                                 nuclei_dict, Act, G, N, N_real, K_real, K_all, syn_trans_delay_dict, poisson_prop,  
                                  n_FR, all_FR_list, end_of_nonlinearity, t_transient = 10, duration = 10, 
                                  n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None, ext_inp_dict = None, 
                                  noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
@@ -6018,7 +5992,7 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
 
         nuclei_dict = run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, 
                                                                             t_list, dt, nuclei_dict,
-                                                                            A, syn_trans_delay_dict,
+                                                                            Act[state], syn_trans_delay_dict,
                                                                             t_transient = t_transient, 
                                                                             duration = duration, 
                                                                             ext_inp_dict = ext_inp_dict,
@@ -6027,22 +6001,13 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                                                             stim_method = stim_method)
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
         
-        nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, G, noise_amplitude, noise_variance, A,
-                                              A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
-                                              reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                              normalize_G_by_N= True) 
-        
-        receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, 
-                                                                receiving_pop_list, nuclei_dict,t_list, 
-                                                                all_FR_list = all_FR_list , n_FR =n_FR, if_plot = False, 
-                                                                end_of_nonlinearity = end_of_nonlinearity, 
-                                                                set_FR_range_from_theory = False, method = 'collective', 
-                                                                use_saved_FR_ext= True,
-                                                                normalize_G_by_N= False, save_FR_ext=False,
-                                                                state = state)
-
-
-        print(i+1,'from',n_run)
+        receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
+                                                                    A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
+                                                                    end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
+                                                                    use_saved_FR_ext = True, if_plot = plot, n_FR = 20,
+                                                                    normalize_G_by_N= True,  set_noise=False, state = state)
+ 
+        print(i + 1, 'from', n_run)
         
     return avg_act
 
