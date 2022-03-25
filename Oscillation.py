@@ -20,7 +20,7 @@ import os
 from itertools import chain
 import xlsxwriter
 import matplotlib.animation as animation
-
+import math
 from pygifsicle import optimize
 
 root = '/home/shiva/BG_Oscillations'
@@ -632,7 +632,9 @@ plot_exper_FR_distribution(xls, name_list, state_list,
 
 
 filename = os.path.join(root, 'De_La_Crompe_2020_data.xlsx') 
+FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
 
+#################### DD
 fig_ind_hist = 'Fig 3D (1): Phase Histogram during Spontaneous Beta oscillations'
 fig_ind_phase = 'Fig 3D (2): Phase Angle during Spontaneous Beta oscillations' 
 angle_header = 'Unnamed: 13_level_1'
@@ -642,28 +644,48 @@ name_list = ['STN', 'Arky', 'Proto']
 phase_text_x_shift = 150
 ylabel_fontsize = 12;  xlabel_fontsize = 13;  xlabel_y = 0.01
 
+#################### STN beta excitation
+
 fig_ind_hist = 'Fig 3E (1): Phase Histogram during Spontaneous Beta oscillations'
 fig_ind_phase = 'Fig 3E (2): Phase Angle during Spontaneous Beta oscillations'      
 angle_header = 'Unnamed: 35_level_1'
-recording_spec = '_STN_induced_beta_Phase'
+recording_spec = '_STN_excitation_induced_beta_Phase'
 y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
-name_list = ['STN',  'Proto']
+name_list = ['STN',  'Arky', 'Proto']
 phase_text_x_shift = 100
 ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
 
-angles, phase_dict = read_Brice_phase_hist(filename,  ['STN', 'Arky', 'Proto'], fig_ind_hist, fig_ind_phase, angle_header)
-     
+scale_count_to_FR = True
+y_max_series = {'STN': 35, 'Arky': 30, 'Proto': 55}
 
+
+
+angles, phase_dict = read_Brice_phase_hist(filename,  ['STN', 'Arky', 'Proto'], fig_ind_hist, 
+                                           fig_ind_phase, angle_header, coef = coef)
+
+
+n_decimal = 0
+coef = 1000     
+plot_FR = False
+state = 'OFF'
+ylabel =  r'$ Mean \; spike \; count\;/\; degree \;(.10^{-' + str(int(math.log10(coef))) + '})$'
+
+FR_dict = read_Brice_FR_states(filename, name_list,FR_header)    
+   
+if scale_count_to_FR:
+    ylabel =  r'$ Mean \; spike \; count\;/ sec$'
+    plot_FR = True
+    recording_spec += '_FR'
 fig = phase_summary_Brice(phase_dict, angles, name_list, color_dict, total_phase = 720, 
                           set_ylim = True, shift_phase = None, y_max_series = y_max_series,
                           ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
-                          tick_label_fontsize = 10,
-                          ylabel = r'$ Mean \; spike \; count\;/\; degree \;(.10^{-3})$',
+                          tick_label_fontsize = 10, n_decimal = n_decimal, 
+                          ylabel =ylabel, FR_dict = FR_dict,
                           xlabel = 'phase (deg)', lw = 1, name_fontsize = 12, 
                           name_ylabel_pad = 0, name_place = 'ylabel', alpha = 0.1,
-                          phase_text_x_shift = phase_text_x_shift,
-                          xlabel_y = xlabel_y , ylabel_x = -0.1,
-                          box_plot = True, strip_plot = False)
+                          phase_text_x_shift = phase_text_x_shift, state = state,
+                          xlabel_y = xlabel_y , ylabel_x = -0.1, plot_FR = plot_FR,
+                          box_plot = False, strip_plot = False, scale_count_to_FR = scale_count_to_FR)
 
 save_pdf_png(fig, filename.split('.')[0] + recording_spec,
              size = (1.8, len(name_list) * 1))
@@ -6881,7 +6903,7 @@ G = {}
 # G = {k: v * K[k] for k, v in G.items()}
 
 
-g = -0.00346 
+g = -0.003478
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
       (name3, name2) :{'mean': g * K[name3, name2] * 4},
       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
@@ -7118,11 +7140,15 @@ state_2 = 'induction'
 induction_nuc_name = 'D2'
 beta_induction_method = 'excitaion'
 
-induction_nuc_name = 'Proto'
-beta_induction_method = 'inhibition'
+# induction_nuc_name = 'Proto'
+# beta_induction_method = 'inhibition'
+
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
+# beta_induction_method = 'inhibition'
 
 beta_induc_name_list = [induction_nuc_name]
-amplitude_dict = {'D2': 3.5, 'Proto': 3.5}
+amplitude_dict = {'D2': 3.5, 'Proto': 3.5, 'STN': 3}
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
 end_dict = {induction_nuc_name: int(t_sim / dt)}
@@ -7204,10 +7230,11 @@ run_transition_to_beta_induction( receiving_class_dict,  beta_induc_name_list, d
                                      t_list, nuclei_dict, t_transition= t_transition, method = beta_induction_method)
 
 nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
-status = 'transition_to_'  + state_2 + '_at_'+ induction_nuc_name
+status = 'transition_to_'  + state_2 + '_with_' + beta_induction_method + '_at_'+ induction_nuc_name
 
 ylim = (-2, 75)
-
+plot_start = t_transition - 100
+plot_end = t_transition + 300
 D_mvt = t_sim - t_transition
 plot_end_rest = t_transition - 10
 plot_start_rest = 0 # t_transition - 410
@@ -7270,19 +7297,20 @@ plot_end_DD = t_sim
 # elif 'mvt' in state_2:
     
 fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_1], t_transition, D_mvt, ax=None, 
-           title_fontsize=15, plot_start= plot_start, plot_end = t_sim, title='', legend_loc='upper left',  
+           title_fontsize=15, plot_start= plot_start, plot_end = plot_end, title='', legend_loc='upper left',  
            ylim=(-4, 80), vspan=True, include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, 
            alpha_mvt=0.8, axvspan_color=axvspan_color[state_2])
 
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_from_' + state_1 ),
-             size=(15, 5))
+             size=(6, 5))
 
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start, 
-                                    plot_end = t_sim, ax_label = True, labelsize=10, title_fontsize=15, lw=1., 
+                                    plot_end = plot_end, ax_label = True, labelsize=10, title_fontsize=15, lw=1., 
                                     linelengths=2, n_neuron=40, include_title=True, set_xlim=True, ylabel_x = 0.01,
                                     axvspan=True, span_start=t_transition, span_end=t_sim, 
                                     axvspan_color=axvspan_color[state_2], include_nuc_name = False,
                                     tick_label_fontsize=12)
+
 save_pdf_png(fig_raster, os.path.join(
     path, 'SNN_raster_' + status ), size=(10, 5))
     
@@ -7898,10 +7926,10 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 1600 
+t_sim = 6600 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
-t_transition = plot_start + 100# int(t_sim / 5)
+t_transition = plot_start + 3000# int(t_sim / 5)
 duration_base = np.array( [int(300/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 t_mvt = t_sim
@@ -7948,7 +7976,7 @@ print( " transition from " , state_1, ' to ', state_2)
 #       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
 #       }
 
-g = -0.00348 # Proto Arky tau_s sems not corrected for SD
+g = -0.003478 # Proto Arky tau_s sems not corrected for SD
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
       (name3, name2) :{'mean': g * K[name3, name2] * 4},
       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
@@ -8007,7 +8035,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 2; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
 
 round_dec = 1
 include_std = False
@@ -8019,7 +8047,7 @@ check_peak_significance = False
 low_f = 12; high_f = 30
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_new.pkl')
+             '_n_' + str(n_run) + '_runs.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -8081,7 +8109,22 @@ print( " transition from " , state_1, ' to ', state_2)
 
 
 
+induction_nuc_name = 'D2'
+beta_induction_method = 'excitaion'
 g = -0.002
+
+# induction_nuc_name = 'Proto'
+# beta_induction_method = 'inhibition'
+# g = -0.0025
+
+beta_induc_name_list = [induction_nuc_name]
+amplitude_dict = {'D2': 2, 'Proto': 3.5}
+freq_dict = {induction_nuc_name: 20} 
+start_dict = {induction_nuc_name : int(t_transition / dt) }
+end_dict = {induction_nuc_name: int(t_sim / dt)}
+mean_dict = {induction_nuc_name : 0 }
+
+
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
       (name3, name2) :{'mean': g * K[name3, name2] * 4},
       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
@@ -8108,13 +8151,6 @@ receiving_pop_list = {(name1, '1'): [(name3, '1')],
                       (name4, '1'): [(name3, '1')],
                       (name5, '1'): [(name3, '1')]}
 
-induction_nuc_name = 'D2'
-beta_induc_name_list = [induction_nuc_name]
-amplitude_dict = {induction_nuc_name: 2}
-freq_dict = {induction_nuc_name: 20} 
-start_dict = {induction_nuc_name : int(t_transition / dt) }
-end_dict = {induction_nuc_name: int(t_sim / dt)}
-mean_dict = {induction_nuc_name : 0 }
 
 
 pop_list = [1]
@@ -8147,9 +8183,9 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 
-n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-# n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
-
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+# 
 round_dec = 1
 include_std = False
 plot_start = int(t_sim * 3/4)
@@ -8159,7 +8195,8 @@ legend_loc = 'center right'
 check_peak_significance = False
 low_f = 12; high_f = 30
 
-filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_at_'+ induction_nuc_name + 
+filename = ('All_nuc_from_' + state_1 + '_to_'  + state_2 + 
+            '_with_' + beta_induction_method + '_at_'+ induction_nuc_name + 
             '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
              '_n_' + str(n_run) + '_runs.pkl')
 
@@ -11797,25 +11834,27 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # y_max_series = {'D2': 0.8, 'STN': 5, 'Arky': 3.5, 'Proto': 4.5, 'FSI': 1.6}
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
-# y_max_series = {'D2': 0.2, 'STN': 2, 'Arky': 1.2, 'Proto': 1.3, 'FSI': .4}
+# y_max_series = {'D2': 0.8, 'STN': 9, 'Arky': 4, 'Proto': 5, 'FSI': 1.5}
+# n_decimal = 0
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_3000_n_8_runs.pkl' )
+y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
+n_decimal = 1
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_3000_n_8_runs.pkl' )
+# y_max_series = {'D2': 0.2, 'STN': 1., 'Arky': 2.5, 'Proto': 9, 'FSI': 0.8}
+# n_decimal = 1
 
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
-y_max_series = {'D2': 0.05, 'STN': 0.50, 'Arky': 0.25, 'Proto': 0.32, 'FSI': .08}
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_N_1000_T_3000_n_5_runs.pkl' )
-# y_max_series = {'D2': 0.03, 'STN': 0.18, 'Arky': 0.22, 'Proto': 0.45, 'FSI': .06}
-
-coef = 10**2
-y_max_series = {k: v * coef for k, v in y_max_series.items()}
+coef = 1000
 name_list = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto']
 n_g_list = np.array([0])
 name_ylabel_pad = [-10,-10,-15,-15,-15] # left side
 ref_nuc_name = 'D2'
-ylabel = r'$ Mean \; spike \; count\;/ \;degree (.10 ^{-2})$'
+ylabel = r'$ Mean \; spike \; count\;/ \;degree (.10 ^{-' + str( int( math.log10(coef)))+ '})$'
 ylabel_fontsize, xlabel_fontsize = 13, 13
 xlabel_y = 0.05 ; phase_text_x_shift = 150
+# n_decimal = 0
 
-shift_phase = 'backward'
-# shift_phase = 'forward'
+# shift_phase = 'backward'
+shift_phase = 'forward'
 # shift_phase = None
 # shift_phase = 'both'
 
@@ -11824,8 +11863,8 @@ fig = phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name=ref_
                     ylabel = ylabel, ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
                     tick_label_fontsize = 10, lw = 0.5, name_fontsize = 12, 
                     name_ylabel_pad = name_ylabel_pad, name_place = 'ylabel', alpha = 0.1,
-                    xlabel_y = xlabel_y, ylabel_x = -0.1, phase_txt_yshift_coef = 1.5,
-                    phase_text_x_shift = phase_text_x_shift)#,
+                    xlabel_y = xlabel_y, ylabel_x = -0.1 * (n_decimal + 1), phase_txt_yshift_coef = 1.5,
+                    phase_text_x_shift = phase_text_x_shift, n_decimal = n_decimal)#,
                     # box_plot = False, strip_plot = True)
 
 # fig = remove_all_x_labels(fig)

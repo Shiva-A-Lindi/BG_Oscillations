@@ -2348,17 +2348,32 @@ def set_minor_locator_all_axes(fig, n = 2, axis = 'x'):
             ax.yaxis.set_minor_locator(minor_locator)
             minor_locator = AutoMinorLocator(n)
             ax.xaxis.set_minor_locator(minor_locator)
-
+            
+def plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
+                               state, lw = 1, alpha = 0.1, plot_FR = False):
+    
+    if plot_FR:
+        
+        ax.plot(angles, np.full(len(angles),
+                                FR_dict[name][state]['mean']), 
+                color = color_dict[name], lw = lw)
+        ax.fill_between(angles, 
+                        np.full ( len(angles), 
+                                         FR_dict[name][state]['mean'] - FR_dict[name][state]['SEM']), 
+                        np.full ( len(angles), 
+                                         FR_dict[name][state]['mean'] + FR_dict[name][state]['SEM']),
+                       alpha = alpha , color = color_dict[name])
+   
 def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name = 'Proto', total_phase = 720, 
                         n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                         ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
                         ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
-                        xlabel = 'phase (deg)', coef = 1, lw = 0.5, name_fontsize = 8, 
+                        xlabel = 'phase (deg)', coef = 1000, lw = 0.5, name_fontsize = 8, 
                         name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.15,
-                        xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8,
-                        phase_txt_yshift_coef = 1.4, name_side = 'right',
-                        print_stat_phase = True, strip_plot = False, box_plot = True,
-                        phase_text_x_shift = 150):
+                        xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
+                        phase_txt_yshift_coef = 1.4, name_side = 'right', n_decimal = 0,
+                        print_stat_phase = True, strip_plot = False, box_plot = True, FR_dict = None,
+                        phase_text_x_shift = 150, f_stim = 20, scale_count_to_FR = False, plot_FR = False):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
@@ -2370,11 +2385,18 @@ def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name 
     
     for j, name in enumerate(name_list):
         ax = plt.Subplot(fig, inner[j])
-    
         
-        plot_mean_phase_plus_std(phase_dict[name]['count'] , phase_dict[name]['SEM'], name, ax, 
+        count, sem = phase_dict[name]['count'] , phase_dict[name]['SEM']
+
+        scale_coef_phase_count_to_FR = 360 * f_stim / coef # count per degree where degree is 360/f ms in time with (20 Hz stim)
+        
+        if scale_count_to_FR:
+             count, sem = count * scale_coef_phase_count_to_FR, sem * scale_coef_phase_count_to_FR
+        
+        plot_mean_phase_plus_std(count, sem, name, ax, 
                                  color_dict, angles, lw = lw, alpha = alpha)
-        
+        plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
+                                   state,lw = lw, alpha = alpha, plot_FR = plot_FR)
         box_width = y_max_series[name] / 5
         box_y = y_max_series[name] / 3
         
@@ -2395,15 +2417,17 @@ def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name 
 
         if set_ylim:
             ax.set_ylim(0, y_max_series[name]  + y_max_series[name] * .1)
-        
+            set_y_ticks_one_ax(ax, [0, y_max_series[name]])
+
         
         set_x_ticks_one_ax(ax, [0, 360, 720])
         ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-        set_y_ticks_one_ax(ax, [0, y_max_series[name]])
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.' + str(n_decimal) +'f'))
         rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax, axis = 'x')
         remove_frame(ax)
         
+    set_minor_locator_all_axes(fig, n = 4, axis = 'both')
+    
     if strip_plot:
         
         fig = remove_all_labels(fig)
@@ -2415,15 +2439,13 @@ def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name 
                      rotation='vertical', fontsize=ylabel_fontsize)
     return fig
 
-def read_Brice_phase_hist(filename, name_list, fig_ind_hist, fig_ind_phase, angle_header):
+def read_Brice_phase_hist(filename, name_list, fig_ind_hist, fig_ind_phase, angle_header, coef = 1000):
     
 
     name_list_Brice = ['STN', 'Arkypallidal', 'Prototypic']
     
     xls = pd.ExcelFile(filename)
     data = pd.read_excel(xls, 'Fig 3', header = [0, 1, 2])#, skiprows = [0])
-
-    coef = 1000
     
     angles = data[fig_ind_hist, angle_header, 'Angle(in °)'].values
     angles = angles[~ np.isnan( angles) ]
@@ -2439,6 +2461,29 @@ def read_Brice_phase_hist(filename, name_list, fig_ind_hist, fig_ind_phase, angl
     
     return angles, phase_dict
 
+def read_Brice_FR_states(filename, name_list, first_header):
+    
+
+    name_list_Brice = ['STN', 'Arkypallidal', 'Prototypic']
+    state_list = ['ON', 'OFF']#, 'Park']
+    xls = pd.ExcelFile(filename)
+    data = pd.read_excel(xls, 'Fig 3', header = [0, 1, 2])#, skiprows = [0])
+
+
+    FR_dict = {name: {state: {'mean' : np.average(data[first_header, name_k + ' (Firing rate in Spk/s)', state].values [
+                                                ~ np.isnan(data[first_header, name_k + ' (Firing rate in Spk/s)', state].values)]),
+                              'SEM': stats.sem(data[first_header, name_k + ' (Firing rate in Spk/s)', state].values [~ np.isnan(
+                                            data[first_header, name_k + ' (Firing rate in Spk/s)', state].values)])}
+                          for state in state_list}
+                  for name_k, name  in zip(name_list_Brice, name_list)}
+                  
+    for name, name_k in zip( name_list, name_list_Brice):
+        FR_dict[ name]['DD'] = {'mean' : np.average(data[first_header, name_k + ' (Firing rate in Spk/s)', name + ' Park'].values [
+                                                ~ np.isnan(data[first_header, name_k + ' (Firing rate in Spk/s)', name + ' Park'].values)]),
+                              'SEM': stats.sem(data[first_header, name_k + ' (Firing rate in Spk/s)', name + ' Park'].values [~ np.isnan(
+                                            data[first_header, name_k + ' (Firing rate in Spk/s)', name + ' Park'].values)])}
+    return FR_dict
+
 def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
@@ -2447,7 +2492,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
                   name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.1,
                   xlabel_y = 0.05, ylabel_x = -0.1, phase_txt_yshift_coef = 1.5,
                   name_side = 'right', print_stat_phase = True, strip_plot = False,
-                  box_plot = True, phase_text_x_shift = 150):
+                  box_plot = True, phase_text_x_shift = 150, n_decimal = 0):
     
     fig = plt.figure(figsize = (5, 15))
     outer = gridspec.GridSpec(len(n_g_list), 1, wspace=0.2, hspace=0.2)
@@ -2500,7 +2545,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             set_x_ticks_one_ax(ax, [0, 360, 720])
             ax.tick_params(axis='both', labelsize=tick_label_fontsize)
             set_y_ticks_one_ax(ax, [0, y_max_series[name]])
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.' + str(n_decimal) + 'f'))
             rm_ax_unnecessary_labels_in_subplots(j, len(name_list), ax, axis = 'x')
             remove_frame(ax)
             
