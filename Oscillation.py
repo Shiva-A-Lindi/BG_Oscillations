@@ -3364,12 +3364,14 @@ save_init = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
+hetero_trans_delays = True
 
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, 
+               hetero_trans_delay = hetero_trans_delays) for i in pop_list] for name in name_list}
 
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 # filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
@@ -6919,10 +6921,10 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 6600 
+t_sim = 3300 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
-t_transition = plot_start + 3000# int(t_sim / 5)
+t_transition = plot_start + 0# int(t_sim / 5)
 duration_base = np.array( [int(300/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 t_mvt = t_sim
@@ -6956,7 +6958,18 @@ G = {}
 # G = {k: v * K[k] for k, v in G.items()}
 
 
-g = -0.003478
+# g = -0.0025 ## tuned with Brice's data
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3},
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 1},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
+
+g = -0.003478 ## no tuning to experiments 
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
       (name3, name2) :{'mean': g * K[name3, name2] * 4},
       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
@@ -7044,7 +7057,7 @@ nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_a
 
 
 nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
-status = 'transition_to_' + state_2
+status = 'transition_to_' + state_2 + '_untuned'
 
 ylim = (-2, 75)
 
@@ -8005,10 +8018,10 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 6600 
+t_sim = 3900 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
-t_transition = plot_start + 3000# int(t_sim / 5)
+t_transition = plot_start + 0# int(t_sim / 5)
 duration_base = np.array( [int(300/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 t_mvt = t_sim
@@ -8043,32 +8056,33 @@ print( " transition from " , state_1, ' to ', state_2)
 # G = {k: v * K[k] for k, v in G.items()}
 # print_G_items(G)
 
-# g = -0.00345 ## at rest it gives a peak at low beta
+g = -0.0025 
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
+      (name3, name2) :{'mean': g * K[name3, name2] * 3},
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 1},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.},
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      }
 
+# g = -0.003478 # Proto Arky tau_s sems not corrected for SD
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
 #       (name3, name2) :{'mean': g * K[name3, name2] * 4},
 #       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
 #       (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.6},
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
 #       (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2.7},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.8},
 #       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
 #       }
 
-g = -0.003478 # Proto Arky tau_s sems not corrected for SD
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
-      (name3, name2) :{'mean': g * K[name3, name2] * 4},
-      (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
-      (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.8},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-      }
-
 G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
-G_dict = {k: {'mean': [v['mean']]} for k, v in G.items()}
+# G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
 
+G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
+G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -8114,8 +8128,8 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
-
+n_run = 4; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+save_pop_act = True
 round_dec = 1
 include_std = False
 plot_start = int(t_sim * 3/4)
@@ -8126,7 +8140,7 @@ check_peak_significance = False
 low_f = 12; high_f = 30
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs.pkl')
+             '_n_' + str(n_run) + '_runs_tuned_varying_G_PD.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -8146,7 +8160,7 @@ data = multi_run_transition(path, nuclei_dict, filepath, duration, G_dict, color
                             n_phase_bins=n_phase_bins, start_phase=int(t_sim/4), ref_nuc_name=ref_nuc_name, save_pxx=save_pxx,
                             plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=True,
                             nuc_order=nuc_order, len_f_pxx=150, state_1 = state_1, state_2 = state_2, K_all = K_all, 
-                            state_change_func = change_states, end_phase = end_phase)
+                            state_change_func = change_states, end_phase = end_phase, save_pop_act = save_pop_act)
 
 # %% Transition to Beta induction, All nuclei collective multi run
 
@@ -11927,20 +11941,30 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_5000_n_8_runs.pkl' )
 # y_max_series = {'D2': 0.8, 'STN': 5, 'Arky': 3.5, 'Proto': 4.5, 'FSI': 1.6}
 
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
-# y_max_series = {'D2': 0.8, 'STN': 9, 'Arky': 4, 'Proto': 5, 'FSI': 1.5}
-# n_decimal = 0
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_3000_n_8_runs.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3300_n_8_runs_tuned.pkl' )
+
+y_max_series = {'D2': 0.8, 'STN': 9, 'Arky': 4, 'Proto': 5, 'FSI': 1.5}
+n_decimal = 0
+plot_FR = False; scale_count_to_FR = False
+# y_max_series = {'D2': 1.4, 'STN': 22, 'Arky': 17, 'Proto': 50, 'FSI': 5}
+
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_3300_n_8_runs.pkl' )
 # y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
 # n_decimal = 1
-plot_FR = True; scale_count_to_FR = True
-y_max_series = {'D2': 1.8, 'STN': 10, 'Arky': 19, 'Proto': 50, 'FSI': 5.5}
+# plot_FR = True; scale_count_to_FR = True
+# y_max_series = {'D2': 1.4, 'STN': 22, 'Arky': 17, 'Proto': 50, 'FSI': 5}
 
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_3300_n_8_runs.pkl' )
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_3300_n_8_runs.pkl' )
+# y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
+# n_decimal = 1
+# plot_FR = True; scale_count_to_FR = True
+# y_max_series = {'D2': 3.7, 'STN': 14, 'Arky': 24, 'Proto': 50, 'FSI': 10}
 
-y_max_series = {'D2': 0.2, 'STN': 1., 'Arky': 2.5, 'Proto': 9, 'FSI': 0.8}
-plot_FR = True; scale_count_to_FR = True
-y_max_series = {'D2': 1., 'STN': 18, 'Arky': 30, 'Proto': 45, 'FSI': 17}
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_3300_n_8_runs.pkl' )
+# y_max_series = {'D2': 0.2, 'STN': 1., 'Arky': 2.5, 'Proto': 9, 'FSI': 0.8}
+# plot_FR = True; scale_count_to_FR = True
+# y_max_series = {'D2': 1., 'STN': 18, 'Arky': 30, 'Proto': 45, 'FSI': 17}
 
 n_decimal = 1
 coef = 1000
@@ -12015,7 +12039,9 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3700_n8_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_N_1000_T_3000_n_5_runs.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3300_n_8_runs_tuned.pkl' )
+
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_N_1000_T_3000_n_5_runs.pkl' )
 
 
 

@@ -24,14 +24,16 @@ from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt
 from scipy import signal, stats
+import imageio
+from pygifsicle import optimize
+from PIL import Image
+
 try:
     import jsonpickle
 except ImportError or ModuleNotFoundError:
     subprocess.check_call(
         [sys.executable, '-m', 'pip', 'install', 'jsonpickle'])
-import imageio
-from pygifsicle import optimize
-from PIL import Image
+
 
 # import jsonpickle
 # import decimal
@@ -57,11 +59,13 @@ def extrapolate_FR_ext_from_neuronal_response_curve_high_act(FR_ext, FR_sim, des
     
     slope, intercept = linear_regresstion(FR_ext, FR_sim)
     FR_ext_extrapolated = inverse_linear(desired_FR, slope, intercept)
-    print(FR_ext_extrapolated * slope + intercept)
+    
+    
     if if_plot:
 
-        plot_fitted_line(FR_ext, FR_sim, slope, intercept,  FR_to_I_coef=tau *
-                         g_ext * N_ext / 1000, ax=ax, noise_var=noise_var, c=c)
+        plot_fitted_line(FR_ext, FR_sim, slope, intercept,  
+                         FR_to_I_coef = tau * g_ext * N_ext / 1000, 
+                         ax = ax, noise_var=noise_var, c=c)
 
     return FR_ext_extrapolated / 1000   # FR_ext is in Hz, we want spk/ms
 
@@ -71,12 +75,13 @@ def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, 
     ''' All firing rates in Hz'''
 
     xdata, ydata = get_non_linear_part(
-        FR_ext, FR_sim, end_of_nonlinearity=end_of_nonlinearity)
+                            FR_ext, FR_sim, end_of_nonlinearity=end_of_nonlinearity)
     x, y = rescale_x_and_y(xdata, ydata, desired_FR)
+    
     coefs = fit_FR_as_a_func_of_FR_ext(x, y, sigmoid, maxfev=maxfev)
     FR_ext = extrapolated_FR_ext_from_fitted_curve(x, y, desired_FR, coefs, sigmoid, inverse_sigmoid,
-                                                find_y_normalizing_factor(ydata, desired_FR),
-                                                find_x_mid_point_sigmoid(ydata, xdata))
+                                                   find_y_normalizing_factor(ydata, desired_FR),
+                                                   find_x_mid_point_sigmoid(ydata, xdata))
     if if_plot:
         
         plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs=coefs,
@@ -86,7 +91,8 @@ def extrapolate_FR_ext_from_neuronal_response_curve(FR_ext, FR_sim, desired_FR, 
     if FR_ext == np.nan or FR_ext == np.inf:
         
         print(desired_FR, find_y_normalizing_factor(ydata, desired_FR))
-        print('Corr FR_ext =', FR_ext)
+        print('Corresponding FR_ext =', round( FR_ext, 2) )
+        
         plot_fitted_sigmoid(xdata, ydata, x, desired_FR, coefs=coefs,
                             FR_to_I_coef=tau * g_ext * N_ext / 1000, 
                             ax=ax, noise_var=noise_var, c=c)
@@ -102,7 +108,8 @@ class Nucleus:
         spike_thresh_bound_ratio= [1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
-        plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False):
+        plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
+        keep_ex_voltage_trace = False):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -111,8 +118,8 @@ class Nucleus:
 
         n_timebins = int(t_sim/dt)
         self.name = name
-        self.population_num = population_number
-        self.receiving_from_list = receiving_from_list[(self.name, str(self.population_num))]
+        self.population_num = str(population_number)
+        self.receiving_from_list = receiving_from_list[(self.name, self.population_num)]
         self.receiving_from_pop_name_list = [ pop[0] for pop in self.receiving_from_list]
         self.n = N[name]  # population size
         self.basal_firing = A[name]
@@ -125,7 +132,7 @@ class Nucleus:
         self.ext_inp_delay = ext_inp_delay
         self.K_connections = None
         sending_to_dict = find_sending_pop_dict(receiving_from_list)
-        self.sending_to_dict = sending_to_dict[(self.name, str(self.population_num))]
+        self.sending_to_dict = sending_to_dict[(self.name, self.population_num)]
         self.rest_ext_input = None
         self.avg_pop_act_mvt = None
         self.avg_pop_act_base = None
@@ -145,10 +152,11 @@ class Nucleus:
         self.half_dt = dt/2
         self.synaptic_time_constant = {
             k: v for k, v in synaptic_time_constant.items() if k[1] == name}
+        
         # filter based on the receiving nucleus
         self.T_specs = {k: v for k, v in T.items() 
-                          if k[0] == self.name and 
-                             k[1] in self.receiving_from_pop_name_list}
+                            if k[0] == self.name and 
+                               k[1] in self.receiving_from_pop_name_list}
         
 
         
@@ -178,8 +186,10 @@ class Nucleus:
         if neuronal_model == 'spiking':
             
             print('Initializing ', name)
-            self.transmission_delay = {k: np.zeros( self.n ) 
-                           for k, v in self.T_specs.items()}
+            
+            # self.transmission_delay = {k: np.zeros( self.n ) 
+            #                                for k, v in self.T_specs.items()}
+            self.transmission_delay = {}
             self.state = state
             self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             self.tau_specs = {k: v for k, v in tau.items() 
@@ -187,9 +197,9 @@ class Nucleus:
                               k[1] in self.receiving_from_pop_name_list}
             
 
-            self.tau = {k: np.zeros((  len ( list( v['rise'].values()) [0]) , self.n )) 
-                        for k, v in self.tau_specs.items()}
-            
+            # self.tau = {k: np.zeros((  len ( list( v['rise'].values()) [0]) , self.n )) 
+            #             for k, v in self.tau_specs.items()}
+            self.tau = {}
             # self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} 
             #             for k, v in tau.items() if k[0] == name}
             
@@ -213,11 +223,6 @@ class Nucleus:
             self.n_ext_population = poisson_prop[self.name]['n']            # external population size
             self.firing_of_ext_pop = poisson_prop[self.name]['firing']
             self.syn_weight_ext_pop = poisson_prop[self.name]['g']
-            self.representative_inp = {k: np.zeros( (n_timebins, self.pre_n_components[k[0]]) ) 
-                                       for k in self.receiving_from_list}
-            self.representative_inp['ext_pop', '1'] = np.zeros(n_timebins)
-            self.ext_input_all_t = np.zeros((self.n, n_timebins))
-            self.voltage_trace = np.zeros(n_timebins+1)
             self.AUC_of_input = AUC_of_input
             self.rest_ext_input = np.zeros(self.n)
             self.ext_inp_method = ext_inp_method
@@ -240,6 +245,15 @@ class Nucleus:
             self.noise_tau = noise_tau 
             self.external_input_bool = external_input_bool
             
+            
+            if keep_ex_voltage_trace:
+                
+                self.voltage_trace = np.zeros(n_timebins + 1)
+                self.representative_inp = {k: np.zeros( (n_timebins, self.pre_n_components[k[0]]) ) 
+                                           for k in self.receiving_from_list}
+                self.representative_inp['ext_pop', '1'] = np.zeros(n_timebins)
+                self.ext_input_all_t = np.zeros((self.n, n_timebins))
+                
             if external_input_bool :
                 self.external_inp_t_series = np.zeros((self.n, n_timebins))
 
@@ -249,10 +263,13 @@ class Nucleus:
             if keep_noise_all_t : 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
+            self.get_max_spike_history_t(T)
+            
             self.set_init_distribution( FR_ext_specs, poisson_prop, dt, t_sim,  
                                        plot_initial_V_m_dist = plot_initial_V_m_dist, 
                                        plot_spike_thresh_hist= plot_spike_thresh_hist,
-                                       plot_RMP_to_APth = plot_RMP_to_APth )
+                                       plot_RMP_to_APth = plot_RMP_to_APth,
+                                       hetero_trans_delay = hetero_trans_delay)
             
             self.normalize_synaptic_weight()
             
@@ -270,6 +287,11 @@ class Nucleus:
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
+    def get_max_spike_history_t(self, T):
+        
+        max_transmission_delays = {k: v['truncmax'] for k,v in  T.items()}
+        self.history_duration = max(max_transmission_delays.values())
+        
     def create_syn_weight_mean_dict(self):
         
         if len(self.receiving_from_list) > 0:
@@ -282,7 +304,8 @@ class Nucleus:
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
     def set_init_distribution(self, FR_ext_specs, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
-                              plot_spike_thresh_hist = False, plot_RMP_to_APth = False):
+                              plot_spike_thresh_hist = False, plot_RMP_to_APth = False,
+                              keep_ex_voltage_trace = False, hetero_trans_delay = True):
         
         self.FR_ext_specs = FR_ext_specs
 
@@ -296,7 +319,9 @@ class Nucleus:
             self.initialize_heterogeneously(poisson_prop, dt, t_sim, self.spike_thresh_bound_ratio, 
                                             *self.bound_to_mean_ratio,  plot_initial_V_m_dist=plot_initial_V_m_dist,
                                             plot_spike_thresh_hist= plot_spike_thresh_hist, 
-                                            plot_RMP_to_APth = plot_RMP_to_APth)
+                                            plot_RMP_to_APth = plot_RMP_to_APth, 
+                                            keep_ex_voltage_trace = keep_ex_voltage_trace,
+                                            hetero_trans_delay = hetero_trans_delay)
             
             self.FR_ext = np.zeros(self.n)
 
@@ -354,7 +379,7 @@ class Nucleus:
 
               
     def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc = 0.8, upper_bound_perc=1.2,
-                                          bins=50, color='grey', plot_T_hist = False):
+                                          bins=50, color='grey', plot_T_hist = False, hetero_trans_delay = True):
         
         ''' initialize axonal transmission delays with a truncated normal distribution
             Note: dt incorporated in tau for time efficiency
@@ -362,13 +387,20 @@ class Nucleus:
 
         if len(self.receiving_from_pop_name_list) > 0:
             
-            self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
-                                                                                  v['sd'], self.n,
-                                                                                  truncmin = v['truncmin'],
-                                                                                  truncmax = v['truncmax']) / dt ).astype(int)
-                                       for key, v in T_specs.items()}
+            if hetero_trans_delay:
+                
+                self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
+                                                                                      v['sd'], self.n,
+                                                                                      truncmin = v['truncmin'],
+                                                                                      truncmax = v['truncmax']) / dt ).astype(int)
+                                           for key, v in T_specs.items()}
+                
+            else:
+                
+                self.transmission_delay = {key: int( v['mean']/ dt )
+                                           for key, v in self.T_specs.items()}
+           
             
-            self.history_duration = get_max_value_dict(self.transmission_delay )
             
             
 
@@ -404,11 +436,11 @@ class Nucleus:
     def initialize_resting_membrane_potential(self, plot_initial_V_m_dist = False):
     
         self.u_rest = truncated_normal_distributed(self.neuronal_consts['u_rest']['mean'],
-                                               self.neuronal_consts['u_rest']['var'], self.n,
-                                               truncmin=self.neuronal_consts['u_rest']['truncmin'],
-                                               truncmax=self.neuronal_consts['u_rest']['truncmax'])
+                                                   self.neuronal_consts['u_rest']['var'], self.n,
+                                                   truncmin=self.neuronal_consts['u_rest']['truncmin'],
+                                                   truncmax=self.neuronal_consts['u_rest']['truncmax'])
 
-    def initialize_mem_potential(self, method = 'uniform', plot_initial_V_m_dist = False):
+    def initialize_mem_potential(self, method = 'uniform', plot_initial_V_m_dist = False, keep_ex_voltage_trace = False):
         
         if method not in ['uniform', 'constant', 'exponential', 'draw_from_data']:
             
@@ -452,14 +484,16 @@ class Nucleus:
         if plot_initial_V_m_dist:
             self.plot_mem_potential_distribution_of_one_t(0, bins=50)
             
-        self.voltage_trace[0] = self.mem_potential[0] 
+        if keep_ex_voltage_trace:
+            self.voltage_trace[0] = self.mem_potential[0] 
         
     def initialize_heterogeneously( self,  poisson_prop, dt, t_sim, spike_thresh_bound_ratio, 
                                     lower_bound_perc = 0.8, upper_bound_perc = 1.2,
                                     plot_initial_V_m_dist=False, plot_mem_tau_hist = False,
                                     bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
                                     plot_syn_tau_hist = False, plot_spike_thresh_hist = False,
-                                    plot_RMP_to_APth = False):
+                                    plot_RMP_to_APth = False, keep_ex_voltage_trace = False,
+                                    hetero_trans_delay = True):
         
         ''' cell properties and boundary conditions come from distributions'''
         
@@ -467,7 +501,8 @@ class Nucleus:
         
         self. initialize_transmission_delays(dt, self.T_specs,
                                             lower_bound_perc = lower_bound_perc, 
-                                            upper_bound_perc = upper_bound_perc)
+                                            upper_bound_perc = upper_bound_perc,
+                                            hetero_trans_delay = hetero_trans_delay)
         
         self. initialize_spike_threshold( spike_thresh_bound_ratio,
                                          lower_bound_perc = lower_bound_perc, 
@@ -475,7 +510,8 @@ class Nucleus:
                                          plot_spike_thresh_hist= plot_spike_thresh_hist)
         
         self. initialize_mem_potential(method=self.mem_pot_init_method, 
-                                       plot_initial_V_m_dist = plot_initial_V_m_dist)
+                                       plot_initial_V_m_dist = plot_initial_V_m_dist,
+                                       keep_ex_voltage_trace = keep_ex_voltage_trace )
         
         self. initialize_membrane_time_constant(lower_bound_perc = lower_bound_perc, 
                                                upper_bound_perc = upper_bound_perc,
@@ -643,14 +679,13 @@ class Nucleus:
         
         for projecting in receiving_from_class_list:
             
-            num = str(projecting.population_num)
 
             
             syn_inputs += ( 
                            np.matmul(
-                                   self.connectivity_matrix[ (projecting.name, num) ]  ,
+                                   self.connectivity_matrix[ (projecting.name, projecting.population_num) ]  ,
                                    projecting.output[ (self.name, 
-                                                       str(self.population_num))][:, - self.transmission_delay[
+                                                       self.population_num)][:, - self.transmission_delay[
                                                                                                        (self.name, 
                                                                                                         projecting.name)]].reshape(-1, 1)
                                    )
@@ -705,13 +740,13 @@ class Nucleus:
     def constant_ext_input_with_noise(self, dt):
         
         self.noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude, 
-                                                                self.noise_std, 
-                                                                self.n, 
-                                                                dt,
-                                                                self.sqrt_dt, 
-                                                                tau = self.noise_tau, 
-                                                                noise_dt_before = self.noise
-                                                                )
+                                                                     self.noise_std, 
+                                                                     self.n, 
+                                                                     dt,
+                                                                     self.sqrt_dt, 
+                                                                     tau = self.noise_tau, 
+                                                                     noise_dt_before = self.noise
+                                                                     )
 
         
         return self.rest_ext_input + self.noise.reshape(-1,)
@@ -740,20 +775,38 @@ class Nucleus:
 
     def cal_synaptic_input(self, dt, projecting, t):
         
-        ''' Calcculate synaptic input of the given projection'''
+        ''' Calcculate synaptic input of the given projection 
+            with heterogeneous transmission delays'''
         
-        num = str(projecting.population_num)
-        name = projecting.name
         
-        self.syn_inputs[name, num] = (
-                                      np.matmul(self.connectivity_matrix[(name, num)],
-                                                np.diagonal( projecting.spikes[:, 
-                                                   t - self.transmission_delay[(self.name, name)]])
-                                               ) / dt * \
+        self.syn_inputs[projecting.name, 
+                        projecting.population_num] = (
+            
+                                      np.matmul(
+                                          self.connectivity_matrix[(projecting.name, projecting.population_num)],
+                                          np.diag( projecting.spikes[:, 
+                                                      t - self.transmission_delay[(self.name, projecting.name)]])
+                                                ) / dt * \
                                       self.membrane_time_constant).reshape(-1,)
                                     
 
+    # def cal_synaptic_input(self, dt, projecting, t):
         
+    #     ''' Calcculate synaptic input of the given projection'''
+        
+        
+    #     self.syn_inputs[projecting.name, 
+    #                     projecting.population_num] = (
+            
+    #                                   np.matmul(
+    #                                       self.connectivity_matrix[(projecting.name, projecting.population_num)],
+    #                                       projecting.spikes[:, 
+    #                                                   t - self.transmission_delay[(self.name, projecting.name)]]
+    #                                             ) / dt * \
+    #                                   self.membrane_time_constant).reshape(-1,)
+                                    
+                                
+
     def sum_synaptic_input(self, receiving_from_class_list, dt, t):
         
         ''' Sum the synaptic input from all projections'''
@@ -766,7 +819,7 @@ class Nucleus:
             synaptic_inputs = synaptic_inputs + \
                               self.sum_components_of_one_synapse(t, dt, 
                                                                  projecting.name, 
-                                                                 str(projecting.population_num),
+                                                                 projecting.population_num,
                                                                  pre_n_components = self.pre_n_components[projecting.name])
                               
 
@@ -778,11 +831,12 @@ class Nucleus:
         assuming that there are no spikes between time t and t+dt '''
         
         synaptic_inputs = np.zeros(self.n)
+        
         for projecting in receiving_from_class_list:
 
             synaptic_inputs =  synaptic_inputs + \
                                 self.sum_components_of_one_synapse_one_step_ahead_with_no_spikes(dt, projecting.name,
-                                                                                                str(projecting.population_num),
+                                                                                                projecting.population_num,
                                                                                                 pre_n_components = 
                                                                                                 self.pre_n_components[projecting.name]
                                                                                                 )
@@ -805,10 +859,9 @@ class Nucleus:
                                                                                                                 I = self.I_syn[pre_name, pre_num][:, i],
                                                                                                                 tau_rise = self.tau[(self.name, pre_name)]['rise'][i,:],
                                                                                                                 tau_decay = self.tau[(self.name, pre_name)]['decay'][i,:])
-            self.representative_inp[pre_name, pre_num][t,
-                i] = self.I_syn[pre_name, pre_num][0, i]
+            # self.representative_inp[pre_name, pre_num][t,
+            #     i] = self.I_syn[pre_name, pre_num][0, i]
             
-            # print(self.name, pre_name, self.syn_component_weight[self.name, pre_name], i)
 
             sum_components =  sum_components + \
                               self.I_syn[pre_name, pre_num][:, i] * \
@@ -907,7 +960,8 @@ class Nucleus:
                         self.u_rest, 
                         self.I_syn['ext_pop', '1'], 
                         synaptic_inputs)
-        self.voltage_trace[t] = self.mem_potential[0]
+        
+        
 
         # self.mem_potential = fwd_Euler(dt, self.mem_potential, V_prime)
         I_syn_next_dt = self. sum_synaptic_input_one_step_ahead_with_no_spikes( receiving_from_class_list, 
@@ -920,7 +974,9 @@ class Nucleus:
                                                           self.u_rest, 
                                                           self.I_syn['ext_pop', '1'],
                                                           self.half_dt)
-
+        
+        # self.voltage_trace[t] = self.mem_potential[0]
+        
     def find_spikes(self, t):
 
         spiking_ind = np.where(self.mem_potential > self.spike_thresh)
@@ -1339,7 +1395,7 @@ class Nucleus:
         for t in t_list:  # run temporal dynamics
         
             self.solve_IF_without_syn_input(
-                t, dt, receiving_class_dict[(self.name, str(self.population_num))])
+                t, dt, receiving_class_dict[(self.name, self.population_num)])
             
     def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
         
@@ -4283,9 +4339,9 @@ def find_FR_sim_vs_FR_ext(FR_list, poisson_prop, receiving_class_dict, t_list, d
                 nucleus.smooth_pop_activity(dt, window_ms=5)
                 FR_mean, FR_std = nucleus. average_pop_activity(int(len(t_list) / 2) , len(t_list))
                 firing_prop[nucleus.name]['firing_mean'][i,
-                    nucleus.population_num-1] = FR_mean
+                    int(nucleus.population_num)-1] = FR_mean
                 firing_prop[nucleus.name]['firing_var'][i,
-                    nucleus.population_num-1] = FR_std
+                    int(nucleus.population_num)-1] = FR_std
                 print(nucleus.name, np.round(np.average(nucleus.FR_ext), 3),
                     'FR=', FR_mean, 'std=', round(FR_std, 2))
         i += 1
@@ -4920,12 +4976,12 @@ def find_FR_sim_vs_FR_expected(FR_list, poisson_prop, receiving_class_dict, t_li
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
                 nucleus.pop_act = moving_average_array(nucleus.pop_act, 50)
-                firing_prop[nucleus.name]['firing_mean'][i, nucleus.population_num -
+                firing_prop[nucleus.name]['firing_mean'][i, int(nucleus.population_num) -
                     1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
-                firing_prop[nucleus.name]['firing_var'][i, nucleus.population_num -
+                firing_prop[nucleus.name]['firing_var'][i, int(nucleus.population_num) -
                     1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
                 print(nucleus.name, np.round(np.average(nucleus.FR_ext), 3),
-                    'FR=', firing_prop[nucleus.name]['firing_mean'][i, nucleus.population_num-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, nucleus.population_num-1], 2))
+                    'FR=', firing_prop[nucleus.name]['firing_mean'][i, int(nucleus.population_num)-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, int(nucleus.population_num)-1], 2))
         i += 1
     return firing_prop
 
@@ -4954,14 +5010,14 @@ def find_ext_input_reproduce_nat_firing(tuning_param, list_1, list_2, poisson_pr
             for nuclei_list in nuclei_dict.values():
                 for nucleus in nuclei_list:
 
-                    firing_prop[nucleus.name]['firing_mean'][i, j, nucleus.population_num -
+                    firing_prop[nucleus.name]['firing_mean'][i, j, int(nucleus.population_num) -
                         1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
                     loss[i, j] += (firing_prop[nucleus.name]['firing_mean']
-                                   [i, j, nucleus.population_num-1] - nucleus.basal_firing)**2
-                    firing_prop[nucleus.name]['firing_var'][i, j, nucleus.population_num -
+                                   [i, j, int(nucleus.population_num)-1] - nucleus.basal_firing)**2
+                    firing_prop[nucleus.name]['firing_var'][i, j, int(nucleus.population_num) -
                         1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
                     print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop, 3),
-                        'FR=', firing_prop[nucleus.name]['firing_mean'][i, j, nucleus.population_num-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, j, nucleus.population_num-1], 2))
+                        'FR=', firing_prop[nucleus.name]['firing_mean'][i, j, int(nucleus.population_num)-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, j, int(nucleus.population_num)-1], 2))
             print('loss =', loss[i, j])
             j += 1
         i += 1
@@ -4995,14 +5051,14 @@ def find_ext_input_reproduce_nat_firing_3_pop(tuning_param, list_1, list_2, list
                 nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
                 for nuclei_list in nuclei_dict.values():
                     for nucleus in nuclei_list:
-                        firing_prop[nucleus.name]['firing_mean'][i, j, l, nucleus.population_num -
+                        firing_prop[nucleus.name]['firing_mean'][i, j, l, int(nucleus.population_num) -
                             1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
                         loss[i, j, l] += (firing_prop[nucleus.name]['firing_mean']
-                                          [i, j, l, nucleus.population_num-1] - nucleus.basal_firing)**2
+                                          [i, j, l, int(nucleus.population_num)-1] - nucleus.basal_firing)**2
                         firing_prop[nucleus.name]['firing_var'][i, j, l,
-                            nucleus.population_num-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
+                            int(nucleus.population_num)-1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
                         print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop, 4),
-                            'FR=', firing_prop[nucleus.name]['firing_mean'][i, j, l, nucleus.population_num-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, j, l, nucleus.population_num-1], 2))
+                            'FR=', firing_prop[nucleus.name]['firing_mean'][i, j, l, int(nucleus.population_num)-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, j, l, int(nucleus.population_num)-1], 2))
                 print('loss =', loss[i, j, l])
                 l += 1
             j += 1
@@ -5032,14 +5088,14 @@ def find_ext_input_reproduce_nat_firing_relative(tuning_param, list_1, poisson_p
         nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
         for nuclei_list in nuclei_dict.values():
             for nucleus in nuclei_list:
-                firing_prop[nucleus.name]['firing_mean'][i, nucleus.population_num -
+                firing_prop[nucleus.name]['firing_mean'][i, int(nucleus.population_num) -
 				    1] = np.average(nucleus.pop_act[int(len(t_list)/2):])
                 loss[i] += (firing_prop[nucleus.name]['firing_mean']
-				            [i, nucleus.population_num-1] - nucleus.basal_firing)**2
-                firing_prop[nucleus.name]['firing_var'][i, nucleus.population_num -
+				            [i, int(nucleus.population_num)-1] - nucleus.basal_firing)**2
+                firing_prop[nucleus.name]['firing_var'][i, int(nucleus.population_num) -
 				    1] = np.std(nucleus.pop_act[int(len(t_list)/2):])
                 print(tuning_param, nucleus.name, round(nucleus.firing_of_ext_pop, 3),
-					'FR=', firing_prop[nucleus.name]['firing_mean'][i, nucleus.population_num-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, nucleus.population_num-1], 2))
+					'FR=', firing_prop[nucleus.name]['firing_mean'][i, int(nucleus.population_num)-1], 'std=', round(firing_prop[nucleus.name]['firing_var'][i, int(nucleus.population_num)-1], 2))
             print('loss = ', loss[i])
         i += 1
         return loss, ext_firing, firing_prop
@@ -6232,12 +6288,12 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
                 act = nucleus.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
                 peaks,_ =signal.find_peaks(act, height = 0)
                 ax.plot(peaks * dt, act[peaks] + A[nucleus.name], 'x')
-                ax.plot(t_list[plot_start: plot_end]*dt, act[plot_start: plot_end] + A[nucleus.name], line_type[nucleus.population_num-1], 
+                ax.plot(t_list[plot_start: plot_end]*dt, act[plot_start: plot_end] + A[nucleus.name], line_type[int(nucleus.population_num)-1], 
                         c = color_dict[nucleus.name],lw = 1.5, alpha = 0.4)
             
             else:
                 ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], 
-                        line_type[nucleus.population_num-1], label = label, c = color_dict[nucleus.name],
+                        line_type[int(nucleus.population_num)-1], label = label, c = color_dict[nucleus.name],
                         lw = lw, alpha = alpha)
                 
             if continuous_firing_base_lines:
