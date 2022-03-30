@@ -3300,8 +3300,8 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.2
-t_sim = 2000
+dt = 0.1
+t_sim = 3000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
 D_mvt = t_sim - t_mvt
@@ -3313,7 +3313,7 @@ name2 = 'Proto'
 name_list = [name1, name2]
 
 
-
+np.random.seed(1)
 state = 'rest' # set
 g = -0.015 # rest
 
@@ -3365,13 +3365,13 @@ noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 hetero_trans_delays = True
-
+hetero_tau = True
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
                syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, 
-               hetero_trans_delay = hetero_trans_delays) for i in pop_list] for name in name_list}
+               hetero_trans_delay = hetero_trans_delays, hetero_tau = hetero_tau, Act  = Act) for i in pop_list] for name in name_list}
 
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 # filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,

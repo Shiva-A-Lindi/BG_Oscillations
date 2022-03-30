@@ -24,9 +24,11 @@ from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt
 from scipy import signal, stats
+from scipy.sparse import csc_array,csc_matrix, lil_matrix
 import imageio
 from pygifsicle import optimize
 from PIL import Image
+
 
 try:
     import jsonpickle
@@ -40,6 +42,7 @@ except ImportError or ModuleNotFoundError:
 # from decimal import *
 # from scipy import optimize
 
+np.random.seed(1)
 
 def as_si(x, ndp):
     s = '{x:0.{ndp:d}e}'.format(x=x, ndp=ndp)
@@ -109,7 +112,7 @@ class Nucleus:
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
         plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
-        keep_ex_voltage_trace = False):
+        keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2):
 
         if set_random_seed:
             self.random_seed = random_seed
@@ -145,7 +148,6 @@ class Nucleus:
         self.perc_oscil_basal = None
         self.trim_sig_method_dict = {'spiking': 'simple', 'rate': 'neat'}
         self.path = path
-        self.pop_act = np.zeros((n_timebins))  # time series of population activity
         self.t_sim = t_sim
         self.n_timebins = n_timebins
         self.sqrt_dt = np.sqrt(dt)
@@ -167,6 +169,8 @@ class Nucleus:
 
         if neuronal_model == 'rate':
             
+            self.pop_act = np.zeros((n_timebins))  # time series of population activity
+
             self.external_inp_t_series = np.zeros((self.n, n_timebins))
             self.transmission_delay = {k: int( v['mean'] / dt )
                            for k, v in self.T_specs.items()}
@@ -187,22 +191,16 @@ class Nucleus:
             
             print('Initializing ', name)
             
-            # self.transmission_delay = {k: np.zeros( self.n ) 
-            #                                for k, v in self.T_specs.items()}
+            self.pop_act = None  # time series of population activity
+
             self.transmission_delay = {}
+            self.tau = {}
             self.state = state
-            self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
             self.tau_specs = {k: v for k, v in tau.items() 
                               if k[0] == self.name and 
-                              k[1] in self.receiving_from_pop_name_list}
+                                  k[1] in self.receiving_from_pop_name_list}
             
 
-            # self.tau = {k: np.zeros((  len ( list( v['rise'].values()) [0]) , self.n )) 
-            #             for k, v in self.tau_specs.items()}
-            self.tau = {}
-            # self.tau = {k: {kk: np.array(vv)/dt for kk, vv in tau[k].items()} 
-            #             for k, v in tau.items() if k[0] == name}
-            
             self.pre_n_components = {k[1]: len(v['rise']['mean']) for k,v in self.tau_specs.items()}
             
             if syn_component_weight != None:
@@ -245,6 +243,14 @@ class Nucleus:
             self.noise_tau = noise_tau 
             self.external_input_bool = external_input_bool
             
+            self.get_max_spike_history_t(T, dt)
+            # self.spikes = lil_matrix( np.zeros((self.n, int(t_sim/dt)) ))
+            self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
+            
+            # self.spikes = np.zeros((self.n, self.history_duration), dtype=int) ## limited spike history 
+            # max_FR = max( {state: FR[name] for state, FR in Act.items()}.values())
+            # self.spike_times = np.zeros((self.n, int(t_sim * dt * max_FR * upscaling_spk_counts)), dtype=int)
+            # self.ind_last_spike = np.zeros(self.n)
             
             if keep_ex_voltage_trace:
                 
@@ -263,13 +269,13 @@ class Nucleus:
             if keep_noise_all_t : 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
-            self.get_max_spike_history_t(T)
-            
-            self.set_init_distribution( FR_ext_specs, poisson_prop, dt, t_sim,  
+                        
+            self.set_init_distribution( self.T_specs, self.tau_specs, FR_ext_specs, poisson_prop, dt, t_sim,  
                                        plot_initial_V_m_dist = plot_initial_V_m_dist, 
                                        plot_spike_thresh_hist= plot_spike_thresh_hist,
                                        plot_RMP_to_APth = plot_RMP_to_APth,
-                                       hetero_trans_delay = hetero_trans_delay)
+                                       hetero_trans_delay = hetero_trans_delay,
+                                       hetero_tau = hetero_tau )
             
             self.normalize_synaptic_weight()
             
@@ -287,10 +293,12 @@ class Nucleus:
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
-    def get_max_spike_history_t(self, T):
+    def get_max_spike_history_t(self, T, dt):
         
         max_transmission_delays = {k: v['truncmax'] for k,v in  T.items()}
-        self.history_duration = max(max_transmission_delays.values())
+        self.history_duration = int(
+                max(max_transmission_delays.values()) 
+                / dt)
         
     def create_syn_weight_mean_dict(self):
         
@@ -303,15 +311,17 @@ class Nucleus:
                 self.G_heterogeneity = True
                 self.synaptic_weight = {k: v['mean'] for k, v in self.synaptic_weight_specs.items()}
                 
-    def set_init_distribution(self, FR_ext_specs, poisson_prop, dt, t_sim, plot_initial_V_m_dist = False,
+    def set_init_distribution(self, T_specs, tau_specs, FR_ext_specs, poisson_prop, dt, 
+                              t_sim, plot_initial_V_m_dist = False,
                               plot_spike_thresh_hist = False, plot_RMP_to_APth = False,
-                              keep_ex_voltage_trace = False, hetero_trans_delay = True):
+                              keep_ex_voltage_trace = False, hetero_trans_delay = True,
+                              hetero_tau = True):
         
         self.FR_ext_specs = FR_ext_specs
 
         if self.init_method == 'homogeneous':
             
-            self.initialize_homogeneously(poisson_prop, dt)
+            self.initialize_homogeneously( T_specs, tau_specs, poisson_prop, dt)
             self.FR_ext = 0
             
         elif self.init_method == 'heterogeneous':
@@ -321,7 +331,8 @@ class Nucleus:
                                             plot_spike_thresh_hist= plot_spike_thresh_hist, 
                                             plot_RMP_to_APth = plot_RMP_to_APth, 
                                             keep_ex_voltage_trace = keep_ex_voltage_trace,
-                                            hetero_trans_delay = hetero_trans_delay)
+                                            hetero_trans_delay = hetero_trans_delay,
+                                            hetero_tau = hetero_tau)
             
             self.FR_ext = np.zeros(self.n)
 
@@ -348,9 +359,10 @@ class Nucleus:
             plot_histogram(self.membrane_time_constant, bins = 25, 
                            title = self.name, xlabel = r'$\tau_{m} \; (ms)$')
             
+            
     def initialize_synaptic_time_constant(self, dt, tau_specs, lower_bound_perc=0.8, upper_bound_perc=1.2,
                                           bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
-                                          plot_syn_tau_hist = False):
+                                          plot_syn_tau_hist = False, hetero_tau = True):
         
         ''' initialize synaptic time constant with a truncated normal distribution
             Note: dt incorporated in tau for time efficiency
@@ -358,28 +370,47 @@ class Nucleus:
         
         if len(self.receiving_from_pop_name_list) > 0:
             
-            tc_list = list (tau_specs[ list(tau_specs.keys()) [0] ].keys() ) 
             
-            for key, val in tau_specs.items():
+            if hetero_tau:
+                self.initialize_synaptic_time_constant_heterogeneously( dt, tau_specs, bins=bins, color=color, 
+                                                          tc_plot = tc_plot, syn_element_no = syn_element_no, 
+                                                          plot_syn_tau_hist = plot_syn_tau_hist)
+            else:
+                self.initialize_synaptic_time_constant_homogeneously(dt, tau_specs)
                 
-                self.tau[key] = {tc : np.array( [truncated_normal_distributed(val[tc]['mean'][i],
-                                                                              val[tc]['sd'][i], self.n,
-                                                                              truncmin = val[tc]['truncmin'][i],
-                                                                              truncmax = val[tc]['truncmax'][i]) / dt 
-                                                 for i in range( len(tau_specs[key][tc]['mean'] )) 
-                                                 ] )
-                                for tc in tc_list
-                                }
-                                       
-                if plot_syn_tau_hist:
-                    
-                    plot_histogram(self.tau[key][tc_plot], bins = bins, 
-                                   title = self.name,
-                                   xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')
-
-              
+                
+    def initialize_synaptic_time_constant_homogeneously(self, dt, tau_specs):
+        
+        self.tau ={ proj: 
+                   {tc: np.array(v['mean']) / dt for tc, v in tc_val.items()} 
+                   for proj, tc_val in tau_specs.items()}
+            
+            
+    def initialize_synaptic_time_constant_heterogeneously(self, dt, tau_specs, bins=50, color='grey', 
+                                                          tc_plot = 'decay', syn_element_no = 0, 
+                                                          plot_syn_tau_hist = False):
+        
+        tc_list = list (tau_specs[ list(tau_specs.keys()) [0] ].keys() ) 
+        for key, val in tau_specs.items():
+            
+            self.tau[key] = {tc : np.array( [truncated_normal_distributed(val[tc]['mean'][i],
+                                                                          val[tc]['sd'][i], self.n,
+                                                                          truncmin = val[tc]['truncmin'][i],
+                                                                          truncmax = val[tc]['truncmax'][i]) / dt 
+                                             for i in range( len(tau_specs[key][tc]['mean'] )) 
+                                             ] )
+                            for tc in tc_list
+                            }
+                                   
+            if plot_syn_tau_hist:
+                
+                plot_histogram(self.tau[key][tc_plot], bins = bins, 
+                               title = self.name,
+                               xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')     
+        
+        
     def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc = 0.8, upper_bound_perc=1.2,
-                                          bins=50, color='grey', plot_T_hist = False, hetero_trans_delay = True):
+                                       bins=50, color='grey', plot_T_hist = False, hetero_trans_delay = True):
         
         ''' initialize axonal transmission delays with a truncated normal distribution
             Note: dt incorporated in tau for time efficiency
@@ -389,21 +420,27 @@ class Nucleus:
             
             if hetero_trans_delay:
                 
-                self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
-                                                                                      v['sd'], self.n,
-                                                                                      truncmin = v['truncmin'],
-                                                                                      truncmax = v['truncmax']) / dt ).astype(int)
-                                           for key, v in T_specs.items()}
+                self.initialize_transmission_delays_heterogeneously(dt, T_specs)
                 
             else:
                 
-                self.transmission_delay = {key: int( v['mean']/ dt )
-                                           for key, v in self.T_specs.items()}
+                self.initialize_transmission_delays_homogeneously(dt, T_specs)
+
            
             
-            
-            
-
+    def initialize_transmission_delays_heterogeneously(self, dt, T_specs):
+        
+        self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
+                                                                              v['sd'], self.n,
+                                                                              truncmin = v['truncmin'],
+                                                                              truncmax = v['truncmax']) / dt ).astype(int)
+                                   for key, v in T_specs.items()}
+        
+    def initialize_transmission_delays_homogeneously(self, dt, T_specs):
+        
+        self.transmission_delay = {key: int( v['mean']/ dt )
+                                   for key, v in self.T_specs.items()}
+        
     def initialize_ext_synaptic_time_constant(self, poisson_prop, dt, lower_bound_perc=0.8, upper_bound_perc=1.2):
         
         tc_list = ['rise', 'decay']
@@ -475,8 +512,7 @@ class Nucleus:
             lower, upper, scale = 0, self.neuronal_consts['spike_thresh']['mean'] - \
                                     self.u_rest, 30
             X = stats.truncexpon(b=(upper-lower) / scale, loc=lower, scale=scale)
-            self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(
-                                self.n)
+            self.mem_potential = self.neuronal_consts['spike_thresh']['mean'] - X.rvs(self.n)
         
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
@@ -493,7 +529,7 @@ class Nucleus:
                                     bins=50, color='grey', tc_plot = 'decay', syn_element_no = 0, 
                                     plot_syn_tau_hist = False, plot_spike_thresh_hist = False,
                                     plot_RMP_to_APth = False, keep_ex_voltage_trace = False,
-                                    hetero_trans_delay = True):
+                                    hetero_trans_delay = True, hetero_tau = True):
         
         ''' cell properties and boundary conditions come from distributions'''
         
@@ -521,25 +557,27 @@ class Nucleus:
                                                syn_element_no = syn_element_no, 
                                                plot_syn_tau_hist = plot_syn_tau_hist,
                                                lower_bound_perc = lower_bound_perc, 
-                                               upper_bound_perc = upper_bound_perc)
+                                               upper_bound_perc = upper_bound_perc,
+                                               hetero_tau = hetero_tau )
         
         self.initialize_ext_synaptic_time_constant(poisson_prop, dt, 
                                                   lower_bound_perc = lower_bound_perc, 
                                                   upper_bound_perc = upper_bound_perc)
 
         if plot_RMP_to_APth:
+            
             plot_histogram(self.spike_thresh - self.u_rest, bins = bins, 
                            title = self.name,
                            xlabel = r'spike threshold - RMP (mV)')
             
-    def initialize_homogeneously(self, poisson_prop, dt, keep_mem_pot_all_t=False):
+    def initialize_homogeneously(self, T_specs, tau_specs, poisson_prop, dt, keep_mem_pot_all_t=False):
         
         ''' cell properties and boundary conditions are constant for all cells'''
 
-        self.transmission_delay = {key: ( np.full( self.n, self.T_specs[key]['mean']) 
-                                         / dt ).astype(int)
-                                   for key in list (self.T_specs.keys())}
-        
+        self.initialize_transmission_delays_homogeneously(dt, T_specs)
+
+        self.initialize_synaptic_time_constant_homogeneously(dt, tau_specs)
+
         self.spike_thresh = np.full( self.n, 
                                      self.neuronal_consts['spike_thresh']['mean'])
         
@@ -556,15 +594,6 @@ class Nucleus:
         self.tau_ext_pop = {'rise': np.full(self.n, poisson_prop[self.name]['tau']['rise']['mean']) / dt,  # synaptic decay time of the external pop inputs
                             'decay': np.full(self.n, poisson_prop[self.name]['tau']['decay']['mean']) / dt}
         
-        tc_list = list (self.tau_specs[ list(self.tau_specs.keys()) [0] ].keys() ) 
-            
-        for key in list (self.tau_specs.keys()):
-            
-            self.tau[key] = {tc : np.array( [np.full( self.n, self.tau_specs[key][tc]['mean'][i]) / dt 
-                                             for i in range( len(self.tau_specs[key][tc]['mean'] )) 
-                                             ] )
-                            for tc in tc_list
-                            }
             
             
         if self.keep_mem_pot_all_t:
@@ -617,6 +646,7 @@ class Nucleus:
         else:
             self.synaptic_weight_specs = self.synaptic_weight
             
+        self. change_connectivity_mat_to_sparse()
 
         
     def set_connections(self, K, N):
@@ -628,18 +658,29 @@ class Nucleus:
         self.K_connections = {k: v for k, v in K.items() if k[0] == self.name}
         
         for projecting in self.receiving_from_list:
+            
             same_pop = False
             proj_name = projecting[0]
+            
             n_connections = self.K_connections[(self.name, proj_name)]
             
             if self.name == proj_name:
                 same_pop = True
+                
             self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[proj_name], 
                                                                            n_connections, 
                                                                            same_pop = same_pop)
             
         self.multiply_connectivity_mat_by_G(N)
-            
+        
+    def change_connectivity_mat_to_sparse(self):
+        
+        #### csc_array is faster that csr_array.
+        self.connectivity_matrix = { k : 
+                                    csc_array(v)
+                                    for k, v in self.connectivity_matrix.items()
+                                   }
+        
     def multiply_connectivity_mat_by_G(self, N, plot_G_hist = False):
         
         for projecting in self.receiving_from_list:
@@ -649,7 +690,6 @@ class Nucleus:
             key = (self.name, proj_name)
             
             if self.init_method == 'heterogeneous' and self.G_heterogeneity:
-                                                    # np.sign(self.synaptic_weight_specs[key]['mean']) * \
 
                 synaptic_weights = (truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
                                                                  self.synaptic_weight_specs[key]['sd'], 
@@ -658,20 +698,28 @@ class Nucleus:
                                                                  truncmax = self.synaptic_weight_specs[key]['truncmax'])
                                     )            
             else:
+                
                 if self.G_heterogeneity:
+                    
                     synaptic_weights = self.synaptic_weight_specs[key]['mean']
+                    
                 else:
+                    
                     synaptic_weights = self.synaptic_weight_specs[key]
                 
             self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
                                                                 self.connectivity_matrix[proj_name,projecting[1]]
+                                                                
             if plot_G_hist:
+                
                  ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
+                 
                  plot_histogram(self.connectivity_matrix[proj_name,projecting[1]][ind].flatten(), 
                                 bins = 25, title =  proj_name + ' to '+ self.name ,
                                 xlabel = 'normalizd G')                                              
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):
+        
         ''' RATE MODEL: I = Sum (G * m * J) and then
             A = Transfer_f (I)'''
 
@@ -715,7 +763,7 @@ class Nucleus:
 
         # choose method of exerting external input from dictionary of methods
         I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) # + self.external_inp_t_series[:, t]
-        
+
         ( self.I_syn['ext_pop', '1'], 
          self.I_rise['ext_pop', '1']) = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, 
                                                                                                    dt,
@@ -773,40 +821,75 @@ class Nucleus:
                * self.membrane_time_constant
                ).reshape(-1,)
 
-    def cal_synaptic_input(self, dt, projecting, t):
-        
-        ''' Calcculate synaptic input of the given projection 
-            with heterogeneous transmission delays'''
-        
-        
-        self.syn_inputs[projecting.name, 
-                        projecting.population_num] = (
             
-                                      np.matmul(
-                                          self.connectivity_matrix[(projecting.name, projecting.population_num)],
-                                          np.diag( projecting.spikes[:, 
-                                                      t - self.transmission_delay[(self.name, projecting.name)]])
-                                                ) / dt * \
-                                      self.membrane_time_constant).reshape(-1,)
-                                    
-
+                   
     # def cal_synaptic_input(self, dt, projecting, t):
         
-    #     ''' Calcculate synaptic input of the given projection'''
-        
+    #     ''' Calcculate synaptic input of the given projection 
+    #         with heterogeneous transmission delays with sparse connectivity and spike matrices'''
+    #     #### having a sparse "lil_matrix" for constructing the spike times increases runtime
         
     #     self.syn_inputs[projecting.name, 
     #                     projecting.population_num] = (
-            
-    #                                   np.matmul(
-    #                                       self.connectivity_matrix[(projecting.name, projecting.population_num)],
-    #                                       projecting.spikes[:, 
-    #                                                   t - self.transmission_delay[(self.name, projecting.name)]]
-    #                                             ) / dt * \
-    #                                   self.membrane_time_constant).reshape(-1,)
-                                    
-                                
 
+    #                                       (self.connectivity_matrix[(projecting.name, projecting.population_num)] @
+    #                                       projecting.spikes[(np.arange(self.n), 
+    #                                                   t  - self.transmission_delay[(self.name, projecting.name)])].toarray().reshape(-1,)
+    #                                             ) * \
+    #                                   self.membrane_time_constant  / dt).reshape(-1,)
+        
+    def cal_synaptic_input(self, dt, projecting, t):
+        
+        ''' Calcculate synaptic input of the given projection 
+            with heterogeneous transmission delays with sparse connectivity and spike matrices'''
+        #### having a sparse "lil_matrix" for constructing the spike times increases 
+        # runtime so going store spike times separatly and keep the spikes with a limited history
+        
+        self.syn_inputs[projecting.name, 
+                        projecting.population_num] = (
+
+                                          (self.connectivity_matrix[(projecting.name, projecting.population_num)] @
+                                          projecting.spikes[(np.arange(self.n), 
+                                                        # - self.transmission_delay[(self.name, projecting.name)])] ## limited spike history 
+                                                       t - self.transmission_delay[(self.name, projecting.name)])]
+
+                                                ) * \
+                                      self.membrane_time_constant  / dt).reshape(-1,)
+                                                                             
+
+    def find_spikes(self, t):
+
+        spiking_ind = np.where(self.mem_potential > self.spike_thresh)[0]
+        
+        self.spikes[spiking_ind, t] = 1 
+        
+        # self.shift_spikes_back( spiking_ind) ## limited spike history 
+        # self.ind_last_spike[spiking_ind] += 1
+        # self.spike_times[(spiking_ind, 
+        #                   (self.ind_last_spike[spiking_ind] + 1).astype(int))] = t
+        
+        return spiking_ind
+
+
+    def shift_spikes_back(self, spiking_ind):
+        
+        result = np.zeros_like(self.spikes)
+    
+        result[spiking_ind,-1] = 1
+        result[:, :-1] = self.spikes[:,1:]
+        self.spikes = result
+
+    def cal_population_activity_all_t(self, dt):
+        
+        self.pop_act = np.average(self.spikes, axis=0)/ (dt/1000)
+        
+        # spikes = np.zeros((self.n, self.n_timebins)) ## limited spike history 
+        
+        # for n in range(self.n):
+        #     spikes[n, self.spike_times[n, np.nonzero(self.spike_times[n,:])]] = 1
+            
+        # self.pop_act = np.average(spikes, axis = 0)/ (dt/1000)
+                                                 
     def sum_synaptic_input(self, receiving_from_class_list, dt, t):
         
         ''' Sum the synaptic input from all projections'''
@@ -820,7 +903,8 @@ class Nucleus:
                               self.sum_components_of_one_synapse(t, dt, 
                                                                  projecting.name, 
                                                                  projecting.population_num,
-                                                                 pre_n_components = self.pre_n_components[projecting.name])
+                                                                 pre_n_components = 
+                                                                 self.pre_n_components[projecting.name])
                               
 
         return synaptic_inputs
@@ -841,8 +925,8 @@ class Nucleus:
                                                                                                 self.pre_n_components[projecting.name]
                                                                                                 )
                                 
-
         return synaptic_inputs
+
 
     def sum_components_of_one_synapse(self, t, dt, pre_name, pre_num, pre_n_components=1):
         
@@ -853,12 +937,12 @@ class Nucleus:
         for i in range(self.pre_n_components[pre_name]):
             
             (self.I_syn[pre_name, pre_num][:, i], 
-             self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](self.syn_inputs[pre_name, pre_num], dt, 
-                                                                                                                I_rise = self.I_rise[pre_name,
-                                                                                                                pre_num][:, i],
-                                                                                                                I = self.I_syn[pre_name, pre_num][:, i],
-                                                                                                                tau_rise = self.tau[(self.name, pre_name)]['rise'][i,:],
-                                                                                                                tau_decay = self.tau[(self.name, pre_name)]['decay'][i,:])
+             self.I_rise[pre_name, pre_num][:, i] ) = self.input_integ_method_dict[self.syn_input_integ_method](
+                                                                 self.syn_inputs[pre_name, pre_num], dt, 
+                                                                 I_rise = self.I_rise[pre_name, pre_num][:, i],
+                                                                 I = self.I_syn[pre_name, pre_num][:, i],
+                                                                 tau_rise = self.tau[(self.name, pre_name)]['rise'][i],
+                                                                 tau_decay = self.tau[(self.name, pre_name)]['decay'][i])
             # self.representative_inp[pre_name, pre_num][t,
             #     i] = self.I_syn[pre_name, pre_num][0, i]
             
@@ -879,13 +963,13 @@ class Nucleus:
             I_syn_next_dt, _ = self.input_integ_method_dict[self.syn_input_integ_method](0, dt, 
                                                 I_rise = self.I_rise[pre_name, pre_num][:, i],
                                                 I = self.I_syn[pre_name, pre_num][:, i],
-                                                tau_rise = self.tau[(self.name, pre_name)]['rise'][i,:],
-                                                tau_decay = self.tau[(self.name, pre_name)]['decay'][i,:])
+                                                tau_rise = self.tau[(self.name, pre_name)]['rise'][i],
+                                                tau_decay = self.tau[(self.name, pre_name)]['decay'][i])
 
             sum_components = sum_components + I_syn_next_dt * self.syn_component_weight[self.name, pre_name][i]
             
         return sum_components
-
+    
     def solve_IF_without_syn_input(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
 
         self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
@@ -966,6 +1050,7 @@ class Nucleus:
         # self.mem_potential = fwd_Euler(dt, self.mem_potential, V_prime)
         I_syn_next_dt = self. sum_synaptic_input_one_step_ahead_with_no_spikes( receiving_from_class_list, 
                                                                                 dt)
+
         self.mem_potential = Runge_Kutta_second_order_LIF( dt, 
                                                           self.mem_potential, 
                                                           V_prime,  
@@ -974,15 +1059,8 @@ class Nucleus:
                                                           self.u_rest, 
                                                           self.I_syn['ext_pop', '1'],
                                                           self.half_dt)
-        
         # self.voltage_trace[t] = self.mem_potential[0]
         
-    def find_spikes(self, t):
-
-        spiking_ind = np.where(self.mem_potential > self.spike_thresh)
-        self.spikes[spiking_ind, t] = 1
-        
-        return spiking_ind
 
     def reset_potential(self, spiking_ind):
 
@@ -1004,9 +1082,8 @@ class Nucleus:
         '''SNN: return pop activity as mean number of spikes per second == Hz'''
         self.pop_act[t] = np.average(self.spikes[:, t], axis=0)/ (dt/1000)
 
-    def cal_population_activity_all_t(self, dt):
-                self.pop_act = np.average(self.spikes, axis=0)/ (dt/1000)
 
+        
     # def reset_ext_pop_properties(self, poisson_prop, dt):
     #     '''reset the properties of the external poisson spiking population'''
 
@@ -1079,14 +1156,25 @@ class Nucleus:
         self.synaptic_time_constant = {
             k: v for k, v in synaptic_time_constant.items() if k[1] == self.name}
 
-    def incoming_rest_I_syn(self, proj_list, A, dt):
+    # def incoming_rest_I_syn(self, proj_list, A, dt):
         
 
+    #     I_syn = np.sum(np.array([
+    #                     np.sum(self.connectivity_matrix[proj, '1'], axis = 1) * 
+    #                     A[proj] / 1000  * 
+    #                     np.sum(self.syn_component_weight[self.name, proj]) \
+    #                         for proj in proj_list]), axis = 0) * \
+    #             self.membrane_time_constant
+
+    #     return I_syn
+
+    def incoming_rest_I_syn(self, proj_list, A, dt):
+        
         I_syn = np.sum(np.array([
-                        np.sum(self.connectivity_matrix[proj, '1'], axis = 1) * 
+                        np.sum( self.connectivity_matrix[(proj, '1')], axis = 1).reshape(-1,) * 
                         A[proj] / 1000  * 
                         np.sum(self.syn_component_weight[self.name, proj]) \
-                            for proj in proj_list]), axis = 0) * \
+                            for proj in proj_list]), axis = 0).reshape(-1,) * \
                 self.membrane_time_constant
 
         return I_syn
@@ -1573,7 +1661,20 @@ class Nucleus:
     def additive_ext_input(self, ad_ext_inp):
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
-     
+ 
+def shift_array(arr, num, fill_value=np.nan):
+    result = np.empty_like(arr)
+    if num > 0:
+        result[:num] = fill_value
+        result[num:] = arr[:-num]
+    elif num < 0:
+        result[num:] = fill_value
+        result[:num] = arr[-num:]
+    else:
+        result[:] = arr
+    return result
+
+
 def generate_periodic_input(start, end, dt, amplitude, freq, mean, method):
     
     t_list = np.arange(start, end) * dt/1000
@@ -2053,7 +2154,8 @@ def reinitialize_nuclei_SNN( nuclei_dict, N, G, noise_amplitude, noise_variance,
             nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
             
             if reset_init_dist:
-                nucleus.set_init_distribution( nucleus.FR_ext_specs, poisson_prop, dt, t_sim)
+                nucleus.set_init_distribution( nucleus.T_specs, nucleus.tau_specs, 
+                                              nucleus.FR_ext_specs, poisson_prop, dt, t_sim)
                 
             nucleus.reset_synaptic_weights(G, N)
             nucleus.normalize_synaptic_weight()
