@@ -656,7 +656,7 @@ recording_spec = 'Proto_inhibition_induced_beta'
 y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
 name_list = ['STN',  'Arky', 'Proto']
 phase_text_x_shift = 100
-ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
+ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.01
 scale_count_to_FR = True
 y_max_series = {'STN': 27, 'Arky': 14, 'Proto': 50}
 sheet_name = 'Fig 6'
@@ -735,13 +735,51 @@ fig = phase_summary_Brice(phase_dict, angles, name_list, color_dict, total_phase
                           tick_label_fontsize = 10, n_decimal = n_decimal, 
                           ylabel =ylabel, FR_dict = FR_dict, title = recording_spec.replace('_', ' '),
                           xlabel = 'phase (deg)', lw = 1, name_fontsize = 12, 
-                          name_ylabel_pad = 0, name_place = 'ylabel', alpha = 0.1,
+                          name_ylabel_pad = [0, 0, 0], name_place = 'ylabel', alpha = 0.1,
                           phase_text_x_shift = phase_text_x_shift, state = state,
                           xlabel_y = xlabel_y , ylabel_x = -0.1, plot_FR = plot_FR,
                           box_plot = True, strip_plot = False, scale_count_to_FR = scale_count_to_FR)
 
 save_pdf_png(fig, filename.split('.')[0] + '_' + recording_spec + '_Phase',
              size = (1.8, len(name_list) * 1))
+
+
+# %% De la Crompe laser beta induction data analysis
+
+name = 'STN'
+experiment_protocol = 'ChR2_STN_CTL'
+y_max_series = {'STN': 450, 'Arky': 60, 'Proto': 171}
+# experiment_protocol = 'ArchT_STN_CTL'
+# y_max_series = {'STN': 205, 'Arky': 60, 'Proto': 85}
+# experiment_protocol = 'ArchT_GP_CTL'
+# y_max_series = {'STN': 150, 'Arky': 60, 'Proto': 150}
+
+n_bins = 60
+total_phase = 360
+path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
+
+name_list = ['STN', 'Arky', 'Proto']
+
+
+
+fig = plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
+                                      n_bins = n_bins, f_stim = 20, 
+                                      scale_count_to_FR = True, title_fontsize = 10,
+                                      total_phase = 360, alpha_sem = 0.2, box_plot = False, set_ylim= True,
+                                      print_stat_phase = False, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
+                                      phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8, 
+                                      name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
+                                      xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8)
+
+save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
+             size = (1.8, len(name_list) * 1))
+
+# nuc_folder = name + '_Phase'
+# path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_folder, nuc_folder)                                    xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8)      
+# filepath_list = list_files_of_interest_in_path(path_Brice, extensions = ['txt'])
+# look_at_one_neuron_laser_Brice(filepath_list[0], total_phase, n_bins, name, color_dict)
+
+    
 # %% create gif
 
 
@@ -6958,37 +6996,25 @@ G = {}
 # G = {k: v * K[k] for k, v in G.items()}
 
 
-# g = -0.0025 ## tuned with Brice's data
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3},
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 1},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2.},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-#       }
-
-g = -0.003478 ## no tuning to experiments 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
-      (name3, name2) :{'mean': g * K[name3, name2] * 4},
-      (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
-      (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.9},
+g = -0.0025 ## tuned with Brice's data
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
+      (name3, name2) :{'mean': g * K[name3, name2] * 2.5},
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 1},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.},
       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
       }
 
-
-# g = -0.00348 # 20 Hz for all heterogenouity included.
+# g = -0.003478 ## no tuning to experiments 
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
 #       (name3, name2) :{'mean': g * K[name3, name2] * 4},
 #       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
 #       (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
 #       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
 #       (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2.8},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.9},
 #       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
 #       }
 
@@ -8079,10 +8105,10 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
 #       }
 
 G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
-# G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
+G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
 
-G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
-G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
+# G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
+# G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -8110,12 +8136,13 @@ save_init = False
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
+sparse_spike_history = True
 
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method,Act = Act, state = state_1, sparse_spike_history =  sparse_spike_history ) for i in pop_list] for name in name_list}
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state_1]
                for name in list(nuclei_dict.keys())}
@@ -8128,7 +8155,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 4; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+n_run = 8; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
 save_pop_act = True
 round_dec = 1
 include_std = False
@@ -8140,7 +8167,7 @@ check_peak_significance = False
 low_f = 12; high_f = 30
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_tuned_varying_G_PD.pkl')
+             '_n_' + str(n_run) + '_runs_sparsed.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -12040,12 +12067,11 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3000_n_8_runs.pkl' )
 filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3300_n_8_runs_tuned.pkl' )
-
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_N_1000_T_3000_n_5_runs.pkl' )
-
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_3300_n_4_runs_tuned_varying_G_PD.pkl' )
 
 
-f_in_leg = False
+
+f_in_leg = True
 vspan = False
 # filename = os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_3000_n_8_runs_old.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_3000_n_8_runs_new.pkl' )
@@ -12057,6 +12083,7 @@ axvspan_c = axvspan_color['DD_anesth']
 
 name_list = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
 n_g_list = np.array([0])
+n_g_list = np.arange(4)
 ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
 xlabel = 'Frequency (Hz)'
     
@@ -12124,25 +12151,22 @@ xlabel = 'Frequency (Hz)'
 
 # n_g_list = np.linspace(0, 19, endpoint = True, num = 4).astype(int)
 # n_g_list = np.array([0])
-# data = load_pickle(filename)
+data = load_pickle(filename)
 
-
-fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80),# inset_props=inset_props,
+ylim = [-0.5, 28]
+xlabel_y = -0.05
+xlabel_y = 0.05
+fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), ylim = ylim, # inset_props=inset_props,
                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
-                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 11, 
+                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 9, 
                   legend_loc='upper right', x_y_label_size = 15, tick_label_fontsize = 12, tick_length = 6,
-                  xlabel = xlabel, ylabel_norm =ylabel, f_in_leg = f_in_leg, legend = True,
-                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = True)
-fig.gca().set_xticks([0,20,40,60,80])
-fig.gca().set_ylim([-0.5, 28]) # normalize
-
-fig.gca().axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+                  xlabel = xlabel, ylabel_norm =ylabel, f_in_leg = f_in_leg, legend = True, xlabel_y = xlabel_y,
+                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = True, x_ticks = [0,20,40,60,80])
 
 
-set_y_ticks_one_ax(fig.gca(), [0,  25])
-set_minor_locator_all_axes(fig, n = 2, axis = 'both')
+set_y_ticks(fig, [0,  25])
 # fig = remove_all_x_labels(fig)
-figsize = (2.5, 2.5)
+figsize = (2.5, 2.5 * len(n_g_list))
 save_pdf_png(fig, filename.split('.')[0] + '_PSD',
              size=figsize)
 
