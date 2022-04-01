@@ -234,7 +234,6 @@ class Nucleus:
             self.mem_pot_init_method = mem_pot_init_method
             self.init_method = init_method
             self.spike_thresh_bound_ratio = spike_thresh_bound_ratio
-            self.spike_rel_phase_hist = {}
             self.bound_to_mean_ratio = bound_to_mean_ratio
             self.pop_act_filtered = False
             self.syn_input_integ_method = syn_input_integ_method
@@ -243,8 +242,11 @@ class Nucleus:
             self.noise_method = noise_method
             self.noise_tau = noise_tau 
             self.external_input_bool = external_input_bool
+            self.beta_stim = False
+            self.beta_stim_method = None
             self.get_max_spike_history_t(T, dt)
-            
+            self.neuron_spike_phase_hist = {} # to store the mean phase over all cycles for each neuron size = (n_neuron x n_phase_bins)
+            self.phase_bins = None
             
             if self.sparse_spike_history:
                 
@@ -266,7 +268,7 @@ class Nucleus:
                 self.ext_input_all_t = np.zeros((self.n, n_timebins))
                 
             if external_input_bool :
-                self.external_inp_t_series = np.zeros((self.n, n_timebins))
+                self.external_inp_t_series = np.zeros(n_timebins)
 
             if self.keep_mem_pot_all_t:
                 self.all_mem_pot = np.zeros((self.n, n_timebins))
@@ -779,7 +781,7 @@ class Nucleus:
     def cal_ext_inp_with_additional_inp(self, dt, t):
         
         # choose method of exerting external input from dictionary of methods
-        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[:, t]
+        I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[t]
         
         ( self.I_syn['ext_pop', '1'], 
          self.I_rise['ext_pop', '1']) = self.input_integ_method_dict[self. ext_input_integ_method](I_ext, 
@@ -1142,15 +1144,17 @@ class Nucleus:
             # self.representative_inp['ext_pop', '1'][:] = 0
             
             if self.external_input_bool:
-                self.external_inp_t_series[:,:] = 0
+                self.external_inp_t_series[:] = 0
                 
             if mem_pot_init_method == None:  # if not specified initialize as before
                 mem_pot_init_method = self.mem_pot_init_method
 
             self.initialize_mem_potential(method=mem_pot_init_method)
             self.spikes[:, :] = 0
+            self.neuron_spike_phase_hist[:,:] = 0
             
             if self.sparse_spike_history:
+                
                 self.ind_last_spike[:] = 0
                 self.spike_times[:,:] = 0
     def smooth_pop_activity(self, dt, window_ms=5):
@@ -1422,8 +1426,8 @@ class Nucleus:
         
         periodic_inp, t_list = generate_periodic_input(start, end, dt, amplitude, freq, mean, method)
         
-        self.external_inp_t_series[:, start : end] = np.repeat( periodic_inp,
-                                                               self.n, axis = 0)
+        self.external_inp_t_series[start : end] =  periodic_inp
+                                                               
         if plot:
             fig, ax = plt.subplots()
             ax.plot(t_list, periodic_inp.T.reshape(-1,1))
@@ -1498,22 +1502,7 @@ class Nucleus:
             self.solve_IF_without_syn_input(
                 t, dt, receiving_class_dict[(self.name, self.population_num)])
             
-    def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
-        
-        if isinstance(neurons_ind, str)  and neurons_ind == 'all':  
-            
-            spike_times = np.where(self.spikes == 1)[1]
-            
-        elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
-        
-            spike_times = np.where(self.spikes[neurons_ind,:] == 1) [1]
-            
-        else:
-            
-            raise( "Invalid input for 'ind_neurons'. \
-                  It has to be either 'all' or the list of indices of neurons to be included.")
-            
-        return spike_times[spike_times > start ] - start
+
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0, end = None):
         
@@ -1524,51 +1513,125 @@ class Nucleus:
         peaks,_ = signal.find_peaks(act[start:], height = height)
         
         return peaks
-    
 
+########  population wise phase hist calculations
+
+    # def find_spike_times_all_neurons(self, start = 0, neurons_ind = 'all'):
+        
+    #     if isinstance(neurons_ind, str)  and neurons_ind == 'all':  
+            
+    #         spike_times = np.where(self.spikes == 1)[1]
+            
+    #     elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
+        
+    #         spike_times = np.where(self.spikes[neurons_ind,:] == 1) [1]
+            
+    #     else:
+            
+    #         raise( "Invalid input for 'ind_neurons'. \
+    #               It has to be either 'all' or the list of indices of neurons to be included.")
+            
+    #     return spike_times[spike_times > start ] - start
+    
+    # def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, 
+    #                               ref_peaks = [], n_bins = 20, total_phase = 360, phase_ref = 'self', 
+    #                               neurons_ind = 'all', troughs = False, end = None):
+        
+    #     ''' Note that it counts the spikes of all the neurons in the population '''
+        
+    #     if end == None:
+    #         end = self.n_timebins
+            
+    #     all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
+        
+    #     if len( ref_peaks ) == 0: # if peaks are given as argument, phases are calculated relative to them
+        
+    #         ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+    #                                                height = height, start = start, end = end)
+        
+    #     phase_all_spikes = np.zeros( len(all_spikes) * 2 + 1)
+        
+        
+    #     left_peak_series, right_peak_series = set_peak_iterators(total_phase, ref_peaks, troughs = troughs)
+    #     n_cycles = len (left_peak_series)
+
+    #     count = 0
+    #     for left_peak, right_peak in zip( left_peak_series, right_peak_series ): # leave out the last peaks beacause sosfiltfilt affects the data boundaries
+            
+            
+    #         phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, 
+    #                                                                          total_phase = total_phase)
+    #         phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
+    #         count += n_spikes_of_this_cycle
+          
+
+    #     frq , edges = get_hist(phase_all_spikes[:count], end_bins = total_phase, n_bins = n_bins)
+        
+    #     self.neuron_spike_phase_hist[phase_ref] = frq / n_cycles / self.n, edges[:-1]
+        
+        
+    
+#### neuron wise phase histogram calculation
+    def create_empty_phase_array(self, neurons_ind, n_bins, phase_ref):
+        
+        if isinstance(neurons_ind, str)  and neurons_ind == 'all':  
+            
+            self.neuron_spike_phase_hist[phase_ref] = np.zeros((self.n, n_bins -1))
+            return np.arange(self.n)
+        
+        elif hasattr(neurons_ind, '__len__') : # an actual list of neurons is given
+        
+            self.neuron_spike_phase_hist[phase_ref] = np.zeros((len(neurons_ind), n_bins - 1))
+            return neurons_ind
+        
+        else:
+            
+            raise( "Invalid input for 'ind_neurons'. \
+                  It has to be either 'all' or the list of indices of neurons to be included.")
+            return 0
+        
     def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, height = 1,start = 0, 
-                                  ref_peaks = [], n_bins = 20, total_phase = 360, ref_nuc_name = 'self', 
+                                  ref_peaks = [], n_bins = 20, total_phase = 360, phase_ref = None, 
                                   neurons_ind = 'all', troughs = False, end = None):
         
-        ''' Note that it counts the spikes of all the neurons in the population '''
+        ''' find the average phases of each neuron over all cycles '''
         
-        if end == None:
-            end = self.n_timebins
             
-        all_spikes = self.find_spike_times_all_neurons(start = start, neurons_ind = neurons_ind)
-        
-        if len( ref_peaks ) == 0: # if peaks are given as argument, phases are calculated relative to them
-        
-            ref_peaks = self.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
-                                                   height = height, start = start, end = end)
-        
-        phase_all_spikes = np.zeros( len(all_spikes) * 2 + 1)
-        
+        neurons_ind = self.create_empty_phase_array(neurons_ind, n_bins, phase_ref)
+        self.phase_bins = np.linspace( 0, total_phase, endpoint = True, num = n_bins)
         
         left_peak_series, right_peak_series = set_peak_iterators(total_phase, ref_peaks, troughs = troughs)
         n_cycles = len (left_peak_series)
-
-        count = 0
-        for left_peak, right_peak in zip( left_peak_series, right_peak_series ): # leave out the last peaks beacause sosfiltfilt affects the data boundaries
+        phases = self.neuron_spike_phase_hist[phase_ref]. copy()
+        cycle_durations = right_peak_series - left_peak_series
+        
+        # if phase_ref == 'stimulation':
             
-            phase, n_spikes_of_this_cycle = find_phase_of_spikes_bet_2_peaks(left_peak, right_peak, all_spikes, 
-                                                                             total_phase = total_phase)
-            phase_all_spikes[count : n_spikes_of_this_cycle + count] = phase
-            count += n_spikes_of_this_cycle
-          
+        for n in range(self.n):
+            
+            spike_times = np.where(self.spikes[n,:] == 1)[0]
+            
+            for (cycle_t, left_peak, right_peak) in zip(cycle_durations, left_peak_series, right_peak_series ): 
 
-        frq , edges = get_hist(phase_all_spikes[:count], end_bins = total_phase, n_bins = n_bins)
+                phases [n,:] += np.histogram( 
+                                find_phase_of_spikes_bet_2_peaks(cycle_t, left_peak, right_peak, 
+                                                                 spike_times, total_phase = total_phase) , 
+                                            bins = self.phase_bins)[0]
+                                
+            # phases += hist_2D( self.spikes[neurons_ind, left_peak: right_peak], n_bins, [0, total_phase] )
+            
+        self.neuron_spike_phase_hist[phase_ref]  = phases / n_cycles           
         
-        self.spike_rel_phase_hist[ref_nuc_name] = frq / n_cycles, edges[:-1]
         
-        return self.spike_rel_phase_hist[ref_nuc_name]
     
     def scale_synaptic_weight(self):
         
         if self.scale_g_with_N:
             
             self.synaptic_weight = {
-                k: v/self.K_connections[k] for k, v in self.synaptic_weight.items()}
+                k: v / self.K_connections[k] for k, v in self.synaptic_weight.items()}
+            
+        
             self.connectivity_matrix = {
                 k: v/self.K_connections[self.name, k[0]] for k, v in self.connectivity_matrix.items() }
 
@@ -1674,6 +1737,51 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
  
+    
+ 
+    
+# def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes, total_phase = 360):
+    
+#     ''' For all neurons collectively'''
+    
+#     corr_spike_times = all_spikes[ np.logical_and(all_spikes >= left_peak_time, 
+#                                                   all_spikes < right_peak_time) 
+#                                                    ]
+#     cycle_length = right_peak_time - left_peak_time
+#     n_spikes = len(corr_spike_times)
+#     phase = ( corr_spike_times - left_peak_time ) / cycle_length * total_phase
+
+#     # fig,ax = plt.subplots()
+#     # ax.hist(corr_spike_times, bins = 20)
+#     # ax.hist(phase, bins = np.linspace(0, 360, endpoint=True, num = 50))
+
+#     return phase, n_spikes
+
+def find_phase_of_spikes_bet_2_peaks(cycle_t_duration, left_peak_time, right_peak_time, spikes, total_phase = 360):
+    
+    corr_spike_times = spikes[ np.logical_and( spikes >= left_peak_time, 
+                                               spikes < right_peak_time) 
+                              ]
+    
+    phases = ( corr_spike_times - left_peak_time ) / cycle_t_duration * total_phase
+
+    # fig,ax = plt.subplots()
+    # ax.hist(corr_spike_times, bins = 20)
+    # ax.hist(phase, bins = np.linspace(0, 360, endpoint=True, num = 50))
+
+    return phases
+
+def get_hist(obs, end_bins = 720, n_bins = 360, bins = []):
+    
+
+    bins = np.linspace(0, end_bins, endpoint=True, num = n_bins)
+        
+    frq , edges = np.histogram(obs, bins = bins)
+    
+    # centers = get_centers_from_edges(edges)
+    
+    return frq, edges #, centers
+
 def shift_array(arr, num, fill_value=np.nan):
     result = np.empty_like(arr)
     if num > 0:
@@ -1773,6 +1881,7 @@ def plot_hist_envelope(frq, edges, color, ax = None,  lw = 1, alpha = 0.2):
     ax.plot(get_centers_from_edges(edges) , frq, color = color,  lw = lw, alpha = alpha)
     
     return ax
+
 # def wrap_angles(x):
 #     ''' Wrap angles to [-pi, pi)'''
     # x = (x+np.pi) % (2*np.pi) 
@@ -1792,11 +1901,10 @@ def set_peak_iterators(total_phase, ref_peaks, troughs = False):
     elif total_phase == 720:
         
         left_peak_series, right_peak_series = iterate_with_step(ref_peaks, step = 2)
-        
-    half_mean_cycle = np.average(np.diff(ref_peaks)) / 2
     
     if troughs:
         
+        half_mean_cycle = np.average(np.diff(ref_peaks)) / 2
         left_peak_series = left_peak_series - half_mean_cycle
         right_peak_series = right_peak_series - half_mean_cycle
         
@@ -1808,6 +1916,37 @@ def convert_angle_to_0_360_interval(angle):
    new_angle[ind] = abs(new_angle[ind]) + 2 * (np.pi - abs(new_angle[ind]))
    return new_angle * 180/np.pi
 # convert_angle_to_0_360_interval(np.array([-np.pi/2, np.pi, np.pi * 2, 3 * np.pi / 2])) 
+
+
+def hist_2D(data, n_bins, range_limits):
+    
+    ''' histogram of 2d array '''
+    
+    # Setup bins and determine the bin location for each element for the bins
+    R = range_limits
+    N = data.shape[-1]
+    bins = np.linspace(R[0],R[1],n_bins, endpoint = True)
+    data2D = data.reshape(-1,N)
+    idx = np.searchsorted(bins, data2D,'right')-1
+
+    # Some elements would be off limits, so get a mask for those
+    bad_mask = (idx==-1) | (idx==n_bins)
+
+    # We need to use bincount to get bin based counts. To have unique IDs for
+    # each row and not get confused by the ones from other rows, we need to 
+    # offset each row by a scale (using row length for this).
+    scaled_idx = n_bins*np.arange(data2D.shape[0])[:,None] + idx
+
+    # Set the bad ones to be last possible index+1 : n_bins*data2D.shape[0]
+    limit = n_bins*data2D.shape[0]
+    scaled_idx[bad_mask] = limit
+
+    # Get the counts and reshape to multi-dim
+    counts = np.bincount(scaled_idx.ravel(),minlength=limit+1)[:-1]
+    counts.shape = data.shape[:-1] + (n_bins,)
+    
+    return counts
+
 
 def circular_hist(ax, x, bins=16, density=True, fill = False, facecolor = 'grey', alpha = 0.8, offset=0, gaps=True):
     """
@@ -1992,73 +2131,15 @@ def circular_bar_plot_as_hist(ax, frq, edges, density=True, fill = False, faceco
 
     return edges, patches
 
-def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, height = 1, 
-                                density = False, n_bins = 16, start = 0, end = None, ref_nuc_name = 'self', total_phase = 360, projection = None):
-    # if end == None:
-    #     end = self.n_timebins
-    n_plots = len(nuclei_dict)
-    fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection= projection), figsize = (5, 10))
-    find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = n_bins,
-                                      height = height, ref_nuc_name = ref_nuc_name, start = start, 
-                                      total_phase = total_phase, only_entrained_neurons = False, end = end)
-    count = 0
-    for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
-            ax = axes[count] 
-            
-            frq, edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
-            
-            if projection == None:
-                width=np.diff(edges) 
-                ax.bar(edges, frq, width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name])
-                
-            elif projection == 'polar':
-                
-                circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
 
-            ax.set_title(nucleus.name + ' relative to ' + ref_nuc_name, fontsize = 15, color = color_dict[nucleus.name])
-            count += 1
-            
-    if projection == None:
-        fig.text(0.6, 0.01, 'Phase (deg)', ha='center',
-                            va='center', fontsize=18)
-        fig.text(0.03, 0.5, 'Spike count', ha='center',
-                            va='center', rotation='vertical', fontsize=18)
-    fig. tight_layout(pad=1.0)
-    
-
-    
-def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes, total_phase = 360):
-    
-    corr_spike_times = all_spikes[ np.logical_and(all_spikes >= left_peak_time, 
-                                                  all_spikes < right_peak_time) 
-                                                   ]
-    cycle_length = right_peak_time - left_peak_time
-    n_spikes = len(corr_spike_times)
-    phase = ( corr_spike_times - left_peak_time ) / cycle_length * total_phase
-
-    # fig,ax = plt.subplots()
-    # ax.hist(corr_spike_times, bins = 20)
-    # ax.hist(phase, bins = np.linspace(0, 360, endpoint=True, num = 50))
-
-    return phase, n_spikes
-
-
-def get_hist(obs, end_bins = 720, n_bins = 360, bins = []):
-    
-
-    bins = np.linspace(0, end_bins, endpoint=True, num = n_bins)
-        
-    frq , edges = np.histogram(obs, bins = bins)
-    
-    # centers = get_centers_from_edges(edges)
-    
-    return frq, edges #, centers
 
 def create_FR_ext_filename_dict(nuclei_dict, path, dt):
+    
     filename_dict = {}
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
+            
             filename_dict[nucleus.name] = os.path.join(path, 
                                                        'FR_ext_' + nucleus.name + 
                                                        '_noise_var_' + str( round(
@@ -2071,6 +2152,7 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
                                                                          'membrane_time_constant']['mean'], 2)
                                                                         ).replace('.', '-') +
                                                        '.pkl')
+            
     return filename_dict
 
 def reset_connections(nuclei_dict, K_real, N, N_real):
@@ -2264,27 +2346,75 @@ def get_max_len_dict(dictionary):
     ''' return maximum length between items of a dictionary'''
     return max(len(v) for k, v in dictionary.items())
 
-# def find_peaks_of_pop_act_all_nuclei(data, i, j, nuclei_dict, dt, low_f, high_f, filter_order = 6, height = 1, start = 0):
-    
-#     for nuclei_list in nuclei_dict.values():
-#         for nucleus in nuclei_list:
-#             peaks = nucleus.find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
-#                                                                                height = height, start = start)
-#             data[(nucleus.name, 'ind_peaks')][i,j, :len(peaks)]  = peaks
-#             data[(nucleus.name, 'n_peaks')][i,j] = len(peaks)
-#     return data
 
-def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 90,
-                                       height = 0, ref_nuc_name = 'self', start = 0, total_phase = 720,
-                                       only_entrained_neurons = False, min_f_sig_thres = 0,window_mov_avg = 10, max_f = 250,
-                                       n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2, end = None,
-                                       min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False, troughs = False):
-    if ref_nuc_name != 'self':
-        ref_peaks = nuclei_dict[ref_nuc_name][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
-                                                                              height = height, start = start, end = end)
-    else:
+def find_beta_induction_nucleus(nuclei_dict):
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            
+            if nucleus.beta_stim :
+                
+                return True, nucleus.beta_stim_method, nucleus.name, nucleus.external_inp_t_series
+            
+    return False, None, None, None
+
+def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = 6, 
+                         height = 0, start = 0, end = None, plot_ref_peaks = False, shift_theta= 0):
+    
+    beta_stim, beta_stim_method, beta_stim_nuc, stim_t_series = find_beta_induction_nucleus(nuclei_dict)
+    
+    if phase_ref in list( nuclei_dict.keys()) and not beta_stim :
+        
+        ref_peaks = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+                                                                             height = height, start = start, end = end)
+    elif beta_stim:
+        
+        if beta_stim_method == 'excitation':
+            
+            ref_peaks, _ = signal.find_peaks( stim_t_series, height = 0)
+            
+        elif beta_stim_method == 'inhibition':
+            
+            ref_peaks, _ = signal.find_peaks( - stim_t_series, height = 0)
+            
+            
+
+        plot_ref_peaks_cyclic_stim(stim_t_series, ref_peaks, plot_ref_peaks)
+        
+    else: 
+        
         ref_peaks = []
         
+    ref_peaks = shift_ref_peaks(ref_peaks, theta = shift_theta)
+    return ref_peaks
+
+def shift_ref_peaks(ref_peaks, theta = 90):
+    
+    n_cycles = len(ref_peaks) - 1
+    cycle_period = ( ref_peaks[-1] - ref_peaks[0] ) / n_cycles
+    
+    return (ref_peaks - theta / 360 * cycle_period ).astype(int)
+
+def plot_ref_peaks_cyclic_stim(stim_t_series, ref_peaks, plot_ref_peaks):
+    
+    if plot_ref_peaks:
+    
+        fig, ax = plt.subplots()
+        ax.plot(stim_t_series)
+        ax.plot(ref_peaks, stim_t_series[ref_peaks], 'x')
+        
+def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 90,
+                                       height = 0, phase_ref = 'self', start = 0, total_phase = 720,
+                                       only_entrained_neurons = False, min_f_sig_thres = 0,window_mov_avg = 10, max_f = 250,
+                                       n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2, end = None,
+                                       min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False, 
+                                       troughs = False, plot_ref_peaks = False, shift_theta = 90):
+    
+
+    ref_peaks = get_phase_ref_peaks(nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = filter_order, 
+                                    height = height, start = start, end = end, plot_ref_peaks = plot_ref_peaks,
+                                    shift_theta = 90)
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
@@ -2302,39 +2432,47 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
                 
             nucleus.find_phase_hist_of_spikes(dt, low_f, high_f, filter_order = filter_order, n_bins = n_bins,
                                               start = start, height = height, ref_peaks = ref_peaks, troughs = troughs,
-                                              total_phase = total_phase, ref_nuc_name = ref_nuc_name, 
+                                              total_phase = total_phase, phase_ref = phase_ref, 
                                               neurons_ind = neurons_ind, end = end)
 
 def find_phase_sine_fit(x, y):
+    
     ''' fit sine function derive phase'''
+    
     A, w, p, c, f, fitfunc = fit_sine(x, y)
+    
     if A > 0:
+        
         phase_sine =  np.pi/ 2/ w + p 
+        
     else:
+        
         phase_sine = - np.pi/ 2/ w + p 
+        
     phase_sine = equi_phase_in_0_360_range(phase_sine)
+    
     return phase_sine, fitfunc, w
 
-# def shift_small_phases_to_next_peak(phase, w, nuc_name, ref_nuc_name):
-#     if nuc_name  != ref_nuc_name:
+# def shift_small_phases_to_next_peak(phase, w, nuc_name, phase_ref):
+#     if nuc_name  != phase_ref:
 #         if phase < 30:
 #             phase += 2 * np.pi / w
 #     return phase
 
-# def shift_large_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+# def shift_large_phases_to_prev_peak(phase, w, nuc_name, phase_ref):
 #     ''' If outliers (minority) are on the second peak, shift them back'''
-#     if nuc_name  != ref_nuc_name:
+#     if nuc_name  != phase_ref:
 #         if phase > 340 :
 #             print(nuc_name, 'shifting backward, phase before = ', phase)
 #             phase -= 2 * np.pi / w
 #             print('phase after = ', phase)
 #     return phase
 
-def shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name):
+def shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref):
     
     mean_phases = np.average(phases)
     
-    if nuc_name  != ref_nuc_name:
+    if nuc_name  != phase_ref:
         if mean_phases > 100:
             
             ind = np.where(phases < 30)
@@ -2345,13 +2483,13 @@ def shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name):
             
     return phases
 
-def shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name):
+def shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref):
     
     ''' If outliers (minority) are on the second peak, shift them back'''
     
     std_phases = np.std(phases)
     
-    if nuc_name  != ref_nuc_name:
+    if nuc_name  != phase_ref:
         
         if std_phases > 100:
             
@@ -2362,11 +2500,11 @@ def shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name):
             
     return phases
 
-def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name):
+def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, phase_ref):
     
     ''' If the second peak is detected shift to the previous'''
     
-    if nuc_name  != ref_nuc_name:
+    if nuc_name  != phase_ref:
         
         if phase > 360 :
             
@@ -2386,7 +2524,7 @@ def find_phase_from_max(x, y):
     
     return phase_max
             
-def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name, shift_phase = None):
+def find_phase_from_sine_and_max(x,y, nuc_name, phase_ref, shift_phase = None):
     
     ''' In case sine fit and maximum are close (90 deg) go with maximum, 
         Otherwise sine is to be trusted'''
@@ -2394,30 +2532,30 @@ def find_phase_from_sine_and_max(x,y, nuc_name, ref_nuc_name, shift_phase = None
     phase_sine,fitfunc, w = find_phase_sine_fit(x, y)
     phase_max = find_phase_from_max(x, y)
     # print( nuc_name, 'sine p: ', np.round( phase_sine, 1) , 'max p:', np.round( phase_max, 2))
-    phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name)
+    phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, phase_ref)
         
-    phase = shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, ref_nuc_name)
+    phase = shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, phase_ref)
 
     return phase, fitfunc, w
 
-def correct_phases(phases, ws, nuc_name, ref_nuc_name, shift_phase = None):
+def correct_phases(phases, ws, nuc_name, phase_ref, shift_phase = None):
     
     if shift_phase == 'backward':
 
-        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
+        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref)
         
     elif shift_phase == 'forward':
         
-        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
+        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref)
         
     elif shift_phase == 'both':
         
-        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, ref_nuc_name)
-        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, ref_nuc_name)
+        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref)
+        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref)
 
     return phases
 
-def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name, preferred_when_consistent = 'sine'):
+def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, phase_ref, preferred_when_consistent = 'sine'):
     
     if abs( phase_sine - phase_max) < 90: # two methods are consistent, 
     
@@ -2431,10 +2569,10 @@ def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, ref_nuc_name, prefer
 
     else:
         
-        if phase_sine < 30 and nuc_name != ref_nuc_name: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
+        if phase_sine < 30 and nuc_name != phase_ref: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
             phase = phase_max
             
-        elif phase_max < 30 and nuc_name != ref_nuc_name:
+        elif phase_max < 30 and nuc_name != phase_ref:
             phase = phase_sine
             
         else:
@@ -2459,46 +2597,58 @@ def mean_std_multiple_sets(means, stds, nums, sem_instead_of_std = False):
     return mean_all, std_all
 
 def equi_phase_in_0_360_range(phase):
+    
     ''' bring phase into [0,360)'''
+    
     if phase < 0 : phase += 360
-    if phase >= 360 : phase -=360
+    if phase >= 360 : phase -= 360
+    
     return phase
 
-def get_centers_from_edges(edges):
+def get_centers_from_edges(edges): 
+    
     centers = edges + (edges[1] - edges[0]) / 2
+    
     return centers
 
-def save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name, shift_phase = None):
+def save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref, shift_phase = None):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
-            frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            frq  = nucleus.neuron_spike_phase_hist[phase_ref]
+            edges = nucleus.phase_bins
             
-            ( data[(nucleus.name, 'rel_phase_hist')][i,j,0,:], 
-              data[(nucleus.name, 'rel_phase_hist')][i,j,1,:] ) = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            #### average phase of all neurons
+
+            ( data[(nucleus.name, 'rel_phase_hist')][i,j,:,:], 
+              data[(nucleus.name, 'rel_phase_hist_bins')] ) = frq , edges
             
             centers = get_centers_from_edges(edges)
             
-            data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, 
-                                                                                      ref_nuc_name, shift_phase = shift_phase)
+            data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, np.average( frq, axis = 0), 
+                                                                                         nucleus.name, 
+                                                                                         phase_ref, shift_phase = shift_phase)
     
     return data
  
-def save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, ref_nuc_name, shift_phase = None):
+def save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, phase_ref, shift_phase = None):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
-            frq , edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            frq = nucleus.neuron_spike_phase_hist[phase_ref]
+            edges = nucleus.phase_bins
             
-            ( data[(nucleus.name, 'rel_phase_hist')][i,m,j,0,:], 
-             data[(nucleus.name, 'rel_phase_hist')][i,m,j,1,:]) = nucleus.spike_rel_phase_hist[ref_nuc_name]
+            ( data[(nucleus.name, 'rel_phase_hist')][i,m, j,:,:], 
+              data[(nucleus.name, 'rel_phase_hist_bins')] ) = frq , edges
             
             centers = get_centers_from_edges(edges)
             
-            data[(nucleus.name, 'rel_phase')][i,m,j],_,_ = find_phase_from_sine_and_max(centers, frq, nucleus.name, 
-                                                                                        ref_nuc_name, shift_phase = shift_phase)
+            data[(nucleus.name, 'rel_phase')][i,m,j],_,_ = find_phase_from_sine_and_max(centers, 
+                                                                                           np.average( frq, axis = 0), 
+                                                                                           nucleus.name, 
+                                                                                           phase_ref, shift_phase = shift_phase)
     
     return data
 
@@ -2678,7 +2828,7 @@ def plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict,
     return fig
 
 
-def phase_summary_Brice(phase_dict, angles, name_list, color_dict, ref_nuc_name = 'Proto', total_phase = 720, 
+def phase_summary_Brice(phase_dict, angles, name_list, color_dict, phase_ref = 'Proto', total_phase = 720, 
                         n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                         ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
                         ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
@@ -2796,7 +2946,7 @@ def make_phase_plot(count, err, name, ax, angles, color_dict, phases,
         
     
     
-def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Proto', total_phase = 720, 
+def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
                   ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
@@ -2833,7 +2983,7 @@ def phase_summary(filename, name_list, color_dict, n_g_list, ref_nuc_name = 'Pro
             
            
             count, err, phase_frq_rel_sem = get_stats_of_phase(data, n_g, name, n, coef = coef)
-            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, 
+            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, phase_ref, 
                                               shift_phase = shift_phase)
             
             make_phase_plot(count, err, name, ax, centers, color_dict,  phases, 
@@ -2938,7 +3088,7 @@ def print_average_phase(ax, phases , text_x_shift,  phase_txt_fontsize, color, y
 
 def get_stats_of_phase(data, n_g, name, n_neuron, coef):
     
-    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g, :, 0, :] / n_neuron * coef
+    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g, :, 0, :] * coef
 
     phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
     phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
@@ -2953,7 +3103,7 @@ def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name,ax, col
     ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
                     phase_frq_rel_mean + phase_frq_rel_std, alpha = alpha , color = color_dict[name])
     
-def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name, shift_phase = None):
+def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, phase_ref, shift_phase = None):
     
     phases = np.zeros(n_run)
     ws = np.zeros(n_run)
@@ -2961,13 +3111,53 @@ def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, ref_nuc_name
     for run in range(n_run):
 
         y = data[(name,'rel_phase_hist')][n_g, run, 0, :]
-        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, ref_nuc_name, shift_phase = shift_phase)
+        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, phase_ref, 
+                                                                     shift_phase = shift_phase)
     
-    phases = correct_phases(phases, ws, name, ref_nuc_name, shift_phase= shift_phase)
+    phases = correct_phases(phases, ws, name, phase_ref, shift_phase= shift_phase)
     
     return phases
 
+def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, height = 1, 
+                                density = False, n_bins = 16, start = 0, end = None, phase_ref = 'self', total_phase = 360, projection = None):
+    # if end == None:
+    #     end = self.n_timebins
+    n_plots = len(nuclei_dict)
+    fig, axes = plt.subplots(n_plots,1,  subplot_kw=dict(projection= projection), figsize = (5, 10))
+    
+    find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = n_bins,
+                                      height = height, phase_ref = phase_ref, start = start, 
+                                      total_phase = total_phase, only_entrained_neurons = False, end = end)
 
+    for count, nuclei_list in enumerate( nuclei_dict.values() ):
+        for nucleus in nuclei_list:
+            
+            ax = axes[count] 
+            
+            frq, edges = nucleus.neuron_spike_phase_hist[phase_ref]
+            
+            if projection == None:
+                
+                width = np.diff(edges) 
+                ax.bar(edges, frq, width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name])
+                
+            elif projection == 'polar':
+                
+                circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  
+                                          facecolor = color_dict[nucleus.name])
+
+            ax.set_title(nucleus.name + ' relative to ' + phase_ref, fontsize = 15, color = color_dict[nucleus.name])
+            count += 1
+            
+    if projection == None:
+        
+        fig.text(0.6, 0.01, 'Phase (deg)', ha='center',
+                            va='center', fontsize=18)
+        fig.text(0.03, 0.5, 'Spike count', ha='center',
+                            va='center', rotation='vertical', fontsize=18)
+        
+    fig. tight_layout(pad=1.0)
+    
 def pairwise(iterable):
     ''' iterate through list pair by pair'''
     "s -> (s0, s1), (s2, s3), (s4, s5), ..."
@@ -3279,7 +3469,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                     K_real = None, N_real = None, N = None, K_all = None, 
                                     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
                                     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-                                    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+                                    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, phase_ref = 'Proto', plot_phase = False,
                                     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                     plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
                                     state = 'rest', end_phase = None):
@@ -3338,9 +3528,9 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
-                                              height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, 
+                                              height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
                                               end = end_phase, total_phase = 720, troughs = troughs)
-                data = save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
+                data = save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref)
                 
             if plot_raster:
                 
@@ -3351,7 +3541,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
             if plot_phase:
                 
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                                          density = False, phase_ref = phase_ref, total_phase = total_phase, 
                                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
@@ -3409,7 +3599,7 @@ def multi_run_transition(
                  reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25,  K_real = None, N_real = None, N = None,
                  receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
                  spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-                 phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+                 phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, phase_ref = 'Proto', plot_phase = False,
                  total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                  plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
                  state_1 = 'rest', state_2 = 'DD_anesth', K_all = None,  state_change_func = None,
@@ -3447,9 +3637,11 @@ def multi_run_transition(
                                                                         normalize_G_by_N= True,  set_noise=False, state = state_1)
             
             if state_2 == 'induction':
+                
                 nuclei_dict = induce_beta_to_nuclei( nuclei_dict, beta_induc_name_list, dt, amplitude_dict, freq_dict, 
                                                     start_dict, end_dict, mean_dict, method = induction_method)
             else:
+                
                 nuclei_dict = change_states(G, noise_variance, noise_amplitude,  path, receiving_class_dict, 
                                             receiving_pop_list, t_list, dt, nuclei_dict, Act, state_1, state_2, 
                                             K_all, N, N_real, A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, 
@@ -3457,14 +3649,15 @@ def multi_run_transition(
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
             if save_pop_act:
+                
                 data = save_pop_act_into_dataframe(nuclei_dict, duration_base[0],data, i,j)
 
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
-                                              height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, 
+                                              height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
                                               end = end_phase, total_phase = 720, troughs = troughs)
-                data = save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
+                data = save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref)
                 
 
             data, nuclei_dict = find_freq_SNN(data, (i, j), dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon,
@@ -3541,7 +3734,9 @@ def create_df_for_iteration_SNN(nuclei_dict, iterating_param_dict, duration_base
         
         if find_phase:
         
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, 2, n_phase_bins-1))
+            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_run, nucleus.n, n_phase_bins-1))
+            data[(nucleus.name, 'rel_phase_hist_bins')] = np.zeros( n_phase_bins-1)
+
             data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_run))
 
         if divide_beta_band_in_power:
@@ -3577,9 +3772,10 @@ def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_b
             data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
         
         if find_phase:
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter, n_iter_2, n_run, 2, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase')] = np.zeros((n_iter, n_iter_2, n_run))
-
+            
+            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter,  n_iter_2, n_run, nucleus.n, n_phase_bins-1))
+            data[(nucleus.name, 'rel_phase_hist_bins')] = np.zeros( n_phase_bins-1)
+            
         if divide_beta_band_in_power:
             if save_gamma:
                 data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
@@ -3601,7 +3797,7 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
                                  reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None, N_real = None, N = None,
                                  receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
                                  spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-                                 phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, ref_nuc_name = 'Proto', plot_phase = False,
+                                 phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, phase_ref = 'Proto', plot_phase = False,
                                  total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                  plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
 
@@ -3671,13 +3867,13 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
-                                              height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, 
+                                              height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
                                               end_phase = end_phase, total_phase = 720, troughs = troughs)
-                save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
+                save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref)
                 
             if plot_phase:
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                                          density = False, phase_ref = phase_ref, total_phase = total_phase, 
                                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
@@ -3732,7 +3928,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
                                reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None,  N_real = None, N = None,
                                receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
                                spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-                               phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, ref_nuc_name = 'Proto', plot_phase = False,
+                               phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, phase_ref = 'Proto', plot_phase = False,
                                total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False):
 
@@ -3790,15 +3986,15 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
             if find_phase:
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
-                                              height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, 
+                                              height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
                                               end_phase = end_phase, total_phase = 720, troughs = troughs)
                 # find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins, troughs = troughs,
-                #                               height = phase_thresh_h, ref_nuc_name = 'self', start = start_phase, total_phase = 360)
-                data = save_phases_into_dataframe(nuclei_dict, data, i,j, ref_nuc_name)
+                #                               height = phase_thresh_h, phase_ref = 'self', start = start_phase, total_phase = 360)
+                data = save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref)
                 
             if plot_phase:
                 fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                                          density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                                          density = False, phase_ref = phase_ref, total_phase = total_phase, 
                                                           projection = phase_projection, outer=outer_phase[i], fig= fig_phase,  title='', 
                                                           tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                           include_title=True, ax_label=True, nuc_order = nuc_order)
@@ -3864,7 +4060,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, K_all = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0,  end_phase = None, ref_nuc_name = 'Proto', plot_phase = False,
+    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0,  end_phase = None, phase_ref = 'Proto', plot_phase = False,
     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
     plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, 
     save_pop_act = False, save_gamma = False):
@@ -3945,13 +4141,13 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
                 if find_phase:
     
                     find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
-                                                  height = phase_thresh_h, ref_nuc_name = ref_nuc_name, start = start_phase, 
+                                                  height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
                                                    end_phase =  end_phase, total_phase = 720, troughs = troughs)
-                    data = save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, ref_nuc_name)
+                    data = save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, phase_ref)
                     
                 if plot_phase:
                     fig_phase = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, 
-                                                              density = False, ref_nuc_name = ref_nuc_name, total_phase = total_phase, 
+                                                              density = False, phase_ref = phase_ref, total_phase = total_phase, 
                                                               projection = phase_projection, outer=outer_phase[i,m], fig= fig_phase,  title='', 
                                                               tick_label_fontsize=18, labelsize=15, title_fontsize=15, lw=1, linelengths=1, 
                                                               include_title=True, ax_label=True, nuc_order = nuc_order)
@@ -4005,7 +4201,7 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
     reset_init_dist = False, all_FR_list = None , n_FR =  20, if_plot = False, end_of_nonlinearity = 25, state = 'rest', K_real = None, N_real = None, N = None,
     receiving_pop_list = None, poisson_prop = None, use_saved_FR_ext= False, FR_ext_all_nuclei_saved = {}, return_saved_FR_ext= False, divide_beta_band_in_power= False,
     spec_lim = [0, 55],  half_peak_range = 5, n_std = 2, cut_off_freq = 100, check_peak_significance = False, find_phase = False,
-    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, ref_nuc_name = 'Proto', plot_phase = False,
+    phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, phase_ref = 'Proto', plot_phase = False,
     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, sampling_t_distance_ms = 1, title_pad = None):
 
     if set_seed:
@@ -4100,8 +4296,8 @@ def Coherence_single_pop_exploration_SNN(noise_dict, tau, path, nuclei_dict, fil
 
         if plot_firing:
             ax = fig_FR.add_subplot(n_iter, 1, count+1)
-            title = ( r'$ \langle I_{0} \rangle = $' + str( np.round(data[ref_nuc_name, 'I_ext_0'], 1))  + '   mV   ' + 
-                      r'$\langle \eta \rangle = $' + str( np.round(data[ref_nuc_name, 'mean_noise'][i,j], 1))) + '  mV'
+            title = ( r'$ \langle I_{0} \rangle = $' + str( np.round(data[phase_ref, 'I_ext_0'], 1))  + '   mV   ' + 
+                      r'$\langle \eta \rangle = $' + str( np.round(data[phase_ref, 'mean_noise'][i,j], 1))) + '  mV'
             plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax, title, 
                  include_std=include_std, round_dec=round_dec, legend_loc=legend_loc,
                  n_subplots=int(n_iter), plt_txt='horizontal', plt_mvt=False, 
@@ -4746,17 +4942,23 @@ def sigmoid(x, x0, k):
 
 
 def inverse_sigmoid(y, x0, k):
+    
     import warnings
 
     with warnings.catch_warnings():
+        
         warnings.filterwarnings('error')
+        
         try:
+            
             output = -1/k * np.log((1 - y) / y) + x0
 
         except Warning as e:
-                  print('error found:', e, y)
+            
+            print('error found:', e, y)
 
     return output
+
 #     try:
 #         return -1/k * np.log ( (1 - y) / y) + x0
 #     except RuntimeWarning:
@@ -4783,23 +4985,26 @@ def fit_FR_as_a_func_of_FR_ext(FR_ext, FR, estimating_func, maxfev=5000):
     return popt
 
 
-def extrapolated_FR_ext_from_fitted_curve(FR_ext, FR, desired_FR, coefs, estimating_func, inverse_estimating_func, FR_normalizing_factor, x_shift):
+def extrapolated_FR_ext_from_fitted_curve(FR_ext, FR, desired_FR, coefs, estimating_func, 
+                                          inverse_estimating_func, FR_normalizing_factor, x_shift):
 
     return inverse_estimating_func(desired_FR / FR_normalizing_factor, *coefs) + x_shift
 
 
 def find_y_normalizing_factor(y, desired_FR, epsilon=0.2):
+    
     y_max = np.max(y)
+    
     if desired_FR >= y_max:  # if the maximum of the curve is the same as the desired FR add epsilon to it to avoid errors in log
+        
         print('Oooops! max_sigmoid < desired_FR')
-#         y_max = np.max(y) + epsilon
         return (desired_FR + epsilon)
+    
     else:
+        
         return y_max
 
 
-# def find_y_normalizing_factor (y, desired_FR):
-#     return np.max (y)
 
 def get_non_linear_part(x, y, end_of_nonlinearity=25):
     ind = np.where(y < end_of_nonlinearity)[0]
@@ -4835,73 +5040,100 @@ def get_corr_key_to_val(mydict, value):
 
 
 def get_axes(ax, figsize=(6, 5)):
+    
     if ax == None:
+        
         fig, ax = plt.subplots(1, 1, figsize=figsize)
+        
     return plt.gcf(), ax
 
-
-
-
-
-
-def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
-                          density = False, ref_nuc_name = 'self', total_phase = 360, projection = None, legend_loc = 'upper right',
-                          outer=None, fig=None,  title='', tick_label_fontsize=18, ylim = None, plot_mode = 'line',
-                           labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False):
+def create_figs_for_phase_subplots(fig, outer, nuc_order, nuclei_dict):
+    
     fig_generated = False
     outer_generated = False
+    
     if fig == None:
+        
         fig_generated = True
         fig = plt.figure(figsize=(5, 8))
+        
     if outer == None:
+        
         outer_generated = True
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
 
     inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
                     subplot_spec=outer, wspace=0.1, hspace=0.1)
-    j = 0
     
-    if include_title:
-        ax = plt.Subplot(fig, outer)
-        ax.set_title(title, fontsize=15)
-        ax.axis('off')
+        
     if nuc_order == None:
+        
         nuc_order = list(nuclei_dict.keys())
+    
+    return fig_generated, outer_generated, fig, outer, inner, nuc_order
 
-    for nuc_name in nuc_order:
-        nucleus = nuclei_dict[nuc_name][0]
-        # if not fig_generated and not outer_generated:
-        #     ax = fig.axes[j]
-        # else:
+def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
+                                  density = False, phase_ref = 'self', total_phase = 360, projection = None,
+                                  outer=None, fig=None,  title='', tick_label_fontsize=18, ylim = None, plot_mode = 'line',
+                                  labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False,
+                                  scale_count_to_FR = False, f_stim = 20, legend_loc = 'upper right'):
+
+    fig_generated, outer_generated, fig, outer, inner, nuc_order = create_figs_for_phase_subplots(fig, outer, nuc_order, 
+                                                                                                  nuclei_dict)
+    for j, nuc_name in enumerate(nuc_order):
+        
         ax = plt.Subplot(fig, inner[j])
-        frq, edges = nucleus.spike_rel_phase_hist[ref_nuc_name]
+        fig.add_subplot(ax)
+        
+        nucleus = nuclei_dict[nuc_name][0]
+        
+        frq = np.average( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
+        edges = nucleus.phase_bins
 
+        if scale_count_to_FR :
+            
+            frq = frq * len(nucleus.phase_bins) * f_stim/ (total_phase / 360)
+            
         if projection == None:
             
             width=np.diff(edges) 
+            
             if plot_mode == 'hist':
+                
                 ax.bar(edges, frq, width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name])
+                
             elif plot_mode == 'line':
-                ax.plot(get_centers_from_edges(edges), frq, color = color_dict[nucleus.name], label = nucleus.name)
+                
+                ax.plot(get_centers_from_edges(edges [:-1]), frq, color = color_dict[nucleus.name], label = nucleus.name)
+                
             ax.axvline(total_phase/2, ls = '--', c = 'k')
+            
         elif projection == 'polar':
             
             circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
 
-        # if fig_generated:
-        fig.add_subplot(ax)
+
+        
         rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
-        j += 1
         ax.set_xticks([0,180,360,540,720])
-        ax.annotate(nucleus.name, xy=(0.86,0.2),xycoords='axes fraction', color = color_dict[nucleus.name],
-             fontsize=14)
-        ax.set_xlim(0,total_phase)
-        # ax.legend(fontsize = 12, loc = legend_loc)
+        ax.annotate(nucleus.name, xy=(0.86,0.2),xycoords='axes fraction', 
+                    color = color_dict[nucleus.name], fontsize=14)
+        ax.set_xlim(0 , total_phase)
+        ax.legend(fontsize = 12, loc = legend_loc)
+    
+    set_minor_locator_all_axes(fig, n = 2, axis = 'both')
+    
     if ax_label:
+        
         fig.text(0.5, 0.03, 'phase (deg)', ha='center',
                  va='center', fontsize=labelsize)
         fig.text(0.03, 0.5, 'spike count', ha='center', va='center',
                  rotation='vertical', fontsize=labelsize)
+        
+    if include_title:
+        
+        fig.suptitle(title, fontsize=15)
+        
     return fig
 
 def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'auto', 
@@ -6022,7 +6254,8 @@ def induce_beta_to_nuclei( nuclei_dict, name_list, dt, amplitude_dict,
                            freq_dict, start_dict, end_dict, mean_dict, method = 'excitation' ):
     
     for name in name_list:
-        
+        nuclei_dict[name][0].beta_stim = True,
+        nuclei_dict[name][0].beta_stim_method = method
         nuclei_dict[name][0].add_beta_ext_input(amplitude_dict[name], dt, freq = freq_dict[name], 
                                                 start = start_dict[name], end = end_dict[name], 
                                                 mean = mean_dict[name], method = method)
