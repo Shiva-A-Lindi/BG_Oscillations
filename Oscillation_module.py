@@ -2359,15 +2359,13 @@ def find_beta_induction_nucleus(nuclei_dict):
     return False, None, None, None
 
 def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = 6, 
-                         height = 0, start = 0, end = None, plot_ref_peaks = False, shift_theta= 0):
+                         height = 0, start = 0, end = None, plot_ref_peaks = False,
+                         shift_phases = False, shift_theta= 0, align_to_stim_onset = True):
     
     beta_stim, beta_stim_method, beta_stim_nuc, stim_t_series = find_beta_induction_nucleus(nuclei_dict)
     
-    if phase_ref in list( nuclei_dict.keys()) and not beta_stim :
-        
-        ref_peaks = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
-                                                                             height = height, start = start, end = end)
-    elif beta_stim:
+    print('aligning phases to {} peaks'.format(phase_ref))
+    if beta_stim and phase_ref == 'stimulation':
         
         if beta_stim_method == 'excitation':
             
@@ -2378,14 +2376,27 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
             ref_peaks, _ = signal.find_peaks( - stim_t_series, height = 0)
             
             
-
+            
         plot_ref_peaks_cyclic_stim(stim_t_series, ref_peaks, plot_ref_peaks)
         
+        if align_to_stim_onset :
+            shift_phases = True ; shift_theta = 90
+            
+    elif phase_ref in list( nuclei_dict.keys()):
+        
+        
+        ref_peaks = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
+                                                                             height = height, start = start, end = end)
+        shift_phases = True ; shift_theta = 180
     else: 
         
-        ref_peaks = []
+        raise(" Check input for phase reference!")
         
-    ref_peaks = shift_ref_peaks(ref_peaks, theta = shift_theta)
+    if shift_phases:
+        
+        print(' shifting peaks {} degrees'.format(shift_theta))
+        ref_peaks = shift_ref_peaks(ref_peaks, theta = shift_theta)
+    
     return ref_peaks
 
 def shift_ref_peaks(ref_peaks, theta = 90):
@@ -2408,12 +2419,14 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
                                        only_entrained_neurons = False, min_f_sig_thres = 0,window_mov_avg = 10, max_f = 250,
                                        n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2, end = None,
                                        min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False, 
-                                       troughs = False, plot_ref_peaks = False, shift_theta = 90):
+                                       troughs = False, plot_ref_peaks = False, shift_theta = 90, shift_phases = False,
+                                       align_to_stim_onset = True):
     
 
     ref_peaks = get_phase_ref_peaks(nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = filter_order, 
                                     height = height, start = start, end = end, plot_ref_peaks = plot_ref_peaks,
-                                    shift_theta = 90)
+                                    shift_theta = shift_theta, shift_phases = shift_phases, 
+                                    align_to_stim_onset= align_to_stim_onset)
     
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -5088,11 +5101,13 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
         nucleus = nuclei_dict[nuc_name][0]
         
         frq = np.average( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
+        frq_err = stats.sem( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
         edges = nucleus.phase_bins
 
         if scale_count_to_FR :
             
             frq = frq * len(nucleus.phase_bins) * f_stim/ (total_phase / 360)
+            frq_err  = frq_err * len(nucleus.phase_bins) * f_stim/ (total_phase / 360)
             
         if projection == None:
             
@@ -5104,7 +5119,11 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
                 
             elif plot_mode == 'line':
                 
-                ax.plot(get_centers_from_edges(edges [:-1]), frq, color = color_dict[nucleus.name], label = nucleus.name)
+                centers = get_centers_from_edges(edges [:-1])
+                ax.plot( centers, frq, color = color_dict[nucleus.name], label = nucleus.name)
+                
+                ax.fill_between( centers, frq - frq_err, frq + frq_err , color = color_dict[nucleus.name], 
+                                  alpha = 0.2)
                 
             ax.axvline(total_phase/2, ls = '--', c = 'k')
             

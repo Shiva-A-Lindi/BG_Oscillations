@@ -7235,11 +7235,11 @@ state_2 = 'induction'
 induction_nuc_name = 'D2'
 beta_induction_method = 'excitation'
 
-induction_nuc_name = 'Proto'
-beta_induction_method = 'inhibition'
+# induction_nuc_name = 'Proto'
+# beta_induction_method = 'inhibition'
 
-induction_nuc_name = 'STN'
-beta_induction_method = 'excitation'
+# induction_nuc_name = 'STN'
+# beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 
 beta_induc_name_list = [induction_nuc_name]
@@ -7397,9 +7397,12 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
               size=(5, 3))
 
 phase_ref = 'stimulation'
-find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins = 360,
+
+phase_ref = 'D2'
+find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins = 120,
                                   height=0, phase_ref = phase_ref, start=duration_base[0], end = end_phase, total_phase=720,
-                                  only_entrained_neurons=False, troughs = False)
+                                  only_entrained_neurons=False, troughs = False, align_to_stim_onset = True,
+                                  shift_phases = shift_phases)
 
 fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
                                     density=False, phase_ref= phase_ref, total_phase=720, projection=None,
@@ -7409,7 +7412,8 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
                                     scale_count_to_FR = True, 
                                     f_stim = freq_dict [induction_nuc_name])
 
-
+save_pdf_png(fig, os.path.join(path, 'SNN_Phase_' + status + '_plot_' + state_1),
+              size=(3, len(name_list) *1.5))
 
 # %% Transition to DD FSI-D2-GPe + STN-GPe collective
 
