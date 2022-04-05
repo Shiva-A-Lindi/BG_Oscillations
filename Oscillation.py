@@ -645,7 +645,7 @@ phase_text_x_shift = 150
 ylabel_fontsize = 12;  xlabel_fontsize = 13;  xlabel_y = 0.01
 sheet_name = 'Fig 3'
 scale_count_to_FR = False
-
+n_decimal = 0
 
 #################### Proto beta inhibition
 FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
@@ -657,51 +657,56 @@ y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
 name_list = ['STN',  'Arky', 'Proto']
 phase_text_x_shift = 100
 ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.01
-scale_count_to_FR = True
-y_max_series = {'STN': 27, 'Arky': 14, 'Proto': 50}
+n_decimal = 0
+# scale_count_to_FR = True
+# y_max_series = {'STN': 27, 'Arky': 14, 'Proto': 50}
 sheet_name = 'Fig 6'
 
-# #################### STN beta excitation
-# FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
-# fig_ind_hist = 'Fig 3E (1): Phase Histogram during Spontaneous Beta oscillations'
-# fig_ind_phase = 'Fig 3E (2): Phase Angle during Spontaneous Beta oscillations'      
-# angle_header = 'Unnamed: 35_level_1'
-# recording_spec = 'STN_excitation_induced_beta'
-# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
-# name_list = ['STN',  'Arky', 'Proto']
-# phase_text_x_shift = 100
-# ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'Fig 3'
+#################### STN beta excitation
+FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
+fig_ind_hist = 'Fig 3E (1): Phase Histogram during Spontaneous Beta oscillations'
+fig_ind_phase = 'Fig 3E (2): Phase Angle during Spontaneous Beta oscillations'      
+angle_header = 'Unnamed: 35_level_1'
+recording_spec = 'STN_excitation_induced_beta'
+y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
+name_list = ['STN',  'Arky', 'Proto']
+phase_text_x_shift = 100
+ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
+sheet_name = 'Fig 3'
+n_decimal = 0
 # scale_count_to_FR = True
 # y_max_series = {'STN': 35, 'Arky': 30, 'Proto': 55}
 
 # ################### STN beta inhibtiion aligned to ECog
-# FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
+FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 
-# fig_ind_hist = 'SupFig 5F (1): Phase Histogram during Induced Beta oscillations peak EcoG'
-# fig_ind_phase = 'SupFig 5F (2): Phase Angle during Spontaneous Beta oscillations'      
-# angle_header = 'Unnamed: 14_level_1'
-# recording_spec = 'STN_inhibition_induced_beta_ECoG'
-# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
-# name_list = ['STN',  'Arky', 'Proto']
-# phase_text_x_shift = 100
-# ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'SupFig 5'
+fig_ind_hist = 'SupFig 5F (1): Phase Histogram during Induced Beta oscillations peak EcoG'
+fig_ind_phase = 'SupFig 5F (2): Phase Angle during Spontaneous Beta oscillations'      
+angle_header = 'Unnamed: 14_level_1'
+recording_spec = 'STN_inhibition_induced_beta_ECoG'
+y_max_series = {'STN': 1, 'Arky': 1, 'Proto': 2}
+name_list = ['STN',  'Arky', 'Proto']
+phase_text_x_shift = 100
+ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
+sheet_name = 'SupFig 5'
+n_decimal = 0
 # scale_count_to_FR = True
 # y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
 
-# #################### STN beta inhibtiion aligned to laser
-# FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 
-# fig_ind_hist = 'SupFig 5G (1): Phase Histogram during Beta patterning peak Laser'
-# fig_ind_phase = 'SupFig 5G (2): Phase Histogram during Beta patterning peak Laser'      
-# angle_header = 'Unnamed: 36_level_1'
-# recording_spec = 'STN_inhibition_induced_beta_laser'
-# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
-# name_list = ['STN',  'Arky', 'Proto']
-# phase_text_x_shift = 100
-# ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'SupFig 5'
+# # #################### STN beta inhibtiion aligned to laser
+FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
+
+fig_ind_hist = 'SupFig 5G (1): Phase Histogram during Beta patterning peak Laser'
+fig_ind_phase = 'SupFig 5G (2): Phase Histogram during Beta patterning peak Laser'      
+angle_header = 'Unnamed: 36_level_1'
+recording_spec = 'STN_inhibition_induced_beta_laser'
+y_max_series = {'STN': 2, 'Arky': 1, 'Proto': 3}
+name_list = ['STN',  'Arky', 'Proto']
+phase_text_x_shift = 100
+ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
+sheet_name = 'SupFig 5'
+n_decimal = 0
 # scale_count_to_FR = True
 # y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
 
@@ -718,10 +723,10 @@ angles, phase_dict = read_Brice_phase_hist(filename,  ['STN', 'Arky', 'Proto'], 
                                            fig_ind_phase, angle_header, coef = coef, sheet_name = sheet_name)
 
 
-n_decimal = 0
+
 plot_FR = False
 state = 'OFF'
-ylabel =  r'$ Mean \; spike \; count\;/\; degree \;(.10^{-' + str(int(math.log10(coef))) + '})$'
+# ylabel =  r'$ Mean \; spike \; count\;/\; degree \;(.10^{-' + str(int(math.log10(coef))) + '})$'
 
 FR_dict = read_Brice_FR_states(filename, name_list, FR_header,sheet_name = sheet_name)    
    
@@ -746,13 +751,21 @@ save_pdf_png(fig, filename.split('.')[0] + '_' + recording_spec + '_Phase',
 
 # %% De la Crompe laser beta induction data analysis
 
-name = 'STN'
+
 experiment_protocol = 'ChR2_STN_CTL'
 y_max_series = {'STN': 450, 'Arky': 60, 'Proto': 171}
+sheet_name = 'Fig 3'
+FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
+
 # experiment_protocol = 'ArchT_STN_CTL'
-# y_max_series = {'STN': 205, 'Arky': 60, 'Proto': 85}
+# y_max_series = {'STN': 176, 'Arky': 60, 'Proto': 85}
+# FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
+# sheet_name = 'SupFig 5'
+
 # experiment_protocol = 'ArchT_GP_CTL'
 # y_max_series = {'STN': 150, 'Arky': 60, 'Proto': 150}
+# FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
+# sheet_name = 'Fig 6'
 
 n_bins = 60
 total_phase = 360
@@ -761,15 +774,17 @@ path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
 name_list = ['STN', 'Arky', 'Proto']
 
 
+FR_dict = read_Brice_FR_states(os.path.join(root, 'De_La_Crompe_2020_data.xlsx'),
+                               name_list, FR_header, sheet_name = sheet_name)    
 
 fig = plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
                                       n_bins = n_bins, f_stim = 20, 
-                                      scale_count_to_FR = True, title_fontsize = 10,
-                                      total_phase = 360, alpha_sem = 0.2, box_plot = False, set_ylim= True,
+                                      scale_count_to_FR = True, title_fontsize = 10, FR_dict = FR_dict, 
+                                      total_phase = 720, alpha_sem = 0.2, box_plot = False, set_ylim= True,
                                       print_stat_phase = False, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
-                                      phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8, 
+                                      phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
                                       name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
-                                      xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8)
+                                      xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF')
 
 save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
@@ -7203,6 +7218,16 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
 
 # %% Transition to Beta induction, all nuclei
 
+
+#### modulation with laser beta inductions of de la crompe 2020
+mod_dict = {'ChR2_STN' : {'STN': [3, 35], 'Proto' : [36, 75], 'Arky' : [5, 38]},
+            'ArchT_Proto': {'STN': [9, 52], 'Proto' : [57, 5], 'Arky' : [12, 44]},
+            'ArchT_STN': {'STN': [96, 2], 'Proto' : [38, 22], 'Arky' : [0, 0]}}
+
+
+
+
+
 plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -7210,10 +7235,10 @@ K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
 
 
-t_sim = 6900 
+t_sim = 7900 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
-t_transition = plot_start + 0# int(t_sim / 5)
+t_transition = plot_start + 1000# int(t_sim / 5)
 duration_base = np.array( [int(0/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 end_phase = t_sim 
@@ -7235,12 +7260,12 @@ state_2 = 'induction'
 induction_nuc_name = 'D2'
 beta_induction_method = 'excitation'
 
-# induction_nuc_name = 'Proto'
-# beta_induction_method = 'inhibition'
+induction_nuc_name = 'Proto'
+beta_induction_method = 'inhibition'
 
-# induction_nuc_name = 'STN'
-# beta_induction_method = 'excitation'
-# beta_induction_method = 'inhibition'
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
+beta_induction_method = 'inhibition'
 
 beta_induc_name_list = [induction_nuc_name]
 # amplitude_dict = {'D2': 3.5, 'Proto': 3.5, 'STN': 3}
@@ -7398,19 +7423,27 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
 
 phase_ref = 'stimulation'
 
-phase_ref = 'D2'
+# phase_ref = 'D2'
 find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins = 120,
                                   height=0, phase_ref = phase_ref, start=duration_base[0], end = end_phase, total_phase=720,
                                   only_entrained_neurons=False, troughs = False, align_to_stim_onset = True,
-                                  shift_phases = shift_phases)
+                                  shift_phases = False)
+
+FR_dict = create_FR_dict_from_sim(nuclei_dict, 
+                                  int( plot_start / dt), 
+                                  int (t_transition / dt), 
+                                  state = 'rest')
 
 fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
                                     density=False, phase_ref= phase_ref, total_phase=720, projection=None,
                                     outer=None, fig=None,  title='', tick_label_fontsize=18,
                                     labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
                                     ax_label=False, nuc_order = ['FSI', 'D2', 'STN', 'Arky', 'Proto'],
-                                    scale_count_to_FR = True, 
+                                    scale_count_to_FR = True, FR_dict = FR_dict, plot_FR = True,
                                     f_stim = freq_dict [induction_nuc_name])
+
+
+
 
 save_pdf_png(fig, os.path.join(path, 'SNN_Phase_' + status + '_plot_' + state_1),
               size=(3, len(name_list) *1.5))

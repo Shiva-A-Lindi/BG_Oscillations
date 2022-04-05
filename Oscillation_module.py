@@ -28,7 +28,7 @@ from scipy.sparse import csc_array,csc_matrix, lil_matrix
 import imageio
 from pygifsicle import optimize
 from PIL import Image
-
+import math
 
 try:
     import jsonpickle
@@ -2388,6 +2388,7 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
         ref_peaks = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
                                                                              height = height, start = start, end = end)
         shift_phases = True ; shift_theta = 180
+        
     else: 
         
         raise(" Check input for phase reference!")
@@ -2710,23 +2711,38 @@ def set_minor_locator(ax, n = 2, axis = 'x'):
         minor_locator = AutoMinorLocator(n)
         ax.xaxis.set_minor_locator(minor_locator)
         
-def set_minor_locator_all_axes(fig, n = 2, axis = 'x'):
+def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x'):
     
     
     for ax in fig.axes:
-        minor_locator = AutoMinorLocator(n)
+        
         
         if axis == 'y':
+            minor_locator = AutoMinorLocator(n)
             ax.yaxis.set_minor_locator(minor_locator)
             
         if axis == 'x':
-            ax.xaxis.set_minor_locator(minor_locator)
-            
-        if axis == 'both':
-            ax.yaxis.set_minor_locator(minor_locator)
             minor_locator = AutoMinorLocator(n)
             ax.xaxis.set_minor_locator(minor_locator)
             
+        if axis == 'both':
+            
+            minor_locator_y = AutoMinorLocator(n_y)
+            ax.yaxis.set_minor_locator(minor_locator_y)
+            minor_locator_x = AutoMinorLocator(n_x)
+            ax.xaxis.set_minor_locator(minor_locator_x)
+   
+def create_FR_dict_from_sim(nuclei_dict, start, stop, state = 'rest'):
+
+    FR_dict = {name: 
+               { state : 
+                    {'mean': np.average( nuc[0]. pop_act [start:stop ]),
+                     'SEM': stats.sem( nuc[0]. pop_act [start:stop ])}
+                }
+               for name, nuc in nuclei_dict.items()}
+    
+    return FR_dict
+
 def plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
                                state, lw = 1, alpha = 0.1, plot_FR = False):
     
@@ -2768,28 +2784,64 @@ def look_at_one_neuron_laser_Brice(filepath, total_phase, n_bins, name, color_di
     raster_plot_Brice(spike_times , corr_laser_sweep_inds, color_dict[name], ax = ax)
     
 
-def cal_phase_hist_Brice(spike_times, bins, n_bins, f_stim, n_sweeps, frq_all_neurons, i, scale_count_to_FR = False):
+def cal_phase_hist_Brice(spike_times, bins, n_bins, f_stim, n_sweeps, frq_all_neurons, 
+                         i, scale_count_to_FR = False):
     
     frq , edges = np.histogram(spike_times, bins = bins)
-    frq = frq / n_sweeps / (360/ n_bins)
+    frq = frq / n_sweeps # / (360/ n_bins)
     frq , edges = double_phase_hist_cycle(frq, edges)
     frq_all_neurons [i, : ] = frq
     
-    if scale_count_to_FR:
-        frq = frq * 360 * f_stim
+    # if scale_count_to_FR:
+    #     frq = frq * 360 * f_stim
         
     return frq, edges, frq_all_neurons
 
+def integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins, f_stim, color_dict,  
+                                         scale_count_to_FR = False, ax = None):
+    
+    fig, ax = get_axes(ax)
+    
+    filepath_list = list_files_of_interest_in_path(os.path.join( path, name + '_Phase'), 
+                                                   extensions = ['txt'])
+
+    bins = np.linspace(0, 360, endpoint=True, num = n_bins)
+    
+    n_neurons = len(filepath_list)
+    frq_all_neurons = np.zeros(( n_neurons, len(bins) * 2 -3))
+    
+    for i, filepath in enumerate( filepath_list ):
+
+        spike_times, corr_laser_sweep_inds, n_sweeps = extract_spikes_Brice(filepath)
+        frq, edges, frq_all_neurons = cal_phase_hist_Brice(spike_times, bins, n_bins, f_stim, n_sweeps, 
+                                                           frq_all_neurons, 
+                                                           i, scale_count_to_FR = scale_count_to_FR)
+        if scale_count_to_FR:
+            frq, _ = scale_spk_count_to_FR(frq, 0, total_phase / len(edges[:-1]), f_stim)
+
+        plot_hist_envelope(frq, edges, color_dict[name], ax = ax, lw = 0.3, alpha = 0.2)
+    
+    try :
+        centers = get_centers_from_edges(edges[:-1])
+    
+        return frq_all_neurons, centers, n_neurons
+    
+    except:
+        
+        return frq_all_neurons, [0] * ((n_bins-1)*2-1), 0
+    
 def plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict, path, y_max_series, n_bins = 36, f_stim = 20, scale_count_to_FR = False, 
                                     total_phase = 360, alpha_sem = 0.2, box_plot = False, set_ylim = False,title_fontsize = 15,
                                     print_stat_phase = False, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
                                     phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8, tick_label_fontsize = 8,
                                     name_ylabel_pad = [0,0,0], name_side = 'right', name_place = 'ylabel', alpha = 0.15, title = '',
-                                    xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, plot_FR = False, n_decimal = 0):
+                                    xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, plot_FR = False, n_decimal = 0,
+                                    n_minor_tick_y = 2, n_minor_tick_x = 4, xlabel_fontsize = 8, FR_dict = None, 
+                                    ylabel_fontsize = 8, xlabel = 'phase (deg)',strip_plot = False, state  = 'OFF'):
 
     n_subplots = len(name_list)
     
-    fig = plt.figure(figsize = (5, 3 * n_subplots))
+    fig = plt.figure(figsize = (3, 1.5 * n_subplots))
     outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
 
     inner = gridspec.GridSpecFromSubplotSpec(n_subplots, 1,
@@ -2797,35 +2849,20 @@ def plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict,
                 
     for j, name in enumerate( name_list ):
         
-        filepath_list = list_files_of_interest_in_path(os.path.join( path, name + '_Phase'), 
-                                                       extensions = ['txt'])
-
-        bins = np.linspace(0, total_phase, endpoint=True, num = n_bins)
-        
-        n_neurons = len(filepath_list)
-        frq_all_neurons = np.zeros(( n_neurons, len(bins) * 2 -3))
-        
-
         ax = plt.Subplot(fig, inner[j])
         fig.add_subplot(ax)
-        
-        
-        for i, filepath in enumerate( filepath_list ):
-    
-            spike_times, corr_laser_sweep_inds, n_sweeps = extract_spikes_Brice(filepath)
-            frq, edges, frq_all_neurons = cal_phase_hist_Brice(spike_times, bins, n_bins, f_stim, n_sweeps, 
-                                                               frq_all_neurons, 
-                                                               i, scale_count_to_FR = scale_count_to_FR)
-            
-            plot_hist_envelope(frq, edges, color_dict[name], ax = ax, lw = 0.3, alpha = 0.2)
-            
-    
+
+        frq_all_neurons , centers, n_neurons =  integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins, 
+                                                                                     f_stim, color_dict, ax = ax,
+                                                                                     scale_count_to_FR = scale_count_to_FR)
         count = np.average(frq_all_neurons, axis = 0)
         err = stats.sem(frq_all_neurons, axis = 0)
-        make_phase_plot(count, err, name, ax, get_centers_from_edges(edges[:-1]), 
-                        color_dict, None,  coef, y_max_series,  plot_FR = plot_FR, 
+        
+        
+        make_phase_plot(count, err, name, ax, centers, 
+                        color_dict, None,  coef, y_max_series,  plot_FR = plot_FR, state = state,
                         f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha_sem ,
-                        print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = None, 
+                        print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict, 
                         phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
                         phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = 720)
          
@@ -2833,10 +2870,11 @@ def plot_laser_aligned_phases_Brice( experiment_protocol, name_list, color_dict,
         set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
                           y_max_series, 720, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim)
         
-    set_fig_prop_phase(fig, n_minor_tick = 4, strip_plot = False, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
-                       xlabel_fontsize = 8, ylabel_fontsize = 8,  xlabel = 'phase (deg)', 
-                       ylabel = r'$ Mean \; neuron \; spike \; count \; /\; deg$', title = 
-                       experiment_protocol.replace('_', ' '), title_fontsize=title_fontsize)
+    set_fig_prop_phase(fig,  n_x = n_minor_tick_x, n_y = n_minor_tick_y, strip_plot = strip_plot, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
+                       xlabel_fontsize = xlabel_fontsize, ylabel_fontsize = ylabel_fontsize,  xlabel = xlabel, 
+                       title = title, title_fontsize = title_fontsize,
+                       n_bins = len(centers), total_phase = total_phase, coef = coef, 
+                       scale_count_to_FR = scale_count_to_FR)
     
     return fig
 
@@ -2850,26 +2888,29 @@ def phase_summary_Brice(phase_dict, angles, name_list, color_dict, phase_ref = '
                         xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
                         phase_txt_yshift_coef = 1.4, name_side = 'right', n_decimal = 0, title_fontsize = 8,
                         print_stat_phase = True, strip_plot = False, box_plot = True, FR_dict = None,
-                        phase_text_x_shift = 150, f_stim = 20, scale_count_to_FR = False, plot_FR = False):
+                        phase_text_x_shift = 150, f_stim = 20, scale_count_to_FR = False, plot_FR = False,
+                        n_minor_tick_y = 2, n_minor_tick_x = 4):
     
     n_subplots = len(name_list)
-    fig = plt.figure(figsize = (5, 3 * n_subplots))
+    fig = plt.figure(figsize = (3, 1.5 * n_subplots))
     outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
 
     inner = gridspec.GridSpecFromSubplotSpec(n_subplots, 1,
             subplot_spec=outer[0], wspace=0.1, hspace=0.1)
     
+  
     for j, name in enumerate(name_list):
+        
         ax = plt.Subplot(fig, inner[j])
         fig.add_subplot(ax)
         count, err = phase_dict[name]['count'] , phase_dict[name]['SEM']
 
         make_phase_plot(count, err, name, ax, angles, color_dict,  phase_dict[name]['phase'], 
-                    coef, y_max_series,  plot_FR = plot_FR, state = state, 
-                    f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha ,
-                    print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict,
-                    phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
-                    phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = total_phase)
+                        coef, y_max_series,  plot_FR = plot_FR, state = state, 
+                        f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha ,
+                        print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict,
+                        phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
+                        phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = total_phase)
 
        
         print_n_neurons(ax, phase_dict[name]['n'] , name, color_dict[name], n_fontsize)
@@ -2879,9 +2920,12 @@ def phase_summary_Brice(phase_dict, angles, name_list, color_dict, phase_ref = '
                               y_max_series, total_phase, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim)
 
         
-    set_fig_prop_phase(fig, n_minor_tick = 4, strip_plot = strip_plot, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
+    set_fig_prop_phase(fig,  n_x = n_minor_tick_x, n_y = n_minor_tick_y, strip_plot = strip_plot, 
+                       xlabel_y = xlabel_y, ylabel_x = ylabel_x, 
                        xlabel_fontsize = xlabel_fontsize, ylabel_fontsize = ylabel_fontsize,  xlabel = xlabel, 
-                       ylabel = ylabel, title = title, title_fontsize = title_fontsize)
+                       title = title, title_fontsize = title_fontsize,
+                       n_bins = len(angles), total_phase = total_phase, coef = coef, 
+                       scale_count_to_FR = scale_count_to_FR)
     return fig
 
 
@@ -2935,29 +2979,47 @@ def make_phase_plot(count, err, name, ax, angles, color_dict, phases,
                     f_stim = 20, scale_count_to_FR = False, lw = 0.5, alpha = 0.15,
                     print_stat_phase = True, box_plot = True, FR_dict = None,
                     phase_text_x_shift = 150, phase_txt_fontsize = 8, 
-                    phase_txt_yshift_coef = 1.4, total_phase = 720, state = None):
+                    phase_txt_yshift_coef = 1.4, total_phase = 720, state = 'OFF'):
     
     if scale_count_to_FR:
-            
-        scale_coef_phase_count_to_FR = 360 * f_stim / coef # count per degree where degree is 360/f ms in time with (20 Hz stim)
-        count, err = count * scale_coef_phase_count_to_FR, err * scale_coef_phase_count_to_FR
-    
+        count, err = scale_spk_count_to_FR(count, err, total_phase / len(angles), f_stim, coef = coef)
+
     plot_mean_phase_plus_std(count, err, name, ax, 
                              color_dict, angles, lw = lw, alpha = alpha)
     
     plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
                                state, lw = lw, alpha = alpha, plot_FR = plot_FR)
-    box_width = y_max_series[name] / 5
-    box_y = y_max_series[name] / 3
+
     
     if box_plot:
+        
+        box_width = y_max_series[name] / 5
+        box_y = y_max_series[name] / 3
         boxplot_phases(ax, color_dict, phases, name, box_width, 
                        box_y, y_max_series[name] , phase_txt_fontsize = phase_txt_fontsize,
                        phase_txt_yshift_coef = phase_txt_yshift_coef ,
                        print_stat_phase = print_stat_phase,
                        text_x_shift = phase_text_x_shift)
         
+def get_y_label_phase_hist(n_bins, total_phase = 720, coef = 1, scale_count_to_FR = False):
     
+    if scale_count_to_FR:
+        
+        return r'$ Mean \; Firing \; rate \; (spk/s)$'
+    
+    elif total_phase == n_bins :
+        
+        return  (r'$ Mean \; spike \; count\;/ \; degree (.10 ^{-' + 
+                str( int( math.log10(coef))) +
+                '})$' )
+    
+    else:
+        
+        return  (r'$ Mean \; spike \; count\;/ \; ' + 
+                 str(int( total_phase / n_bins) )  + 
+                ' \; degrees \; (.10 ^{-' + 
+                str( int( math.log10(coef))) +
+                '})$' )
     
 def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', total_phase = 720, 
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
@@ -2968,10 +3030,11 @@ def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto'
                   xlabel_y = 0.05, ylabel_x = -0.1, phase_txt_yshift_coef = 1.5, title = '', title_fontsize = 8,
                   name_side = 'right', print_stat_phase = True, strip_plot = False,
                   box_plot = True, phase_text_x_shift = 150, n_decimal = 0, scale_count_to_FR = False,
-                  state = 'OFF', FR_dict = None, plot_FR = False):
+                  state = 'OFF', FR_dict = None, plot_FR = False,
+                  n_minor_tick_y = 2, n_minor_tick_x = 4):
     
     n_subplots = len(name_list)
-    fig = plt.figure(figsize = (5, 3 * n_subplots))
+    fig = plt.figure(figsize = (3, 1.5 * n_subplots))
     outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
     
     data = load_pickle(filename)
@@ -3000,19 +3063,20 @@ def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto'
                                               shift_phase = shift_phase)
             
             make_phase_plot(count, err, name, ax, centers, color_dict,  phases, 
-                        coef, y_max_series,  plot_FR = plot_FR, 
-                        f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha ,
-                        print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict,
-                        phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
-                        phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = total_phase)
+                            coef, y_max_series,  plot_FR = plot_FR, 
+                            f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha ,
+                            print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict,
+                            phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
+                            phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = total_phase)
              
             
             set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
                               y_max_series, total_phase, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim)
             
-    set_fig_prop_phase(fig, n_minor_tick = 4, strip_plot = strip_plot, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
+    set_fig_prop_phase(fig, n_x = n_minor_tick_x,  n_y = n_minor_tick_y , strip_plot = strip_plot, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
                        xlabel_fontsize = xlabel_fontsize, ylabel_fontsize = ylabel_fontsize,  xlabel = xlabel, 
-                       ylabel = ylabel, title = title, title_fontsize = title_fontsize)
+                       ylabel = ylabel, title = title, title_fontsize = title_fontsize,
+                       n_bins = len(centers), total_phase = total_phase, coef = coef, scale_count_to_FR = scale_count_to_FR)
     return fig
 
 def set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
@@ -3023,23 +3087,30 @@ def set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name
     
     if set_ylim:
         ax.set_ylim(0, y_max_series[name]  + y_max_series[name] * .1)
-        
+        set_y_ticks_one_ax(ax, [0, y_max_series[name]])
     
     ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
     set_x_ticks_one_ax(ax, [0, 360, 720])
     ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-    set_y_ticks_one_ax(ax, [0, y_max_series[name]])
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.' + str(n_decimal) + 'f'))
     rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax, axis = 'x')
     remove_frame(ax)
     
-def set_fig_prop_phase(fig, n_minor_tick = 4, strip_plot = False, xlabel_y = 0.05, ylabel_x = -0.1,
+def set_fig_prop_phase(fig,n_x = 4, n_y = 2, strip_plot = False, xlabel_y = 0.05, ylabel_x = -0.1,
                        xlabel_fontsize = 8, ylabel_fontsize = 8,  xlabel = 'phase (deg)', 
-                       ylabel = r'$ Mean \; neuron \; spike \; count/\; degree$',
-                       title = '', title_fontsize = 15):
+                       ylabel = None, scale_count_to_FR = False,
+                       title = '', title_fontsize = 15, n_bins = 720,
+                       total_phase = 720, coef = 1):
     
-    set_minor_locator_all_axes(fig, n = n_minor_tick, axis = 'both') 
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both') 
     
+    if ylabel == None:
+        
+         ylabel = get_y_label_phase_hist(n_bins, total_phase = 720, 
+                                         coef = coef, scale_count_to_FR = scale_count_to_FR)
+         
     if strip_plot:
         
         fig = remove_all_labels(fig)
@@ -3053,6 +3124,92 @@ def set_fig_prop_phase(fig, n_minor_tick = 4, strip_plot = False, xlabel_y = 0.0
         
     fig.suptitle(title, fontsize = title_fontsize)
     
+def create_figs_for_phase_subplots(fig, outer, nuc_order, nuclei_dict, figsize = (3, 7.5)):
+    
+    fig_generated = False
+    outer_generated = False
+    
+    if fig == None:
+        
+        fig_generated = True
+        fig = plt.figure(figsize = figsize)
+        
+    if outer == None:
+        
+        outer_generated = True
+        outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
+
+    inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
+                    subplot_spec=outer, wspace=0.1, hspace=0.1)
+    
+        
+    if nuc_order == None:
+        
+        nuc_order = list(nuclei_dict.keys())
+    
+    return fig_generated, outer_generated, fig, outer, inner, nuc_order
+
+def scale_spk_count_to_FR(spk_count, err_spk_count, bin_size_in_deg, f_stim, coef = 1):
+    
+    ''' scale spike counts in phase hist to FR assuming one oscillation per cycle''' 
+    
+    scale  = 1 / bin_size_in_deg * 360 * f_stim / coef
+    spk_Hz = spk_count * scale
+    spk_Hz_err = err_spk_count * scale
+    
+    return spk_Hz, spk_Hz_err
+
+def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
+                                  density = False, phase_ref = 'self', total_phase = 360, projection = None,
+                                  outer=None, fig=None,  title='',  ylim = None, plot_mode = 'line',
+                                  labelsize=15, title_fontsize = 8, lw=1, linelengths=1, include_title=True, ax_label=False,
+                                  scale_count_to_FR = False, f_stim = 20, legend_loc = 'upper right',
+                                  xlabel_fontsize = 13, ylabel_fontsize = 13, phase_txt_fontsize = 8, tick_label_fontsize = 10, 
+                                  plot_FR = False, FR_dict = None, alpha = 0.2, state = 'rest', y_max_series = None,
+                                  name_fontsize = 10, name_side = 'right', set_ylim = False, n_decimal = 0, 
+                                  name_ylabel_pad = [0,0,0,0,0], name_place = 'ylabel', coef = 1,
+                                  n_minor_tick_y = 2, n_minor_tick_x = 4):
+    
+    n_subplots = len( nuclei_dict.keys())
+    fig_generated, outer_generated, fig, outer, inner, nuc_order = create_figs_for_phase_subplots(fig, outer, nuc_order, 
+                                                                                                  nuclei_dict,
+                                                                                                  figsize = 
+                                                                                                  (3, 1.5 * n_subplots))
+    for j, nuc_name in enumerate(nuc_order):
+        
+        ax = plt.Subplot(fig, inner[j])
+        fig.add_subplot(ax)
+        
+        nucleus = nuclei_dict[nuc_name][0]
+        
+        frq = np.average( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
+        frq_err = stats.sem( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
+        edges = nucleus.phase_bins
+
+        phases = None
+        make_phase_plot(frq, frq_err, nuc_name, ax, get_centers_from_edges(edges [:-1]), color_dict, phases, 
+                        coef, y_max_series,  plot_FR = plot_FR, 
+                        f_stim = 20, scale_count_to_FR = scale_count_to_FR, lw = 0.5, alpha = 0.15,
+                        print_stat_phase = False, box_plot = False, FR_dict = FR_dict,
+                        phase_text_x_shift = 150, phase_txt_fontsize = 8, 
+                        phase_txt_yshift_coef = 1.4, total_phase = total_phase, state = state)
+        
+        if projection == 'polar':
+            
+            circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
+
+
+        set_ax_prop_phase(ax, nuc_name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
+                      y_max_series, total_phase, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim)
+    
+
+    set_fig_prop_phase(fig, n_x = n_minor_tick_x,  n_y = n_minor_tick_y , strip_plot = False, xlabel_y = 0.05, ylabel_x = -0.1,
+                       xlabel_fontsize = xlabel_fontsize, ylabel_fontsize = ylabel_fontsize,  xlabel = 'phase (deg)', 
+                       n_bins = len(nucleus.phase_bins), total_phase = total_phase, coef = coef, 
+                       scale_count_to_FR = scale_count_to_FR,
+                       title = '', title_fontsize = title_fontsize)
+    return fig
+
 def handle_label_pads(name_list, name_ylabel_pad):
     
     if type(name_ylabel_pad) == int:
@@ -5060,100 +5217,6 @@ def get_axes(ax, figsize=(6, 5)):
         
     return plt.gcf(), ax
 
-def create_figs_for_phase_subplots(fig, outer, nuc_order, nuclei_dict):
-    
-    fig_generated = False
-    outer_generated = False
-    
-    if fig == None:
-        
-        fig_generated = True
-        fig = plt.figure(figsize=(5, 8))
-        
-    if outer == None:
-        
-        outer_generated = True
-        outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
-
-    inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
-                    subplot_spec=outer, wspace=0.1, hspace=0.1)
-    
-        
-    if nuc_order == None:
-        
-        nuc_order = list(nuclei_dict.keys())
-    
-    return fig_generated, outer_generated, fig, outer, inner, nuc_order
-
-def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
-                                  density = False, phase_ref = 'self', total_phase = 360, projection = None,
-                                  outer=None, fig=None,  title='', tick_label_fontsize=18, ylim = None, plot_mode = 'line',
-                                  labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, ax_label=False,
-                                  scale_count_to_FR = False, f_stim = 20, legend_loc = 'upper right'):
-
-    fig_generated, outer_generated, fig, outer, inner, nuc_order = create_figs_for_phase_subplots(fig, outer, nuc_order, 
-                                                                                                  nuclei_dict)
-    for j, nuc_name in enumerate(nuc_order):
-        
-        ax = plt.Subplot(fig, inner[j])
-        fig.add_subplot(ax)
-        
-        nucleus = nuclei_dict[nuc_name][0]
-        
-        frq = np.average( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
-        frq_err = stats.sem( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
-        edges = nucleus.phase_bins
-
-        if scale_count_to_FR :
-            
-            frq = frq * len(nucleus.phase_bins) * f_stim/ (total_phase / 360)
-            frq_err  = frq_err * len(nucleus.phase_bins) * f_stim/ (total_phase / 360)
-            
-        if projection == None:
-            
-            width=np.diff(edges) 
-            
-            if plot_mode == 'hist':
-                
-                ax.bar(edges, frq, width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name])
-                
-            elif plot_mode == 'line':
-                
-                centers = get_centers_from_edges(edges [:-1])
-                ax.plot( centers, frq, color = color_dict[nucleus.name], label = nucleus.name)
-                
-                ax.fill_between( centers, frq - frq_err, frq + frq_err , color = color_dict[nucleus.name], 
-                                  alpha = 0.2)
-                
-            ax.axvline(total_phase/2, ls = '--', c = 'k')
-            
-        elif projection == 'polar':
-            
-            circular_bar_plot_as_hist(ax, frq, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
-
-
-        
-        rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
-        ax.set_xticks([0,180,360,540,720])
-        ax.annotate(nucleus.name, xy=(0.86,0.2),xycoords='axes fraction', 
-                    color = color_dict[nucleus.name], fontsize=14)
-        ax.set_xlim(0 , total_phase)
-        ax.legend(fontsize = 12, loc = legend_loc)
-    
-    set_minor_locator_all_axes(fig, n = 2, axis = 'both')
-    
-    if ax_label:
-        
-        fig.text(0.5, 0.03, 'phase (deg)', ha='center',
-                 va='center', fontsize=labelsize)
-        fig.text(0.03, 0.5, 'spike count', ha='center', va='center',
-                 rotation='vertical', fontsize=labelsize)
-        
-    if include_title:
-        
-        fig.suptitle(title, fontsize=15)
-        
-    return fig
 
 def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'auto', 
                                alpha = 0.2, hatch = '/', zorder = 1, edgecolor = None,
