@@ -781,6 +781,7 @@ class Nucleus:
     def cal_ext_inp_with_additional_inp(self, dt, t):
         
         # choose method of exerting external input from dictionary of methods
+        
         I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt) + self.external_inp_t_series[t]
         
         ( self.I_syn['ext_pop', '1'], 
@@ -1151,7 +1152,7 @@ class Nucleus:
 
             self.initialize_mem_potential(method=mem_pot_init_method)
             self.spikes[:, :] = 0
-            self.neuron_spike_phase_hist[:,:] = 0
+            self.neuron_spike_phase_hist = {}
             
             if self.sparse_spike_history:
                 
@@ -1506,9 +1507,9 @@ class Nucleus:
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, height = 1, start = 0, end = None):
         
-        if end == None:
-            end = self.n_timebins
-            
+        
+        end = end or self.n_timebins
+        
         act = self.butter_bandpass_filter_pop_act_not_modify( dt, low_f, high_f, order= filter_order)
         peaks,_ = signal.find_peaks(act[start:], height = height)
         
@@ -1616,7 +1617,7 @@ class Nucleus:
                 phases [n,:] += np.histogram( 
                                 find_phase_of_spikes_bet_2_peaks(cycle_t, left_peak, right_peak, 
                                                                  spike_times, total_phase = total_phase) , 
-                                            bins = self.phase_bins)[0]
+                                bins = self.phase_bins)[0]
                                 
             # phases += hist_2D( self.spikes[neurons_ind, left_peak: right_peak], n_bins, [0, total_phase] )
             
@@ -2365,6 +2366,7 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
     beta_stim, beta_stim_method, beta_stim_nuc, stim_t_series = find_beta_induction_nucleus(nuclei_dict)
     
     print('aligning phases to {} peaks'.format(phase_ref))
+    
     if beta_stim and phase_ref == 'stimulation':
         
         if beta_stim_method == 'excitation':
@@ -2386,8 +2388,8 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
         
         
         ref_peaks = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, filter_order = filter_order, 
-                                                                             height = height, start = start, end = end)
-        shift_phases = True ; shift_theta = 180
+                                                                    height = height, start = start, end = end)
+        # shift_phases = True ; shift_theta = 180
         
     else: 
         
@@ -2571,27 +2573,27 @@ def correct_phases(phases, ws, nuc_name, phase_ref, shift_phase = None):
 
 def decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, phase_ref, preferred_when_consistent = 'sine'):
     
-    if abs( phase_sine - phase_max) < 90: # two methods are consistent, 
+    # if abs( phase_sine - phase_max) < 90: # two methods are consistent, 
     
-        if preferred_when_consistent == 'sine':
+    #     if preferred_when_consistent == 'sine':
             
-            phase = phase_sine #     sine is more accurate for high degree resolutions
+    #         phase = phase_sine #     sine is more accurate for high degree resolutions
             
-        elif preferred_when_consistent == 'max':
+    #     elif preferred_when_consistent == 'max':
             
-            phase = phase_max #     max is more accurate  for low degree resolutions
+    #         phase = phase_max #     max is more accurate  for low degree resolutions
 
-    else:
+    # else:
         
-        if phase_sine < 30 and nuc_name != phase_ref: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
-            phase = phase_max
+    #     if phase_sine < 30 and nuc_name != phase_ref: #### if one phase is detected in the beginnig and they are >90 apart --> choose the other one (apprent peak in phase)
+    #         phase = phase_max
             
-        elif phase_max < 30 and nuc_name != phase_ref:
-            phase = phase_sine
+    #     elif phase_max < 30 and nuc_name != phase_ref:
+    #         phase = phase_sine
             
-        else:
-            phase = phase_sine
-            
+    #     else:
+    #         phase = phase_sine
+    phase = phase_max
     return phase
 
 def mean_std_multiple_sets(means, stds, nums, sem_instead_of_std = False):
@@ -2638,7 +2640,7 @@ def save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref, shift_phase = 
             ( data[(nucleus.name, 'rel_phase_hist')][i,j,:,:], 
               data[(nucleus.name, 'rel_phase_hist_bins')] ) = frq , edges
             
-            centers = get_centers_from_edges(edges)
+            centers = get_centers_from_edges(edges[:-1])
             
             data[(nucleus.name, 'rel_phase')][i,j],_,_ = find_phase_from_sine_and_max(centers, np.average( frq, axis = 0), 
                                                                                          nucleus.name, 
@@ -2657,7 +2659,7 @@ def save_phases_into_dataframe_2d(nuclei_dict, data, i, m, j, phase_ref, shift_p
             ( data[(nucleus.name, 'rel_phase_hist')][i,m, j,:,:], 
               data[(nucleus.name, 'rel_phase_hist_bins')] ) = frq , edges
             
-            centers = get_centers_from_edges(edges)
+            centers = get_centers_from_edges(edges[:-1])
             
             data[(nucleus.name, 'rel_phase')][i,m,j],_,_ = find_phase_from_sine_and_max(centers, 
                                                                                            np.average( frq, axis = 0), 
@@ -3039,8 +3041,8 @@ def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto'
     
     data = load_pickle(filename)
     
-    n_run = data[(name_list[0], 'rel_phase')].shape[1] 
-    
+    n_run = data[(name_list[0], 'rel_phase_hist_bins')].shape[1] 
+    n_neuron = data[(name_list[0], 'rel_phase_hist')].shape[2] 
     name_ylabel_pad = handle_label_pads(name_list, name_ylabel_pad)
     
     
@@ -3054,12 +3056,12 @@ def phase_summary(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto'
             ax = plt.Subplot(fig, inner[j])
             fig.add_subplot(ax)
             
-            edges = data[(name,'rel_phase_hist')][0,0,1,:]
-            centers = get_centers_from_edges(edges)
+            edges = data[(name,'rel_phase_hist_bins')][0,0,:]
+            centers = get_centers_from_edges(edges[:-1])
             
            
-            count, err, phase_frq_rel_sem = get_stats_of_phase(data, n_g, name, n, coef = coef)
-            phases = calculate_phase_all_runs(n_run, data, n_g, run , centers, name, phase_ref, 
+            count, err, phase_frq_rel_sem = get_stats_of_phase(data, n_g, name, n, n_run, coef = coef)
+            phases = calculate_phase_all_runs(n_neuron, data, n_g, n_run , centers, name, phase_ref, 
                                               shift_phase = shift_phase)
             
             make_phase_plot(count, err, name, ax, centers, color_dict,  phases, 
@@ -3256,14 +3258,16 @@ def print_average_phase(ax, phases , text_x_shift,  phase_txt_fontsize, color, y
                     color = color, fontsize = phase_txt_fontsize)
         
 
-def get_stats_of_phase(data, n_g, name, n_neuron, coef):
+def get_stats_of_phase(data, n_g, name, n_neuron, n_run, coef):
+        
+    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g, :, :, :] * coef  
+    print(phase_hist_per_neuron.shape)                                
     
-    phase_hist_per_neuron = data[(name,'rel_phase_hist')][n_g, :, 0, :] * coef
+    phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = (0,1))
+    phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = (0,1))
+    # phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = (0,1))
+    phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = (0,1)) / np.sqrt(n_neuron * n_run)
 
-    phase_frq_rel_mean = np.average( phase_hist_per_neuron, axis = 0)
-    phase_frq_rel_std = np.std( phase_hist_per_neuron, axis = 0)
-    phase_frq_rel_sem = stats.sem( phase_hist_per_neuron, axis = 0)
-    
     return phase_frq_rel_mean, phase_frq_rel_std, phase_frq_rel_sem
 
 def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name,ax, color_dict, 
@@ -3273,20 +3277,20 @@ def plot_mean_phase_plus_std(phase_frq_rel_mean, phase_frq_rel_std, name,ax, col
     ax.fill_between(centers, phase_frq_rel_mean - phase_frq_rel_std, 
                     phase_frq_rel_mean + phase_frq_rel_std, alpha = alpha , color = color_dict[name])
     
-def calculate_phase_all_runs(n_run, data, n_g, run , centers, name, phase_ref, shift_phase = None):
+def calculate_phase_all_runs(n_neuron, data, n_g, n_run , centers, name, phase_ref, shift_phase = None):
     
-    phases = np.zeros(n_run)
-    ws = np.zeros(n_run)
+    phases = np.zeros( (n_neuron, n_run ))
+    ws = np.zeros( (n_neuron, n_run ))
 
     for run in range(n_run):
-
-        y = data[(name,'rel_phase_hist')][n_g, run, 0, :]
-        phases[run], fitfunc, ws[run] = find_phase_from_sine_and_max(centers, y, name, phase_ref, 
-                                                                     shift_phase = shift_phase)
+        for neuron in range(n_neuron):
+            y = data[(name,'rel_phase_hist')][n_g, neuron, run, :]
+            phases[neuron, run], fitfunc, ws[neuron, run] = find_phase_from_sine_and_max(centers, y, name, phase_ref, 
+                                                                                         shift_phase = shift_phase)
     
     phases = correct_phases(phases, ws, name, phase_ref, shift_phase= shift_phase)
     
-    return phases
+    return phases.flatten()
 
 def plot_phase_histogram_all_nuclei(nuclei_dict, dt, color_dict, low_f, high_f, filter_order = 6, height = 1, 
                                 density = False, n_bins = 16, start = 0, end = None, phase_ref = 'self', total_phase = 360, projection = None):
@@ -3826,7 +3830,7 @@ def multi_run_transition(
 
                 find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = filter_order, n_bins = n_phase_bins,
                                               height = phase_thresh_h, phase_ref = phase_ref, start = start_phase, 
-                                              end = end_phase, total_phase = 720, troughs = troughs)
+                                              end = end_phase, total_phase = 720, troughs = False)
                 data = save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref)
                 
 
@@ -5868,7 +5872,7 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 	N = len(sig)
 
 	if N == 0:
-		return 0
+		return 0 , 0, 0, 0
 
 	else:
 		if method not in ["rfft", "Welch"]:
@@ -6504,7 +6508,7 @@ def exp_rise_and_decay_transient_ext_inp_ChR2_like( trans_coef, mean_ext_inp, t_
     return  np.pad(ext_inp_at_onset, ( (0,0), (t_start,0)), constant_values=0)
 
 def step_like_norm_dist_transient_ext_inp_ChR2_like(trans_coef, mean_ext_inp, sigma, n, t_list, 
-                                                    t_start_all_n, t_end_all_n):
+                                                    t_start_all_n, t_end_all_n, homogeneous = False):
     
     ''' return an n by n_timebin matrix as the additive external input filled with 
         normally distributed (for neurons) step like external inputs.
@@ -6513,11 +6517,19 @@ def step_like_norm_dist_transient_ext_inp_ChR2_like(trans_coef, mean_ext_inp, si
     t_start = t_start_all_n[0] # cause activation onset is homogeneous among neurons 
     t_end = t_end_all_n[0]
     
-    f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
-    ext_inp = np.zeros(( n, len (t_list) ))
+    if not homogeneous:
+        
+        f = np.random.normal(trans_coef * mean_ext_inp, sigma, n ).reshape(-1, 1)
+        ext_inp = np.zeros(( n, len (t_list) ))
+        
+        ext_inp[:, t_start : t_start + (t_end - t_start) ] = np.repeat(f, t_end - t_start, axis = 1)
     
-    ext_inp[:, t_start : t_start + (t_end - t_start) ] = np.repeat(f, t_end - t_start, axis = 1)
-    
+    else:
+        
+        ext_inp = np.hstack( ( np.zeros( t_start ),  
+                                       np.full( t_end - t_start, trans_coef * mean_ext_inp ), 
+                                       np.zeros(  len(t_list[t_start:]) - ( t_end - t_start ))
+                                    ) ).reshape(-1, )
     return ext_inp
 
 def step_like_norm_dist_transient_ext_inp_projected(trans_coef, mean_ext_inp, sigma, n, t_list, t_start, t_end):
@@ -6558,7 +6570,8 @@ def exp_rise_and_decay_transient_ext_inp_projected( trans_coef, mean_ext_inp, t_
 
 def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
                                              t_start_inp_dict, t_end_inp_dict, dt, duration = 10, 
-                                             plot = False, method = 'exponential', stim_method = 'ChR2'):
+                                             plot = False, method = 'exponential', stim_method = 'ChR2',
+                                             homogeneous = False):
     
     ''' filling the values of the extrernal_inp_t_series with a transient input according to when the stimulus starts
         which is the same for all neurons.
@@ -6594,7 +6607,8 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
                 f_add = step_like_norm_dist_transient_ext_inp_ChR2_like( ext_inp_dict[nucleus.name]['mean'],
                                                                         np.average( nucleus.rest_ext_input), 
                                                                         ext_inp_dict[nucleus.name]['sigma'], 
-                                                                        nucleus.n, t_list, t_start, t_end)
+                                                                        nucleus.n, t_list, t_start, t_end,
+                                                                        homogeneous = homogeneous)
             else:
                 
                 f_add = step_like_norm_dist_transient_ext_inp_projected( ext_inp_dict[nucleus.name]['mean'],
@@ -6655,7 +6669,7 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
                                                         A, syn_trans_delay_dict,
                                                         t_transient=10, duration=10, ext_inp_dict = None, 
                                                         plot = False, ext_inp_method = 'exponential',
-                                                        stim_method = 'ChR2'):
+                                                        stim_method = 'ChR2', homogeneous = False):
     
     '''
     		run normaly til "t_transient" then exert an external transient input ( as an exponential rise and decay) 
@@ -6668,7 +6682,8 @@ def run_with_trans_ext_inp_with_axonal_delay_collective(receiving_class_dict, t_
     nuclei_dict = selective_additive_ext_input_time_series(nuclei_dict, t_list, ext_inp_dict,
                                                            t_start_inp_dict, t_end_inp_dict, dt,  
                                                            duration=10, plot = plot, method = ext_inp_method,
-                                                           stim_method = stim_method)
+                                                           stim_method = stim_method,
+                                                           homogeneous= homogeneous)
     
     nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
     
@@ -6712,6 +6727,7 @@ def reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitud
                                           reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
                                           normalize_G_by_N= True)  
 
+ 
     if reset_init_dist:
         receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, 
                                                                N_real, K_all[state], receiving_pop_list, 
@@ -6730,7 +6746,7 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                  n_run = 1, A_mvt = None, D_mvt = None, t_mvt = None, ext_inp_dict = None, 
                                  noise_amplitude = None, noise_variance = None, reset_init_dist = True, 
                                  color_dict = None, state = 'rest', plot = False, ext_inp_method = 'exponential',
-                                 stim_method = 'ChR2'):
+                                 stim_method = 'ChR2', homogeneous = False):
     
     avg_act = {nuc: np.zeros( ( len(t_list), len(nuclei_dict[nuc]) ) ) 
                for nuc in list( nuclei_dict.keys() ) }
@@ -6745,15 +6761,17 @@ def average_multi_run_collective(path, tau, receiving_pop_list, receiving_class_
                                                                             ext_inp_dict = ext_inp_dict,
                                                                             plot = plot, 
                                                                             ext_inp_method = ext_inp_method,
-                                                                            stim_method = stim_method)
+                                                                            stim_method = stim_method,
+                                                                            homogeneous= homogeneous)
         avg_act = cal_average_activity(nuclei_dict, n_run, avg_act)
+        
         
         receiving_class_dict, nuclei_dict = reinit_and_reset_connec_SNN(path, nuclei_dict, N,  N_real, G, noise_amplitude, noise_variance, Act,
                                                                     A_mvt, D_mvt, t_mvt, t_list, dt, K_all, receiving_pop_list, all_FR_list,
                                                                     end_of_nonlinearity, reset_init_dist= reset_init_dist, poisson_prop = poisson_prop,
                                                                     use_saved_FR_ext = True, if_plot = plot, n_FR = 20,
                                                                     normalize_G_by_N= True,  set_noise=False, state = state)
- 
+
         print(i + 1, 'from', n_run)
         
     return avg_act
