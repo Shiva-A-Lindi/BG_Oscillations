@@ -1701,7 +1701,7 @@ class Nucleus:
         
     
 
-    def find_freq_of_pop_act_spec_window(self, start, end, dt, peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
+    def find_freq_of_pop_act_spec_window(self, start, end, dt,  smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='fft', n_windows=6, include_beta_band_in_legend=False,
                                       divide_beta_band_in_power = False, normalize_spec = True, include_peak_f_in_legend = True, 
@@ -4832,7 +4832,7 @@ def min_in_dict(dictionary):
 def sinfunc(t, A, w, p, c):  return A * np.sin(w*(t - p)) + c
 
 def fit_sine(t, y):
-    '''Fit sin to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
+    '''Fit sine to the input time sequence, and return fitting parameters "amp", "omega", "phase", "offset", "freq", "period" and "fitfunc"'''
 
     f_init = np.fft.fftfreq(len(t), (t[1]-t[0]))   # assume uniform spacing
     Fy = abs(np.fft.fft(y))
@@ -4862,7 +4862,8 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
                   fft_method='rfft', n_windows=3, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
                   half_peak_range = 5, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, 
                   save_pxx = True, normalize_spec = True, plot_sig_thresh = False, plot_peak_sig = False, smooth = True,
-                  min_f = 100, max_f = 300, n_std_thresh = 2, AUC_ratio_thresh = 0.8, save_gamma = False):
+                  min_f = 100, max_f = 300, n_std_thresh = 2, AUC_ratio_thresh = 0.2, save_gamma = False,
+                  print_AUC_ratio = False):
 
     for nucleus_list in nuclei_dict.values():
         for nucleus in nucleus_list:
@@ -4879,7 +4880,6 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
             if_stable_base,
             data[(nucleus.name, 'base_beta_power')][element_ind],
             f, pxx) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
-                                                               peak_threshold=peak_threshold,
                                                                smooth_kern_window=smooth_kern_window,
                                                                cut_plateau_epsilon=cut_plateau_epsilon,
                                                                check_stability=check_stability,
@@ -4906,12 +4906,15 @@ def find_freq_SNN(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_
             if check_peak_significance:
                 
                     data[(nucleus.name, 'peak_significance')][element_ind] = check_significance_of_PSD_peak(f, pxx, 
+                                                                                                            peak_threshold = peak_threshold,
+                                                                                                            name = nucleus.name,
                                                                                                             n_std_thresh = n_std_thresh, 
                                                                                                             min_f = min_f, 
                                                                                                             max_f = max_f, 
                                                                                                             n_pts_above_thresh = 3,
                                                                                                             if_plot = plot_peak_sig,
-                                                                                                            AUC_ratio_thresh = AUC_ratio_thresh)
+                                                                                                            AUC_ratio_thresh = AUC_ratio_thresh,
+                                                                                                            print_AUC_ratio = print_AUC_ratio)
                     
                                   
                 
@@ -4967,7 +4970,6 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
 
             (n_half_cycles, perc_oscil, freq, 
              if_stable, beta_band_power, f, pxx[nucleus.name]) = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt,
-                                                                                                          peak_threshold=peak_threshold,
                                                                                                           smooth_kern_window=smooth_kern_window,
                                                                                                           cut_plateau_epsilon=cut_plateau_epsilon,
                                                                                                           check_stability=check_stability,
@@ -4988,10 +4990,11 @@ def find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, pea
                                                                                                           n_std_thresh = n_std_thresh)
             if check_significance:
                 sig_bool = check_significance_of_PSD_peak(f, pxx[nucleus.name], 
+                                                          peak_threshold = peak_threshold,
                                                           n_std_thresh = n_std_thresh, 
                                                           min_f = min_f, 
                                                           max_f = max_f, 
-                                                          n_pts_above_thresh = 3,
+                                                          n_pts_above_thresh = n_std_thresh,
                                                           if_plot = plot_peak_sig, 
                                                           name = nucleus.name,
                                                           AUC_ratio_thresh = AUC_ratio_thresh)
@@ -5048,10 +5051,12 @@ def G_as_txt(G_dict, display='normal', decimal=0):
     return G_txt
 
 def remove_frame(ax):
+    
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
 def remove_whole_frame(ax):
+    
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.spines['left'].set_visible(False)
@@ -6105,7 +6110,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
     ax.locator_params(axis='y', nbins=5)
     ax.locator_params(axis='x', nbins=5)
     ax.tick_params(axis='both', labelsize=tick_label_fontsize)
-    ax.set_xlim(0, 70)
+    ax.set_xlim(0, 80)
     remove_frame(ax)
     
     if plot_sig_thresh:
@@ -6305,14 +6310,18 @@ def check_significance_neuron_autc_PSD(signif_thresh, f, pxx, n, n_pts_above_thr
 
 
 def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 2, 
-                                   ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = 0.8,
-                                   xlim = [0, 80], name = '', print_AUC_ratio = False):
+                                   ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = 0.2,
+                                   xlim = [0, 80], name = '', print_AUC_ratio = False, peak_threshold  = 30):
     
-    ''' Check significance of a peak in PSD by checking if the 
-        <n_pts_above_thresh> consecutive points exceeds <n_std> 
-        times the std of the rest of the PSD '''
-    
+    ''' Check significance of a peak in PSD by thresholding the ratio of AUC above n_std_thresh
+        relative to the absolute AUC, as well as thresholding the peak of the power spec
+    '''
+
     f, pxx = cut_PSD_1d(f, pxx, max_f = max_f)
+    pxx_norm = normalize_PSD(pxx, f)
+
+    peaks, _ = scipy.signal.find_peaks(pxx_norm, height = peak_threshold)
+    n_peaks = len(peaks)
     signif_thresh = cal_sig_thresh_1d(f, pxx, min_f = min_f, max_f = max_f, n_std_thresh = n_std_thresh)
     # above_thresh_ind = np.where(pxx >= signif_thresh)[0]
     
@@ -6326,17 +6335,21 @@ def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f =
     # longest_seq_abv_thresh = longest_consecutive_chain_of_numbers( above_thresh_ind)
     
     if if_plot:
+        
         fig, ax = get_axes (ax)
-        ax.plot(f, pxx, '-o', label = legend, c = c)
+        ax.plot(f, pxx_norm, '-o', label = legend, c = c)
         ax.axhline(signif_thresh, min_f, max_f, ls = '--', color = c)
         ax.legend()
         ax.set_xlim(xlim)
         ax.set_title(name)
     
     if print_AUC_ratio:
-        print( "AUC ratio = {}".format( AUC_ratio ), AUC_ratio > AUC_ratio_thresh)
-
-    if AUC_ratio > AUC_ratio_thresh:
+        print(name,
+              "AUC ratio = {}".format( AUC_ratio ), 
+              " n peaks = ", n_peaks)
+        if n_peaks > 0:
+            print("max peak = ", max(pxx_norm[peaks]))
+    if AUC_ratio > AUC_ratio_thresh and n_peaks > 0:
 
         return True
     
@@ -8002,7 +8015,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                        lim_oscil_perc=10, plot_spectrum = True, normalize_spec = True,
                                        plot_sig_thresh = False, min_f = 8, max_f = 60, n_std_thresh = 2,
                                        save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
-                                       check_peak_significance = True,
+                                       check_peak_significance = True, print_AUC_ratio = False,
                                        change_states = False, save_pop_act = True):
     
     n_iter_1 = len(G_ratio_dict[loop_key_lists[0][0]])
@@ -8010,7 +8023,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
 
     
     data = create_df_for_iteration_RM_2d(nuclei_dict, G_ratio_dict, duration, n_iter_1, n_iter_2, 
-                                         len_f_pxx = len_f_pxx, save_pop_act = True, divide_beta_band_in_power = True, 
+                                         len_f_pxx = len_f_pxx, save_pop_act = True, divide_beta_band_in_power = False, 
                                          iterating_name = 'g', check_peak_significance = check_peak_significance)
     
     figs = []
@@ -8068,8 +8081,9 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                               save_pxx = save_pxx, len_f_pxx = len_f_pxx, 
                                               normalize_spec=normalize_spec, plot_sig_thresh = plot_sig_thresh, 
                                               plot_peak_sig = plot_peak_sig, min_f = min_f, max_f = max_f, 
-                                              n_std_thresh= n_std_thresh,
-                                              AUC_ratio_thresh = AUC_ratio_thresh)                               
+                                              n_std_thresh= n_std_thresh, 
+                                              AUC_ratio_thresh = AUC_ratio_thresh,
+                                              print_AUC_ratio = print_AUC_ratio)                               
        
             if plot_firing:
 
@@ -8849,6 +8863,13 @@ def set_x_ticks_one_ax(ax, label_list):
     
     return ax
 
+def set_xy_ticks_one_ax(ax, x_label_list, y_label_list):
+    
+    set_x_ticks_one_ax(ax, x_label_list)
+    set_y_ticks_one_ax(ax, y_label_list)
+    
+    return ax
+
 def set_y_lim_all_axis(fig, ylim):
     
     for ax in fig.axes:
@@ -9085,23 +9106,22 @@ def get_max_min_from_column_in_df_dict(df_dict, colname):
 
 def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
                    size_list, xlabel, ylabel, title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
-                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, plot_acc_to_sig = True):
+                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, only_significant = True):
     
     """Plot the frequency as a colormap with different neural populations as different 
         markers tiling the plot.
     """
-    
     fig, ax = plt.subplots(1, 1)
     
-    for i, y in enumerate(y_list):
+    for i, y in enumerate(x_list):
         
-        for j, x in enumerate(x_list):
+        for j, x in enumerate(y_list):
             
             for name, ms, s in zip(name_list, markerstyle_list, size_list):
                 
-                if plot_acc_to_sig:
+                if only_significant:
                     
-                    if peak_significance[name][i,j] == True:
+                    if peak_significance[name][i,j]:
                         
                         img = ax.scatter(x, y, marker = ms, c = color_dict[name][i,j], 
                                          s = s, cmap = cmap, edgecolors = 'k', 
@@ -9121,16 +9141,17 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
                     
                     ax.annotate(int(freq_dict[ann_name][i,j]), (x,y), color = 'k')
                 
-    ax.set_xlim(x_list[-1] + (x_list[1] - x_list[0]),
-                 x_list[0] - (x_list[1] - x_list[0]))
+    ax.set_xlim(x_list[0] - (x_list[1] - x_list[0]),
+                x_list[-1] + (x_list[1] - x_list[0]))
     
-    ax.set_ylim(y_list[-1] + (y_list[1] - y_list[0]),
-                y_list[0] - (y_list[1] - y_list[0]))
+    ax.set_ylim(y_list[0] - (y_list[1] - y_list[0]),
+                y_list[-1] + (y_list[1] - y_list[0]))
+                
     
     ax.set_xlabel(xlabel, fontsize = label_fontsize)
     ax.set_ylabel(ylabel, fontsize = label_fontsize)
     ax.set_title(title, fontsize = label_fontsize)
-    ax.invert_xaxis()
+    # ax.invert_yaxis()
     ax.tick_params(axis='both', which='major', labelsize=tick_size)
     fig = set_y_ticks(fig, ax.get_xticks().tolist()[:-1])
     
@@ -9149,17 +9170,22 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
 
 
 def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w', alpha = 0.5):
+    
     ax = fig.gca()
+    
     for key, ind in examples_ind.items():
+        
         s = size_list[0] * 1.5
         x = x_list[ind[0]] 
         y = y_list[ind[1]] 
         shift_x = abs(x_list[1] - x_list[0])
         shift_y = abs(y_list[1] - y_list[0])
         
-        ax.scatter(x, y, marker = 'o', c = highlight_color, alpha = alpha ,
-                    s = s, edgecolors = None)
-        ax.annotate(key, (x + shift_x/5, y - shift_y/15), color = 'w', size = 18)
+        ax.scatter(x, y, marker = 'o', c = highlight_color, 
+                   alpha = alpha, s = s, edgecolors = None)
+        txt = ax.annotate(key, (x - shift_x/10 , y- shift_y/10), color = 'k', size = 18)
+        txt.set_path_effects([pe.withStroke(linewidth=5, foreground='w')])
+
     return fig
 
 
@@ -9176,12 +9202,13 @@ def plot_PSD_of_example_pts(data_all, examples_ind,  x_list, y_list, name_list, 
             peak_freq = np.round(data_all[(name, 'peak_freq_all_runs')][ind[1], ind[0]] , 1)
             ax.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
         
-        ax.set_xlim(0,80)
+        ax.set_xlim(0, 60)
         ax.legend()
         ax.set_title(key, fontsize = 15)
         
         
-def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
+def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, 
+                                        Act, state = 'awake_rest',
                                         plt_duration = 600, run_no = 0, window_ms = 5):
     
     n_exmp = len(examples_ind)
@@ -9229,8 +9256,12 @@ def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y
 def drop_nan(x):
     
     return x[~np.isnan(x)]
-def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, state = 'awake_rest',
-                                        plt_duration = 600, run_no = 0, window_ms = 5):
+
+def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, 
+                                           state = 'awake_rest', plt_duration = 600, run_no = 0, window_ms = 5, 
+                                           act_ylim = (-5, 110), PSD_ylim = (-.1, 90),
+                                           PSD_y_labels = [0, 40, 80], act_y_labels = [0, 40, 80],
+                                           PSD_x_labels = [0, 20, 60], act_x_labels = [4000, 4250, 4500]):
     
     n_exmp = len(examples_ind)
     fig = plt.figure( figsize=(12, 20) ) 
@@ -9252,7 +9283,7 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
             pxx = drop_nan(pxx)
             pxx = normalize_PSD( pxx, f) * 100
             peak_freq = np.round(data[(name, 'base_freq')][ind[1], ind[0]] , 1)
-            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(peak_freq) + ' Hz', lw=1.5)
+            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(int(round(peak_freq,0))) + ' Hz', lw=1.5)
         
             length = data[(name, 'pop_act')].shape[-1]
             
@@ -9263,8 +9294,14 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
             ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
                                                  c = color_dict[name],lw = 1, alpha=0.8 )
 
-        ax_PSD.set_xlim(0, 80)
-        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
+        ax_pop_act.set_ylim(act_ylim)
+        ax_PSD.set_ylim(PSD_ylim)
+        ax_PSD.set_xlim(0, 60)
+        ax_PSD = set_xy_ticks_one_ax(ax_PSD, PSD_x_labels, PSD_y_labels)
+        ax_pop_act = set_xy_ticks_one_ax(ax_pop_act, act_x_labels, act_y_labels)
+        remove_frame(ax_PSD)
+        remove_frame(ax_pop_act)
+        ax_PSD.legend(fontsize = 12, frameon = False, loc = 'upper right')
         ax_PSD.set_ylabel(key, fontsize = 20, rotation = 0, labelpad = 10)
         # ax_pop_act.set_title(key, fontsize = 15)
         fig.add_subplot(ax_PSD)
@@ -9272,7 +9309,7 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
         fig.text(0.6, 0.085, 'Time (ms)', ha='center', fontsize = 15)
         fig.text(0.95, 0.5, 'firing rate (spk/s)', va='center', rotation='vertical', fontsize = 15)
         fig.text(0.2, 0.085, 'frequency', ha='center', fontsize = 15)
-        fig.text(0.05, 0.5, 'Normalized Power' + r'$(\times 10^{-2})$', va='center', rotation='vertical',fontsize = 15)
+        fig.text(0.05, 0.5, 'Normalized PSD ' + r'$(\times 10^{-2})$', va='center', rotation='vertical',fontsize = 15)
         
     return fig
 
@@ -9310,9 +9347,9 @@ def plot_pop_act_and_PSD_of_example_pts_1d(data, name_list, examples_ind, x_list
                                                  c = color_dict[name],lw = 1, alpha=0.8 )
 
         ax_PSD.set_xlim(0, 80)
-        ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
+
+        ax_PSD.legend(fontsize = 13, frameon = False, loc = 'upper right')
         ax_PSD.set_ylabel(key, fontsize = 20, rotation = 0, labelpad = 10)
-        # ax_pop_act.set_title(key, fontsize = 15)
         fig.add_subplot(ax_PSD)
         fig.add_subplot(ax_pop_act)
         fig.text(0.6, 0.05, 'Time (ms)', ha='center', fontsize = 15)

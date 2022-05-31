@@ -557,27 +557,24 @@ syn_per_ter = {('STN', 'Proto'): int(12/10.6),  # number of synapses per bouton 
 Str_connec = {('D1', 'D2'): .28, ('D2', 'D2'): .36,  ('D1', 'D1'): .26,
               ('D2', 'D1'): .05, ('MSN', 'MSN'): 1350}  # Taverna et al 2008
 
-K_real = {('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),  # 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).
+# Before June 2022
+K_real = {
+          # 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).
+          ('STN', 'Proto'): int(243 * N_real['Proto'] / N_real['STN']), 
           # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
           ('Proto', 'STN'): 135,
           # Sadek et al. 2006 --> lateral 264, medial = 581 boutons mean 10 syn per bouton. 650 boutons Hegeman et al. (2017)
-          ('Proto', 'Proto'): int((264+581)/2),
-          #           ('FSI', 'Proto'): int(800*15*N_real['Proto']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per Proto Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
+          ('Proto', 'Proto'): int((264 + 581) / 2),
           # averaging the FSI contacting of Proto boutons Bevan 1998
           ('FSI', 'Proto'): 360,
-          # ('D1', 'FSI'): int(36*2/(36+53)*240),#Guzman et al  (2003): 240 from one class interneuron to each MSI # 36% (FSI-D1) Gittis et al.2010
           # Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
-          ('D2', 'FSI'): int(53*2/(36+53)*240),
-          # ('FSI','FSI'): int(N_real['FSI']*0.58), # Gittis et al. (2010)
+          ('D2', 'FSI'): int(53 * 2/ (36 + 53) * 240),
           #           ('Proto', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
           # each Proto 226 from iSPN Kawaguchi et al. (1990)
-          ('Proto', 'D2'): int(N_real['D2']*226/N_real['Proto']),
+          ('Proto', 'D2'): int(N_real['D2'] * 226 / N_real['Proto']),
           # each Proto 123 from dSPN Kawaguchi et al. (1990)
-          ('Proto', 'D1'): int(N_real['D1']*123/N_real['Proto']),
-          ('GPi', 'D1'): 1,  # find !!!!
-          # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
-          ('GPi', 'STN'): 457,
-          ('GPi', 'Proto'): 1,  # find !!!
+          ('Proto', 'D1'): int(N_real['D1'] * 123/ N_real['Proto']),          
+          ('GPi', 'STN'): 457, # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
           # ('D1', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])), #Guzman et al (2003) based on Taverna et al (2008)
           # ('D2', 'D2'): int(Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D2')]/(Str_connec[('D1', 'D2')]+Str_connec[('D2', 'D2')])),
           ('D2', 'Arky'): 100,  # estimate
@@ -585,6 +582,23 @@ K_real = {('STN', 'Proto'): int(243*N_real['Proto']/N_real['STN']),  # 243 bouto
 #           ('D1', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]),
 #           ('D2', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]), #Guzman et al (2003) based on Taverna et al (2008)
 #           ('D1', 'Proto'): int(N_real['Proto']*(1-np.power(64/81, 1/N_real['Proto'])))} # Klug et al 2018
+
+# K_real = {
+#     ('STN', 'Proto'): 0.02 * N_real['Proto'], = 644 Baufreton et al. 2009 single STN neuron receives input maximally from 2%  
+#     ('Proto', 'STN'): 135, 
+#     ('Proto', 'Proto'): 35, Sadek et al. 2006
+#     # ('FSI', 'Proto'): int(800*15*N_real['Proto']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per Proto Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
+#     # averaging the FSI contacting of Proto boutons Bevan 1998
+#     ('FSI', 'Proto'): 360,
+#     # Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
+#     ('D2', 'FSI'): 16,
+#     # ~ 16 FSI converge to a single MSN Rat (Koos & Tepper 1999)
+#     ('Proto', 'D2'): int(0.87 * N_real['D2']),
+#     # P(connection) = 87 % Mouse (Chuhma et al. 2011)
+#     ('GPi', 'STN'): 457,
+#     ('GPi', 'Proto'): 1,  # find !!!
+#     ('D2', 'Arky'): 100,  # estimate
+#     ('Arky', 'Proto'): 300}  # estimate
 
 K_real_DD = {
     ('D2', 'FSI'): 2 * K_real[('D2', 'FSI')],
@@ -775,15 +789,15 @@ y_max_series = {'STN': 450, 'Arky': 60, 'Proto': 171}
 sheet_name = 'Fig 3'
 FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
 
-# experiment_protocol = 'ArchT_STN_CTL'
-# y_max_series = {'STN': 176, 'Arky': 60, 'Proto': 85}
-# FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
-# sheet_name = 'SupFig 5'
+experiment_protocol = 'ArchT_STN_CTL'
+y_max_series = {'STN': 176, 'Arky': 60, 'Proto': 85}
+FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
+sheet_name = 'SupFig 5'
 
-experiment_protocol = 'ArchT_GP_CTL'
-y_max_series = {'STN': 150, 'Arky': 60, 'Proto': 150}
-FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
-sheet_name = 'Fig 6'
+# experiment_protocol = 'ArchT_GP_CTL'
+# y_max_series = {'STN': 150, 'Arky': 60, 'Proto': 150}
+# FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
+# sheet_name = 'Fig 6'
 
 n_bins = 60
 path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
@@ -794,6 +808,9 @@ name_list = ['STN', 'Arky', 'Proto']
 FR_dict = read_Brice_FR_states(os.path.join(root, 'De_La_Crompe_2020_data.xlsx'),
                                name_list, FR_header, sheet_name = sheet_name)    
 
+shift_phase = 'forward'
+# shift_phase = 'backward'
+
 fig = plot_laser_aligned_phases_experiment(experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
                                            n_bins = n_bins, f_stim = 20, 
                                            scale_count_to_FR = True, title_fontsize = 10, FR_dict = FR_dict, 
@@ -803,7 +820,7 @@ fig = plot_laser_aligned_phases_experiment(experiment_protocol, name_list, color
                                            name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
                                            xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
                                            plot_single_neuron_hist = True, hist_smoothing_wind = 5,
-                                           smooth_hist = False)
+                                           smooth_hist = False, shift_phase = shift_phase)
 
 save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
@@ -823,7 +840,7 @@ n_sweeps = 30 * 20 * 3
 stim_name = 'D2'
 name_list = ['D2', 'STN', 'Arky', 'Proto']
 y_max_series = {'D2': 400, 'STN': 50, 'Arky': 50, 'Proto': 50}
-# y_max_series = {'D2': 35, 'STN': 30, 'Arky': 40, 'Proto': 36}
+y_max_series = {'D2': 15, 'STN': 13, 'Arky': 25, 'Proto': 11}
 
 n_sweeps = 30 * 20 * 2
 
@@ -832,6 +849,13 @@ experiment_protocol = 'ChR2_' + stim_name + '_CTL_mouse'
 path_Asier = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
 
 aligne_to= 'Laser'
+
+aligne_to= 'EcoG'
+shift_phase = 'forward'
+shift_phase = 'backward'
+# shift_phase = 'both'
+shift_phase = None
+plot_single_neuron_hist = False
 fig = plot_laser_aligned_phases_experiment( experiment_protocol, name_list, color_dict, path_Asier, y_max_series, 
                                       n_bins =None, f_stim = 20, 
                                       scale_count_to_FR = True, title_fontsize = 10, FR_dict = None, 
@@ -840,9 +864,9 @@ fig = plot_laser_aligned_phases_experiment( experiment_protocol, name_list, colo
                                       phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
                                       name_ylabel_pad = [0,0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
                                       xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
-                                      plot_single_neuron_hist = True, hist_smoothing_wind = 5,
+                                      plot_single_neuron_hist = plot_single_neuron_hist, hist_smoothing_wind = 5,
                                       smooth_hist = False, plot_mean_FR = False, n_sweeps_Asier = n_sweeps,
-                                      aligne_to= aligne_to)
+                                      aligne_to= aligne_to, shift_phase = shift_phase)
     
 save_pdf_png(fig, os.path.join(path_Asier, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
@@ -4665,15 +4689,27 @@ name_list = [name1, name2, name3, name4, name5]
 G = {}
 
 g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
-      (name3, name2) :{'mean': g * K[name3, name2] * 3},
-      (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
-      (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
+
+g = -0.0025 
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
       }
+
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3},
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
 
 G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 
@@ -7241,15 +7277,29 @@ G = {}
 
 
 g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 0.45},
-      (name1, name3) :{'mean': g * K[name1, name3] * 5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 3}, ## free
+
+
+
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.5}
       }
+
+# D2-Proto tuned
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 0.45},
+#       (name1, name3) :{'mean': g * K[name1, name3] * 5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
 # g = -0.0025 ## before exact tuning with Brice's data
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
 #       (name3, name2) :{'mean': g * K[name3, name2] * 2.5},
@@ -7518,14 +7568,14 @@ beta_induction_method = 'excitation'
 # induction_nuc_name = 'Proto'
 # beta_induction_method = 'inhibition'
 
-# induction_nuc_name = 'STN'
-# beta_induction_method = 'excitation'
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 
 # neuronal_consts['Proto']['membrane_time_constant'] = {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}
 beta_induc_name_list = [induction_nuc_name]
-amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
-                  'excitation': {'D2': 3.5, 'STN': 2.4}} # Brice
+# amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
+#                   'excitation': {'D2': 3.5, 'STN': 2.4}} # Brice
 
 amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
                   'excitation': {'D2': 15, 'STN': 6.2}} 
@@ -7545,14 +7595,14 @@ G = {}
 #### After Asier tuning
 
 g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 0.45},
-      (name1, name3) :{'mean': g * K[name1, name3] * 3}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 3}, ## free
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.5}
       }
 
 #### before Asier tuning
@@ -8456,7 +8506,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 12800 
+t_sim = 20800 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 200
 t_transition = plot_start + 0# int(t_sim / 5)
@@ -8470,7 +8520,7 @@ t_sim = t_sim - t_transition
 t_list = np.arange(int(t_sim/dt))
 end_phase = t_sim - int(300 / dt)
 n_phase_bins = 120
-n_windows = 12
+n_windows = 15
 
 name1 = 'FSI'
 name2 = 'D2'
@@ -8488,8 +8538,8 @@ print( " transition from " , state_1, ' to ', state_2)
 
 
 
-induction_nuc_name = 'D2'
-beta_induction_method = 'excitation'
+# induction_nuc_name = 'D2'
+# beta_induction_method = 'excitation'
 
 # induction_nuc_name = 'Proto'
 # beta_induction_method = 'inhibition'
@@ -8518,16 +8568,16 @@ G = {}
 
 
 g = -0.0025 
+
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
       }
-
 
 
 
@@ -8580,7 +8630,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 6; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+n_run = 1; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
  
 round_dec = 1
 include_std = False
@@ -8870,7 +8920,7 @@ for name in name_list:   ####### averaged multiprocessing results
 
 # fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
 #                     size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-#                     annotate = False, ann_name='Proto',  tick_size = 18, plot_acc_to_sig = False)
+#                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = False)
 
 
 # fig_exmp = plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
@@ -14674,11 +14724,11 @@ N = dict.fromkeys(N, N_sim)
 
 if_plot = False
 dt = 0.1
-t_sim = 3000
+t_sim = 4500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 500
 D_mvt = t_sim - t_mvt
-duration = [0, int(t_sim/dt)]
+duration = [1500, int(t_sim/dt)]
 
 
 name1 = 'Proto'
@@ -14713,11 +14763,12 @@ G = {
     (name1, name4): 1
 }
 
-g_STN_list = - np.linspace(0.5, 4, 10, endpoint=True)
-g_FSI_list = - np.linspace(0.5, 4, 10, endpoint=True)
+g_STN_list = - np.linspace(0.5, 3, 15, endpoint=True)
+g_FSI_list = - np.linspace(0.5, 3, 15, endpoint=True)
 
 
 G_ratio_dict = {
+    
     (name2, name3): g_FSI_list,
     (name3, name1): g_FSI_list,
     (name1, name2): g_FSI_list,
@@ -14744,40 +14795,45 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, 
                                                        N_real, K_real, receiving_pop_list, nuclei_dict, 
                                                        t_list, change_states = False)
-filename = os.path.join(path_rate, 'test_2d.pkl')
+filename = os.path.join(path_rate, 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl')
 figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act[state_2], D_mvt,
                                          t_mvt, t_list, dt, filename, 
                                          loop_key_lists, nuclei_dict, duration, receiving_class_dict, 
-                                         color_dict, plot_firing = True, G_ratio_dict = G_ratio_dict, 
+                                         color_dict, plot_firing = False, G_ratio_dict = G_ratio_dict, 
                                          legend_loc = 'upper left', vspan_stable = False, path = path_rate, 
                                          legend_fontsize = 12, ylim  = [-4, 76],
                                          legend_fontsize_rec= 18, n_windows = 3, check_stability = True,
                                          lower_freq_cut = 8, upper_freq_cut = 60, freq_method = 'fft',
-                                         peak_threshold=0.1, smooth_kern_window=3, smooth_window_ms = 5,
+                                         peak_threshold= 0.25, smooth_kern_window=3, smooth_window_ms = 5,
                                          cut_plateau_epsilon=0.1, plot_sig = False, low_pass_filter = False,
-                                         lim_oscil_perc=10, plot_spectrum = True, normalize_spec = True,
+                                         lim_oscil_perc=10, plot_spectrum = False, normalize_spec = True,
                                          plot_sig_thresh = False, min_f = 8, max_f = 60, n_std_thresh = 2,
                                          save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
-                                         change_states = False, save_pop_act = True)
+                                         change_states = False, save_pop_act = True, print_AUC_ratio = False)
 # %% Parameterscape RATE MODEL
 
+plt.close('all')
 
-filename = 'test_2d.pkl'
-examples_ind = {'A' : (0, 4), 'B': (0, 7),
-                'C': (0, 9), 'D': (4, 5),
-                'E' : (4, 9), 'F': (6, 6),
-                'G':(9, 1), 'H': (9, 6)
+filename = 'RM_parameterscape_Proto-STN-0-5_4_Proto-D2_0-5_4_2d.pkl'
+filename =  'test_2d.pkl'
+# filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_12.pkl'
+# filename = 'RM_parameterscape_Proto-STN-0-5_2-8_Proto-D2_0-5_2-8_2d_n_12.pkl'
+
+examples_ind = {'A' : (0, 14), 'B': (11, 14),
+                'C': (10, 12), 'D': (10, 10),
+                'E' : (2, 3), 'F': (8, 8),
+                'G':(14, 0), 'H': (4, 10)
                 }
-examples_ind = {'A' : (4, 0), 'B': (7, 0),
-                'C': (9, 0), 'D': (5, 4),
-                'E' : (9, 4), 'F': (6, 6),
-                'G':(1, 9), 'H': (6, 9)
-                }
+examples_ind = {'A' : (3, 2), 'B': (0, 11) , 
+                'C': (11, 0), 'D': (4, 9), 
+                'E': (1, 10), 'F':(11,11) }
 dt = 0.1
-key_x = ('Proto', 'STN')
-key_y = ('D2', 'FSI')
+key_x = ('Proto', 'D2')
+key_y = ('Proto', 'STN')
 name_list = ['D2', 'FSI', 'Proto', 'STN']
-xlabel = r'$G_{STN-Proto}$'
+xlabel = r'$G_{Proto-STN}$'
+ylabel = r'$G_{Proto-D2}$'
+
 markerstyle_list = ['o', 'o', 's', 'o']
 size_list = np.array([4, 2, 1, 0.5]) * 1000
 
@@ -14786,73 +14842,43 @@ filepath = os.path.join(path_rate, filename)
 
 
 data  = load_pickle(filepath)
-x_list = data['g'][key_x]
-y_list = data['g'][key_y]    
+x_list = abs(data['g'][key_x])
+y_list = abs(data['g'][key_y])    
 n_x = len(x_list)
 n_y = len(y_list)
 
-ylabel = r'$G_{FSI-Proto}$'
 
 power_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
 freq_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
 f_peak_sig_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
 
-p_ind = {'low beta (12-20 Hz)': 0, 'high beta (20-30 Hz)':1, 'low gamma (30-70 Hz)': 2}
-f_range = 'low beta (12-20 Hz)'
-# f_range = 'high beta (20-30 Hz)'
-# f_range = 'low gamma (30-70 Hz)'
-param = f_range + ' ' + 'power'
+
 param = 'frequency (Hz)'
 
 for name in name_list:  ####### one single run (hence the squeeze)
-    power_dict[name] = np.squeeze( data[name, 'base_beta_power'] )[:,:,p_ind[f_range]]
+    power_dict[name] = np.squeeze( data[name, 'base_beta_power'] )
     freq_dict[name] = np.squeeze( data[name, 'base_freq'] )
-    f_peak_sig_dict[name] =  np.zeros_like(freq_dict[name])
+    f_peak_sig_dict[name] =  data[name, 'peak_significance']
 
-# for name in name_list:   ####### averaged multiprocessing results
-#     power_dict[name] = data[name, 'power_all_runs'] [:,:,p_ind[f_range]]
-#     freq_dict[name] = data[name, 'peak_freq_all_runs'] 
-#     f_peak_sig_dict[name] =  data[name, 'peak_significance_all_runs'] 
-
-# for name in name_list:   ####### average sigle multiprocessing file 
-#     power_dict[name] = np.average( data[name, 'base_beta_power'] [:,:,:, p_ind[f_range]], axis = 2)
-#     freq_dict[name] = np.average( data[name, 'base_freq'], axis = 2)
-#     f_peak_sig_dict[name] =  data[name, 'peak_significance_all_runs'] 
-
-# run = 1
-# for name in name_list: ####### single multi run file 
-#     power_dict[name] = data[name, 'base_beta_power'] [:, :, run , p_ind[f_range]]
-#     freq_dict[name] = np.average (data[name, 'base_freq'], axis = 2)
-#     f_peak_sig_dict[name] =  np.zeros_like(freq_dict[name])
-    
     
 colormap = freq_dict
 # colormap = power_dict
 
 
-# f_list = data['D2', 'f'][0,0,0,:]
-# fig_PSD_surf,_ = plot_spec_as_surf(data['g']['Proto','STN'], 
-#                   f_list[f_list < 80], 
-#                   np.average(
-#                       data['Proto', 'pxx'][-1,:,:,:], axis = 1).T[f_list < 80,:],
-#                   xlabel = r'$G_{STN \; Loop}$', ylabel = 'Frequency (Hz)', 
-#                   zlabel = 'Normalized Power' + r'$(\times 10^{-2})$')
-# save_pdf_png(fig, filepath.split('.')[0] + '_' + param + '_PSD_surf', size = (.8 * n_x + 1, .8 * n_y))
-
 
 fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
                     size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-                    annotate = False, ann_name='Proto',  tick_size = 18, plot_acc_to_sig = False)
+                    annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
 
 
-fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, 
-                                               Act, plt_duration = 600, run_no = 0)
+fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, 
+                                               color_dict, Act, plt_duration = 3000, run_no = 0)
 
-# save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
+save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
 
 
 fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
-# save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
+save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
 
 # %% RATE MODEL : frequency vs. G - multiple tau-ratios
 g_cte_ind = [0, 0, 0]
