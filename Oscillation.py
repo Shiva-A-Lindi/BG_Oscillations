@@ -242,6 +242,17 @@ A_trans_Kita_rat = {'STN': 9.38, # Kita & Kita 2011
                     'Proto': 31.16, 
                     'D2': 0.67} 
  
+A_induction = {'STN-excitation': {'STN': 1,
+                                  'Proto': 10,
+                                  'Arky' : 10,
+                                  'D2': A_anesthetized['D2'],
+                                  'FSI': A_anesthetized['FSI']},
+               'Proto-inhibition': {'STN': 2,
+                                    'Proto': 17,
+                                    'Arky': 3.6,
+                                    'D2': A_anesthetized['D2'],
+                                    'FSI': A_anesthetized['FSI']}}
+
 Arky_A_mean = np.average([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100
 Arky_A_sd = np.std(np.array([3.5, .66, 1.6, 1.0, .4, .85]) / 37.32 * 100)
 
@@ -250,7 +261,9 @@ A = A_anesthetized
 
 Act = {'rest': A_anesthetized, 'awake_rest': A_awake, 'mvt': A_mvt,
        'DD_anesth': A_DD_anesthetized, 'trans_Nico_mice': A_trans_Nico_mice,
-       'trans_Kita_rat': A_trans_Kita_rat}
+       'trans_Kita_rat': A_trans_Kita_rat, 
+       'induction_STN_excitation': A_induction['STN-excitation'],
+       'induction_Proto_inhibition': A_induction['Proto-inhibition']}
 
 # print( 'Proto thresholds average of PV± ', mean_std_multiple_sets(np.array( [-56.6, -49.9]) , 
 #                                                                    np.array( [1.8, 2.8]), 
@@ -463,8 +476,20 @@ noise_variance = {
                           'Proto': 8, # tau_m = 4
                           'STN': 5, 
                          'D2': 15, 
-                         'Arky': 15}
-                         }
+                         'Arky': 15},
+     'induction_STN_excitation' : {
+                              'Proto': 8, # tau_m = 4
+                              'STN': 4, 
+                              'FSI':  18, 
+                             'D2': 15, 
+                             'Arky': 14},
+     'induction_Proto_inhibition' : {
+                              'Proto': 9, # tau_m = 4
+                              'STN': 4, 
+                              'FSI':  18, 
+                             'D2': 15, 
+                             'Arky': 15}
+                             }
 FR_ext_range = {
  
     ### tau_m = 4
@@ -475,7 +500,9 @@ FR_ext_range = {
     # ### tau_m = 13
     'Proto': {'rest': np.array([7/1000, 12/1000]), 'awake_rest': np.array([7/1000, 12/1000]), 
               'DD_anesth': [6/1000, 11/1000], 'mvt': [6/1000, 11/1000],  
-              'trans_Nico_mice': [2/300, 4/300],  'trans_Kita_rat': [5/1000, 10/1000]},
+              'trans_Nico_mice': [2/300, 4/300],  'trans_Kita_rat': [5/1000, 10/1000],
+              'induction_STN_excitation' : np.array([4/1000, 8/1000]),
+              'induction_Proto_inhibition' : np.array([5/1000, 8/1000])},
     
     ### tau_m = 25
     # 'Proto': {'rest': np.array([5/1000, 10/1000]), 'awake_rest': np.array([5/1000, 10/1000]), 
@@ -489,11 +516,15 @@ FR_ext_range = {
     
     'STN': {'rest': np.array([8/1000, 11/1000]), 'awake_rest': np.array([9.5/1000, 11.5/1000]), 
             'DD_anesth': [5/1000, 20/1000], 'mvt':  [9/1000, 12/1000], 
-            'trans_Nico_mice': np.array([8.5/1000, 12/1000]), 'trans_Kita_rat': np.array([8/1000, 11/1000])}, # high FR sigma
+            'trans_Nico_mice': np.array([8.5/1000, 12/1000]), 'trans_Kita_rat': np.array([8/1000, 11/1000]),
+              'induction_STN_excitation' : np.array([6/1000, 9/1000]),
+              'induction_Proto_inhibition' : np.array([6/1000, 9/1000])}, # high FR sigma
    
     ### tau_m = 3
     'FSI': {'rest': np.array([48/1000, 65/1000]), 'awake_rest': np.array([61/1000, 68/1000]), 
-            'DD_anesth': [50/1000, 68/1000], 'mvt':[63/1000, 75/1000]},
+            'DD_anesth': [50/1000, 68/1000], 'mvt':[63/1000, 75/1000],
+              'induction_STN_excitation' : np.array([6/1000, 9/1000]),
+              'induction_Proto_inhibition' : np.array([6/1000, 9/1000])},
     
     ### tau_m = 9
     # 'FSI': {'rest': np.array([22/1000, 30/1000]), 'awake_rest': np.array([28/1000, 32/1000]), 
@@ -506,7 +537,9 @@ FR_ext_range = {
             'rest': np.array([22/1000, 34/1000]), # FR = 0.5
            'awake_rest': np.array([25/1000, 38/1000]), 
            'DD_anesth': [34/1000, 38/1000], 'mvt': [25/1000, 38/1000], 
-           'trans_Nico_mice': np.array([20/1000, 38/1000]), 'trans_Kita_rat': np.array([22/1000, 38/1000])},
+           'trans_Nico_mice': np.array([20/1000, 38/1000]), 'trans_Kita_rat': np.array([22/1000, 38/1000]),
+              'induction_STN_excitation' : np.array([6/1000, 9/1000]),
+              'induction_Proto_inhibition' : np.array([6/1000, 9/1000])},
     
     ### tau_m = 13 ms
     # 'D2': {'rest': np.array([10/1000, 20/1000]), 'awake_rest': np.array([7/1000, 15/1000]), 
@@ -517,7 +550,9 @@ FR_ext_range = {
     
     'Arky': {'rest': np.array([7/1000, 9/1000]), 'awake_rest': np.array([4/1000, 7/1000]), 
              'DD_anesth': [7/1000, 9/1000], 'mvt': [6/1000, 8/1000], 
-             'trans_Nico_mice': np.array([3/1000, 5/1000])}
+             'trans_Nico_mice': np.array([3/1000, 5/1000]),
+              'induction_STN_excitation' : np.array([6/1000, 9/1000]),
+              'induction_Proto_inhibition' : np.array([6/1000, 9/1000])}
     
     ### tau_m = 36
     # 'Arky': {'rest': np.array([5/1000, 7/1000]), 'awake_rest': np.array([3/1000, 5/1000]), 
@@ -526,16 +561,45 @@ FR_ext_range = {
                 }
 
 
-
+FR_ext_sd_dict = {   
+    # 'Proto': {'rest' : 0.0005, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001}, # tau_m = 25
+    'Proto': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 
+              'trans_Nico_mice' : 0, 'trans_Kita_rat' : 0.001,
+              'induction_STN_excitation': 0, 'induction_Proto_inhibition' : 0}, # tau_m = 13
+    'STN': {'rest' : 0.0008, 'awake_rest' : 0.0018, 'DD_anesth' : 0, 'mvt' : 0.001,
+            'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001,
+            'induction_STN_excitation': 0.0001, 'induction_Proto_inhibition' : 0.0001},
+    'FSI': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0, 'mvt' : 0, 
+            'trans_Nico_mice' : 0,'trans_Kita_rat' : 0,
+            'induction_STN_excitation': 0, 'induction_Proto_inhibition' : 0},
+    'D2': {
+            # 'rest' : 0.002, # FR = 1.4
+            'rest' : 0.00001, # FR = 0.5
+           'awake_rest' : 0.00001, 'DD_anesth' : 0.0001, 'mvt' : 0.0001, 
+           'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001,
+           'induction_STN_excitation': 0.00001, 'induction_Proto_inhibition' : 0.00001},
+    'Arky': {'rest' : 0.0008, 'awake_rest' : 0.001, 'DD_anesth' : 0.000001, 'mvt' : 0.0005, 
+             'trans_Nico_mice' : 0,'trans_Kita_rat' : 0,
+             'induction_STN_excitation': 0.00001, 'induction_Proto_inhibition' : 0.0001}
+                }
+    
+FR_ext_specs = { name : { state : {'mean': 0, 'sd': sd, 'truncmin': 0, 'truncmax': 100}
+                         for state, sd in sd_dict.items()} 
+                for name, sd_dict in FR_ext_sd_dict.items() }
 noise_amplitude = {'Proto': 1, 'STN': 1, 'D2': 1, 'FSI': 1, 'Arky': 1}
 
 end_of_nonlinearity = {
     
-    'FSI': {'rest': 10, 'awake_rest': 10, 'mvt': 20, 'DD_anesth': 10, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20},
-    'D2':  {'rest': 10, 'awake_rest': 10, 'mvt': 10, 'DD_anesth': 10, 'trans_Nico_mice': 10, 'trans_Kita_rat': 10},
-    'Proto':  {'rest': 20, 'awake_rest': 20, 'mvt': 20, 'DD_anesth': 20, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20},
-    'STN': {'rest': 20, 'awake_rest': 15, 'mvt': 20, 'DD_anesth': 20, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20},
-    'Arky':  {'rest':  10, 'awake_rest': 15, 'mvt': 25, 'DD_anesth': 10, 'trans_Nico_mice': 15, 'trans_Kita_rat': 15}
+    'FSI': {'rest': 10, 'awake_rest': 10, 'mvt': 20, 'DD_anesth': 10, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20,
+            'induction_STN_excitation': 10, 'induction_Proto_inhibition': 10},
+    'D2':  {'rest': 10, 'awake_rest': 10, 'mvt': 10, 'DD_anesth': 10, 'trans_Nico_mice': 10, 'trans_Kita_rat': 10,
+            'induction_STN_excitation': 10, 'induction_Proto_inhibition': 10},
+    'Proto':  {'rest': 20, 'awake_rest': 20, 'mvt': 20, 'DD_anesth': 20, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20,
+               'induction_STN_excitation': 20, 'induction_Proto_inhibition': 10},
+    'STN': {'rest': 20, 'awake_rest': 15, 'mvt': 20, 'DD_anesth': 20, 'trans_Nico_mice': 20, 'trans_Kita_rat': 20,
+            'induction_STN_excitation': 10, 'induction_Proto_inhibition': 10},
+    'Arky':  {'rest':  10, 'awake_rest': 15, 'mvt': 25, 'DD_anesth': 10, 'trans_Nico_mice': 15, 'trans_Kita_rat': 15,
+              'induction_STN_excitation': 10, 'induction_Proto_inhibition': 10}
                         }
 threshold = {'STN': .1, 'Proto': .1, 'D2': .1, 'FSI': .1, 'Arky': 0.1}
 neuron_type = {'STN': 'Glut', 'Proto': 'GABA', 'D2': 'GABA', 'FSI': 'GABA'}
@@ -654,7 +718,7 @@ ext_inp_delay = 0
 
 # %% De La Crompe FR distributions
 
-xls = pd.ExcelFile(os.path.join(root, 'FR_Brice_data.xlsx'))
+xls = pd.ExcelFile(os.path.join(root, 'Modeling_Data_Nico/Brice_paper',  'FR_Brice_data.xlsx'))
 name_list = ['STN', 'Proto', 'Arky']
 state_list = ['CTRL', 'Park']
 
@@ -664,10 +728,11 @@ plot_exper_FR_distribution(xls, name_list, state_list,
                            color_dict, bins=np.arange(0, 100, 5))
 
 
-# %% De la crompe Phase distributions EcoG
+# %% De la crompe Phase distributions EcoG aligned (Published)
 
-
-filename = os.path.join(root, 'De_La_Crompe_2020_data.xlsx') 
+plt.close('all')
+filename = os.path.join(root, 'Modeling_Data_Nico', 'Brice_paper', 'De_La_Crompe_2020_data.xlsx') 
+scale_count_to_FR = False
 
 #################### DD
 FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
@@ -675,13 +740,18 @@ fig_ind_hist = 'Fig 3D (1): Phase Histogram during Spontaneous Beta oscillations
 fig_ind_phase = 'Fig 3D (2): Phase Angle during Spontaneous Beta oscillations' 
 angle_header = 'Unnamed: 13_level_1'
 recording_spec = 'Spont_beta'
-y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 3.2}
+sheet_name = 'Fig 3'
+state = 'DD'
+y_max_series = {'STN': 5.0, 'Arky': 3.0, 'Proto': 3.2}
 name_list = ['STN', 'Arky', 'Proto']
 phase_text_x_shift = 150
 ylabel_fontsize = 12;  xlabel_fontsize = 13;  xlabel_y = 0.01
-sheet_name = 'Fig 3'
+n_decimal = 1
 scale_count_to_FR = True
-n_decimal = 2
+y_max_series = {'STN': 30, 'Arky': 21, 'Proto': 26}
+n_decimal = 0
+
+
 
 # #################### Proto beta inhibition
 # FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
@@ -689,14 +759,16 @@ n_decimal = 2
 # fig_ind_phase = 'Fig 6E (2): Phase Angle during Spontaneous Beta oscillations'      
 # angle_header = 'Unnamed: 35_level_1'
 # recording_spec = 'Proto_inhibition_induced_beta'
-# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
+# sheet_name = 'Fig 6'
+# state = 'OFF'
+# y_max_series = {'STN': 3.0, 'Arky': 1.8, 'Proto': 3.5}
 # name_list = ['STN',  'Arky', 'Proto']
 # phase_text_x_shift = 100
 # ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.01
+# n_decimal = 1
+# scale_count_to_FR = True
+# y_max_series = {'STN': 27, 'Arky': 14, 'Proto': 50}
 # n_decimal = 0
-# # scale_count_to_FR = True
-# # y_max_series = {'STN': 27, 'Arky': 14, 'Proto': 50}
-# sheet_name = 'Fig 6'
 
 # #################### STN beta excitation
 # FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
@@ -704,118 +776,147 @@ n_decimal = 2
 # fig_ind_phase = 'Fig 3E (2): Phase Angle during Spontaneous Beta oscillations'      
 # angle_header = 'Unnamed: 35_level_1'
 # recording_spec = 'STN_excitation_induced_beta'
-# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7}
+# sheet_name = 'Fig 3'
+# y_max_series = {'STN': 5, 'Arky': 3, 'Proto': 7} # spike count
 # name_list = ['STN',  'Arky', 'Proto']
 # phase_text_x_shift = 100
 # ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'Fig 3'
 # n_decimal = 0
-# # scale_count_to_FR = True
-# # y_max_series = {'STN': 35, 'Arky': 30, 'Proto': 55}
+# scale_count_to_FR = True
+# y_max_series = {'STN': 40, 'Arky': 24, 'Proto': 50}
+# state = 'OFF'
 
-# # ################### STN beta inhibtiion aligned to ECog
+# # # ################### STN beta inhibtiion aligned to ECog
 # FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 
 # fig_ind_hist = 'SupFig 5F (1): Phase Histogram during Induced Beta oscillations peak EcoG'
 # fig_ind_phase = 'SupFig 5F (2): Phase Angle during Spontaneous Beta oscillations'      
 # angle_header = 'Unnamed: 14_level_1'
 # recording_spec = 'STN_inhibition_induced_beta_ECoG'
+# sheet_name = 'SupFig 5'
 # y_max_series = {'STN': 1, 'Arky': 1, 'Proto': 2}
 # name_list = ['STN',  'Arky', 'Proto']
 # phase_text_x_shift = 100
 # ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'SupFig 5'
 # n_decimal = 0
-# # scale_count_to_FR = True
-# # y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
+# scale_count_to_FR = True
+# y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
+# state = 'OFF'
 
 
-# # # #################### STN beta inhibtiion aligned to laser
+# # #################### STN beta inhibtiion aligned to laser
 # FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 
 # fig_ind_hist = 'SupFig 5G (1): Phase Histogram during Beta patterning peak Laser'
 # fig_ind_phase = 'SupFig 5G (2): Phase Histogram during Beta patterning peak Laser'      
 # angle_header = 'Unnamed: 36_level_1'
 # recording_spec = 'STN_inhibition_induced_beta_laser'
+# sheet_name = 'SupFig 5'
 # y_max_series = {'STN': 2, 'Arky': 1, 'Proto': 3}
 # name_list = ['STN',  'Arky', 'Proto']
 # phase_text_x_shift = 100
 # ylabel_fontsize = 10;  xlabel_fontsize = 10; xlabel_y = -.05
-# sheet_name = 'SupFig 5'
 # n_decimal = 0
-# # scale_count_to_FR = True
-# # y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
+# scale_count_to_FR = True
+# y_max_series = {'STN': 11, 'Arky': 8, 'Proto': 39}
+# state = 'OFF'
 
 
 
+coef = 100
+plot_FR = True
 
-
-# xls = pd.ExcelFile(filename)
-# data = pd.read_excel(xls, sheet_name, header = [0, 1, 2])#, skiprows = [0])
-
-coef = 1000 
-
-angles, phase_dict = read_Brice_phase_hist(filename,  ['STN', 'Arky', 'Proto'], fig_ind_hist, 
+angles, phase_dict = read_Brice_EcoG_aligned_phase_hist(filename,  ['STN', 'Arky', 'Proto'], fig_ind_hist, 
                                            fig_ind_phase, angle_header, coef = coef, sheet_name = sheet_name)
 
 
-
-plot_FR = False
-state = 'OFF'
-
-FR_dict = read_Brice_FR_states(filename, name_list, FR_header,sheet_name = sheet_name)    
+FR_dict = read_Brice_FR_states(filename, name_list, FR_header, sheet_name = sheet_name)    
    
 
-fig = phase_summary_Brice(phase_dict, angles, name_list, color_dict, total_phase = 720, 
-                          set_ylim = True, shift_phase = None, y_max_series = y_max_series,
-                          ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
-                          tick_label_fontsize = 10, n_decimal = n_decimal, 
-                          FR_dict = FR_dict, title = recording_spec.replace('_', ' '),
-                          xlabel = 'phase (deg)', lw = 1, name_fontsize = 12, 
-                          name_ylabel_pad = [0, 0, 0], name_place = 'ylabel', alpha = 0.1,
-                          phase_text_x_shift = phase_text_x_shift, state = state,
-                          xlabel_y = xlabel_y , ylabel_x = -0.1, plot_FR = plot_FR,
-                          box_plot = True, strip_plot = False, scale_count_to_FR = scale_count_to_FR)
+fig = phase_plot_Brice_EcoG_aligned(phase_dict, angles, name_list, color_dict, total_phase = 720, 
+                                    set_ylim = True, shift_phase = None, y_max_series = y_max_series,
+                                    ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
+                                    tick_label_fontsize = 10, n_decimal = n_decimal, coef = coef,
+                                    FR_dict = FR_dict, title = recording_spec.replace('_', ' '),
+                                    xlabel = 'phase (deg)', lw = 1, name_fontsize = 12, 
+                                    name_ylabel_pad = [0, 0, 0], name_place = 'ylabel', alpha = 0.1,
+                                    phase_text_x_shift = phase_text_x_shift, state = state,
+                                    xlabel_y = xlabel_y , ylabel_x = -0.1, plot_FR = plot_FR,
+                                    box_plot = True, strip_plot = False, 
+                                    scale_count_to_FR = scale_count_to_FR)
 
-save_pdf_png(fig, filename.split('.')[0] + '_' + recording_spec + '_Phase',
+FR_or_not = ''
+if scale_count_to_FR:
+
+    FR_or_not = '_FR'
+
+save_pdf_png(fig, filename.split('.')[0] + '_' + recording_spec + FR_or_not + '_Phase',
              size = (1.8, len(name_list) * 1))
 
+# %% De la Crompe Power spec
+plt.close('all')
+filename = os.path.join(root, 'Modeling_Data_Nico', 'Brice_paper', 'De_La_Crompe_2020_data.xlsx') 
 
-# %% De la Crompe laser beta induction data analysis
+    
+xls = pd.ExcelFile(filename)
+data = pd.read_excel(xls, 'Fig 2', header = [0, 1, 2])#, skiprows = [0])
+    
+f = data['Fig 2I (1): Coherence GP-LFP vs mCx EcoG', 'Unnamed: 46_level_1', 'Frequency (in Hz)'].values
+mean_OFF = data['Fig 2I (1): Coherence GP-LFP vs mCx EcoG', 'OFF', 'MEAN '].values
+sem_OFF = data['Fig 2I (1): Coherence GP-LFP vs mCx EcoG', 'OFF', 'SEM'].values
+
+mean_ON = data['Fig 2I (1): Coherence GP-LFP vs mCx EcoG', 'ON', 'MEAN '].values
+sem_ON = data['Fig 2I (1): Coherence GP-LFP vs mCx EcoG', 'ON', 'SEM'].values
+
+fig, ax = plt.subplots()    
+ax.errorbar(f[f < 70], mean_OFF[f < 70], yerr = sem_OFF[f < 70], label = 'OFF', c = 'k')
+ax.errorbar(f[f < 70], mean_ON[f < 70], yerr = sem_ON[f < 70],  label = 'ON', c = 'r')
+ax.legend(frameon = False)
+ind_beta = (f > 10) & (f < 70)
+f_beta = f[ind_beta]
+print(f_beta[np.argmax(mean_OFF[ind_beta])])
+print(f_beta[np.argmax(mean_ON[ind_beta])])
+
+
+# %% De la Crompe Phase distributions Laser aligned (Unpublished)
 
 
 experiment_protocol = 'ChR2_STN_CTL'
-y_max_series = {'STN': 450, 'Arky': 60, 'Proto': 171}
+y_max_series = {'STN': 170, 'Arky': 20, 'Proto': 60}
 sheet_name = 'Fig 3'
 FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
 
 experiment_protocol = 'ArchT_STN_CTL'
-y_max_series = {'STN': 176, 'Arky': 60, 'Proto': 85}
+y_max_series = {'STN': 50, 'Arky': 20, 'Proto': 35}
 FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 sheet_name = 'SupFig 5'
 
-# experiment_protocol = 'ArchT_GP_CTL'
-# y_max_series = {'STN': 150, 'Arky': 60, 'Proto': 150}
-# FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
-# sheet_name = 'Fig 6'
+experiment_protocol = 'ArchT_GP_CTL'
+y_max_series = {'STN': 50, 'Arky': 25, 'Proto': 50}
+FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
+sheet_name = 'Fig 6'
 
 n_bins = 60
-path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
+path_Brice = os.path.join(root, 'Modeling_Data_Nico', 'Laser_beta_induction', experiment_protocol)
 
 name_list = ['STN', 'Arky', 'Proto']
 
 
-FR_dict = read_Brice_FR_states(os.path.join(root, 'De_La_Crompe_2020_data.xlsx'),
+FR_dict = read_Brice_FR_states(os.path.join(root, 'Modeling_Data_Nico', 'Brice_paper', 'De_La_Crompe_2020_data.xlsx'),
                                name_list, FR_header, sheet_name = sheet_name)    
 
 shift_phase = 'forward'
 # shift_phase = 'backward'
 
-fig = plot_laser_aligned_phases_experiment(experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
+scale_count_to_FR = True
+# scale_count_to_FR = False
+# y_max_series = {'STN': 5, 'Arky': 4, 'Proto': 8}
+
+fig = phase_plot_experiment_laser_aligned(experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
                                            n_bins = n_bins, f_stim = 20, 
-                                           scale_count_to_FR = True, title_fontsize = 10, FR_dict = FR_dict, 
+                                           scale_count_to_FR = scale_count_to_FR, title_fontsize = 10, FR_dict = FR_dict, 
                                            total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
-                                           print_stat_phase = True, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
+                                           print_stat_phase = True, coef = 1000, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
                                            phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
                                            name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
                                            xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
@@ -825,12 +926,15 @@ fig = plot_laser_aligned_phases_experiment(experiment_protocol, name_list, color
 save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
 
+# filepath = '/home/shiva/BG_Oscillations/Modeling_Data_Nico/Laser_beta_induction/ChR2_STN_CTL/STN_Phase/BC_314_10052017_b_02_N1_ON_PhaseStimLaser.txt'
+
+
 # nuc_folder = name + '_Phase'
 # path_Brice = os.path.join(root, 'Shiva_Modeling_Data', experiment_folder, nuc_folder)                                    xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8)      
 # filepath_list = list_files_of_interest_in_path(path_Brice, extensions = ['txt'])
 # look_at_one_neuron_laser_Brice(filepath_list[0], total_phase, n_bins, name, color_dict)
 
-# %% Asier laser beta induction data analysis
+# %% Asier Phase distributions Laser aligned (Unpublished)
 
 stim_name = 'STN'
 name_list = [ 'STN', 'Arky', 'Proto']
@@ -839,24 +943,28 @@ n_sweeps = 30 * 20 * 3
 
 stim_name = 'D2'
 name_list = ['D2', 'STN', 'Arky', 'Proto']
-y_max_series = {'D2': 400, 'STN': 50, 'Arky': 50, 'Proto': 50}
-y_max_series = {'D2': 15, 'STN': 13, 'Arky': 25, 'Proto': 11}
+align_to= 'Laser'; y_max_series = {'D2': 400, 'STN': 50, 'Arky': 50, 'Proto': 50}
+align_to= 'EcoG'; y_max_series = {'D2': 15, 'STN': 13, 'Arky': 25, 'Proto': 11}
+
 
 n_sweeps = 30 * 20 * 2
 
 experiment_protocol = 'ChR2_' + stim_name + '_CTL_mouse'
 
-path_Asier = os.path.join(root, 'Shiva_Modeling_Data', experiment_protocol)
+path_Asier = os.path.join(root, 'Modeling_Data_Nico', 'Laser_beta_induction', experiment_protocol)
 
-aligne_to= 'Laser'
 
-aligne_to= 'EcoG'
+
 shift_phase = 'forward'
-shift_phase = 'backward'
+# shift_phase = 'backward'
 # shift_phase = 'both'
 shift_phase = None
 plot_single_neuron_hist = False
-fig = plot_laser_aligned_phases_experiment( experiment_protocol, name_list, color_dict, path_Asier, y_max_series, 
+# plot_single_neuron_hist = True
+
+# color_dict = {'Proto': 'r', 'STN': 'deepskyblue', Nico's color codes
+#               'D2': 'slateblue', 'FSI': 'g', 'Arky': 'yellowgreen'}
+fig = phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_dict, path_Asier, y_max_series, 
                                       n_bins =None, f_stim = 20, 
                                       scale_count_to_FR = True, title_fontsize = 10, FR_dict = None, 
                                       total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
@@ -866,10 +974,138 @@ fig = plot_laser_aligned_phases_experiment( experiment_protocol, name_list, colo
                                       xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
                                       plot_single_neuron_hist = plot_single_neuron_hist, hist_smoothing_wind = 5,
                                       smooth_hist = False, plot_mean_FR = False, n_sweeps_Asier = n_sweeps,
-                                      aligne_to= aligne_to, shift_phase = shift_phase)
+                                      align_to= align_to, shift_phase = shift_phase)
     
-save_pdf_png(fig, os.path.join(path_Asier, experiment_protocol + '_Phase'),
-             size = (1.8, len(name_list) * 1))
+save_pdf_png(fig, os.path.join(path_Asier, experiment_protocol + '_Phase_aligned_to_' + align_to),
+              size = (1.5, len(name_list) * 1))
+             # size = (1.5, len(name_list) * 1.5))
+
+# %% Nico's transient D2 and STN stim
+
+
+
+def merge_labeled_non_labeled_data(filepath_list, sheet_name_extra_list, merged_filepath):
+    
+    FR_df = {}
+    
+    for i, filepath in enumerate(filepath_list):
+        xls = pd.ExcelFile(filepath)
+        sheet_name_list = xls.sheet_names
+
+        for sheet_name in sheet_name_list:
+            
+            name = sheet_name.split('_')[-1].replace( sheet_name_extra_list[i], '')
+
+            if i == 0: # to create the df template to later be concatenated
+                
+                FR_df[name] = pd.read_excel(xls, sheet_name, header = [0])
+                
+            else:
+                
+                FR_df[name] = pd.concat( [ FR_df[name], pd.read_excel(xls, sheet_name, header = [0]).drop(columns = 'Time')], 
+                                        axis = 1)
+
+    save_df_dict_to_excel_sheets(FR_df, merged_filepath)
+    
+    return 0
+
+def decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, path):
+    
+    if plot_what == 'non-labeled':
+        sheet_name_extra = 'Response'
+        filename = filename_non_labeled
+        filepath = os.path.join(path, filename)
+    
+    elif plot_what == 'labeled':
+        sheet_name_extra = 'LabelResponse'
+        filename = filename_labeled
+        filepath = os.path.join(path, filename)
+    ###################### labeled and non-labeled merged
+    elif plot_what == 'merged':
+        filename_list = [filename_non_labeled, filename_labeled] 
+        
+        filepath_list = [os.path.join(path, filename) for filename in filename_list]
+        
+        merged_filepath= os.path.join(path, longestSubstringFinder(*filename_list) + 'merged.xlsx')
+        filepath = merged_filepath
+        sheet_name_extra = ''
+        merge_labeled_non_labeled_data(filepath_list, 
+                                        ['Response', 'LabelResponse'], 
+                                        merged_filepath = merged_filepath)
+        
+    return filepath, sheet_name_extra
+
+
+color_dict['MSNs'] = color_dict['D2']
+plot_what = 'labeled'
+# plot_what = 'non-labeled'
+plot_what = 'merged'
+
+##################### Labeled/or non-labeld
+filename_non_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_NotLabelled.xlsx'
+filename_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_OnlyLabelled.xlsx'
+ylim = (-5, 60)
+
+filename_non_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_NotLabelled.xlsx'
+filename_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
+ylim = (-10, 160)
+##################### Read and plot
+exp_path = os.path.join(root, 'Modeling_Data_Nico', 'Transient_stim',)
+filepath, sheet_name_extra = decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, exp_path)
+FR_df = read_sheets_of_xls_data(filepath, sheet_name_extra = sheet_name_extra)
+# fig, ax = plot_fr_response_from_experiment(FR_df, filepath, color_dict, ylim = ylim)
+# save_pdf_png(fig, filepath.split('.')[0],
+#               size=(5, 3))
+
+
+def plot_individual_traces( FR_df, plot_what, color_dict, xlim = None, ylim = None,  stim_duration = 10, ax = None, 
+                           time_shift_dict = None, sheet_name_extra = '', legend_loc = 'upper right'):
+    
+    fig, ax = get_axes( ax )
+    
+    if time_shift_dict == None:
+        time_shift_dict = { key: 0 for key in list(FR_df.keys())}
+
+    for name in list(FR_df.keys()):
+        
+        name_adj = name.split('_')[-1].replace( sheet_name_extra, '')
+        time = FR_df[name]['Time'] * 1000 - time_shift_dict[name_adj]
+        fr = FR_df[name].drop(columns = ['Time'])
+        fr_mean = fr.mean(axis=1)
+        
+        # if name == 'MSNs':
+            
+        for trace in fr.columns[1:]:
+            
+            ax.plot(time, fr[trace], c = color_dict[name_adj], alpha = 0.1)
+            
+        
+        n_cells = len(FR_df[name].columns) - 1
+        ax.plot(time, fr_mean, c = color_dict[name_adj], label = name_adj + ' n =' + str(n_cells))
+        # fr_std = fr.std(axis=1)
+        # ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
+        #                 color = color_dict[name_adj], alpha = 0.1)
+        
+    
+    ax.set_title(plot_what, fontsize = 15)
+    ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
+    ax.set_xlabel('Time (ms)', fontsize = 14)
+    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
+    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
+    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
+    ax.axhline(0, c= 'grey', ls = ':')
+
+    if xlim != None:
+        ax.set_xlim(xlim)
+    if ylim != None:
+        ax.set_ylim(ylim)
+
+    remove_frame(ax)
+    return fig, ax
+    
+plot_individual_traces( FR_df, plot_what, color_dict, xlim = None, ylim = None,  stim_duration = 10, ax = None, 
+                           time_shift_dict = None, sheet_name_extra = '', legend_loc = 'upper right')
 # %% create gif
 
 
@@ -1274,34 +1510,24 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 # %% Deriving F_ext from response curve of collective behavior in heterogeneous mode
 
 
-FR_ext_sd_dict = {   
-    # 'Proto': {'rest' : 0.0005, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001}, # tau_m = 25
-    'Proto': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0.0007, 'mvt' : 0.00001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001}, # tau_m = 13
-    'STN': {'rest' : 0.0008, 'awake_rest' : 0.0018, 'DD_anesth' : 0, 'mvt' : 0.001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001},
-    'FSI': {'rest' : 0, 'awake_rest' : 0, 'DD_anesth' : 0, 'mvt' : 0, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0},
-    'D2': {
-            # 'rest' : 0.002, # FR = 1.4
-            'rest' : 0.00001, # FR = 0.5
-           'awake_rest' : 0.00001, 'DD_anesth' : 0.0001, 'mvt' : 0.0001, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0.001},
-    'Arky': {'rest' : 0.0008, 'awake_rest' : 0.001, 'DD_anesth' : 0.000001, 'mvt' : 0.0005, 'trans_Nico_mice' : 0,'trans_Kita_rat' : 0}
-                }
-    
-FR_ext_specs = { name : { state : {'mean': 0, 'sd': sd, 'truncmin': 0, 'truncmax': 100}
-                         for state, sd in sd_dict.items()} 
-                for name, sd_dict in FR_ext_sd_dict.items() }
+
 plt.close('all')
 # name = 'D2'
 # name = 'FSI'
 # name = 'STN'
 name = 'Proto'
 # name = 'Arky'
-state = 'rest'
+
+# state = 'rest'
 # state = 'awake_rest'
 # state = 'DD_anesth'
 # state = 'mvt'
 # state = 'trans_Nico_mice'
 # state = 'trans_Kita_rat'
+state = 'induction_STN_excitation'
+state = 'induction_Proto_inhibition'
 
+print('desirec activity =', Act[state][name])
 save_mem_pot_dist = True
 # save_mem_pot_dist = False
 
@@ -1309,7 +1535,7 @@ FSI_on_log = False
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1    
-t_sim = 4000
+t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -1483,31 +1709,31 @@ except NameError:
 status = 'set_FR'
 
     
-fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
+# fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 
-nucleus.smooth_pop_activity(dt, window_ms=5)
-fig = plot(nuclei_dict, color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-           title_fontsize=15, plot_start=int(t_sim / 2), title=str(dt),
-           include_FR=False, include_std=False, plt_mvt=False,
-           legend_loc='upper right', ylim=None)
+# nucleus.smooth_pop_activity(dt, window_ms=5)
+# fig = plot(nuclei_dict, color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
+#            title_fontsize=15, plot_start=int(t_sim / 2), title=str(dt),
+#            include_FR=False, include_std=False, plt_mvt=False,
+#            legend_loc='upper right', ylim=None)
 
-# save_pdf_png(fig, os.path.join(path, name + '_Firing_'),
-#              size=(12, 4))
+# # save_pdf_png(fig, os.path.join(path, name + '_Firing_'),
+# #              size=(12, 4))
 
-peak_threshold = 0.1
-smooth_window_ms = 3
-smooth_window_ms = 5
-cut_plateau_epsilon = 0.1
-lim_oscil_perc = 10
-low_pass_filter = False
+# peak_threshold = 0.1
+# smooth_window_ms = 3
+# smooth_window_ms = 5
+# cut_plateau_epsilon = 0.1
+# lim_oscil_perc = 10
+# low_pass_filter = False
 
-fig_spec, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
-                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
-                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
-                                      include_beta_band_in_legend=False)
-ax.set_xlim(0, 70)
+# fig_spec, ax = plt.subplots(1, 1)
+# _, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+#                                       smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+#                                       low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
+#                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
+#                                       include_beta_band_in_legend=False)
+# ax.set_xlim(0, 70)
 # save_pdf_png(fig_spec, os.path.join(path, name + '_spec_' + state + '_'),
 #              size=(4, 4))
 
@@ -1980,131 +2206,7 @@ plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt,
            D_mvt, ax=None, title_fontsize=15, title=init_method)
 
-# %% Nico's data D2 and STN stim
 
-
-
-def merge_labeled_non_labeled_data(filepath_list, sheet_name_extra_list, merged_filepath):
-    
-    FR_df = {}
-    
-    for i, filepath in enumerate(filepath_list):
-        xls = pd.ExcelFile(filepath)
-        sheet_name_list = xls.sheet_names
-
-        for sheet_name in sheet_name_list:
-            
-            name = sheet_name.split('_')[-1].replace( sheet_name_extra_list[i], '')
-
-            if i == 0: # to create the df template to later be concatenated
-                
-                FR_df[name] = pd.read_excel(xls, sheet_name, header = [0])
-                
-            else:
-                
-                FR_df[name] = pd.concat( [ FR_df[name], pd.read_excel(xls, sheet_name, header = [0]).drop(columns = 'Time')], 
-                                        axis = 1)
-
-    save_df_dict_to_excel_sheets(FR_df, merged_filepath)
-    
-    return 0
-
-def decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, root):
-    
-    if plot_what == 'non-labeled':
-        sheet_name_extra = 'Response'
-        filename = filename_non_labeled
-        filepath = os.path.join( root, 'Exp_Stim_data', filename)
-    
-    elif plot_what == 'labeled':
-        sheet_name_extra = 'LabelResponse'
-        filename = filename_labeled
-        filepath = os.path.join( root, 'Exp_Stim_data', filename)
-    ###################### labeled and non-labeled merged
-    elif plot_what == 'merged':
-        filename_list = [filename_non_labeled, filename_labeled] 
-        
-        filepath_list = [os.path.join( root, 'Exp_Stim_data', filename) for filename in filename_list]
-        
-        merged_filepath= os.path.join( root, 'Exp_Stim_data', longestSubstringFinder(*filename_list) + 'merged.xlsx')
-        filepath = merged_filepath
-        sheet_name_extra = ''
-        merge_labeled_non_labeled_data(filepath_list, 
-                                        ['Response', 'LabelResponse'], 
-                                        merged_filepath = merged_filepath)
-        
-    return filepath, sheet_name_extra
-
-
-color_dict['MSNs'] = color_dict['D2']
-plot_what = 'labeled'
-# plot_what = 'non-labeled'
-plot_what = 'merged'
-
-##################### Labeled/or non-labeld
-filename_non_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_NotLabelled.xlsx'
-filename_labeled = 'D2-10ms_OptoStimData_RecMSN-Proto-Arky-STN_OnlyLabelled.xlsx'
-ylim = (-5, 60)
-
-filename_non_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_NotLabelled.xlsx'
-filename_labeled = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
-ylim = (-10, 160)
-##################### Read and plot
-filepath, sheet_name_extra = decide_what_to_plot(plot_what, filename_labeled, filename_non_labeled, root)
-FR_df = read_sheets_of_xls_data(filepath, sheet_name_extra = sheet_name_extra)
-# fig, ax = plot_fr_response_from_experiment(FR_df, filepath, color_dict, ylim = ylim)
-# save_pdf_png(fig, filepath.split('.')[0],
-#               size=(5, 3))
-
-
-def plot_individual_traces( FR_df, plot_what, color_dict, xlim = None, ylim = None,  stim_duration = 10, ax = None, 
-                           time_shift_dict = None, sheet_name_extra = '', legend_loc = 'upper right'):
-    
-    fig, ax = get_axes( ax )
-    
-    if time_shift_dict == None:
-        time_shift_dict = { key: 0 for key in list(FR_df.keys())}
-
-    for name in list(FR_df.keys()):
-        
-        name_adj = name.split('_')[-1].replace( sheet_name_extra, '')
-        time = FR_df[name]['Time'] * 1000 - time_shift_dict[name_adj]
-        fr = FR_df[name].drop(columns = ['Time'])
-        fr_mean = fr.mean(axis=1)
-        
-        # if name == 'MSNs':
-            
-        for trace in fr.columns[1:]:
-            
-            ax.plot(time, fr[trace], c = color_dict[name_adj], alpha = 0.1)
-            
-        
-        n_cells = len(FR_df[name].columns) - 1
-        ax.plot(time, fr_mean, c = color_dict[name_adj], label = name_adj + ' n =' + str(n_cells))
-        # fr_std = fr.std(axis=1)
-        # ax.fill_between(time, fr_mean - fr_std/ np.sqrt(n_cells), fr_mean + fr_std/ np.sqrt(n_cells), 
-        #                 color = color_dict[name_adj], alpha = 0.1)
-        
-    
-    ax.set_title(plot_what, fontsize = 15)
-    ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
-    ax.set_xlabel('Time (ms)', fontsize = 14)
-    ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
-    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
-    ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
-    ax.axhline(0, c= 'grey', ls = ':')
-
-    if xlim != None:
-        ax.set_xlim(xlim)
-    if ylim != None:
-        ax.set_ylim(ylim)
-
-    remove_frame(ax)
-    return fig, ax
-    
-plot_individual_traces( FR_df, plot_what, color_dict, xlim = None, ylim = None,  stim_duration = 10, ax = None, 
-                           time_shift_dict = None, sheet_name_extra = '', legend_loc = 'upper right')
 # %% plot fitted response curve different noise
 plt.close('all')
 name = 'Proto'
@@ -2492,7 +2594,7 @@ for i in range(n_run):
     nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
     smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
 
-    data = find_freq_SNN(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
+    data = find_freq_all_nuclei(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
                          check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=True, ax=ax,
                          c_spec=color_dict, n_windows=6, fft_method=fft_method, find_beta_band_power=True,
                          include_beta_band_in_legend=True, half_peak_range=5,
@@ -2633,7 +2735,7 @@ for i in range(n_run):
     nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
     # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-    data = find_freq_SNN(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
+    data = find_freq_all_nuclei(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
                          check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=True, ax=ax,
                          c_spec=color_dict, n_windows=6, fft_method=fft_method, find_beta_band_power=True,
                          include_beta_band_in_legend=True, half_peak_range=5,
@@ -2780,7 +2882,7 @@ for i in range(n_run):
     nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
     smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
 
-    data = find_freq_SNN(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
+    data = find_freq_all_nuclei(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
                          check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=True, ax=ax,
                          c_spec=color_dict, n_windows=6, fft_method=fft_method, find_beta_band_power=True,
                          include_beta_band_in_legend=True, half_peak_range=5,
@@ -2936,7 +3038,7 @@ for i in range(n_run):
     nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
     # smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms = 5)
 
-    data = find_freq_SNN(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
+    data = find_freq_all_nuclei(data, 0, i, dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, 3, smooth_window_ms, cut_plateau_epsilon,
                          check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, plot_spectrum=True, ax=ax,
                          c_spec=color_dict, n_windows=6, fft_method=fft_method, find_beta_band_power=True,
                          include_beta_band_in_legend=True, half_peak_range=5,
@@ -3277,7 +3379,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-freq, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+freq, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                         smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                         low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                                         spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -3411,7 +3513,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -3600,7 +3702,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
@@ -3823,7 +3925,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
@@ -3968,10 +4070,10 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt,
 # fig = remove_all_x_labels(fig)
 fig.axes[0].set_ylim(firing_fig_ylims)
 fig = set_y_ticks(fig, [0, 30, 60])
-# fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
-#             title_fontsize=15, plot_start = plot_start, title = '',
-#             include_FR = False, include_std=False, plt_mvt=False,
-#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = low_f, high_f = high_f)
+fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
+            title_fontsize=15, plot_start = plot_start, title = '',
+            include_FR = False, include_std=False, plt_mvt=False,
+            legend_loc='upper right', ylim = None, plot_filtered=True, low_f = low_f, high_f = high_f)
 
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
              size=fig_sizes['firing'])
@@ -3997,7 +4099,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -4180,7 +4282,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -4333,7 +4435,7 @@ save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
 peak_threshold = 0.1; smooth_window_ms = 3; smooth_window_ms = 5; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
@@ -4468,7 +4570,7 @@ save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
 peak_threshold = 0.1; smooth_window_ms = 3; smooth_window_ms = 5; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -4631,7 +4733,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -4661,19 +4763,19 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order=['D2'
 # ax = raster_plot(spikes_sparse, nucleus.name, color_dict,  ax=None, labelsize=10, title_fontsize = 15, lw =3 , linelengths = 2, orientation = 'vertical')
 
 # %% Tune Gs from Brice (De la Crompe Supplementary Figure 6)
-
-plt.close('all')
+# 'ChR2_STN' : {'STN': [6, 26], 'Proto' : [34, 60], 'Arky' : [11, 7]
+# plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.2
-t_sim = 600
+plot_start = 20
+t_sim = plot_start + 500 + 2000 + 500
 t_list = np.arange(int(t_sim/dt))
-t_transient = 200
+t_transient = 500 + plot_start
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration = [int(400/dt), int(t_sim/dt)]
-plot_start = 20
 plot_start_raster = plot_start
 
 name1 = 'FSI' 
@@ -4687,29 +4789,16 @@ name_list = [name1, name2, name3, name4, name5]
 
 
 G = {}
-
 g = -0.0025 
-
-g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
       }
-
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.9},
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3},
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.8},
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.9},
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-#       }
 
 G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 
@@ -4756,12 +4845,12 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
                                                        use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
 
 ### OFF vs. ON FRs
-mod_dict = {'ChR2_STN' : {'STN': [6, 27], 'Proto' : [36, 60], 'Arky' : [11, 7]}} # DE la Crompe supp fig 6
+mod_dict = {'ChR2_STN' : {'STN': [6, 26], 'Proto' : [34, 55], 'Arky' : [11, 7]}} # DE la Crompe supp fig 6
             # 'ArchT_Proto': {'STN': [9, 52], 'Proto' : [57, 5], 'Arky' : [12, 44]},
             # 'ArchT_STN': {'STN': [96, 2], 'Proto' : [38, 22], 'Arky' : [0, 0]}}
 
-duration = 200
-n_run = 10
+duration = 2000
+n_run = 2
 
 # stim_nuc = 'Proto'
 # stim = 'inhibition'
@@ -4769,7 +4858,7 @@ n_run = 10
 stim_nuc = 'STN'
 stim = 'excitation'
 
-ext_inp_dict = {stim_nuc: {'mean' : 0.39, 'sigma': .5 * .1, 'tau_rise': 0, 'tau_decay': 0} } # exponetial tau exit 6 only labeled
+ext_inp_dict = {stim_nuc: {'mean' : 0.29, 'sigma': .5 * .1, 'tau_rise': 0, 'tau_decay': 0} } # exponetial tau exit 6 only labeled
 
 syn_trans_delay_dict = {stim_nuc : {'mean': 0, 'sd': 0, 'truncmin': 1, 'truncmax': 10}}
 syn_trans_delay_dict = syn_trans_delay_homogeneous( syn_trans_delay_dict, dt, N_sim )
@@ -4823,7 +4912,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
 # low_pass_filter = False
 
 # fig, ax = plt.subplots(1, 1)
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+# find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
 #                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
 #                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
 #                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -4836,7 +4925,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
 # ax.set_xlim(0, 70)
 # save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
 #              size=(6, 5))
-# phase_ref = 'D2'
+# phase_ref = 'D2'min_in_dict(color_dict)
 # find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=100,
 #                                   height=0, phase_ref=phase_ref, start=0, total_phase=720,
 #                                   only_entrained_neurons=False, troughs=True)
@@ -4991,7 +5080,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                          smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                          spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
@@ -5308,7 +5397,7 @@ fig.savefig(os.path.join(path, 'SNN_firing_'+state+'.png'), dpi=500, facecolor='
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig, ax = plt.subplots(1,1)
 # peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
 #                 low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False,
 #                 fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
 # # x_l = 0.75
@@ -5502,10 +5591,11 @@ filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_merged.xlsx'
 sheet_name_extra = ''
 # filename = 'STN-10ms_OptoStimData_RecSTN-Proto-Arky_OnlyLabelled.xlsx'
 # sheet_name_extra = 'Label'
-FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Exp_Stim_data', filename))
+FR_df = read_sheets_of_xls_data(filepath = os.path.join( root, 'Modeling_Data_Nico', 
+                                                        'Transient_stim', filename))
 
 fig, ax, title = plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, ylim = None, stim_duration = 10, 
-                                           ax = ax, time_shift_dict = {'STN': STN_shift, 'Arky': 0, 'Proto': proto_shift}, 
+                                           ax = None, time_shift_dict = {'STN': STN_shift, 'Arky': 0, 'Proto': proto_shift}, 
                                            sheet_name_extra = sheet_name_extra)
 ax.set_title( title + ' ' + note, fontsize = 15)
 ax.set_xlim(-15, 90)
@@ -5796,7 +5886,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_SNN_not_saving(dt, nuclei_dict, duration_fft, lim_oscil_perc, peak_threshold, smooth_kern_window,
+_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration_fft, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=2,
@@ -6388,7 +6478,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 x_l = 0.75
@@ -6406,7 +6496,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 ax.axhline(x_l, ls='--', c='grey')
@@ -6542,7 +6632,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 x_l = 5
@@ -6560,7 +6650,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 x_l = 5
@@ -6691,7 +6781,7 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_transition, D_mvt, a
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig, ax = plt.subplots(1,1)
 # peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_2, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
 #                 low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False,
 #                 fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
 # x_l = 0.75
@@ -6704,7 +6794,7 @@ fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_transition, D_mvt, a
 #                 orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 # fig, ax = plt.subplots(1,1)
 # peak_threshold = 0.1; smooth_window_ms = 3 ;smooth_window_ms = 5 ; cut_plateau_epsilon = 0.1; lim_oscil_perc = 10; low_pass_filter = False
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold , smooth_kern_window , smooth_window_ms, cut_plateau_epsilon , False , 'fft' , False ,
 #                 low_pass_filter, 0,2000, plot_spectrum = True, ax = ax, c_spec = color_dict, spec_figsize = (6,5), find_beta_band_power = False,
 #                 fft_method = 'Welch', n_windows = 3, include_beta_band_in_legend = False)
 # ax.axhline(x_l, ls = '--', c = 'grey')
@@ -6838,7 +6928,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 x_l = 8
@@ -6856,7 +6946,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 x_l = 8
@@ -7028,7 +7118,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -7041,7 +7131,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -7206,7 +7296,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows= n_windows, include_beta_band_in_legend=False)
 
@@ -7219,7 +7309,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows= n_windows, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -7233,6 +7323,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 
 # %% Transition to DD FSI-D2-GPe + Arky-D2-GPe + STN-GPe + GPe-GPe collective
 
+mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
 plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
@@ -7277,18 +7368,25 @@ G = {}
 
 
 g = -0.0025 
-
-
-
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3.5}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.5}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
       }
+## tuned 18 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.5}
+#       }
 
 # D2-Proto tuned
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
@@ -7396,7 +7494,7 @@ plot_end_rest = t_transition - 10
 plot_start_rest =  t_transition - 410
 plot_start_DD = t_sim - 700
 plot_end_DD = t_sim
-
+plot_start
 if 'DD' in state_2:
     
     fig = plot(nuclei_dict, color_dict, dt, (t_list - np.full_like(t_list, plot_start_rest / dt)), 
@@ -7406,11 +7504,9 @@ if 'DD' in state_2:
                include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, ncol_legend = 1,
                xlim = (0, (plot_end_rest - plot_start_rest )), 
                legend_fontsize = 18, label_fontsize = 25, legend = False)
-               
+
     set_x_ticks_one_ax(fig.gca(), [0, 200, 400])
     set_y_ticks_one_ax(fig.gca(), [0, 30, 60])
-
-    # set_y_ticks_one_ax(fig.gca(), [0, 40, 80])
     set_minor_locator(fig.gca(), n = 2, axis = 'both')
     
     save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
@@ -7423,7 +7519,13 @@ if 'DD' in state_2:
                include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
                axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
                xlim = (0, (plot_end_DD - plot_start_DD )))
-    
+    # fig_filtered = plot(nuclei_dict, color_dict, dt, t_list, 
+    #            Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
+    #             title='',  legend_fontsize = 15, label_fontsize = 25,
+    #            legend_loc='upper left', vspan=True, ylim=ylim,
+    #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
+    #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
+    #            plot_filtered=True, low_f = low_f, high_f = high_f, threshold_peak_by_max = 0.5)
     set_y_ticks_one_ax(fig.gca(), [0, 30, 60])
     
     set_x_ticks_one_ax(fig.gca(), [0, 350, 700])
@@ -7472,20 +7574,20 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                           low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                           fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
 
 ax.set_xlim(5, 70)
 ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
-ax.set_ylim(-0.01, 40)
+# ax.set_ylim(-0.01, 40)
 ax.legend(fontsize=10, frameon=False)
 ax.tick_params(axis='both', labelsize=15)
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
               size=(5, 3))
 
 # fig, ax = plt.subplots(1, 1)
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
 #                           low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
 #                           fft_method='Welch', n_windows=n_windows_base, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -7496,9 +7598,9 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 # save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
 #               size=(5, 3))
 
-phase_ref = 'D2'
+phase_ref = 'STN'
 nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=180,
-                                                height=0, phase_ref= phase_ref, start=duration_DD[0], total_phase=720,
+                                                peak_threshold=0, phase_ref= phase_ref, start=duration_DD[0], total_phase=720,
                                                 only_PSD_entrained_neurons= False, troughs = False,
                                                 only_rtest_entrained = True)
 
@@ -7514,9 +7616,9 @@ save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1)
 
 
 #### modulation with laser beta inductions of de la crompe 2020, and Asier unpublished
-mod_dict = {'ChR2_STN' : {'STN': [3, 140], 'Proto' : [36, 75], 'Arky' : [5, 38]},
-            'ArchT_Proto': {'STN': [9, 52], 'Proto' : [57, 5], 'Arky' : [12, 44]},
-            'ArchT_STN': {'STN': [96, 2], 'Proto' : [38, 22], 'Arky' : [0, 0]},
+mod_dict = {'ChR2_STN' : {'STN': [1, 45], 'Proto' : [10, 36], 'Arky' : [10, 1]},
+            'ArchT_Proto': {'STN': [2, 15], 'Proto' : [17, 1], 'Arky' : [4, 12]},
+            'ArchT_STN': {'STN': [16, 0], 'Proto' : [15, 9], 'Arky' : [0, 0]},
             'ChR2_D2_mouse': {'D2': [0, 83], 'STN': [8, 18], 'Proto' : [21, 2], 'Arky' : [9, 30]},
             'ChR2_STN_mouse' : {'STN': [2, 70], 'Proto' : [26, 75], 'Arky' : [1, 5]}}
 
@@ -7559,18 +7661,19 @@ name3 = 'Proto'
 name4 = 'Arky'
 name5 = 'STN'
 
-state_1 = 'rest'
+# state_1 = 'rest'
 state_2 = 'induction'
 
 induction_nuc_name = 'D2'
 beta_induction_method = 'excitation'
 
-# induction_nuc_name = 'Proto'
-# beta_induction_method = 'inhibition'
+induction_nuc_name = 'Proto'
+beta_induction_method = 'inhibition'
 
-induction_nuc_name = 'STN'
-beta_induction_method = 'excitation'
+# induction_nuc_name = 'STN'
+# beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
+state_1 = '_'.join(['induction', induction_nuc_name, beta_induction_method])
 
 # neuronal_consts['Proto']['membrane_time_constant'] = {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}
 beta_induc_name_list = [induction_nuc_name]
@@ -7578,7 +7681,7 @@ beta_induc_name_list = [induction_nuc_name]
 #                   'excitation': {'D2': 3.5, 'STN': 2.4}} # Brice
 
 amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
-                  'excitation': {'D2': 15, 'STN': 6.2}} 
+                  'excitation': {'D2': 15, 'STN': 4}} 
 
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
@@ -7593,18 +7696,27 @@ name_list = [name1, name2, name3, name4, name5]
 G = {}
 
 #### After Asier tuning
-
 g = -0.0025 
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.5}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
       }
 
+# g = -0.0025 ## wrong Brice FR reading
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
+#       }
 #### before Asier tuning
 
 # g = -0.0025 
@@ -7640,7 +7752,7 @@ G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 
                  'tau': { 'rise': {'mean': 1, 'var': .5}, 
-                         'decay': {'mean': 5, 'var': 3}}, 
+                         'decay': {'mean': 5, 'var': 2.3}}, 
                 'g': 0.01} 
                 for name in name_list}
     
@@ -7723,7 +7835,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_from_' + state_1
 # low_pass_filter = False
 
 # fig, ax = plt.subplots(1, 1)
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_induction, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_induction, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
 #                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
 #                          fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
 
@@ -7736,7 +7848,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_from_' + state_1
 #               size=(5, 3))
 
 # fig, ax = plt.subplots(1, 1)
-# find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+# find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
 #                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
 #                          fft_method='Welch', n_windows=n_windows_base, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -7938,7 +8050,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -7951,7 +8063,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -8116,7 +8228,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -8129,7 +8241,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -8310,7 +8422,7 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -8323,7 +8435,7 @@ ax.tick_params(axis='both', labelsize=15)
 #              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
@@ -8345,7 +8457,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 12800 
+t_sim = 6800 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 200
 t_transition = plot_start + 0# int(t_sim / 5)
@@ -8384,16 +8496,38 @@ print( " transition from " , state_1, ' to ', state_2)
 # print_G_items(G)
 
 
+
 g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
       }
+
+# g = -0.0025 # Brice FR wasn't measured right
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4.}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.4}
+#       }
+
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
 
 
 
@@ -8462,7 +8596,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
 
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
-n_run = 6; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+n_run = 1; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
 save_pop_act = True
 round_dec = 1
 include_std = False
@@ -8472,10 +8606,10 @@ n_neuron = 50
 legend_loc = 'center right'
 check_peak_significance = False
 low_f = 12; high_f = 30
-phase_ref = 'D2'
+phase_ref = 'STN'
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_sparsed_aligned_to_' + phase_ref + '.pkl')
+             '_n_' + str(n_run) + '_runs_sparsed_aligned_to_' + phase_ref + 'tuned.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -8495,9 +8629,9 @@ data = multi_run_transition(path, nuclei_dict, filepath, duration, G_dict, color
                             n_phase_bins=n_phase_bins, start_phase= duration[0], phase_ref=phase_ref, save_pxx=save_pxx,
                             plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=False,
                             nuc_order=nuc_order, len_f_pxx=150, state_1 = state_1, state_2 = state_2, K_all = K_all, 
-                            state_change_func = change_states, end_phase = end_phase, save_pop_act = save_pop_act,
+                            state_change_func = change_network_states, end_phase = end_phase, save_pop_act = save_pop_act,
                             only_rtest_entrained = True)
-
+pickle_obj(data, filepath)
 # %% Transition to Beta induction, All nuclei collective multi run
 
 
@@ -8538,8 +8672,8 @@ print( " transition from " , state_1, ' to ', state_2)
 
 
 
-# induction_nuc_name = 'D2'
-# beta_induction_method = 'excitation'
+induction_nuc_name = 'D2'
+beta_induction_method = 'excitation'
 
 # induction_nuc_name = 'Proto'
 # beta_induction_method = 'inhibition'
@@ -8569,14 +8703,14 @@ G = {}
 
 g = -0.0025 
 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4.}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.4}
       }
 
 
@@ -8786,7 +8920,7 @@ smooth_window_ms = 5
 cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -8799,7 +8933,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
              size=(5, 3))
 fig, ax = plt.subplots(1, 1)
 
-find_freq_SNN_not_saving(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
                          fft_method='Welch', n_windows=3, include_beta_band_in_legend=False)
 
@@ -12272,35 +12406,49 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_12300_n_6_runs_sparsed_aligned_to_D2.pkl' )
-# y_max_series = {'D2': 0.8, 'STN': 9, 'Arky': 4, 'Proto': 5, 'FSI': 1.5}
-# n_decimal = 0
-# phase_ref = 'D2'
-# plot_FR = False; scale_count_to_FR = True
-# y_max_series = {'D2': 6, 'STN': 36, 'Arky': 17, 'Proto': 30, 'FSI': 9}
-# # y_max_series = {'D2': 15, 'STN': 75, 'Arky': 31, 'Proto': 70, 'FSI': 25} # with single neuron traces
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_20300_n_1_runs_sparsed_aligned_to_STNtuned.pkl' )
+
+y_max_series = {'D2': 0.8, 'STN': 9, 'Arky': 4, 'Proto': 5, 'FSI': 1.5}
+n_decimal = 0
+phase_ref = 'D2'
+plot_FR = False; scale_count_to_FR = True
+y_max_series = {'D2': 6, 'STN': 36, 'Arky': 17, 'Proto': 30, 'FSI': 9}
+y_max_series = {'D2': 15, 'STN': 75, 'Arky': 31, 'Proto': 70, 'FSI': 25} # with single neuron traces
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+
 # y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
 # n_decimal = 0
 # plot_FR = True; scale_count_to_FR = True
 # y_max_series = {'D2': 1., 'STN': 40, 'Arky': 17, 'Proto': 84, 'FSI': 8}
 # y_max_series = {'D2': 13., 'STN': 40, 'Arky': 40, 'Proto': 84, 'FSI': 20}  # with single neuron traces
+# y_max_series = {'D2': 8., 'STN': 160, 'Arky': 40, 'Proto': 84, 'FSI': 11}  # with single neuron traces
+
 # phase_ref = 'stimulation'
 
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
-y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
-n_decimal = 0
-plot_FR = True; scale_count_to_FR = True
-y_max_series = {'D2': 6., 'STN': 26, 'Arky': 30, 'Proto': 65, 'FSI': 20}
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+
+# y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
+# n_decimal = 0
+# plot_FR = True; scale_count_to_FR = True
+# y_max_series = {'D2': 6., 'STN': 26, 'Arky': 30, 'Proto': 65, 'FSI': 20}
 # y_max_series = {'D2': 22., 'STN': 66, 'Arky': 55, 'Proto': 90, 'FSI': 35}  # with single neuron traces
-phase_ref = 'D2'
+# y_max_series = {'D2': 60., 'STN': 80, 'Arky': 55, 'Proto': 100, 'FSI': 50}  # with single neuron traces
+
+# phase_ref = 'D2'
 # phase_ref = 'stimulation'
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+
 # y_max_series = {'D2': 0.2, 'STN': 1., 'Arky': 2.5, 'Proto': 9, 'FSI': 0.8}
 # plot_FR = True; scale_count_to_FR = True
 # y_max_series = {'D2': 1, 'STN': 48, 'Arky': 40, 'Proto': 90, 'FSI': 42}
 # y_max_series = {'D2': 5, 'STN':90, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
+# y_max_series = {'D2': 5, 'STN':110, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
+
 # n_decimal = 0
 # phase_ref = 'stimulation'
 
@@ -12322,11 +12470,11 @@ shift_phase = None
 # shift_phase = 'both'
 
 plot_single_neuron_hist = False
-# plot_single_neuron_hist = True
+plot_single_neuron_hist = True
 smooth_hist = True
 box_plot = False
 shift_all_phases = None
-fig = phase_summary(filename, name_list, color_dict, n_g_list, phase_ref=phase_ref,
+fig = phase_plot(filename, name_list, color_dict, n_g_list, phase_ref=phase_ref,
                     shift_phase=shift_phase, set_ylim=True, y_max_series=y_max_series, coef = coef,
                     ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
                     tick_label_fontsize = 10, lw = 0.5, name_fontsize = 12, 
@@ -13632,7 +13780,7 @@ state = 'rest'
 (synaptic_time_constant[(name2, name1)],
  synaptic_time_constant[(name1, name2)]) = [10], [6]
 
-g = - 2
+g = -0.
 G = {('STN', 'Proto'): g,
      ('Proto', 'STN'): -g}  # synaptic weight
 
@@ -13654,8 +13802,31 @@ nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,  plot_start=plot_start) 
 figname = 'STN-GPe loop with Proto-Proto_no_ocsill'
 
-# temp_oscil_check(nuclei_dict['STN'][0].pop_act,
-#                  oscil_peak_threshold['STN'], 3, dt, *duration_mvt)
+peak_threshold = 0.1
+smooth_window_ms = 5
+cut_plateau_epsilon = 0.1
+lim_oscil_perc = 10
+low_pass_filter = False
+check_stability = False
+freq, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration_mvt, lim_oscil_perc, peak_threshold,
+                             smooth_kern_window, smooth_window_ms,
+                             cut_plateau_epsilon, check_stability, 'fft', False,
+                             low_pass_filter, 0, 100, plot_spectrum=True, 
+                             ax=None, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+                             fft_method='Welch', n_windows=3, include_beta_band_in_legend=True, smooth = False, 
+                             normalize_spec = False, include_peak_f_in_legend = True,
+                             check_significance = False, plot_sig_thresh = False, plot_peak_sig = False,
+                             min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8)
+
+# freq, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration_mvt, lim_oscil_perc, peak_threshold,
+#                              smooth_kern_window, smooth_window_ms,
+#                              cut_plateau_epsilon, check_stability, 'zero_crossing', False,
+#                              low_pass_filter, 0, 100, plot_spectrum=False, 
+#                              ax=None, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+#                              fft_method='rfft', n_windows=6, include_beta_band_in_legend=True, smooth = False, 
+#                              normalize_spec = False, include_peak_f_in_legend = True,
+#                              check_significance = False, plot_sig_thresh = False, plot_peak_sig = False,
+#                              min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8)
 
 # %% RATE MODEL : GPe-GPe G-sweep
 
@@ -14810,6 +14981,94 @@ figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act
                                          plot_sig_thresh = False, min_f = 8, max_f = 60, n_std_thresh = 2,
                                          save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
                                          change_states = False, save_pop_act = True, print_AUC_ratio = False)
+
+
+# %% RATE MODEL : Pallidostriatal + Proto-Proto Phase space
+
+plt.close('all')
+N_sim = 100
+N = dict.fromkeys(N, N_sim)
+
+if_plot = False
+dt = 0.1
+t_sim = 4500
+t_list = np.arange(int(t_sim/dt))
+t_mvt = 500
+D_mvt = t_sim - t_mvt
+duration = [500, int(t_sim/dt)]
+n_windows = 2
+
+name1 = 'Proto'
+name2 = 'D2'
+name3 = 'FSI'
+
+state_1 = 'awake_rest'
+state_2 = 'mvt'
+
+name_list = {name1, name2, name3} 
+
+
+receiving_pop_list = {(name3, '1'): [(name1, '1')],
+                      (name1, '1'): [(name2, '1'), (name1, '1')],
+                      (name2, '1'): [(name3, '1')]}
+
+(synaptic_time_constant[(name2, name3)],
+ synaptic_time_constant[(name3, name1)],
+ synaptic_time_constant[(name1, name2)],
+ synaptic_time_constant[(name1, name1)]) = [10], [10], [10], [10]
+
+
+G = {
+    (name2, name3): -1,
+    (name3, name1): -1,
+    (name1, name2): -1,
+    (name1, name1): -1, 
+}
+n = 15
+g_P_list = - np.linspace(2, 4.5, n, endpoint=True)
+g_FSI_list = - np.linspace(0.5, 3, n, endpoint=True)
+
+
+G_ratio_dict = {
+    
+    (name2, name3): g_FSI_list,
+    (name3, name1): g_FSI_list,
+    (name1, name2): g_FSI_list,
+    (name1, name1): g_P_list}
+
+
+loop_key_lists = [[(name1, name1)],
+                  [(name2, name3),
+                   (name3, name1),
+                   (name1, name2)]]
+
+lim_n_cycle = [6, 10]
+pop_list = [1]
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude,
+                              N, Act[state_1], Act[state_2], name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
+                              smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
+
+
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, 
+                                                       N_real, K_real, receiving_pop_list, nuclei_dict, 
+                                                       t_list, change_states = False)
+filename = os.path.join(path_rate, 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_' + str(n) + '.pkl')
+
+figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act[state_2], D_mvt,
+                                         t_mvt, t_list, dt, filename, 
+                                         loop_key_lists, nuclei_dict, duration, receiving_class_dict, 
+                                         color_dict, plot_firing = False, G_ratio_dict = G_ratio_dict, 
+                                         legend_loc = 'upper left', vspan_stable = False, path = path_rate, 
+                                         legend_fontsize = 12, ylim  = [-4, 76],
+                                         legend_fontsize_rec= 18, n_windows = n_windows, check_stability = True,
+                                         lower_freq_cut = 8, upper_freq_cut = 60, freq_method = 'fft',
+                                         peak_threshold= 0.7, ### Note that the plot is x10^2
+                                         smooth_kern_window=3, smooth_window_ms = 5,
+                                         cut_plateau_epsilon=0.1, plot_sig = False, low_pass_filter = False,
+                                         lim_oscil_perc=10, plot_spectrum = False, normalize_spec = False,
+                                         plot_sig_thresh = False, min_f = 0, max_f = 200, n_std_thresh = 2,
+                                         save_pxx = True, len_f_pxx = 250, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
+                                         change_states = False, save_pop_act = True, print_AUC_ratio = True)
 # %% Parameterscape RATE MODEL
 
 plt.close('all')
@@ -14817,22 +15076,41 @@ plt.close('all')
 filename = 'RM_parameterscape_Proto-STN-0-5_4_Proto-D2_0-5_4_2d.pkl'
 filename =  'test_2d.pkl'
 # filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_12.pkl'
-# filename = 'RM_parameterscape_Proto-STN-0-5_2-8_Proto-D2_0-5_2-8_2d_n_12.pkl'
+filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
+filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
+# filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_10.pkl'
 
 examples_ind = {'A' : (0, 14), 'B': (11, 14),
                 'C': (10, 12), 'D': (10, 10),
                 'E' : (2, 3), 'F': (8, 8),
                 'G':(14, 0), 'H': (4, 10)
                 }
-examples_ind = {'A' : (3, 2), 'B': (0, 11) , 
-                'C': (11, 0), 'D': (4, 9), 
-                'E': (1, 10), 'F':(11,11) }
+
+examples_ind = {'A' : (0, 14),
+                'B' : (8, 10),
+                'C': (10, 9),
+                'D': (6, 6),
+                'E':(14, 0)
+                }
+# examples_ind = {'A' : (2, 2), 'B': (4, 4) , 
+#                'C': (5, 3),  'D': (0, 9),
+#                 }
+
+
+# examples_ind = {'A' : (0, 0), 'B': (0, 1) , 
+#                 'C': (1, 0), 'D': (1, 1)}
 dt = 0.1
-key_x = ('Proto', 'D2')
-key_y = ('Proto', 'STN')
+key_y = ('Proto', 'D2')
+ylabel = r'$G_{Proto-D2}$'
+
+key_x = ('Proto', 'STN')
 name_list = ['D2', 'FSI', 'Proto', 'STN']
 xlabel = r'$G_{Proto-STN}$'
-ylabel = r'$G_{Proto-D2}$'
+
+key_x = ('Proto', 'Proto')
+name_list = ['D2', 'FSI', 'Proto']
+xlabel = r'$G_{Proto-Proto}$'
+
 
 markerstyle_list = ['o', 'o', 's', 'o']
 size_list = np.array([4, 2, 1, 0.5]) * 1000
@@ -14867,18 +15145,19 @@ colormap = freq_dict
 
 
 fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
-                    size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
+                    size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param,
                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
+
+fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
+save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1.5, .8 * n_y))
 
 
 fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, 
-                                               color_dict, Act, plt_duration = 3000, run_no = 0)
+                                                  color_dict, Act, plt_duration = 700, run_no = 0,
+                                                  normalize_spec = True, PSD_ylim = (-5, 120))
+save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (8, 10))
 
-save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (10, 15))
 
-
-fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
-save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1, .8 * n_y))
 
 # %% RATE MODEL : frequency vs. G - multiple tau-ratios
 g_cte_ind = [0, 0, 0]
