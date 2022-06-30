@@ -1,4 +1,3 @@
-# from __future__ import division
 import os
 import sys
 import subprocess
@@ -15,35 +14,24 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as pe
-
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter, AutoMinorLocator
 from matplotlib import cm
+
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from numpy.fft import rfft, fft, fftfreq, ifft, fftshift
-from numpy import inf
 
+from numpy.fft import rfft, fft, fftfreq, ifft, fftshift
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.stats import truncexpon, skewnorm
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, hilbert
 from scipy import signal, stats
-from scipy.sparse import csc_array,csc_matrix, lil_matrix
+import scipy.sparse as sp
 
 from tempfile import TemporaryFile
 from pygifsicle import optimize
 from PIL import Image
 from astropy.stats import rayleightest
-
-# try:
-    
-#     import jsonpickle
-    
-# except ImportError or ModuleNotFoundError:
-    
-#     subprocess.check_call(
-#         [sys.executable, '-m', 'pip', 'install', 'jsonpickle'])
-
 
 
 
@@ -116,7 +104,7 @@ class Nucleus:
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
         plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
-        keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2, sparse_spike_history = False,
+        keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2, spike_history = 'long-term',
         rtest_p_val_thresh = 0.05):
 
         if set_random_seed:
@@ -197,7 +185,6 @@ class Nucleus:
             
             print('Initializing ', name)
             
-            self.sparse_spike_history = sparse_spike_history
             self.pop_act = []  # time series of population activity
 
             self.transmission_delay = {}
@@ -255,17 +242,22 @@ class Nucleus:
             self.phase_bins = None
             self.rtest_p_val_thresh = rtest_p_val_thresh
             self.rtest_passed_neuron_ind = None
-            
-            if self.sparse_spike_history:
+            self.spike_history = spike_history
+
+            if spike_history == 'short-term':
                 
                 self.spikes = np.zeros((self.n, self.history_duration), dtype=int) ## limited spike history 
                 max_FR = max( {state: FR[name] for state, FR in Act.items() if name in FR}.values())
-                self.spike_times = np.zeros((self.n, int(t_sim * dt * max_FR * upscaling_spk_counts)), dtype=int)
+                self.spike_times = np.zeros((self.n, 
+                                             int(t_sim * dt * max_FR * upscaling_spk_counts)), dtype=int)
                 self.ind_last_spike = np.zeros(self.n)
                 
-            else:
+            elif spike_history == 'long-term':
                 
                 self.spikes = np.zeros((self.n, int(t_sim/dt)), dtype=int)
+                
+            elif spike_history == 'sparse':
+                self.spikes = sp.lil_array((self.n, int(t_sim/dt)), dtype=int)
                 
             if keep_ex_voltage_trace:
                 
@@ -308,6 +300,17 @@ class Nucleus:
             self.noise_generator_dict = { 'Gaussian' : noise_generator,
                                           'Ornstein-Uhlenbeck': OU_noise_generator}
             
+            self.save_new_spikes_method_dict = {'short-term': self.save_new_spikes_short_history,
+                                                'long-term': self.save_new_spikes,
+                                                'sparse': self.save_new_spikes}
+            
+            self.cal_synaptic_input_method_dict = {'short-term': self.cal_synaptic_input_short_history,
+                                                   'long-term': self.cal_synaptic_input_long_history,
+                                                   'sparse' : self.cal_synaptic_input_sparse_history}
+            
+            self.get_spike_times_of_neuron_method_dict = {'short-term': self.get_spike_times_of_neuron_short_history,
+                                                          'long-term': self.get_spike_times_of_neuron_long_history,
+                                                          'sparse' : self.get_spike_times_of_neuron_sparse_history}
     def get_max_spike_history_t(self, T, dt):
         
         max_transmission_delays = {k: v['truncmax'] for k,v in  T.items()}
@@ -665,7 +668,6 @@ class Nucleus:
         else:
             self.synaptic_weight_specs = self.synaptic_weight
             
-        self. change_connectivity_mat_to_sparse()
 
         
     def set_connections(self, K, N):
@@ -696,9 +698,9 @@ class Nucleus:
         
         #### csc_array is faster that csr_array.
         self.connectivity_matrix = { k : 
-                                    csc_array(v)
+                                    sp.csc_array(v)
                                     for k, v in self.connectivity_matrix.items()
-                                   }
+                                    }
         
     def multiply_connectivity_mat_by_G(self, N, plot_G_hist = False):
         
@@ -728,7 +730,8 @@ class Nucleus:
                 
             self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
                                                                 self.connectivity_matrix[proj_name,projecting[1]]
-                                                                
+             
+            self.change_connectivity_mat_to_sparse()                                                    
             if plot_G_hist:
                 
                  ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
@@ -843,53 +846,95 @@ class Nucleus:
 
             
                    
-    # def cal_synaptic_input(self, dt, projecting, t):
-        
-    #     ''' Calcculate synaptic input of the given projection 
-    #         with heterogeneous transmission delays with sparse connectivity and spike matrices'''
-    #     #### having a sparse "lil_matrix" for constructing the spike times increases runtime
-        
-    #     self.syn_inputs[projecting.name, 
-    #                     projecting.population_num] = (
-
-    #                                       (self.connectivity_matrix[(projecting.name, projecting.population_num)] @
-    #                                       projecting.spikes[(np.arange(self.n), 
-    #                                                   t  - self.transmission_delay[(self.name, projecting.name)])].toarray().reshape(-1,)
-    #                                             ) * \
-    #                                   self.membrane_time_constant  / dt).reshape(-1,)
-        
-    def cal_synaptic_input(self, dt, projecting, t):
+    def cal_synaptic_input_sparse_history(self, dt, projecting, t):
         
         ''' Calcculate synaptic input of the given projection 
             with heterogeneous transmission delays with sparse connectivity and spike matrices'''
-        #### having a sparse "lil_matrix" for constructing the spike times increases 
-        # runtime so going store spike times separatly and keep the spikes with a limited history
+
+        # print(type(self.connectivity_matrix[(projecting.name, projecting.population_num)]),
+        #      type(projecting.spikes[
+        #          (np.arange(self.n), 
+        #           t  - self.transmission_delay[
+        #                      (self.name, 
+        #                       projecting.name)])].tocsc().T)
+        #      )
+        self.syn_inputs[projecting.name, 
+                        projecting.population_num] =( (self.connectivity_matrix[(projecting.name, 
+                                                                                  projecting.population_num)] @ 
+                                                        projecting.spikes[
+                                                            (np.arange(self.n), 
+                                                            t  - self.transmission_delay[
+                                                                        (self.name, 
+                                                                        projecting.name)])].tocsr().T).toarray().reshape(-1,) * \
+                                      self.membrane_time_constant  / dt).reshape(-1,)
+
+        # self.syn_inputs[projecting.name, 
+        #                 projecting.population_num] =( (self.connectivity_matrix[(projecting.name, 
+        #                                                                          projecting.population_num)] @ 
+        #                                                projecting.spikes.toarray()[
+        #                                                    (np.arange(self.n), 
+        #                                                     t  - self.transmission_delay[
+        #                                                                (self.name, 
+        #                                                                 projecting.name)])]).reshape(-1,) * \
+        #                               self.membrane_time_constant  / dt).reshape(-1,)                                                                                 
+    def cal_synaptic_input_long_history(self, dt, projecting, t):
+        
+        ''' Calcculate synaptic input of the given projection 
+            with heterogeneous transmission delays with sparse connectivity and 
+            a long spike history matrices'''
+
         
         self.syn_inputs[projecting.name, 
                         projecting.population_num] = (
 
                                           (self.connectivity_matrix[(projecting.name, projecting.population_num)] @
                                           projecting.spikes[(np.arange(self.n), 
-                                                        # - self.transmission_delay[(self.name, projecting.name)])] ## limited spike history 
                                                         t - self.transmission_delay[(self.name, projecting.name)])]
 
                                                 ) * \
                                       self.membrane_time_constant  / dt).reshape(-1,)
                                                                              
+    def cal_synaptic_input_short_history(self, dt, projecting, t):
+        
+        ''' Calcculate synaptic input of the given projection 
+            with heterogeneous transmission delays with sparse connectivity and 
+            short spike history matrices'''
 
-    def find_spikes(self, t):
+        
+        self.syn_inputs[projecting.name, 
+                        projecting.population_num] = (
+
+                                          (self.connectivity_matrix[(projecting.name, projecting.population_num)] @
+                                          projecting.spikes[(np.arange(self.n), 
+                                                        - self.transmission_delay[(self.name, projecting.name)])] ## limited spike history 
+                                                        # t - self.transmission_delay[(self.name, projecting.name)])]
+
+                                                ) * \
+                                      self.membrane_time_constant  / dt).reshape(-1,)
+                                                                             
+
+    def find_and_save_new_spikes(self, t):
 
         spiking_ind = np.where(self.mem_potential > self.spike_thresh)[0]
         
-        self.spikes[spiking_ind, t] = 1 ## full spike history 
-        
-        # self.shift_spikes_back( spiking_ind) ## limited spike history 
-        # self.ind_last_spike[spiking_ind] += 1
-        # self.spike_times[(spiking_ind, 
-        #                   (self.ind_last_spike[spiking_ind] + 1).astype(int))] = t
+        self.save_new_spikes_method_dict [self.spike_history] (spiking_ind, t)
         
         return spiking_ind
 
+    def save_new_spikes(self, spiking_ind, t):
+        
+        self.spikes[spiking_ind, t] = 1 ## full spike history 
+
+    def save_new_spikes_short_history(self, spiking_ind, t):
+        
+        self.shift_spikes_back(spiking_ind) ## limited spike history 
+        self.ind_last_spike[spiking_ind] += 1
+        self.spike_times[(spiking_ind, 
+                          (self.ind_last_spike[spiking_ind] + 1).astype(int))] = t
+    
+    def save_new_spikes_long_history(self, spiking_ind, t):
+        
+        self.spikes[spiking_ind, t] = 1 ## full spike history 
 
     def shift_spikes_back(self, spiking_ind):
         
@@ -901,7 +946,7 @@ class Nucleus:
 
     def cal_population_activity_all_t(self, dt):
         
-        if self.sparse_spike_history:
+        if self.spike_history == 'short-term':
             spikes = np.zeros((self.n, self.n_timebins)) ## limited spike history 
             
             for n in range(self.n):
@@ -910,9 +955,11 @@ class Nucleus:
             self.pop_act = np.average(spikes, axis = 0)/ (dt/1000)
             
         
-        else:
+        elif self.spike_history == 'long-term':
             self.pop_act = np.average(self.spikes, axis=0)/ (dt/1000)
-           
+         
+        elif self.spike_history == 'sparse':
+            self.pop_act = np.average(self.spikes.toarray(), axis = 0) / (dt/1000)
                                                  
     def sum_synaptic_input(self, receiving_from_class_list, dt, t):
         
@@ -922,7 +969,7 @@ class Nucleus:
         
         for projecting in receiving_from_class_list:
 
-            self.cal_synaptic_input(dt, projecting, t)
+            self.cal_synaptic_input_method_dict [self.spike_history] (dt, projecting, t)
             synaptic_inputs = synaptic_inputs + \
                               self.sum_components_of_one_synapse(t, dt, 
                                                                  projecting.name, 
@@ -999,7 +1046,7 @@ class Nucleus:
         self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
         synaptic_inputs = np.zeros(self.n)
         self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
-        spiking_ind = self.find_spikes(t)
+        spiking_ind = self.find_and_save_new_spikes(t)
         # self.reset_potential(spiking_ind)
         self.reset_potential_with_interpolation(spiking_ind, dt)
 
@@ -1008,7 +1055,7 @@ class Nucleus:
         self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
         synaptic_inputs = self.sum_synaptic_input(receiving_from_class_list, dt, t)
         self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
-        spiking_ind = self.find_spikes(t)
+        spiking_ind = self.find_and_save_new_spikes(t)
         # self.reset_potential(spiking_ind)
         self.reset_potential_with_interpolation(spiking_ind,dt)
         
@@ -1166,14 +1213,20 @@ class Nucleus:
                 mem_pot_init_method = self.mem_pot_init_method
 
             self.initialize_mem_potential(method=mem_pot_init_method)
-            self.spikes[:, :] = 0
             self.neuron_spike_phase_hist = {}
             self.noise[:, :] = 0
             
-            if self.sparse_spike_history:
+            if self.spike_history == 'short-term':
                 
                 self.ind_last_spike[:] = 0
                 self.spike_times[:,:] = 0
+                self.spikes[:, :] = 0
+
+            elif self.spike_history == 'long-term':
+                self.spikes[:, :] = 0
+                
+            elif self.spike_history == 'sparse':
+                self.spikes = sp.lil_matrix(self.spikes.shape)
                 
     def smooth_pop_activity(self, dt, window_ms=5):
         
@@ -1526,7 +1579,7 @@ class Nucleus:
       
     def find_peaks_of_pop_act(self, dt, low_f, high_f, filter_order = 6, 
                               peak_threshold = None, start = 0, end = None, 
-                              threshold_by_percentile = 0.75):
+                              threshold_by_percentile = 75, ax = None):
         """
         
 
@@ -1567,10 +1620,27 @@ class Nucleus:
         sig = act[start : end]
         amplitude_envelope = get_sig_amp_envelope(sig)
         peak_threshold = peak_threshold or np.percentile(amplitude_envelope, threshold_by_percentile)
-        print('ref peak threshold = ', round(peak_threshold, 3))
+        
+        peaks_zero_thresh,_ = signal.find_peaks(sig, height = 0)
         peaks,_ = signal.find_peaks(sig, height = peak_threshold)
         
-        return peaks, act
+        print('ref peak threshold = ', round(peak_threshold, 3))
+
+        print("n zero thresh peaks =", len(peaks_zero_thresh), 
+              "n " + str(threshold_by_percentile), " percentile =",
+              len(peaks))
+
+        if ax != None:
+            
+            tlist = np.arange(start, end)
+            ax.plot(act)
+            ax.plot(tlist, sig)
+            ax.plot(tlist, amplitude_envelope)
+            ax.axhline(peak_threshold, xmin = 0, xmax = end, ls = '--')
+            ax.scatter(tlist[peaks], sig[peaks], marker = 'x')
+            ax.set_title(self.name)
+            
+        return peaks + start, act
 
 
 ########  population wise phase hist calculations
@@ -1649,10 +1719,30 @@ class Nucleus:
                   It has to be either 'all' or the list of indices of neurons to be included.")
             return 0
         
+    # def get_spike_times_of_neuron(self, n):
+    #     if self.spike_history:
+    #         return self.spike_times[n, :]
+    #     else:
+    #         return np.where(self.spikes[n,:] == 1)[0]
+        
+    def get_spike_times_of_neuron_short_history(self, n):
+        
+        return self.spike_times[n, :]
+    
+    def get_spike_times_of_neuron_long_history(self, n):
+        
+        return np.where(self.spikes[n,:] == 1)[0]
+
+    def get_spike_times_of_neuron_sparse_history(self, n):
+        
+        return sp.find(self.spikes[n, :])[:2]
+    
+
+        
     def find_phase_hist_of_spikes(self, dt, low_f, high_f, filter_order = 6, start = 0, 
                                   ref_peaks = [], n_bins = 20, total_phase = 720, phase_ref = None, 
                                   neurons_ind = 'all', troughs = False, end = None, 
-                                  keep_only_entrained = True):
+                                  keep_only_entrained = True, max_cycle_t = 83, ax = None, act = None):
         
         ''' find the average phases of each neuron over all cycles '''
         
@@ -1662,14 +1752,17 @@ class Nucleus:
         
         rayleigh_test_p_values = np.zeros(self.n)
         
-        left_peak_series, right_peak_series = set_peak_iterators(total_phase, ref_peaks, troughs = troughs)
+        left_peak_series, right_peak_series = set_peak_iterators(total_phase, ref_peaks, dt, 
+                                                                 troughs = troughs, 
+                                                                 max_cycle_t= max_cycle_t)
         n_cycles = len (left_peak_series)
         cycle_durations = right_peak_series - left_peak_series
         
+        plot_filtered_ref_peaks(ax, left_peak_series, right_peak_series, act)
         
         for i, n in enumerate( neurons_ind ):
             
-            spike_times = np.where(self.spikes[n,:] == 1)[0]
+            spike_times = self.get_spike_times_of_neuron_method_dict [self.spike_history] (n)
             phases = np.empty(0)
             
             for (cycle_t, left_peak, right_peak) in zip(cycle_durations, left_peak_series, right_peak_series ): 
@@ -1692,7 +1785,11 @@ class Nucleus:
             
             self.filter_phase_on_rtest(rayleigh_test_p_values, phase_ref)
         
-        
+        if total_phase == 360:
+
+            self.neuron_spike_phase_hist[phase_ref], self.phase_bins = double_phase_hist_cycle_2d(
+                                                                                    self.neuron_spike_phase_hist[phase_ref], 
+                                                                                    self.phase_bins)
     def filter_phase_on_rtest(self, rayleigh_test_p_values, phase_ref):
         
 
@@ -1883,6 +1980,12 @@ class Nucleus:
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
  
 
+def plot_filtered_ref_peaks(ax, left_peak_series, right_peak_series, act):
+    
+    if ax != None:
+        
+        ax.scatter(left_peak_series, act[left_peak_series] + 1, marker = '*', c = 'purple')
+        ax.scatter(right_peak_series, act[right_peak_series] + 3, marker = 's', c = 'navy')
 # def find_phase_of_spikes_bet_2_peaks(left_peak_time, right_peak_time, all_spikes, total_phase = 360):
     
 #     ''' For all neurons collectively'''
@@ -2064,10 +2167,10 @@ def keep_beta_bursts(left_peak_series, right_peak_series, dt, max_cycle_t = 83):
     right_peak_series : 1D-array
         second element of the peak pairs filtered for the desired periods.
     """
-    
-    ind_exceeding, _ = np.where(right_peak_series - left_peak_series > max_cycle_t / 1000 / dt)
-    
-    return right_peak_series[~ ind_exceeding], left_peak_series[~ ind_exceeding]
+    ind_burst = np.where(right_peak_series - left_peak_series < max_cycle_t / dt)
+    print("n all ref peaks =", len(right_peak_series),
+          "n burst peaks = ", len(ind_burst[0]))
+    return left_peak_series[ind_burst], right_peak_series[ind_burst]
 
 def set_peak_iterators(total_phase, ref_peaks, dt, troughs = False, max_cycle_t = 83):
     
@@ -2358,7 +2461,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
     if nuclei_dict[ list( nuclei_dict.keys())[0]][0].neuronal_model != 'rate':
         
         FR_ext_filename_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
-
+        
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
@@ -2552,14 +2655,13 @@ def find_beta_induction_nucleus(nuclei_dict):
     return False, None, None, None
 
 def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = 6, 
-                         peak_threshold = None, threshold_by_percentile = .75, 
+                         peak_threshold = None, threshold_by_percentile = 75, 
                          start = 0, end = None, plot_ref_peaks = False,
-                         shift_phases = False, shift_theta= 0, align_to_stim_onset = True):
+                         shift_phases = False, shift_theta= 0, align_to_stim_onset = True, ax = None):
     
     beta_stim, beta_stim_method, beta_stim_nuc, stim_t_series = find_beta_induction_nucleus(nuclei_dict)
     
     print('aligning phases to {} peaks'.format(phase_ref))
-    
     if beta_stim and phase_ref == 'stimulation':
         
         if beta_stim_method == 'excitation':
@@ -2569,23 +2671,26 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
         elif beta_stim_method == 'inhibition':
             
             ref_peaks, _ = signal.find_peaks( - stim_t_series, height = 0)
-            
-            
-            
+                        
         plot_ref_peaks_cyclic_stim(stim_t_series, ref_peaks, plot_ref_peaks)
         
         if align_to_stim_onset :
             
             shift_phases = True ; shift_theta = 90
-            
+        
+        if ax != None:
+            ax.plot(stim_t_series)
+        act = stim_t_series
+        
     elif phase_ref in list( nuclei_dict.keys()):
         
         
-        ref_peaks, _ = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, 
+        ref_peaks, act = nuclei_dict[phase_ref][0].find_peaks_of_pop_act(dt, low_f, high_f, 
                                                                        filter_order = filter_order, 
                                                                        peak_threshold = peak_threshold, 
                                                                        start = start, end = end,
-                                                                       threshold_by_percentile = threshold_by_percentile)
+                                                                       threshold_by_percentile = threshold_by_percentile,
+                                                                       ax = ax)
         
     else: 
         
@@ -2596,7 +2701,7 @@ def get_phase_ref_peaks( nuclei_dict, phase_ref, dt, low_f, high_f, filter_order
         print(' shifting stimulation reference peaks {} degrees'.format(shift_theta))
         ref_peaks = shift_ref_peaks(ref_peaks, theta = shift_theta)
     
-    return ref_peaks
+    return ref_peaks, act
 
 def shift_ref_peaks(ref_peaks, theta = 90):
     
@@ -2614,20 +2719,22 @@ def plot_ref_peaks_cyclic_stim(stim_t_series, ref_peaks, plot_ref_peaks):
         ax.plot(ref_peaks, stim_t_series[ref_peaks], 'x')
         
 def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_order = 6, n_bins = 90,
-                                       peak_threshold = None , phase_ref = None, start = 0, total_phase = 720,
+                                       peak_threshold = None , phase_ref = None, start = 0, total_phase = 360,
                                        only_PSD_entrained_neurons = False, min_f_sig_thres = 0,window_mov_avg = 10, max_f = 250,
                                        n_window_welch = 6, n_sd_thresh = 2, n_pts_above_thresh = 2, end = None,
                                        min_f_AUC_thres = 7,  PSD_AUC_thresh = 10**-5, filter_based_on_AUC_of_PSD = False, 
                                        troughs = False, plot_ref_peaks = False, shift_ref_theta = 0, shift_ref_phases = False,
                                        align_to_stim_onset = True, shift_all_phases = False, shift_all_theta = 0,
-                                       only_rtest_entrained = True, threshold_by_percentile = .75):
-    
-
-    ref_peaks = get_phase_ref_peaks(nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = filter_order, 
+                                       only_rtest_entrained = True, threshold_by_percentile = 75,
+                                       plot = False, ax = None):
+     
+    if plot: fig, ax = plt.subplots()
+    ref_peaks, act = get_phase_ref_peaks(nuclei_dict, phase_ref, dt, low_f, high_f, filter_order = filter_order, 
                                     peak_threshold = peak_threshold, start = start, end = end, plot_ref_peaks = plot_ref_peaks,
                                     shift_theta = shift_ref_theta, shift_phases = shift_ref_phases, 
                                     align_to_stim_onset= align_to_stim_onset,
-                                    threshold_by_percentile = threshold_by_percentile)
+                                    threshold_by_percentile = threshold_by_percentile,
+                                    ax = ax)
     
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
@@ -2648,7 +2755,8 @@ def find_phase_hist_of_spikes_all_nuc( nuclei_dict, dt, low_f, high_f, filter_or
                                               start = start, ref_peaks = ref_peaks, 
                                               total_phase = total_phase, phase_ref = phase_ref, 
                                               neurons_ind = neurons_ind, end = end, 
-                                              keep_only_entrained = only_rtest_entrained)
+                                              keep_only_entrained = only_rtest_entrained,
+                                              act = act, ax = ax)
 
             if shift_all_phases:
                 
@@ -2959,28 +3067,33 @@ def plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict,
     
     if plot_FR:
         
-        ax.plot(angles, np.full(len(angles),
-                                FR_dict[name][state]['mean']), 
-                '-.' ,
-                color = color_dict[name], lw = lw)
-        ax.fill_between(angles, 
-                        np.full ( len(angles), 
-                                         FR_dict[name][state]['mean'] - FR_dict[name][state]['SEM']), 
-                        np.full ( len(angles), 
-                                         FR_dict[name][state]['mean'] + FR_dict[name][state]['SEM']),
-                       alpha = alpha , color = color_dict[name])
-        
-def extract_spike_phases_Brice(filepath, shift_phase = 90, total_phase = 360):
+        try:
+            ax.plot(angles, np.full(len(angles),
+                                    FR_dict[name][state]['mean']), 
+                    '-.' ,
+                    color = color_dict[name], lw = lw)
+            ax.fill_between(angles, 
+                            np.full ( len(angles), 
+                                             FR_dict[name][state]['mean'] - FR_dict[name][state]['SEM']), 
+                            np.full ( len(angles), 
+                                             FR_dict[name][state]['mean'] + FR_dict[name][state]['SEM']),
+                           alpha = alpha , color = color_dict[name])
+        except:
+            ax.plot(angles, np.full(len(angles),
+                                    FR_dict[name]), 
+                    '-.' ,
+                    color = color_dict[name], lw = lw)
+def extract_spike_phases_Brice(filepath, shift_phase_deg = 0, total_phase = 360):
     
     '''extract the spike phases reported for a single neuron for each laser stimulation '''
     
     df = pd.read_table(filepath, skiprows=[0], header = [0])
     df = df [ df ['Times'].notna() ].reset_index()
     
-    n_sweeps = int(np.max(df [ df ['Sweep'].notna() ].values))
+    n_sweeps = int(np.max(df [ df ['Sweep'].notna() ] ['Sweep'].values))
     
     corr_laser_sweep_inds = np.where( df['Events'].notna() )[0]
-    spike_phases = np.remainder( df['Times'] + shift_phase, total_phase) ## laser max is at phase = 0
+    spike_phases = np.remainder( df['Times'] + 90 + shift_phase_deg, total_phase) ## laser max is at phase = 0
     
     return spike_phases, corr_laser_sweep_inds, n_sweeps
 
@@ -3007,17 +3120,15 @@ def look_at_one_neuron_laser_Brice(filepath, total_phase, n_bins, name, color_di
     raster_plot_Brice(spike_phases , corr_laser_sweep_inds, color_dict[name], ax = ax)
     
 
-def cal_neuron_phase_hist_Brice(spike_phases, bins, n_bins, f_stim, n_sweeps, 
-                         i, scale_count_to_FR = False):
+def cal_neuron_phase_hist_Brice(spike_phases, bins, n_sweeps):
     
     frq , edges = np.histogram(spike_phases, bins = bins)
-    frq = frq / n_sweeps # / (360/ n_bins)
+    frq = frq / n_sweeps 
     frq , edges = double_phase_hist_cycle(frq, edges)
         
     return frq, edges
 
-def integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins, f_stim, color_dict,  
-                                         scale_count_to_FR = False, ax = None):
+def integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins, shift_phase_deg = 0):
     """ extract single neuron phases provided in different .txt files and 
         integrate them returning the phase histogram of all neurons stacked
     """
@@ -3031,12 +3142,11 @@ def integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins, f_stim
     frq_all_neurons = np.zeros(( n_neurons, len(bins) * 2 - 2))
     
     for i, filepath in enumerate( filepath_list ):
-
-        spike_phases, corr_laser_sweep_inds, n_sweeps = extract_spike_phases_Brice(filepath)
-        frq_all_neurons[i, :], edges = cal_neuron_phase_hist_Brice(spike_phases, bins, n_bins, f_stim, n_sweeps, 
-                                                           i, scale_count_to_FR = scale_count_to_FR)
+        spike_phases, corr_laser_sweep_inds, n_sweeps = extract_spike_phases_Brice(filepath, shift_phase_deg)
+        # print('n sweeps = ', n_sweeps)
+        frq_all_neurons[i, :], edges = cal_neuron_phase_hist_Brice(spike_phases, bins, n_sweeps)
     
-    frq_all_neurons /= 360/n_bins ## to get count per degree no matter what
+    
     try :
         
         centers = get_centers_from_edges(edges[:-1])
@@ -3066,6 +3176,7 @@ def integrate_Asier_single_neuron_phases(path, name, total_phase, n_bins, f_stim
     edges = np.append(df['Degree'].values, 360)
     bin_deg = edges[1] - edges[0]
     n_shift = int(90 / bin_deg)  
+    
     if align_to == 'Laser':
         frq_all_neurons = np.roll(frq_all_neurons, n_shift) # assuming that hist is aligned to laser max.
 
@@ -3074,9 +3185,12 @@ def integrate_Asier_single_neuron_phases(path, name, total_phase, n_bins, f_stim
     
     return frq_all_neurons, centers, n_neurons
 
-def scale_phase_spike_count(count, err, coef = 1):
-    
-    return count * coef, err * coef
+def scale_phase_spike_count(count, err, total_phase, n_bins, coef = 1):
+    if total_phase == 720:
+        n_bins += 2
+    bin_size_in_deg = total_phase / n_bins
+    print('bin size in deg = ', bin_size_in_deg)
+    return count * coef / bin_size_in_deg, err * coef / bin_size_in_deg
 
 def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_dict, path, y_max_series, n_bins = 36, f_stim = 20, scale_count_to_FR = False, 
                                     total_phase = 360, alpha_sem = 0.2, box_plot = False, set_ylim = False,title_fontsize = 15,
@@ -3084,10 +3198,11 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
                                     phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8, tick_label_fontsize = 8,
                                     name_ylabel_pad = [0,0,0], name_side = 'right', name_place = 'ylabel', alpha = 0.15, title = '',
                                     xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, plot_FR = False, n_decimal = 0,
-                                    n_minor_tick_y = 2, n_minor_tick_x = 4, xlabel_fontsize = 8, FR_dict = None, 
+                                    n_minor_tick_y = 4, n_minor_tick_x = 4, xlabel_fontsize = 8, FR_dict = None, 
                                     ylabel_fontsize = 8, xlabel = 'phase (deg)',strip_plot = False, state  = 'OFF',
                                     plot_single_neuron_hist = True, smooth_hist = False, hist_smoothing_wind = 5, 
-                                    shift_phase = None, plot_mean_FR = True, n_sweeps_Asier = 1200, align_to = 'Laser'):
+                                    shift_phase = None, plot_mean_FR = True, n_sweeps_Asier = 1200, align_to = 'Laser', 
+                                    shift_phase_deg =  0):
 
     n_subplots = len(name_list)
     xy = {name :(0.7, 0.7) for name in name_list}
@@ -3114,15 +3229,16 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
         else:
             
             hists , centers, n_neurons =  integrate_Brice_single_neuron_phases(path, name, total_phase, n_bins,
-                                                                                     f_stim, color_dict, ax = ax,
-                                                                                     scale_count_to_FR = scale_count_to_FR)
+                                                                               shift_phase_deg = shift_phase_deg)
+            
         count = np.average(hists, axis = 0)
         err = stats.sem(hists, axis = 0)
-        count, err = scale_phase_spike_count(count, err, coef = coef)
+        count, err = scale_phase_spike_count(count, err, total_phase, len(centers), coef = coef)
 
         phases = calculate_phase_all_runs(n_neurons, hists, centers, name, None, 
                                               shift_phase = shift_phase)
-        
+
+            
         hists =  smooth_hists(hists, hist_smoothing_wind, smooth_hist = smooth_hist)
         make_phase_plot(count, err, name, ax, centers, 
                         color_dict, phases,  coef, y_max_series,  plot_FR = plot_FR, state = state,
@@ -3157,15 +3273,15 @@ def up_scale_mean_err(mean, err, coef):
     return mean * coef, err * coef
 
 def phase_plot_Brice_EcoG_aligned(phase_dict, angles, name_list, color_dict, phase_ref = None, total_phase = 720, 
-                        n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
-                        ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
-                        ylabel = None, xlabel = 'phase (deg)', coef = 1000, lw = 0.5, name_fontsize = 8, 
-                        name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.15, title = '',
-                        xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
-                        phase_txt_yshift_coef = 1.4, name_side = 'right', n_decimal = 0, title_fontsize = 8,
-                        print_stat_phase = True, strip_plot = False, box_plot = True, FR_dict = None,
-                        phase_text_x_shift = 150, f_stim = 20, scale_count_to_FR = False, plot_FR = False,
-                        n_minor_tick_y = 2, n_minor_tick_x = 4):
+                                  n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
+                                  ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
+                                  ylabel = None, xlabel = 'phase (deg)', coef = 1000, lw = 0.5, name_fontsize = 8, 
+                                  name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.15, title = '',
+                                  xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
+                                  phase_txt_yshift_coef = 1.4, name_side = 'right', n_decimal = 0, title_fontsize = 8,
+                                  print_stat_phase = True, strip_plot = False, box_plot = True, FR_dict = None,
+                                  phase_text_x_shift = 150, f_stim = 20, scale_count_to_FR = False, plot_FR = False,
+                                  n_minor_tick_y = 4, n_minor_tick_x = 4):
     
     n_subplots = len(name_list)
     fig = plt.figure(figsize = (3, 1.5 * n_subplots))
@@ -3181,7 +3297,7 @@ def phase_plot_Brice_EcoG_aligned(phase_dict, angles, name_list, color_dict, pha
         fig.add_subplot(ax)
         
         count, err = phase_dict[name]['count'] , phase_dict[name]['SEM']
-        count, err = scale_phase_spike_count(count, err, coef = coef)
+        count, err = scale_phase_spike_count(count, err, total_phase, len(angles), coef = coef)
 
         make_phase_plot(count, err, name, ax, angles, color_dict,  phase_dict[name]['phase'], 
                         coef, y_max_series,  plot_FR = plot_FR, state = state, 
@@ -3261,17 +3377,20 @@ def make_phase_plot(count, err, name, ax, angles, color_dict, phases,
                     plot_mean_FR = True):
     
     if scale_count_to_FR:
-        print('scaling count to firing rate..')
-        count, err = scale_spk_count_to_FR(count, err, total_phase / len(angles), f_stim, coef = coef)
 
-    print(name, 'min FR = ', round(min(count), 1),
-          'max FR = ', round(max(count),1))
+        
+        count, err = scale_spk_count_to_FR(count, err, f_stim,
+                                           coef = coef)
+        print('Mean FR-ON = ',  str(round(np.average(count), 2)))
+        if plot_mean_FR:
+            plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
+                                       state, lw = lw, alpha = alpha, plot_FR = plot_FR)
+    print(name, 
+          'min FR = ', round(min(count), 1),
+          'max FR = ', round(max(count), 1))
+    
     plot_mean_phase_plus_std(count, err, name, ax, 
                              color_dict, angles, lw = lw, alpha = alpha)
-    
-    if plot_mean_FR:
-        plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
-                                   state, lw = lw, alpha = alpha, plot_FR = plot_FR)
     
         
     if box_plot:
@@ -3358,7 +3477,7 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
             
             phases = calculate_phase_all_runs(n_neuron, hists, centers, name, phase_ref, 
                                               shift_phase = shift_phase)
-            count, err = scale_phase_spike_count(count, err, coef = coef)
+            count, err = scale_phase_spike_count(count, err, total_phase, len(centers), coef = coef)
 
             make_phase_plot(count, err, name, ax, centers, color_dict,  phases, 
                             coef, y_max_series,  plot_FR = plot_FR, state = state,
@@ -3388,8 +3507,8 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
     return fig
 
 def plot_single_neuron_hists( name, hists, n_neuron_hist, coef, 
-                            f_stim, centers, total_phase, ax,scale_count_to_FR,
-                            color_dict, alpha = 0.2):
+                             f_stim, centers, total_phase, ax,scale_count_to_FR,
+                             color_dict, alpha = 0.2):
     
     # neuron_id = np.random.choice(n_neuron, size = n_neuron_hist, replace = False)
     # run_id = np.random.choice(n_run, size = n_neuron_hist)
@@ -3398,11 +3517,12 @@ def plot_single_neuron_hists( name, hists, n_neuron_hist, coef,
     n_neuron = hists.shape[0]
     neuron_id = np.random.choice(n_neuron, size = n_neuron_hist, replace = False)
     frq_single_neurons = hists[ neuron_id, :].copy()
-    frq_single_neurons, _ = scale_phase_spike_count(frq_single_neurons, [], coef  = coef)
+    frq_single_neurons, _ = scale_phase_spike_count(frq_single_neurons, np.empty((0,1)), total_phase, len(centers), coef  = coef)
 
     if scale_count_to_FR:
         
-        scale = cal_scale_of_spk_count_to_FR(total_phase / len(centers), f_stim, coef = coef)
+        scale = cal_scale_of_spk_count_to_FR(f_stim, 
+                                             coef = coef)
         frq_single_neurons = frq_single_neurons * scale
     
     for n in range(n_neuron_hist):    
@@ -3428,7 +3548,7 @@ def set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name
     rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax, axis = 'x')
     remove_frame(ax)
     
-def set_fig_prop_phase(fig,n_x = 4, n_y = 2, strip_plot = False, xlabel_y = 0.05, ylabel_x = -0.1,
+def set_fig_prop_phase(fig, n_x = 4, n_y = 4, strip_plot = False, xlabel_y = 0.05, ylabel_x = -0.1,
                        xlabel_fontsize = 8, ylabel_fontsize = 8,  xlabel = 'phase (deg)', 
                        ylabel = None, scale_count_to_FR = False,
                        title = '', title_fontsize = 15, n_bins = 720,
@@ -3479,17 +3599,18 @@ def create_figs_for_phase_subplots(fig, outer, nuc_order, nuclei_dict, figsize =
     
     return fig_generated, outer_generated, fig, outer, inner, nuc_order
 
-def cal_scale_of_spk_count_to_FR(bin_size_in_deg, f_stim, coef = 1):
+def cal_scale_of_spk_count_to_FR(f_stim, coef = 1):
+
     '''scaling parameter to go from spike count per degree to Hertz'''
-    # return 360 / bin_size_in_deg * f_stim / coef
-    return 360 * f_stim / coef
+
+    return 360 * f_stim / coef 
 
 
-def scale_spk_count_to_FR(spk_count, err_spk_count, bin_size_in_deg, f_stim, coef = 1):
+def scale_spk_count_to_FR(spk_count, err_spk_count, f_stim, coef = 1):
     
     ''' scale spike counts in phase hist to FR assuming one oscillation per cycle''' 
     
-    scale  = cal_scale_of_spk_count_to_FR(bin_size_in_deg, f_stim, coef = coef)
+    scale  = cal_scale_of_spk_count_to_FR(f_stim, coef = coef)
     spk_Hz = spk_count * scale
     spk_Hz_err = err_spk_count * scale
     
@@ -3504,7 +3625,7 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
                                   plot_FR = False, FR_dict = None, alpha = 0.2, state = 'rest', y_max_series = None,
                                   name_fontsize = 10, name_side = 'right', set_ylim = False, n_decimal = 0, 
                                   name_ylabel_pad = [0,0,0,0,0], name_place = 'ylabel', coef = 1,
-                                  n_minor_tick_y = 2, n_minor_tick_x = 4):
+                                  n_minor_tick_y = 4, n_minor_tick_x = 4):
     
     n_subplots = len( nuclei_dict.keys())
     fig_generated, outer_generated, fig, outer, inner, nuc_order = create_figs_for_phase_subplots(fig, outer, nuc_order, 
@@ -3521,10 +3642,11 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
         count = np.average( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
         err = stats.sem( nucleus.neuron_spike_phase_hist[phase_ref], axis = 0)
         edges = nucleus.phase_bins
-        count, err = scale_phase_spike_count(count, err, coef = coef)
+        centers = get_centers_from_edges(edges [:-1])
+        count, err = scale_phase_spike_count(count, err, total_phase, len(centers), coef = coef)
 
         phases = None
-        make_phase_plot(count, err, nuc_name, ax, get_centers_from_edges(edges [:-1]), color_dict, phases, 
+        make_phase_plot(count, err, nuc_name, ax, centers, color_dict, phases, 
                         coef, y_max_series,  plot_FR = plot_FR,
                         f_stim = 20, scale_count_to_FR = scale_count_to_FR, lw = 0.5, alpha = 0.15,
                         print_stat_phase = False, box_plot = False, FR_dict = FR_dict,
@@ -3533,7 +3655,8 @@ def phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, nuc_order = None,
         
         if projection == 'polar':
             
-            circular_bar_plot_as_hist(ax, count, edges, fill = True, alpha = 0.3, density = density,  facecolor = color_dict[nucleus.name])
+            circular_bar_plot_as_hist(ax, count, edges, fill = True, alpha = 0.3, density = density,  
+                                      facecolor = color_dict[nucleus.name])
 
 
         set_ax_prop_phase(ax, nuc_name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
@@ -4026,7 +4149,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, phase_ref = 'Proto', plot_phase = False,
                                     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                     plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
-                                    state = 'rest', end_phase = None, threshold_by_percentile = 0.75):
+                                    state = 'rest', end_phase = None, threshold_by_percentile = 75):
 
     if set_seed:
         np.random.seed(1956)
@@ -4159,7 +4282,7 @@ def multi_run_transition(
                  state_1 = 'rest', state_2 = 'DD_anesth', K_all = None,  state_change_func = None,
                  beta_induc_name_list = ['D2'], amplitude_dict = None , freq_dict = None, induction_method = 'excitation',
                  start_dict = None, end_dict = None, mean_dict = None,  end_phase = None,
-                 shift_all_phases = True, shift_all_theta = 180,only_rtest_entrained = True, threshold_by_percentile = .75):
+                 shift_all_phases = True, shift_all_theta = 180,only_rtest_entrained = True, threshold_by_percentile = 75):
 
     max_freq = 100; max_n_peaks = int ( t_list[-1] * dt / 1000 * max_freq ) # maximum number of peaks aniticipated for the duration of the simulation
     n_iter = get_max_len_dict({k : v['mean'] for k, v in G_dict.items()} )
@@ -4367,7 +4490,7 @@ def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base
                                  phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, phase_ref = 'Proto', plot_phase = False,
                                  total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                  plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
-                                 threshold_by_percentile = .75):
+                                 threshold_by_percentile = 75):
 
     if set_seed:
         np.random.seed(1956)
@@ -4500,7 +4623,7 @@ def synaptic_T_exploration_SNN(path, tau,  nuclei_dict, filepath, duration_base,
                                phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0, end_phase = None, phase_ref = 'Proto', plot_phase = False,
                                total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = False,
-                               threshold_by_percentile = .75):
+                               threshold_by_percentile = 75):
 
     if set_seed:
         np.random.seed(1956)
@@ -4634,7 +4757,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
     phase_thresh_h = 0, filter_order = 6, low_f = 10, high_f = 30, n_phase_bins = 70, start_phase = 0,  end_phase = None, phase_ref = 'Proto', plot_phase = False,
     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
     plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, 
-    save_pop_act = False, save_gamma = False, threshold_by_percentile = .75):
+    save_pop_act = False, save_gamma = False, threshold_by_percentile = 75):
 
     if set_seed:
         np.random.seed(1956)
@@ -5619,7 +5742,10 @@ def create_sparse_matrix(matrix, end=None, start=0):
     n_cols = matrix.shape[1]
     if end == None:
         end = n_cols
-    return np.array([np.where(matrix[i, int(start):int(end)] == 1)[0] for i in range(n_rows)], dtype=object)  + int(start)
+    return np.array([np.where(matrix[i, int(start) : int(end)] == 1)[0] 
+                     for i in range(n_rows)], 
+                    dtype=object)  \
+            + int(start)
 
 def get_corr_key_to_val(mydict, value):
     
@@ -6242,7 +6368,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
     if normalize :
 		
         pxx = norm_PSD(pxx, f) * 100
-        ylabel = 'Norm. PSD ' + r'$(V^{2}/HZ \times 10^{-2})$'
+        ylabel = '{\tiny{Norm}. PSD} ' + r'$(V^{2}/Hz \times 10^{-2})$'
         
     
     ax.plot(f, pxx, c=c, label=label, lw=1.5)
@@ -6719,10 +6845,11 @@ def change_network_states(G, noise_variance,noise_amplitude,  path, receiving_cl
         
             nuclei_dict = change_synaptic_weight( nuclei_dict, 'STN', 'Proto', multiply_by = 2)
             
-        # if ('Proto', 'STN') in list(G.keys()): 
+        if ('Proto', 'STN') in list(G.keys()): 
         
-        #     nuclei_dict = change_synaptic_weight( nuclei_dict, 'Proto', 'STN', multiply_by = 1.35)
+            nuclei_dict = change_synaptic_weight( nuclei_dict, 'Proto', 'STN', multiply_by = 1.35)
             
+    
     receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_2], A_mvt, D_mvt, t_mvt, dt, N, N_real, 
                                                            K_all[state_2], receiving_pop_list, nuclei_dict, t_list,
                                                            all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, 
@@ -7274,7 +7401,7 @@ def mvt_step_ext_input(D_mvt, t_mvt, delay, value, t_series):
     ext_add_inp[ind] = 0
     return ext_add_inp
 
-def calculate_number_of_connections(N_sim,N_real,number_of_connection):
+def calculate_number_of_connections(N_sim, N_real, number_of_connection):
     
     '''calculate number of connections in the scaled network.'''
     
@@ -7283,7 +7410,7 @@ def calculate_number_of_connections(N_sim,N_real,number_of_connection):
     for k, v in number_of_connection.items():
         KK[k] = int(1 / ( 1 / v - 
                           1 / N_real[ k[1] ] + 
-                          1 / N_sim[ k[0] ] 
+                          1 / N_sim[ k[1] ] 
                          ) 
                     )
         
@@ -7313,13 +7440,19 @@ def build_connection_matrix(n_receiving, n_projecting, n_connections, same_pop =
     if same_pop: # if connecting the population to itself, avoid autapses
         np.fill_diagonal(connection_prob, 0)
         
-    projection_list = np.argsort(connection_prob, axis = 1)[::-1][:,:n_connections]
+    projection_list = np.argsort(connection_prob, axis = 1)[::-1][:, :n_connections]
     
-    JJ = np.zeros( (n_receiving, n_projecting), dtype = int)
-    rows = ((np.ones((n_connections,n_receiving)) * np.arange(n_receiving)).T).flatten().astype(int)
+    rows = ((np.ones((n_connections, n_receiving)) * np.arange(n_receiving)).T).flatten().astype(int)
     cols = projection_list.flatten().astype(int)
-    JJ[rows,cols] = int(1)
-
+    
+    ### not sparse
+    JJ = np.zeros( (n_receiving, n_projecting), dtype = int)
+    JJ[(rows, cols)] = np.ones_like(rows)
+    
+    #### sparse
+    # data = np.ones_like(rows)
+    # JJ = sp.csc_matrix((data, (rows, cols)), shape = (n_receiving, n_projecting))
+    
     return JJ
 
 def get_start_end_plot(plot_start, plot_end, dt, t_list):
@@ -7342,7 +7475,7 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
          round_dec = 2, legend_loc = 'upper right', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
          tick_label_fontsize = 18, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
          tick_length = 8, title_pad = None, ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True,
-         xlim = None, lw = 1.5, legend_fontsize = 12, label_fontsize = 15, threshold_by_percentile = 0.75,
+         xlim = None, lw = 1.5, legend_fontsize = 12, label_fontsize = 15, threshold_by_percentile = 75,
          xlabel = "time (ms)", peak_threshold = None):    
 
     fig, ax = get_axes (ax)

@@ -314,7 +314,9 @@ tau = {
     # UPDATE 17 Jan: similar to Proto-STN connection according to Jerome/Nico so changed to that
     # (Was 1, 15 between Sep to Dec) Saunders et al. 2016 extrapolated from trace in Fig 4G mice in vitro optogenetic temp = room temerature 
     # (estimate was 6 before Sep 2021)
-
+    ('FSI', 'STN'): {'rise': {'mean' : [0.6], 'sd' : [0.2], 'truncmin': [0.1], 'truncmax': [10]},
+                        'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
+    # decay Jerome measurements in Asier et al. 2021
     ('Arky', 'Proto'): {'rise': {'mean' : [0.5], 'sd' : [0.15], 'truncmin': [0.1], 'truncmax': [10]},
                           'decay' : {'mean' : [4.91], 'sd' : [1.08], 'truncmin': [0.1], 'truncmax': [30]}},
     # no distiction in GP. GABA-a Sims et al. 2008 rat in vitro electric stim (KCl-based electrode) temp = 32
@@ -341,6 +343,8 @@ T = {
     # Glajch et al. 2016 Fig. 2/ Table 2 4.9 ±  0.6 n= 12 mice in vitro optogenetic temp: 20-22 . estimate was 7 before Sep 2021.
     ('FSI', 'Proto'): {'mean': 4.3, 'sd' : 0.7, 'truncmin': 3.2, 'truncmax': 7.},     
     # Glajch et al. 2016 Fig. 2/ Table 2 mice  4.3 ±  0.7 n= 17 range from fig in vitro optogenetic temp: 20-22. estimate was 6 before Sep 2021.
+    ('FSI', 'STN'): {'mean': 3.9, 'sd' : 0.21, 'truncmin': 2, 'truncmax': 10.}, 
+    # Kondabolu et al. 2020
     ('Proto', 'D2'): {'mean': 7.4, 'sd' : 1.3, 'truncmin': 5.8, 'truncmax': 9.9},
     # Park et al. (1982) 7.4 ± 1.3 range = (5.8, 9.9) rats in vivo
     # Ketzef & Silberberg (2020) Fig 6K 6.89 ±  0.35 range=(4.3, 11.3) n = 27 range from fig mice in vivo optogenetic temp = 36.5/ corrected for D2-ChR2 onset delay
@@ -622,7 +626,7 @@ Str_connec = {('D1', 'D2'): .28, ('D2', 'D2'): .36,  ('D1', 'D1'): .26,
               ('D2', 'D1'): .05, ('MSN', 'MSN'): 1350}  # Taverna et al 2008
 
 # Before June 2022
-K_real = {
+K_real_bouton = {
           # 243 bouton per GP. number of synapses per bouton = 12/10.6  Baufreton et al. 2009 & Sadek et al. (2006).
           ('STN', 'Proto'): int(243 * N_real['Proto'] / N_real['STN']), 
           # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
@@ -632,6 +636,7 @@ K_real = {
           # averaging the FSI contacting of Proto boutons Bevan 1998
           ('FSI', 'Proto'): 360,
           # Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
+          ('FSI', 'STN'): 150, # estimate
           ('D2', 'FSI'): int(53 * 2/ (36 + 53) * 240),
           #           ('Proto', 'D2'): int(N_Str/2*(1-np.power(0.13,1/(.1*N_Str/2)))), # Chuhma et al. 2011 --> 10% MSN activation leads to 87% proto activation
           # each Proto 226 from iSPN Kawaguchi et al. (1990)
@@ -646,29 +651,32 @@ K_real = {
 #           ('D1', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D1', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]),
 #           ('D2', 'D1'): Str_connec[('MSN','MSN')]*Str_connec[('D2', 'D1')]/(Str_connec[('D1', 'D1')]+Str_connec[('D2', 'D1')]), #Guzman et al (2003) based on Taverna et al (2008)
 #           ('D1', 'Proto'): int(N_real['Proto']*(1-np.power(64/81, 1/N_real['Proto'])))} # Klug et al 2018
-
-# K_real = {
-#     ('STN', 'Proto'): 0.02 * N_real['Proto'], = 644 Baufreton et al. 2009 single STN neuron receives input maximally from 2%  
-#     ('Proto', 'STN'): 135, 
-#     ('Proto', 'Proto'): 35, Sadek et al. 2006
-#     # ('FSI', 'Proto'): int(800*15*N_real['Proto']/((0.04+0.457)*N_Str)*(0.75/(.75+.10+.54))), #800 boutons per Proto Guzman 2003, 15 contacts per bouton. 75%, 10%, 45%  connected to FSI, D1, NYP
-#     # averaging the FSI contacting of Proto boutons Bevan 1998
-#     ('FSI', 'Proto'): 360,
-#     # Guzman et al  (2003): 240 from one class interneuron to each MSI # 53% (FSI-D2) Gittis et al.2010
-#     ('D2', 'FSI'): 16,
-#     # ~ 16 FSI converge to a single MSN Rat (Koos & Tepper 1999)
-#     ('Proto', 'D2'): int(0.87 * N_real['D2']),
-#     # P(connection) = 87 % Mouse (Chuhma et al. 2011)
-#     ('GPi', 'STN'): 457,
-#     ('GPi', 'Proto'): 1,  # find !!!
-#     ('D2', 'Arky'): 100,  # estimate
-#     ('Arky', 'Proto'): 300}  # estimate
+n_bouton_per_neuron = 10
+K_real = {
+    ('STN', 'Proto'): int(0.02 * N_real['Proto'] / n_bouton_per_neuron),
+    #= 65 Baufreton et al. 2009 single STN neuron receives input maximally from 2%  
+    ('Proto', 'STN'): int(135 / n_bouton_per_neuron), 
+    # boutons Kita & Jaeger (2016) based on Koshimizu et al. (2013)
+    ('Proto', 'Proto'): 35, 
+    # Sadek et al. 2006
+    ('FSI', 'Proto'): int(360/ n_bouton_per_neuron),
+    # averaging the FSI contacting of Proto boutons Bevan 1998
+    ('FSI', 'STN'): 15, 
+    # estimate
+    ('D2', 'FSI'): 16,
+    # ~ 16 FSI converge to a single MSN Rat (Koos & Tepper 1999)
+    ('Proto', 'D2'): int(N_real['D2'] * 226 / N_real['Proto']/ n_bouton_per_neuron),
+    # number of boutons in the GPe formed by
+    # an axon of an indirect projection neuron is 226 (Koshimizu et al., 2013)
+    ('D2', 'Arky'): int(100/ n_bouton_per_neuron),  # estimate
+    ('Arky', 'Proto'): int(300/ n_bouton_per_neuron)}  # estimate
 
 K_real_DD = {
     ('D2', 'FSI'): 2 * K_real[('D2', 'FSI')],
     ('Proto', 'D2'): K_real[('Proto', 'D2')],
     ('FSI', 'Proto'): K_real[('FSI', 'Proto')], 
     ('Proto', 'STN'): K_real[('Proto', 'STN')],
+    ('FSI', 'STN'): K_real[('FSI', 'STN')],
     ('STN', 'Proto'): K_real[('STN', 'Proto')],
     ('D2', 'Arky'): K_real[('D2', 'Arky')], 
     ('Arky', 'Proto'): K_real[('Arky', 'Proto')],
@@ -882,21 +890,21 @@ print(f_beta[np.argmax(mean_ON[ind_beta])])
 
 
 experiment_protocol = 'ChR2_STN_CTL'
-y_max_series = {'STN': 170, 'Arky': 20, 'Proto': 60}
+y_max_series = {'STN': 320, 'Arky': 45, 'Proto': 160}
 sheet_name = 'Fig 3'
 FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
 
-experiment_protocol = 'ArchT_STN_CTL'
-y_max_series = {'STN': 50, 'Arky': 20, 'Proto': 35}
-FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
-sheet_name = 'SupFig 5'
+# experiment_protocol = 'ArchT_STN_CTL'
+# y_max_series = {'STN': 50, 'Arky': 20, 'Proto': 35}
+# FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
+# sheet_name = 'SupFig 5'
 
 experiment_protocol = 'ArchT_GP_CTL'
-y_max_series = {'STN': 50, 'Arky': 25, 'Proto': 50}
+y_max_series = {'STN': 100, 'Arky': 40, 'Proto': 125}
 FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
 sheet_name = 'Fig 6'
 
-n_bins = 60
+n_bins = 36
 path_Brice = os.path.join(root, 'Modeling_Data_Nico', 'Laser_beta_induction', experiment_protocol)
 
 name_list = ['STN', 'Arky', 'Proto']
@@ -907,26 +915,33 @@ FR_dict = read_Brice_FR_states(os.path.join(root, 'Modeling_Data_Nico', 'Brice_p
 
 shift_phase = 'forward'
 # shift_phase = 'backward'
-
+shift_phase = None
 scale_count_to_FR = True
 # scale_count_to_FR = False
-# y_max_series = {'STN': 5, 'Arky': 4, 'Proto': 8}
+# y_max_series = {'STN': 5, 'Arky': 4, 'Proto': 7}
 
 fig = phase_plot_experiment_laser_aligned(experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
                                            n_bins = n_bins, f_stim = 20, 
                                            scale_count_to_FR = scale_count_to_FR, title_fontsize = 10, FR_dict = FR_dict, 
                                            total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
-                                           print_stat_phase = True, coef = 1000, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
+                                           print_stat_phase = True, coef = 1000, phase_text_x_shift = 150, 
+                                           phase_txt_fontsize = 8, 
                                            phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
                                            name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
                                            xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
                                            plot_single_neuron_hist = True, hist_smoothing_wind = 5,
-                                           smooth_hist = False, shift_phase = shift_phase)
+                                           smooth_hist = False, shift_phase = shift_phase)#, shift_phase_deg = -90)
 
 save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
 
+
 # filepath = '/home/shiva/BG_Oscillations/Modeling_Data_Nico/Laser_beta_induction/ChR2_STN_CTL/STN_Phase/BC_314_10052017_b_02_N1_ON_PhaseStimLaser.txt'
+
+# df = pd.read_table(filepath, skiprows=[0], header = [0])
+# df = df [ df ['Times'].notna() ].reset_index()
+
+# n_sweeps = int(np.max(df [ df ['Sweep'].notna() ] ['Sweep'].values))
 
 
 # nuc_folder = name + '_Phase'
@@ -935,18 +950,16 @@ save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
 # look_at_one_neuron_laser_Brice(filepath_list[0], total_phase, n_bins, name, color_dict)
 
 # %% Asier Phase distributions Laser aligned (Unpublished)
-
+A_mouse = {'D2' : 0.066, 'Proto' : 25, 'Arky' : 3, 'STN' : 4}
 stim_name = 'STN'
 name_list = [ 'STN', 'Arky', 'Proto']
 y_max_series = {'D2': 400, 'STN': 330, 'Arky': 15, 'Proto': 340}
-n_sweeps = 30 * 20 * 3
-
+n_sweeps = 60 * 20 * 2
+align_to= 'Laser'
 stim_name = 'D2'
 name_list = ['D2', 'STN', 'Arky', 'Proto']
 align_to= 'Laser'; y_max_series = {'D2': 400, 'STN': 50, 'Arky': 50, 'Proto': 50}
-align_to= 'EcoG'; y_max_series = {'D2': 15, 'STN': 13, 'Arky': 25, 'Proto': 11}
-
-
+# align_to= 'EcoG'; y_max_series = {'D2': 15, 'STN': 13, 'Arky': 25, 'Proto': 11}
 n_sweeps = 30 * 20 * 2
 
 experiment_protocol = 'ChR2_' + stim_name + '_CTL_mouse'
@@ -958,23 +971,23 @@ path_Asier = os.path.join(root, 'Modeling_Data_Nico', 'Laser_beta_induction', ex
 shift_phase = 'forward'
 # shift_phase = 'backward'
 # shift_phase = 'both'
-shift_phase = None
+# shift_phase = None
 plot_single_neuron_hist = False
-# plot_single_neuron_hist = True
+plot_single_neuron_hist = True
 
 # color_dict = {'Proto': 'r', 'STN': 'deepskyblue', Nico's color codes
 #               'D2': 'slateblue', 'FSI': 'g', 'Arky': 'yellowgreen'}
 fig = phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_dict, path_Asier, y_max_series, 
-                                      n_bins =None, f_stim = 20, 
-                                      scale_count_to_FR = True, title_fontsize = 10, FR_dict = None, 
-                                      total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
-                                      print_stat_phase = True, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
-                                      phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
-                                      name_ylabel_pad = [0,0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
-                                      xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
-                                      plot_single_neuron_hist = plot_single_neuron_hist, hist_smoothing_wind = 5,
-                                      smooth_hist = False, plot_mean_FR = False, n_sweeps_Asier = n_sweeps,
-                                      align_to= align_to, shift_phase = shift_phase)
+                                          n_bins =None, f_stim = 20, 
+                                          scale_count_to_FR = True, title_fontsize = 10, FR_dict = A_mouse, 
+                                          total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
+                                          print_stat_phase = True, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
+                                          phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
+                                          name_ylabel_pad = [0,0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
+                                          xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
+                                          plot_single_neuron_hist = plot_single_neuron_hist, hist_smoothing_wind = 5,
+                                          smooth_hist = False, plot_mean_FR = True, n_sweeps_Asier = n_sweeps,
+                                          align_to= align_to, shift_phase = shift_phase)
     
 save_pdf_png(fig, os.path.join(path_Asier, experiment_protocol + '_Phase_aligned_to_' + align_to),
               size = (1.5, len(name_list) * 1))
@@ -7325,11 +7338,11 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 
 mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
 plt.close('all')
-N_sim = 1000
+N_sim = 3500
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 6600 
+t_sim = 3600 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 0
 t_transition = plot_start + 300# int(t_sim / 5)3
@@ -7337,8 +7350,8 @@ duration_base = np.array( [int(300/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
-n_windows_DD = 6
-n_windows_base = 1
+n_windows_DD = int((t_sim - 600) / 1000)
+n_windows_base = (t_transition - 300) / 1000
 
 
 name1 = 'FSI'
@@ -7358,6 +7371,7 @@ name_list = [name1, name2, name3, name4, name5]
 G = {}
 
 
+### Uniform Gs
 # g = -0.0035
 # (G[(name2, name1)], G[(name3, name2)],
 #   G[(name1, name3)], G[(name2, name4)],
@@ -7366,17 +7380,49 @@ G = {}
 # G = {k: v * K[k] for k, v in G.items()}
 
 
-
-g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 3.5}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
-      (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+g = -0.01 ### for N = 3500
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 9.63}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 1.53}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 6.3}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 5}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+      (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
+      (name5, name3) :{'mean': g * K[name5, name3] * 3.5},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.2},
+      (name1, name5) :{'mean': g * K[name1, name5] * 4}
       }
+# g = -0.01
+# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 8.5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 1}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 4.0}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 4}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 3.1},
+#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2}
+#       }
+
+
+# g = -0.0025 
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
+#       }
+# g = -0.0025 
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
+#       }
 ## tuned 18 Hz
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
 #       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
@@ -7421,15 +7467,6 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
 #       }
 
 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3}, ## FR D2 rest = 1.4 couldn't get oscillations to occur only after DD because D2 friring rates were close
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3.4},
-#       (name1, name3) :{'mean': g * K[name1, name3] * 2.3},
-#       (name2, name4) :{'mean': g * K[name2, name4] * 2.1},
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0.4},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 1.8},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2.},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.08}
-#       }
 G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
 
 
@@ -7442,7 +7479,7 @@ poisson_prop = {name:
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'): [(name3, '1')],
+receiving_pop_list = {(name1, '1'): [(name3, '1'), (name5, '1')],
                       (name2, '1'): [(name1, '1'), (name4, '1')],
                       (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
                       (name4, '1'): [(name3, '1')],
@@ -7459,16 +7496,20 @@ keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
 save_init = False
-noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 low_f = 12; high_f = 30
+spike_history = 'long-term'
+# spike_history = 'sparse'
+
+set_random_seed = True
 
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1,
+               spike_history = spike_history, set_random_seed = set_random_seed, Act = Act) for i in pop_list] for name in name_list}
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state_1]
                for name in list(nuclei_dict.keys())}
@@ -7494,7 +7535,7 @@ plot_end_rest = t_transition - 10
 plot_start_rest =  t_transition - 410
 plot_start_DD = t_sim - 700
 plot_end_DD = t_sim
-plot_start
+
 if 'DD' in state_2:
     
     fig = plot(nuclei_dict, color_dict, dt, (t_list - np.full_like(t_list, plot_start_rest / dt)), 
@@ -7583,26 +7624,28 @@ ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
 # ax.set_ylim(-0.01, 40)
 ax.legend(fontsize=10, frameon=False)
 ax.tick_params(axis='both', labelsize=15)
+ylim = ax.get_ylim()
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
               size=(5, 3))
 
-# fig, ax = plt.subplots(1, 1)
-# find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-#                           low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-#                           fft_method='Welch', n_windows=n_windows_base, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
+fig, ax = plt.subplots(1, 1)
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+                          fft_method='Welch', n_windows=n_windows_base, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
 
-# ax.set_xlim(5, 70)
-# ax.set_ylim(-0.01, 40)
-# ax.tick_params(axis='both', labelsize=15)
-# ax.legend(fontsize=10, frameon=False)
-# save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
-#               size=(5, 3))
+ax.set_xlim(5, 70)
+ax.set_ylim(ylim)
+ax.tick_params(axis='both', labelsize=15)
+ax.legend(fontsize=10, frameon=False)
+save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
+              size=(5, 3))
 
 phase_ref = 'STN'
-nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=180,
-                                                peak_threshold=0, phase_ref= phase_ref, start=duration_DD[0], total_phase=720,
+nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=36,
+                                                peak_threshold=0, phase_ref= phase_ref, start=duration_DD[0], total_phase=360,
                                                 only_PSD_entrained_neurons= False, troughs = False,
-                                                only_rtest_entrained = True)
+                                                only_rtest_entrained = True, threshold_by_percentile = 50, 
+                                                plot = False)
 
 fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale_count_to_FR = True,
                                     density=False, phase_ref= phase_ref, total_phase=720, projection=None,
@@ -7612,14 +7655,38 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale
 save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
               size=(3, 1.5 * len (name_list)))
 
+#%%s
+
+import scipy.sparse as sp
+import numpy as np
+row = np.array([0, 0, 1, 2, 2, 2])
+col = np.array([0, 2, 2, 0, 1, 2])
+data = np.array([1, 2, 3, 4, 5, 6])
+a = sp.csc_matrix((data, (row, col)), shape=(3, 3))
+x = np.array([1,2,3])
+k = a * x
+
+l = np.arange(9).reshape(3,3)
+b = sp.lil_matrix((3, 3))
+b[(row, col)] = data
+d = b[(np.arange(3), [0,1, 2])].tocsc().T
+c = a @ d
+print(c.shape, d.shape, c,)
+m = c.dot(np.array([1, 1, 1]).reshape(-1,1).shape)
+
+
+Y = np.array([1,3])
+C = sp.csr_matrix(np.array([[1], [0]]))
+C.multiply(Y)
 # %% Transition to Beta induction, all nuclei
 
+# K_real = K_real_bouton
 
 #### modulation with laser beta inductions of de la crompe 2020, and Asier unpublished
-mod_dict = {'ChR2_STN' : {'STN': [1, 45], 'Proto' : [10, 36], 'Arky' : [10, 1]},
-            'ArchT_Proto': {'STN': [2, 15], 'Proto' : [17, 1], 'Arky' : [4, 12]},
+mod_dict = {'ChR2_STN' : {'STN': [1.6, 93], 'Proto' : [36, 72], 'Arky' : [25, 3]},
+            'ArchT_Proto': {'STN': [3.5, 34], 'Proto' : [44, 5], 'Arky' : [7, 23]},
             'ArchT_STN': {'STN': [16, 0], 'Proto' : [15, 9], 'Arky' : [0, 0]},
-            'ChR2_D2_mouse': {'D2': [0, 83], 'STN': [8, 18], 'Proto' : [21, 2], 'Arky' : [9, 30]},
+            'ChR2_D2_mouse': {'D2': [0, 91], 'STN': [8.6, 18.6], 'Proto' : [22, 2.5], 'Arky' : [9, 32]},
             'ChR2_STN_mouse' : {'STN': [2, 70], 'Proto' : [26, 75], 'Arky' : [1, 5]}}
 
 ## baseline mouse:
@@ -7635,9 +7702,11 @@ for pop in ['STN', 'Proto', 'Arky']:
 
 
 plt.close('all')
-N_sim = 1000
+N_sim = 3500
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
+K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
+K_ratio = {key : K[key] / v for key, v in K_small.items()}
 dt = 0.1
 
 
@@ -7661,7 +7730,7 @@ name3 = 'Proto'
 name4 = 'Arky'
 name5 = 'STN'
 
-# state_1 = 'rest'
+state_1 = 'rest'
 state_2 = 'induction'
 
 induction_nuc_name = 'D2'
@@ -7670,77 +7739,64 @@ beta_induction_method = 'excitation'
 induction_nuc_name = 'Proto'
 beta_induction_method = 'inhibition'
 
-# induction_nuc_name = 'STN'
-# beta_induction_method = 'excitation'
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
-state_1 = '_'.join(['induction', induction_nuc_name, beta_induction_method])
+# state_1 = '_'.join(['induction', induction_nuc_name, beta_induction_method])
 
 # neuronal_consts['Proto']['membrane_time_constant'] = {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}
 beta_induc_name_list = [induction_nuc_name]
-# amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
-#                   'excitation': {'D2': 3.5, 'STN': 2.4}} # Brice
 
 amplitude_dict = {'inhibition':{'Proto': 6, 'STN': 2.28}, 
-                  'excitation': {'D2': 15, 'STN': 4}} 
+                  'excitation': {'D2': 15, 'STN': 4.35}} ### N = 1000/2000
+
+
+amplitude_dict = {'inhibition':{'Proto': 6.8, 'STN': 2.28}, 
+                  'excitation': {'D2': 15, 'STN': 4.5}} ### N = 3500
 
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
 end_dict = {induction_nuc_name: int(t_sim / dt)}
 mean_dict = {induction_nuc_name : 0 }
-
+Act[state_1]
 
 print( " transition from " , state_1, ' to ',  induction_nuc_name, ' ', beta_induction_method, ' beta ', state_2)
 
 name_list = [name1, name2, name3, name4, name5]
 
-G = {}
 
-#### After Asier tuning
-g = -0.0025 
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
-      (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
+
+g = -0.01 ### for N = 3500
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 9.63}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 1.53}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 6.3}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 7.965}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+      (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
+      (name5, name3) :{'mean': g * K[name5, name3] * 3.5},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.2}
       }
 
-# g = -0.0025 ## wrong Brice FR reading
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
+# g = -0.01 ### 16 Hz for N = 2000
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 13.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 1.78}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 7.0}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 8.85}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.1},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.13}
+#       }
+
+# g = -0.0025 ## K_connections based on each neuron getting contacted by one bouton only
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 3.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
 #       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 1.1},
 #       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.2}
-#       }
-#### before Asier tuning
-
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-#       }
-
-# #### before Asier tuning March 2022 (the STN excitation peak is not tuned, don't know why)
-
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 5.5}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 4.5}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0.9},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.6},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
 #       }
 
 
@@ -7863,16 +7919,16 @@ phase_ref = 'stimulation'
 
 # phase_ref = 'D2'
 find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins = 120,
-                                  height=0, phase_ref = phase_ref, start=duration_induction[0], 
-                                  end = end_phase, total_phase=720,
-                                  troughs = False, align_to_stim_onset = True)
+                                  peak_threshold=0, phase_ref = phase_ref, start=duration_induction[0], 
+                                  end = end_phase, total_phase= 720, plot = False, 
+                                  troughs = False, align_to_stim_onset = True, only_rtest_entrained = False)
 
 FR_dict = create_FR_dict_from_sim(nuclei_dict, 
                                   int( plot_start / dt), 
                                   int (t_transition / dt), 
                                   state = 'rest')
 
-fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt,
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1000,
                                     density=False, phase_ref= phase_ref, total_phase=720, projection=None,
                                     outer=None, fig=None,  title='', tick_label_fontsize=18,
                                     labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
