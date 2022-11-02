@@ -105,9 +105,10 @@ class Nucleus:
         time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
         plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
         keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2, spike_history = 'long-term',
-        rtest_p_val_thresh = 0.05, refractory_period = 2):
+        rtest_p_val_thresh = 0.05, refractory_period = 2, syn_w_dist = 'log-normal'):
 
         if set_random_seed:
+            
             self.random_seed = random_seed
             np.random.seed(self.random_seed)
 
@@ -157,7 +158,7 @@ class Nucleus:
 
         
         self.G_heterogeneity = False
-        self.synaptic_weight = {} # filter based on the receiving nucleus
+        self.synaptic_weight = {} 
         self.synaptic_weight_specs = {k: v for k, v in G.items() if k[0] == name} # filter based on the receiving nucleus
         self.create_syn_weight_mean_dict()
 
@@ -186,7 +187,7 @@ class Nucleus:
             print('Initializing ', name)
             self.refractory_period = int(refractory_period / dt)
             self.pop_act = []  # time series of population activity
-
+            self.syn_w_dist = syn_w_dist
             self.transmission_delay = {}
             self.tau = {}
             self.state = state
@@ -390,10 +391,12 @@ class Nucleus:
             
             
             if hetero_tau:
+                
                 self.initialize_synaptic_time_constant_heterogeneously( dt, tau_specs, bins=bins, color=color, 
                                                           tc_plot = tc_plot, syn_element_no = syn_element_no, 
                                                           plot_syn_tau_hist = plot_syn_tau_hist)
             else:
+                
                 self.initialize_synaptic_time_constant_homogeneously(dt, tau_specs)
                 
                 
@@ -632,12 +635,12 @@ class Nucleus:
         
     def normalize_synaptic_weight(self):
 
-
         self.synaptic_weight = {key:  val * (self.neuronal_consts['spike_thresh']['mean'] - 
                                              self.neuronal_consts['u_rest']['mean']) 
                                 for key, val in self.synaptic_weight.items() }
         
         if self.G_heterogeneity:
+            
             self.synaptic_weight_specs = {key: 
                                               {k: v * (self.neuronal_consts['spike_thresh']['mean'] - 
                                                         self.neuronal_consts['u_rest']['mean']) 
@@ -671,7 +674,7 @@ class Nucleus:
             
 
         
-    def set_connections(self, K, N):
+    def set_connections(self, K, N, plot_syn_weight_hist = False):
         
         ''' 
             create J_{ij} connection matrix with values corresponding to synaptic weight
@@ -693,7 +696,7 @@ class Nucleus:
                                                                            n_connections, 
                                                                            same_pop = same_pop)
             
-        self.multiply_connectivity_mat_by_G(N)
+        self.multiply_connectivity_mat_by_G(N, plot_syn_weight_hist = plot_syn_weight_hist)
         
     def change_connectivity_mat_to_sparse(self):
         
@@ -703,43 +706,77 @@ class Nucleus:
                                     for k, v in self.connectivity_matrix.items()
                                     }
         
-    def multiply_connectivity_mat_by_G(self, N, plot_G_hist = False):
+    def initialize_synaptic_weight(self, proj_name, N, plot_syn_weight_hist = False):
+        
+        key = (self.name, proj_name)
+        
+        if self.init_method == 'heterogeneous' and self.G_heterogeneity:
+            
+            if self.syn_w_dist == 'normal':
+                
+                synaptic_weights = truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
+                                                                  self.synaptic_weight_specs[key]['sd'], 
+                                                                  (self.n, N[proj_name]), 
+                                                                  truncmin = self.synaptic_weight_specs[key]['truncmin'],
+                                                                  truncmax = self.synaptic_weight_specs[key]['truncmax'])
+            elif self.syn_w_dist == 'log-normal':
+                    
+                
+                if self.synaptic_weight_specs[key]['order_mag_sigma'] != None:
+                    
+                    sd = (10 ** self.synaptic_weight_specs[key]['order_mag_sigma'] - 1) / \
+                         (10 ** self.synaptic_weight_specs[key]['order_mag_sigma'] + 1) \
+                         * abs(self.synaptic_weight_specs[key]['mean'])
+                    
+                else:
+                    
+                    sd = self.synaptic_weight_specs[key]['sd']
+                
+                sign = np.sign(self.synaptic_weight_specs[key]['mean'])
+                synaptic_weights = sign * truncated_lognormal_distributed(abs(self.synaptic_weight_specs[key]['mean']),
+                                                                          sd, 
+                                                                          (self.n, N[proj_name]), 
+                                                                          truncmin = self.synaptic_weight_specs[key]['truncmin'],
+                                                                          truncmax = self.synaptic_weight_specs[key]['truncmax'])
+            else:
+                
+                raise ValueError ('synaptic weight distribution must be normal or log-normal')
+                
+        else:
+            
+            if self.G_heterogeneity:
+                
+                synaptic_weights = self.synaptic_weight_specs[key]['mean']
+                
+            else:
+                
+                synaptic_weights = self.synaptic_weight_specs[key]
+        
+        if plot_syn_weight_hist:
+            plot_histogram(synaptic_weights.flatten(), bins = 25, xaxis = 'log', absolute = True,
+                           title = self.name, xlabel = r'$G_{' + ' ' + self.name + '-' + proj_name + '}$')
+        return synaptic_weights
+    
+    def multiply_connectivity_mat_by_G(self, N, plot_syn_weight_hist = False):
         
         for projecting in self.receiving_from_list:
             
             proj_name = projecting[0]
     
-            key = (self.name, proj_name)
-            
-            if self.init_method == 'heterogeneous' and self.G_heterogeneity:
-
-                synaptic_weights = (truncated_normal_distributed(self.synaptic_weight_specs[key]['mean'],
-                                                                 self.synaptic_weight_specs[key]['sd'], 
-                                                                 (self.n, N[proj_name]), 
-                                                                 truncmin = self.synaptic_weight_specs[key]['truncmin'],
-                                                                 truncmax = self.synaptic_weight_specs[key]['truncmax'])
-                                    )            
-            else:
-                
-                if self.G_heterogeneity:
-                    
-                    synaptic_weights = self.synaptic_weight_specs[key]['mean']
-                    
-                else:
-                    
-                    synaptic_weights = self.synaptic_weight_specs[key]
+            synaptic_weights = self.initialize_synaptic_weight(proj_name, N, plot_syn_weight_hist = plot_syn_weight_hist)
                 
             self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
                                                                 self.connectivity_matrix[proj_name,projecting[1]]
              
-            self.change_connectivity_mat_to_sparse()                                                    
-            if plot_G_hist:
+            self.change_connectivity_mat_to_sparse()       
+                                             
+            # if plot_syn_weight_dist:
                 
-                 ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
+            #      ind = np.nonzero(self.connectivity_matrix[proj_name,projecting[1]])
                  
-                 plot_histogram(self.connectivity_matrix[proj_name,projecting[1]][ind].flatten(), 
-                                bins = 25, title =  proj_name + ' to '+ self.name ,
-                                xlabel = 'normalizd G')                                              
+            #      plot_histogram(self.connectivity_matrix[proj_name,projecting[1]][ind].flatten(), 
+            #                     bins = 25, title =  proj_name + ' to '+ self.name ,
+            #                     xlabel = 'normalizd G')                                              
 
     def calculate_input_and_inst_act(self, t, dt, receiving_from_class_list, mvt_ext_inp):
         
@@ -1296,7 +1333,8 @@ class Nucleus:
                                   np.sum([self.synaptic_weight[self.name, proj] * A[proj] *
                                           self.K_connections[self.name, proj] for proj in proj_list]) + \
                                   self.threshold
-            
+            self.external_inp_t_series = np.zeros_like(t_list)
+
             if change_states:                       
                 
                 self.mvt_ext_input = self.mvt_firing / self.gain - \
@@ -1306,7 +1344,6 @@ class Nucleus:
                                             
                 self.external_inp_t_series = mvt_step_ext_input( D_mvt, t_mvt, self.ext_inp_delay, 
                                                                  self.mvt_ext_input, t_list * dt)
-
         elif self.neuronal_model == 'spiking':  
             
             I_syn = self.incoming_rest_I_syn(proj_list, A, dt)
@@ -1905,7 +1942,8 @@ class Nucleus:
             the plateau and in case it is oscillation determine the frequency '''
             
 
-        sig = signal.detrend(sig)
+        # sig = signal.detrend(sig)
+        # print(np.average(sig))
         # self.butter_bandpass_filter_pop_act_not_modify( dt, 0.5, 1000, order= 6)
         f, pxx, freq = freq_from_fft(sig, dt / 1000, plot_spectrum=plot_spectrum, ax=ax, c=c_spec, label=fft_label, figsize=spec_figsize,
                                      method=fft_method, n_windows=n_windows, include_beta_band_in_legend=include_beta_band_in_legend,
@@ -1954,14 +1992,13 @@ class Nucleus:
 
     def find_freq_of_pop_act_spec_window(self, start, end, dt,  smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False,
                                       method='zero_crossing', plot_sig=False, plot_spectrum=False, ax=None, c_spec='navy', fft_label='fft',
-                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='fft', n_windows=6, include_beta_band_in_legend=False,
+                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='welch', n_windows=6, include_beta_band_in_legend=False,
                                       divide_beta_band_in_power = False, normalize_spec = True, include_peak_f_in_legend = True, 
                                       low_beta_range = [12,20], high_beta_range = [20, 30], low_gamma_range = [30, 70], plot_oscil =False,
                                       min_f = 0, max_f = 300, plot_sig_thresh = False,  n_std_thresh = 2, save_gamma = False,
                                         peak_threshold = 0.1):
         ''' trim the beginning and end of the population activity of the nucleus if necessary, cut
             the plateau and in case it is oscillation determine the frequency '''
-            
         if method not in ["fft", "zero_crossing"]:
             
             raise ValueError(method, "is not an acceptable method. Method must be either 'fft', or 'zero_crossing'")
@@ -2092,19 +2129,44 @@ def generate_periodic_input(start, end, dt, amplitude, freq, mean, method):
         raise ( " Beta induction method should be either excitation or inhibition!")
     return periodic_inp, t_list
 
-def set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2):
+# def set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2, order_mag_sigma = None):
+    
+#     for key, val in G.items():
+        
+#         sign = np.sign(val['mean'])
+#         G[key]['sd'] = abs(val['mean'] ) * sd_to_mean_ratio
+#         abs_truncmin = max(0, abs( val['mean']) - 
+#                            n_sd_trunc * G[key]['sd'])
+#         abs_truncmax = abs( val['mean'] ) + n_sd_trunc * G[key]['sd']
+#         G[key]['truncmin'] = min( sign * abs_truncmin, sign * abs_truncmax, sign * 10**-10)
+#         G[key]['truncmax'] = max( sign * abs_truncmin, sign * abs_truncmax)
+#         G[key]['order_mag_sigma'] = order_mag_sigma
+        
+#     return G
+
+def set_G_dist_specs(G, sd_to_mean_ratio = 0.5, trunc_with_sd = False, 
+                     n_sd_trunc = 2, order_mag_sigma = None):
     
     for key, val in G.items():
         
-        sign = np.sign(val['mean'])
-        G[key]['sd'] = abs( val['mean'] ) * sd_to_mean_ratio
-        abs_truncmin = max( 0 ,  abs( val['mean'] ) - 
-                                 n_sd_trunc * G[key]['sd'] )
-        abs_truncmax = abs( val['mean'] ) + n_sd_trunc * G[key]['sd']
-        G[key]['truncmin'] = min( sign * abs_truncmin, sign * abs_truncmax)
-        G[key]['truncmax'] = max( sign * abs_truncmin, sign * abs_truncmax)
-    
+        G[key]['sd'] = abs(val['mean'] ) * sd_to_mean_ratio
+
+        if trunc_with_sd:
+
+            G[key]['truncmin'] = max(0, abs( val['mean']) 
+                                    - n_sd_trunc * G[key]['sd'])
+            G[key]['truncmax'] = abs( val['mean']) \
+                                    + n_sd_trunc * G[key]['sd']
+
+        else:
+
+            G[key]['truncmin'] = 10**-10
+            G[key]['truncmax'] = 10**10
+
+        G[key]['order_mag_sigma'] = order_mag_sigma
+        
     return G
+
 def smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5):
     
     for nuclei_list in nuclei_dict.values():
@@ -2139,18 +2201,29 @@ def change_noise_all_nuclei( nuclei_dict, noise_variance, noise_amplitude):
 
 def plot_histogram(y, bins = 50, title = "", color = 'k', xlabel = 'control parameter', 
                    ax = None, plot_envelope = False, alpha = 1, frq = None, edges = None,
-                   bar_hist = True):
+                   bar_hist = True, xaxis = 'linear', absolute  = False):
     
     fig, ax = get_axes(ax)
     ax.set_title(title, fontsize = 15)
     ax.set_xlabel(xlabel, fontsize = 15)
-    
-    if bar_hist:
+    if absolute:
+        y = abs(y)
+
+    if bar_hist and not xaxis == 'log':
         frq, edges,_ = ax.hist(y, bins, color = color, alpha = alpha)
     
+    if xaxis == 'log':
+        
+        frq, edges = np.histogram(y, bins=bins)
+
+        logbins = np.logspace(np.log10(edges[0]),np.log10(edges[-1]),len(edges))
+        ax.hist(y, bins= logbins, color = color, alpha = alpha)
+        ax.set_xscale('log')
+
+
     if plot_envelope :
         plot_hist_envelope(frq, edges, color, ax = ax)
-        
+
     return ax
 
 def plot_hist_envelope(frq, centers, color, ax = None,  lw = 1, alpha = 0.2):
@@ -2478,7 +2551,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
                         use_saved_FR_ext = False, save_FR_ext = True, normalize_G_by_N = False, state = 'rest',
-                        change_states = True):
+                        change_states = True, plot_syn_weight_hist = False):
     
     '''find number of connections and build J matrix, set ext inputs as well
         Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
@@ -2495,7 +2568,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
 
-            nucleus.set_connections(K, N)
+            nucleus.set_connections(K, N, plot_syn_weight_hist = plot_syn_weight_hist)
             
             if nucleus.neuronal_model == 'rate' and scale_g_with_N:
                 
@@ -2831,7 +2904,7 @@ def find_phase_sine_fit(x, y):
 #             print('phase after = ', phase)
 #     return phase
 
-def shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref):
+def shift_small_phases_to_next_peak(phases, nuc_name, phase_ref, ws = None):
     
     mean_phases = np.average(phases)
     
@@ -2841,12 +2914,13 @@ def shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref):
             ind = np.where(phases < 30)
             
             print(nuc_name, 'shifting forward, phase before = ', phases[ind])
-            phases[ind] += 2 * np.pi / ws[ind]
+            # phases[ind] += 2 * np.pi / ws[ind]
+            phases[ind] += 360
             print('phase after = ', phases[ind])
             
     return phases
 
-def shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref):
+def shift_large_phases_to_prev_peak(phases, nuc_name, phase_ref, ws = None):
     
     ''' If outliers (minority) are on the second peak, shift them back'''
     
@@ -2858,12 +2932,13 @@ def shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref):
         
         ind = np.where(phases > 300)
         print(nuc_name, 'shifting backward, phase before = ', phases[ind])
-        phases[ind] -= 2 * np.pi / ws[ind]
+        # phases[ind] -= 2 * np.pi / ws[ind]
+        phases[ind] -= 360
         print('phase after = ', phases[ind])
         
     return phases
 
-def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, phase_ref):
+def shift_second_peak_phases_to_prev_peak(phase, nuc_name, phase_ref, w = None):
     
     ''' If the second peak is detected shift to the previous'''
     
@@ -2872,8 +2947,8 @@ def shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, phase_ref):
         if phase > 360 :
             
             print(nuc_name, 'shifting to first peak, phase before = ', phase)
-            
-            phase -= 2 * np.pi / w
+            phase -= 360
+            # phase -= 2 * np.pi / w
             print('phase after = ', phase)
             
     return phase
@@ -2892,12 +2967,12 @@ def find_phase_from_sine_and_max(x,y, nuc_name, phase_ref, shift_phase = None):
     ''' In case sine fit and maximum are close (90 deg) go with maximum, 
         Otherwise sine is to be trusted'''
         
-    phase_sine,fitfunc, w = find_phase_sine_fit(x, y)
+    # phase_sine,fitfunc, w = find_phase_sine_fit(x, y)
     phase_max = find_phase_from_max(x, y)
     # print( nuc_name, 'sine p: ', np.round( phase_sine, 1) , 'max p:', np.round( phase_max, 2))
     # phase = decide_bet_max_or_sine(phase_max, phase_sine, nuc_name, phase_ref)
     phase = phase_max
-    phase = shift_second_peak_phases_to_prev_peak(phase, w, nuc_name, phase_ref)
+    phase = shift_second_peak_phases_to_prev_peak(phase, nuc_name, phase_ref)
 
     # return phase, fitfunc, w
     return phase, 0, 0
@@ -2906,16 +2981,16 @@ def correct_phases(phases, ws, nuc_name, phase_ref, shift_phase = None):
     
     if shift_phase == 'backward':
 
-        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref)
+        phases = shift_large_phases_to_prev_peak(phases, nuc_name, phase_ref)
         
     elif shift_phase == 'forward':
         
-        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref)
+        phases = shift_small_phases_to_next_peak(phases, nuc_name, phase_ref)
         
     elif shift_phase == 'both':
         
-        phases = shift_small_phases_to_next_peak(phases, ws, nuc_name, phase_ref)
-        phases = shift_large_phases_to_prev_peak(phases, ws, nuc_name, phase_ref)
+        phases = shift_small_phases_to_next_peak(phases, nuc_name, phase_ref)
+        phases = shift_large_phases_to_prev_peak(phases, nuc_name, phase_ref)
 
     return phases
 
@@ -3194,16 +3269,20 @@ def integrate_Asier_single_neuron_phases(path, name, total_phase, n_bins, f_stim
     """ extract single neuron phases provided together as columns in a single .csv file and 
         integrate them returning the phase histogram of all neurons stacked
     """
-
+    print(name)
+    stim_name = os.path.basename(path).split('_')[1]
+    df_n_stim = pd.read_excel(os.path.join(path, stim_name  + '_stim_beta.xlsx'), 
+                              sheet_name = name, header = [0])
     filepath = list_files_of_interest_in_path(os.path.join( path, name + '_Phase'), 
                                                     extensions = [ align_to + '.csv'])[0]
+    
     df = pd.read_csv(filepath, header = [0])
     
     df = df.fillna(0)
     neurons = list(df.columns)
     neurons.remove('Degree')
     n_neurons = len(neurons)
-    frq_all_neurons = df[neurons].values.T / n_sweeps
+    frq_all_neurons = df[neurons].values.T / (df_n_stim['Stim #'].values.reshape(-1,1) * 30 * f_stim)
     edges = np.append(df['Degree'].values, 360)
     bin_deg = edges[1] - edges[0]
     n_shift = int(90 / bin_deg)  
@@ -3217,6 +3296,7 @@ def integrate_Asier_single_neuron_phases(path, name, total_phase, n_bins, f_stim
     return frq_all_neurons, centers, n_neurons
 
 def scale_phase_spike_count(count, err, total_phase, n_bins, coef = 1):
+    
     if total_phase == 720:
         n_bins += 2
     bin_size_in_deg = total_phase / n_bins
@@ -3232,7 +3312,7 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
                                     n_minor_tick_y = 4, n_minor_tick_x = 4, xlabel_fontsize = 8, FR_dict = None, 
                                     ylabel_fontsize = 8, xlabel = 'phase (deg)',strip_plot = False, state  = 'OFF',
                                     plot_single_neuron_hist = True, smooth_hist = False, hist_smoothing_wind = 5, 
-                                    shift_phase = None, plot_mean_FR = True, n_sweeps_Asier = 1200, align_to = 'Laser', 
+                                    shift_phase = None, plot_mean_FR = True, align_to = 'Laser', 
                                     shift_phase_deg =  0):
 
     n_subplots = len(name_list)
@@ -3254,7 +3334,6 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
             hists , centers, n_neurons =  integrate_Asier_single_neuron_phases(path, name, total_phase, n_bins, 
                                                                                      f_stim, color_dict, ax = ax,
                                                                                      scale_count_to_FR = scale_count_to_FR,
-                                                                                     n_sweeps =n_sweeps_Asier,
                                                                                      align_to = align_to)
             
         else:
@@ -3961,7 +4040,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, ylim = N
                 inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
                 plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
                 normalize_PSD = True, include_AUC_ratio = False, x_y_label_size = 10,
-                ylabel_norm = 'Norm. Power ' + r'$(\times 10^{-2})$',
+                ylabel_norm = 'Norm. Power ' + r'$(\times 10^{-2})$',  f_decimal = 1,
                 ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
                 xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
                 leg_lw = 2.5, span_beta = True, x_ticks = None, xlabel_y = -0.05):
@@ -3990,13 +4069,15 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, ylim = N
             all_std = np.std( data[(name,'pxx')][n_g,:,:].flatten() )
             significance = check_significance_of_PSD_peak(f, pxx_mean,  n_std_thresh = 2, min_f = 0, 
                                                           max_f = 250, n_pts_above_thresh = 3, 
-                                                          ax = None, legend = 'PSD', c = 'k', if_plot = False, name = name)
+                                                          ax = None, legend = 'PSD', c = 'k', 
+                                                          if_plot = False, name = name)
             
             leg_label = name 
             if f_in_leg:
                 
-                leg_label += ' f= '+\
-                        r'$' + "{:.0f}". format(mean_peak_f)+ '\;Hz$'
+                leg_label += (' f= '
+                              + r'$' + "{:."
+                              + str(f_decimal) + "f}"). format(mean_peak_f)+ '\;Hz$'
             if peak_f_sd:
                 leg_label += '$' +' \pm ' + "{:.1f}". format(sd_peak_f) + '$' + ' Hz'
             if err_plot == 'fill_between':
@@ -4351,7 +4432,7 @@ def multi_run_transition(
             G[k] = {}
             G[k]['mean'] = values['mean'][i]
         
-        G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
+        G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2, order_mag_sigma=2)
 
         print(G)
         for j in range(n_run):
@@ -5178,7 +5259,7 @@ def filter_pop_act_all_nuclei(nuclei_dict, dt,  lower_freq_cut, upper_freq_cut, 
 def find_freq_all_nuclei_and_save(data, element_ind,  dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, 
                                   cut_plateau_epsilon, check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, upper_freq_cut, 
                                   plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
-                                  fft_method='rfft', n_windows=3, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
+                                  fft_method='welch', n_windows=3, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
                                   half_peak_range = 5, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, 
                                   save_pxx = True, normalize_spec = True, plot_sig_thresh = False, plot_peak_sig = False, smooth = True,
                                   min_f = 0, max_f = 300, n_std_thresh = 2, AUC_ratio_thresh = 0.2, save_gamma = False,
@@ -5568,6 +5649,27 @@ def truncated_normal_distributed(mean, sigma, size, scale_bound=scale_bound_with
     return stats.truncnorm.rvs((lower_bound-mean)/sigma, 
                                (upper_bound-mean)/sigma, 
                                loc=mean, scale=sigma, size=size)
+
+
+def truncated_lognormal_distributed(mu, sigma, size, scale_bound=scale_bound_with_mean, 
+                                 scale=None, lower_bound_perc=0.8, upper_bound_perc=1.2, 
+                                 truncmin=None, truncmax=None, mu_norm = None, sigma_norm = None):
+    
+    """draw samples from a truncated lognoraml distribution"""
+
+    if mu == 0: # if meant to be disconnected bypass the log normal estimation
+        return np.zeros(size)
+    else:
+            
+        sigma_norm = sigma_norm or np.sqrt(np.log(1 + (sigma / mu) ** 2))
+        mu_norm = mu_norm or np.log( mu ** 2 / np.sqrt(mu ** 2 + sigma ** 2))
+        norm_sample = truncated_normal_distributed(mu_norm, sigma_norm, size, scale_bound=scale_bound_with_mean, 
+                                                   scale=scale, lower_bound_perc = lower_bound_perc, upper_bound_perc = lower_bound_perc, 
+                                                   truncmin = np.log(truncmin), truncmax = np.log(truncmax))
+        
+        lognorm_sample = np.exp(norm_sample)
+        
+        return lognorm_sample
 
 
 def find_FR_sim_vs_FR_ext(FR_list, poisson_prop, receiving_class_dict, t_list, dt, nuclei_dict, A, A_mvt, D_mvt, t_mvt):
@@ -6496,30 +6598,26 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
 
 
 
-def freq_from_rfft(sig, dt, N):
-    
-	'''Estimate frequency with rfft method '''
-    
-	rf = rfft(sig)
-	f = fftfreq(N, dt)[:N//2]
-	pxx = np.abs(rf[:N//2]) ** 2
-	# Just use this for less-accurate, naive version
-	peak_freq = f[np.argmax(abs(rf[: N // 2]))]
-    
-	return f, pxx, peak_freq
+def freq_from_rfft(sig, dt, N):    
+    '''Estimate frequency with rfft method '''    
+    rf = rfft(sig)
+    f = fftfreq(N, dt)[:N//2]
+    pxx = np.abs(rf[:N//2]) ** 2
+    # Just use this for less-accurate, naive version
+    peak_freq = f[np.argmax(abs(rf[: N // 2]))]
+    return f, pxx, peak_freq
 
 
-def freq_from_welch(sig, dt, n_windows=6):
+def freq_from_welch(sig, dt, n_windows=6, detrend  = False, window = 'hamming'):# detrend = 'constant'):
     
-	"""
-	Estimate frequency with Welch method
-	"""
-    
-	fs = 1 / dt
-	f, pxx = signal.welch(sig, axis=0, fs=fs, nperseg=int(len(sig) / n_windows), window = 'hann')
-	peak_freq = f[np.argmax(pxx)]
-    
-	return f, pxx, peak_freq
+    """	Estimate frequency with Welch method
+    """
+    fs = 1 / dt
+    sig = signal.detrend(sig)
+    f, pxx = signal.welch(sig, axis=0, fs=fs, nperseg=int(len(sig) / n_windows), 
+                       window = window, detrend = detrend)
+    peak_freq = f[np.argmax(pxx)]    
+    return f, pxx, peak_freq
 
 def autocorr_1d(x, method = 'numpy', mode = 'same'):
     
@@ -6737,11 +6835,10 @@ def run_rate_model(receiving_class_dict, t_list, dt, nuclei_dict):
             
             for k, nucleus in enumerate(nuclei_list):
 
-		#        mvt_ext_inp = np.zeros((nucleus.n,1)) # no movement
-                mvt_ext_inp = np.ones((nucleus.n, 1)) * \
+                ext_inp = np.ones((nucleus.n, 1)) * \
 				                      nucleus.external_inp_t_series[t]  # movement added
 
-                nucleus.calculate_input_and_inst_act(t, dt, receiving_class_dict[(nucleus.name, str(k + 1))], mvt_ext_inp)
+                nucleus.calculate_input_and_inst_act(t, dt, receiving_class_dict[(nucleus.name, str(k + 1))], ext_inp)
                 nucleus.update_output(dt)
 
     return nuclei_dict
@@ -8363,7 +8460,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                       legend_loc = 'upper left', vspan_stable = False, path = None, 
                                       legend_fontsize = 12, loop_name = 'STN-Proto', ylim  = [-4, 76],
                                        legend_fontsize_rec= 18, n_windows = 3, check_stability = True,
-                                       lower_freq_cut = 8, upper_freq_cut = 60, freq_method = 'fft',
+                                       lower_freq_cut = 8, upper_freq_cut = 60, freq_method = 'fft', fft_method = 'Welch',
                                        peak_threshold=0.1, smooth_kern_window=3, smooth_window_ms = 5,
                                        cut_plateau_epsilon=0.1, plot_sig = False, low_pass_filter = False,
                                        lim_oscil_perc=10, plot_spectrum = True, normalize_spec = True,
@@ -8429,7 +8526,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                                               check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, 
                                                               upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
                                                               c_spec=color_dict, n_windows=n_windows, 
-                                                              fft_method= 'Welch', find_beta_band_power= True,
+                                                              fft_method= fft_method, find_beta_band_power= True,
                                                               divide_beta_band_in_power = False, include_beta_band_in_legend=False,
                                                               half_peak_range = 5, cut_off_freq = 100, 
                                                               check_peak_significance=check_peak_significance, 
@@ -8506,8 +8603,8 @@ def reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt
     
 def save_freq_analysis_to_df_2d(data, state, i, j, nucleus, dt, duration, check_stability = True, method = 'zero_crossing'):
     
-    (data[(nucleus.name, 'n_half_cycle_' + state)][i, j], _,
-    data[(nucleus.name, state + '_mvt_freq')][i, j], if_stable, _, _) = nucleus.find_freq_of_pop_act_spec_window(*duration,dt, 
+    (data[(nucleus.name, 'n_half_cycle_' + state)][i, j], _, _,
+    data[(nucleus.name, state + '_freq')][i, j], if_stable, _, _) = nucleus.find_freq_of_pop_act_spec_window(*duration, dt, 
                                                                                         peak_threshold = nucleus.oscil_peak_threshold, 
                                                                                         smooth_kern_window = nucleus.smooth_kern_window, 
                                                                                         check_stability = check_stability, method = method)
@@ -8522,11 +8619,11 @@ def create_df_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time_scale,
     for nucleus_list in nuclei_dict.values():
         
         nucleus = nucleus_list[0] # get only on class from each population
-        data[(nucleus.name, 'stable_mvt_freq')] = np.zeros(iter_param_length_list)
+        data[(nucleus.name, 'stable_freq')] = np.zeros(iter_param_length_list)
         data[(nucleus.name, 'n_half_cycle_stable')] = np.zeros(iter_param_length_list)
         
         if check_transient:
-            data[(nucleus.name, 'trans_mvt_freq')] = np.zeros(iter_param_length_list)
+            data[(nucleus.name, 'trans_freq')] = np.zeros(iter_param_length_list)
             data[(nucleus.name, 'n_half_cycle_trans')] = np.zeros(iter_param_length_list)
 
 
@@ -8536,7 +8633,6 @@ def create_df_tau_sweep_2d(nuclei_dict, G, iter_param_length_list, n_time_scale,
     
     for k in list(synaptic_time_constant.keys()):
         data['tau'][k] = np.zeros(iter_param_length_list)
-        print(k)
     return data
 
 def extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, t_decay_1, t_decay_2, if_track_tau_2 = True):
@@ -8577,17 +8673,16 @@ def run_and_derive_freq(data, N, N_real, K_real, receiving_class_dict,
     run(receiving_class_dict,t_list, dt, nuclei_dict)
 
     nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
-    
     for nucleus in nucleus_list:
         data = save_freq_analysis_to_df_2d(data, state, i, j, nucleus, dt, duration, 
-                                           check_stability = check_stability, freq_method = freq_method)
+                                           check_stability = check_stability, method = freq_method)
         
     return data
 
 def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_dict, N, N_real, K_real,
                       syn_decay_dict, filename, G,A,A_mvt, D_mvt,t_mvt, receiving_class_dict, 
                       t_list,dt, duration_base, duration_mvt, lim_n_cycle, find_stable_oscill=True, 
-                      check_transient = False, if_track_tau_2 = True, freq_method = 'zero_crossing'):
+                      check_transient = False, if_track_tau_2 = True, freq_method = 'zero_crossing', change_states = True):
     
     
     t_decay_series_1 = list(syn_decay_dict['tau_1']['tau_list']) 
@@ -8605,11 +8700,12 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
             
             synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, 
                                                                          t_decay_1, t_decay_2, if_track_tau_2 = if_track_tau_2 )
-            print(synaptic_time_constant)
-            nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+            nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, 
+                                              A, A_mvt, D_mvt,t_mvt, t_list, dt, change_states=change_states)
             nuclei_dict = set_time_scale(nuclei_dict, synaptic_time_constant)
             
-            g_transient, g_stable = find_oscillation_boundary(g_list, nuclei_dict.copy(), G,
+            g_transient, g_stable = find_oscillation_boundary(g_list, nuclei_dict.copy(),  
+                                                              N, N_real, K_real, G,
                                                               G_ratio_dict, A, A_mvt,t_list,dt, 
                                                               receiving_class_dict, D_mvt, 
                                                               t_mvt, duration_mvt, duration_base, 
@@ -8618,16 +8714,18 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
             
             data = fill_taus_and_Gs_in_data(data, i, j, synaptic_time_constant,  g_transient, g_stable)
             
-            data = run_and_derive_freq(data, receiving_class_dict,nuclei_dict, g_stable, duration_mvt, i, j , 
+            data = run_and_derive_freq(data,  N, N_real, K_real, receiving_class_dict,
+                                       nuclei_dict, g_stable, duration_mvt, i, j , 
                                        'stable', G, G_ratio_dict, A, A_mvt, 
                                        D_mvt,t_mvt, t_list, dt, 
                                        check_stability = True, freq_method = freq_method)
             
             if check_transient:
 
-                data = run_and_derive_freq(data, receiving_class_dict, nuclei_dict, g_transient, duration_mvt, i, j ,
-                                       'trans', G, G_ratio_dict, A, A_mvt, 
-                                       D_mvt,t_mvt, t_list, dt, freq_method = freq_method)
+                data = run_and_derive_freq(data,  N, N_real, K_real, receiving_class_dict,
+                                           nuclei_dict, g_transient, duration_mvt, i, j ,
+                                           'trans', G, G_ratio_dict, A, A_mvt, 
+                                           D_mvt,t_mvt, t_list, dt, freq_method = freq_method)
             count +=1
             print(count, "from ", n_runs)
             
@@ -8668,26 +8766,24 @@ def find_oscillation_boundary(g_list,nuclei_dict,N, N_real, K_real, G, G_ratio_d
         run(receiving_class_dict,t_list, dt, nuclei_dict)
         
         nucleus = list(nuclei_dict.values())[0][0]
-        
-        n_half_cycles_mvt,perc_oscil_mvt, f_mvt, if_stable_mvt,_,_ = nucleus.find_freq_of_pop_act_spec_window(*duration_mvt, dt, 
+        n_half_cycles, last_first_peak_ratio , perc_oscil, f, if_stable, _, _ = nucleus.find_freq_of_pop_act_spec_window(*duration_mvt, dt, 
                                                                                                   peak_threshold = nucleus.oscil_peak_threshold,
                                                                                                   smooth_kern_window = nucleus.smooth_kern_window, 
-                                                                                                  check_stability= find_stable_oscill)
-        
+                                                                                                  check_stability= find_stable_oscill, method = "zero_crossing")
         # n_half_cycles_base, perc_oscil_base, f_base, if_stable_base,_,_ = nucleus.find_freq_of_pop_act_spec_window(*duration_base, dt, 
         #                                                                                                peak_threshold = nucleus.oscil_peak_threshold, 
         #                                                                                                smooth_kern_window = nucleus.smooth_kern_window, 
         #                                                                                                check_stability= find_stable_oscill)
         
-        print('g = {}, f = {}, {} %'.format( round(g,1), 
-                                            round(f_mvt , 1), 
-                                            round(perc_oscil_mvt, 1) 
-                                            )
+        print('g = {}, f = {}, {} %, P-ratio = {}'.format(round(g,1), 
+                                            round(f , 1), 
+                                            round(perc_oscil, 1),
+                                            round(last_first_peak_ratio, 2))
               )
         
         # check_if_zero_activity(duration_mvt, nucleus)
        
-        if lim_n_cycle[0] <= n_half_cycles_mvt <= lim_n_cycle[1] and not found_transient_g:
+        if lim_n_cycle[0] <= n_half_cycles <= lim_n_cycle[1] and not found_transient_g:
             
             found_transient_g = True
             g_transient = g 
@@ -8696,7 +8792,7 @@ def find_oscillation_boundary(g_list,nuclei_dict,N, N_real, K_real, G, G_ratio_d
             if  not find_stable_oscill:
                 break
             
-        if find_stable_oscill and if_stable_mvt and not found_stable_g:
+        if find_stable_oscill and if_stable and not found_stable_g:
             
             found_stable_g = True
             g_stable = g
@@ -8708,6 +8804,7 @@ def find_oscillation_boundary(g_list,nuclei_dict,N, N_real, K_real, G, G_ratio_d
         # raise ValueError("Transient oscillation couldn't be found in the given <g> range" )
         print("Transient oscillation couldn't be found in the given <g> range" )
         g_transient = 0
+        
     if find_stable_oscill and not found_stable_g:
         raise ValueError ("Stable oscillation couldn't be found in the given <g> range" )
         
@@ -9519,7 +9616,7 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
     y_ticks = y_ticks or ax.get_yticks().tolist()[:-1]
     fig = set_y_ticks(fig, y_ticks)
     
-    clb = plt.colorbar(img, shrink=0.5, ax = ax)
+    clb = fig.colorbar(img, shrink=0.5, ax = ax)
     clb.set_label(clb_title, labelpad=-60, y=0.5, rotation=-90, fontsize = label_fontsize)
     clb.ax.tick_params(labelsize=clb_tick_size )
     set_max_dec_tick(ax)
@@ -9622,7 +9719,7 @@ def drop_nan(x):
     return x[~np.isnan(x)]
 
 def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, 
-                                           state = 'awake_rest', plt_duration = 600, run_no = 0, window_ms = 5, 
+                                           state = 'rest', plt_duration = 600, run_no = 0, window_ms = 5, 
                                            act_ylim = (-5, 90), PSD_ylim = None, PSD_xlim = (0, 80), ylabel = 'PSD',
                                            PSD_y_labels = [0, 40, 80, 120], act_y_labels = [0, 40, 80], normalize_spec = False,
                                            PSD_x_labels = [0, 20, 40, 60], act_x_labels = [4000, 4150, 4300]):
@@ -9652,10 +9749,10 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
                 ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
                 
             peak_freq = np.round(data[(name, 'base_freq')][ind[0], ind[1]] , 1)
-            ax_PSD.plot(f, pxx, c = color_dict[name], label = name + ' ' +  str(int(round(peak_freq,0))) + ' Hz', lw=1.5)
+            ax_PSD.plot(f, pxx,'-', c = color_dict[name], 
+                        label = name + ' ' +  str(int(round(peak_freq,0))) + ' Hz', lw=1.5)
         
             length = data[(name, 'pop_act')].shape[-1]
-            
             pop_act = data[(name, 'pop_act')][ind[0], ind[1], length - int( plt_duration/dt) : length]
             pop_act = moving_average_array(pop_act, int(window_ms / dt))
             t_list = np.arange( length - int( plt_duration/ dt), length) * dt
