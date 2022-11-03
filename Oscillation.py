@@ -8980,9 +8980,9 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 20800 
+t_sim = 21000 
 t_list = np.arange(int(t_sim/dt))
-plot_start = 200
+plot_start = 1000
 t_transition = plot_start + 0# int(t_sim / 5)
 duration_base = np.array( [int(200/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
@@ -8994,7 +8994,7 @@ t_sim = t_sim - t_transition
 t_list = np.arange(int(t_sim/dt))
 end_phase = t_sim - int(300 / dt)
 n_phase_bins = 120
-n_windows = 15
+n_windows = 10
 
 name1 = 'FSI'
 name2 = 'D2'
@@ -9018,8 +9018,8 @@ beta_induction_method = 'excitation'
 # induction_nuc_name = 'Proto'
 # beta_induction_method = 'inhibition'
 
-# induction_nuc_name = 'STN'
-# beta_induction_method = 'excitation'
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 
 # neuronal_consts['Proto']['membrane_time_constant'] = {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}
@@ -9041,21 +9041,21 @@ name_list = [name1, name2, name3, name4, name5]
 G = {}
 
 
-g = -0.0025 
-
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.5}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 3}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 3.5}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4.}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0.9},
-      (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.4}
-      }
-
+g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
-G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2)
+
+
+G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2, order_mag_sigma = 2)
 G_dict = {k: {'mean': [v['mean']]} for k, v in G.items()}
 
 
@@ -9091,7 +9091,7 @@ nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1, external_input_bool = True) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method,Act = Act, state = state_1, external_input_bool = True) for i in pop_list] for name in name_list}
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state_1]
                for name in list(nuclei_dict.keys())}
@@ -12772,17 +12772,17 @@ scale_count_to_FR = False
 # y_max_series = {'D2': 6, 'STN': 36, 'Arky': 17, 'Proto': 30, 'FSI': 9}
 # y_max_series = {'D2': 15, 'STN': 75, 'Arky': 31, 'Proto': 70, 'FSI': 25} # with single neuron traces
 
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
 
-# y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
-# n_decimal = 0
-# plot_FR = True; scale_count_to_FR = True
-# y_max_series = {'D2': 1., 'STN': 40, 'Arky': 17, 'Proto': 84, 'FSI': 8}
-# y_max_series = {'D2': 13., 'STN': 40, 'Arky': 40, 'Proto': 84, 'FSI': 20}  # with single neuron traces
-# y_max_series = {'D2': 8., 'STN': 160, 'Arky': 40, 'Proto': 84, 'FSI': 11}  # with single neuron traces
+y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
+n_decimal = 0
+plot_FR = True; scale_count_to_FR = True
+y_max_series = {'D2': 1., 'STN': 40, 'Arky': 17, 'Proto': 84, 'FSI': 8}
+y_max_series = {'D2': 13., 'STN': 40, 'Arky': 40, 'Proto': 84, 'FSI': 20}  # with single neuron traces
+y_max_series = {'D2': 8., 'STN': 160, 'Arky': 40, 'Proto': 84, 'FSI': 11}  # with single neuron traces
 
-# phase_ref = 'stimulation'
+phase_ref = 'stimulation'
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
@@ -14145,7 +14145,7 @@ state = 'rest'
 (synaptic_time_constant[(name2, name1)],
  synaptic_time_constant[(name1, name2)]) = [10], [6]
 
-g = -1.6
+g = -1.8
 G = {('STN', 'Proto'): g,
      ('Proto', 'STN'): -g}  # synaptic weight
 
@@ -14408,7 +14408,7 @@ fig_unconnected.gca().legend(fontsize = 20, loc = 'upper right', frameon = False
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 if_plot = False
-dt = 0.1
+dt = 0.2
 t_sim = 20500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 500
@@ -14422,7 +14422,7 @@ name2 = 'STN'
 state_1 = 'awake_rest'
 state_2 = 'mvt'
 
-state = 'rest'
+# state = 'rest'
 
 name_list = [name1, name2]
 
@@ -14448,7 +14448,7 @@ G_ratio_dict = {
 lim_n_cycle = [6, 10]
 pop_list = [1]
 
-nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude,
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude,
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
@@ -14824,38 +14824,42 @@ print( "n_half_cycles = {0}, last_first_peak_ratio = {1} , \n \
       
 # %% RATE MODEL : Any Pallidostriatal loop with GPe-GPe fft
 
-# plt.close('all')
+plt.close('all')
 N_sim = 100
 N = dict.fromkeys(N, N_sim)
 
 if_plot = False
-dt = 0.1
-t_sim = 10000
+dt = 0.2
+t_sim = 21000
 t_list = np.arange(int(t_sim/dt))
 t_start = 1000
 D_mvt = 0
 t_mvt = 400
 duration = [int((t_start)/dt), int((t_sim)/dt)]
-plot_start = 0
-plot_duration = t_sim
-n_windows =1
+plot_start = t_start
+plot_duration = 600
+n_windows =10
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI'
 name_list = [name1, name2, name3]
 
 g = - np.power( 15 , 1/3 )
-g= -1
+n = 15
+g_P_list = - np.linspace(0, 5, n, endpoint=True)
+g_FSI_list = - np.linspace(0., 3, n, endpoint=True)
+g = g_FSI_list[12]
 G = {
     (name2, name3): g,
-    (name3, name1): g,
+    (name3, name1): g/2,
     (name1, name2): g,
-    (name1, name1): 0
+    (name1, name1): g_P_list[14]
+    
 }
 
-state_1 = 'rest'
+state_1 = 'awake_rest'
+# state_1 = 'rest'
 state_2 = 'mvt'
-
 
 receiving_pop_list = {(name3, '1'): [(name1, '1')],
                       (name1, '1'): [(name2, '1'), (name1, '1')],
@@ -14879,7 +14883,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
 
 nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
 
-fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,  plot_start=plot_start, plt_mvt =False) 
+fig = plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt,  plot_start=t_sim - plot_duration, plt_mvt =False, plot_end = t_sim ) 
 
 peak_threshold = 0.1
 smooth_window_ms = 3
@@ -14889,15 +14893,15 @@ lim_oscil_perc = 10
 low_pass_filter = False
 check_stability = False
 freq_method = 'fft'; plot_sig = True
-find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold,
+_,_,_ =find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold,
                               smooth_kern_window, smooth_window_ms,
                               cut_plateau_epsilon, check_stability, freq_method, plot_sig,
                               low_pass_filter, 1, 100, plot_spectrum=True, 
                               ax=None, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-                              fft_method='rfft', n_windows=n_windows, include_beta_band_in_legend=True, smooth = False, 
+                              fft_method='Welch', n_windows=n_windows, include_beta_band_in_legend=True, smooth = False, 
                               normalize_spec = True, include_peak_f_in_legend = True,
-                              check_significance = False, plot_sig_thresh = False, plot_peak_sig = False,
-                              min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8)
+                              check_significance = True, plot_sig_thresh = False, plot_peak_sig = False,
+                              min_f = 0, max_f = 200, n_std_thresh = 2,AUC_ratio_thresh = 0.8,print_AUC_ratio = True)
       
 # %% RATE MODEL : Any Pallidostriatal loop without GPe-GPe
 
@@ -15427,26 +15431,27 @@ N_sim = 100
 N = dict.fromkeys(N, N_sim)
 
 if_plot = False
-dt = 0.1
+dt = 0.2
 t_start = 1000
-t_sim = 5000 + t_start
+t_sim = 20000 + t_start
 t_list = np.arange(int(t_sim/dt))
 t_mvt = 0
 D_mvt = t_sim - t_mvt
 duration = [int(t_start/dt), int(t_sim/dt)]
 # duration = [0, int(t_sim/dt)]
 
-n_windows = 5# (t_sim - t_start) / 2000
+n_windows = 10# (t_sim - t_start) / 2000
 
 name1 = 'Proto'
 name2 = 'D2'
 name3 = 'FSI'
 
 state_1 = 'rest'
+state_1 = 'awake_rest'
+
 state_2 = 'mvt'
 
 name_list = {name1, name2, name3} 
-
 
 receiving_pop_list = {(name3, '1'): [(name1, '1')],
                       (name1, '1'): [(name2, '1'), (name1, '1')],
@@ -15459,20 +15464,23 @@ receiving_pop_list = {(name3, '1'): [(name1, '1')],
 
 
 G = {
-    (name2, name3): -1,
-    (name3, name1): -1,
-    (name1, name2): -1,
-    (name1, name1): -1, 
+    (name2, name3): 1,
+    # (name3, name1): 1/3, # rest state
+    (name3, name1): 1/2,
+    (name1, name2): 1,
+    (name1, name1): 1, 
 }
-n = 2
-g_P_list = - np.linspace(1, 7.5, n, endpoint=True)
-g_FSI_list = - np.linspace(0.5, 3, n, endpoint=True)
+n = 15
+# g_P_list = - np.linspace(1, 4.3, n, endpoint=True) # Useless attempt to set up in rest state
+# g_FSI_list = - np.linspace(0.5, 4, n, endpoint=True)
 
-# g_P_list = np.array([0])
-# g_FSI_list = np.array([0])
+g_P_list = - np.linspace(0, 5, n, endpoint=True)
+g_FSI_list = - np.linspace(0., 3, n, endpoint=True)
+# g_P_list = np.array([-4.3])
+# g_FSI_list = np.array([-3])
 # n = len(g_P_list)
 
-G_ratio_dict = {
+G_dict = {
     
     (name2, name3): g_FSI_list,
     (name3, name1): g_FSI_list,
@@ -15495,12 +15503,12 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, 
                                                        N_real, K_real, receiving_pop_list, nuclei_dict, 
                                                        t_list, change_states = False)
-filename = os.path.join(path_rate, 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_' + str(n) + '.pkl')
+filename = os.path.join(path_rate, 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_' + str(n) + '.pkl')
 
 figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act[state_2], D_mvt,
                                          t_mvt, t_list, dt, filename, 
                                          loop_key_lists, nuclei_dict, duration, receiving_class_dict, 
-                                         color_dict, plot_firing = False, G_ratio_dict = G_ratio_dict, 
+                                         color_dict, plot_firing = False, G_dict = G_dict, 
                                          legend_loc = 'upper left', vspan_stable = False, path = path_rate, 
                                          legend_fontsize = 12, ylim  = [-4, 76],
                                          legend_fontsize_rec= 18, n_windows = n_windows, check_stability = True,
@@ -15510,7 +15518,7 @@ figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act
                                          cut_plateau_epsilon=0.1, plot_sig = False, low_pass_filter = False,
                                          lim_oscil_perc=10, plot_spectrum = False, normalize_spec = False,
                                          plot_sig_thresh = False, min_f = 0, max_f = 200, n_std_thresh = 2,
-                                         save_pxx = True, len_f_pxx = 250, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
+                                         save_pxx = True, len_f_pxx = 250, AUC_ratio_thresh = 0.09, plot_peak_sig = False,
                                          change_states = False, save_pop_act = True, print_AUC_ratio = True)
 # %% Parameterscape RATE MODEL
 
@@ -15522,6 +15530,7 @@ filename =  'test_2d.pkl'
 filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_2.pkl'
+filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_15.pkl'
 
 examples_ind = {'A' : (0, 14), 'B': (11, 14),
                 'C': (10, 12), 'D': (10, 10),
@@ -15533,18 +15542,20 @@ examples_ind = {'A' : (0, 14),
                 'B' : (8, 10),
                 'C': (10, 9),
                 'D': (6, 6),
-                'E':(14, 0)
+                'E':(14, 0),
+                'F':(14, 12)
                 }
-# examples_ind = {'A' : (2, 2), 'B': (4, 4) , 
-#                 'C': (5, 3),  'D': (0, 9),
+# examples_ind = {'A' : (2, 2), 'B': (4, 6) , 
+#                 'C': (8, 5),  'D': (0, 9),
 #                 }
 
 
-examples_ind = {'A' : (0, 0), 'B': (0, 3) , 
-                'C': (3, 0), 'D': (2, 2)}
-examples_ind = {'A' : (0, 0), 'B': (0, 1) , 
-                'C': (1, 0), 'D': (1, 1)}
-dt = 0.1
+# examples_ind = {'A' : (0, 0), 'B': (0, 3) , 
+#                 'C': (3, 0), 'D': (2, 2), 'E':(3,3)}
+# examples_ind = {'A' : (0, 0), 'B': (0, 1) , 
+#                 'C': (1, 0), 'D': (1, 1)}
+# examples_ind = {'A' : (0, 0)}
+dt = 0.2
 key_y = ('Proto', 'D2')
 ylabel = r'$G_{Proto-D2}$'
 
@@ -15587,10 +15598,23 @@ for name in name_list:  ####### one single run (hence the squeeze)
 colormap = freq_dict
 # colormap = power_dict
 
+def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
+    for i, x in enumerate(x_list):
+        
+        for j, y in enumerate(y_list):
+            
+            for name in name_list:
+                
+                data[name, 'peak_significance'][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j], data[name,'pxx'][i,j],  n_std_thresh = 2, 
+                                                                                 min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+                                                                                 ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
+                                                                                 xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
 
+    return data
 
+data = reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2)
 fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
-                    size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param,
+                    size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
 
 fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
@@ -15598,8 +15622,8 @@ save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1.5, 
 
 
 fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, 
-                                                  color_dict, Act, plt_duration = 200, run_no = 0,
-                                                  normalize_spec = True, PSD_ylim = (-5, 120))
+                                                  color_dict, Act, plt_duration = 600, run_no = 0,
+                                                  normalize_spec = True, PSD_ylim = (-5, 120), state = 'awake_rest')
 save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (8, 10))
 
 

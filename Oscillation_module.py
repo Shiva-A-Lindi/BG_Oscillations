@@ -634,7 +634,6 @@ class Nucleus:
         self.multiply_connectivity_mat_by_G(N)
         
     def normalize_synaptic_weight(self):
-
         self.synaptic_weight = {key:  val * (self.neuronal_consts['spike_thresh']['mean'] - 
                                              self.neuronal_consts['u_rest']['mean']) 
                                 for key, val in self.synaptic_weight.items() }
@@ -5356,7 +5355,7 @@ def find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_th
                              fft_method='rfft', n_windows=3, include_beta_band_in_legend=True, smooth = False, 
                              normalize_spec = True, include_peak_f_in_legend = True,
                              check_significance = False, plot_sig_thresh = False, plot_peak_sig = False,
-                             min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8):
+                             min_f = 100, max_f = 300, n_std_thresh = 2,AUC_ratio_thresh = 0.8, print_AUC_ratio = False):
     pxx = {}
     if plot_spectrum:
         ax = ax or plt.subplots()[1]
@@ -5399,7 +5398,8 @@ def find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_th
                                                           n_pts_above_thresh = n_std_thresh,
                                                           if_plot = plot_peak_sig, 
                                                           name = nucleus.name,
-                                                          AUC_ratio_thresh = AUC_ratio_thresh)
+                                                          AUC_ratio_thresh = AUC_ratio_thresh,
+                                                          print_AUC_ratio = print_AUC_ratio )
 
 
     return freq, f, pxx
@@ -6737,7 +6737,7 @@ def check_significance_neuron_autc_PSD(signif_thresh, f, pxx, n, n_pts_above_thr
 
 def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f = 250, n_pts_above_thresh = 2, 
                                    ax = None, legend = 'PSD', c = 'k', if_plot = True, AUC_ratio_thresh = 0.2,
-                                   xlim = [0, 80], name = '', print_AUC_ratio = False, peak_threshold  = 30, f_cut = 1):
+                                   xlim = [0, 80], name = '', print_AUC_ratio = False, peak_threshold  = 0.7, f_cut = 1):
     
     ''' Check significance of a peak in PSD by thresholding the ratio of AUC above n_std_thresh
         relative to the absolute AUC, as well as thresholding the peak of the power spec
@@ -6774,8 +6774,8 @@ def check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, min_f = 0, max_f =
         print(name,
               "AUC ratio = {}".format( AUC_ratio ), 
               " n peaks = ", n_peaks)
-        if n_peaks > 0:
-            print("max peak = ", max(pxx_norm[peaks]))
+        # if n_peaks > 0:
+        #     print("max peak = ", max(pxx_norm[peaks]))
             
     if AUC_ratio > AUC_ratio_thresh and n_peaks > 0:
 
@@ -8454,9 +8454,9 @@ def synaptic_weight_exploration_RM(N, N_real, K_real, G, A, A_mvt, D_mvt, t_mvt,
             
     return fig_unconnected, fig_trans, fig_stable
 
-def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_mvt, t_list, dt, filename,
+def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt, D_mvt, t_mvt, t_list, dt, filename,
                                       loop_key_lists, nuclei_dict, duration, receiving_class_dict, 
-                                      color_dict, plot_firing = False, G_ratio_dict = None,
+                                      color_dict, plot_firing = False, G_dict = None,
                                       legend_loc = 'upper left', vspan_stable = False, path = None, 
                                       legend_fontsize = 12, loop_name = 'STN-Proto', ylim  = [-4, 76],
                                        legend_fontsize_rec= 18, n_windows = 3, check_stability = True,
@@ -8469,11 +8469,11 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
                                        check_peak_significance = True, print_AUC_ratio = False,
                                        change_states = False, save_pop_act = True):
     
-    n_iter_1 = len(G_ratio_dict[loop_key_lists[0][0]])
-    n_iter_2 = len(G_ratio_dict[loop_key_lists[1][0]])
+    n_iter_1 = len(G_dict[loop_key_lists[0][0]])
+    n_iter_2 = len(G_dict[loop_key_lists[1][0]])
 
     
-    data = create_df_for_iteration_RM_2d(nuclei_dict, G_ratio_dict, duration, n_iter_1, n_iter_2, 
+    data = create_df_for_iteration_RM_2d(nuclei_dict, G_dict, duration, n_iter_1, n_iter_2, 
                                          len_f_pxx = len_f_pxx, save_pop_act = True, divide_beta_band_in_power = False, 
                                          iterating_name = 'g', check_peak_significance = check_peak_significance)
     
@@ -8490,20 +8490,19 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, A, A_mvt, D_mvt, t_m
 
     
     count = 0
+    G = {}
     for i in range(n_iter_1):
         
         
         for k in loop_key_lists[0]:
             
-            G[k] = G_ratio_dict[k][i]
+            G[k] = G_dict[k][i] *G_ratio_dict[k]
 
         for m in range(n_iter_2):
         
             for k in loop_key_lists[1]:
                 
-                G[k] = G_ratio_dict[k][m]
-                 
-                
+                G[k] = G_dict[k][m] *G_ratio_dict[k]
             nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, 
                                               G, A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                               change_states = change_states)
@@ -9580,6 +9579,7 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
             for name, ms, s in zip(name_list, markerstyle_list, size_list):
                 
                 if only_significant:
+                    
                     
                     if peak_significance[name][i,j]:
                         
