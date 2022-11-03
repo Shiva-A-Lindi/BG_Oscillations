@@ -14452,7 +14452,7 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
-n = 30
+n = 20
 syn_decay_dict = {'tau_1':
                   {
                       'tau_ratio': {('STN', 'Proto'): 1
@@ -14567,7 +14567,7 @@ nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
-n = 30
+n = 20
 syn_decay_dict = {'tau_1':
                   {
                       'tau_ratio': {('Proto', 'Proto'): 1
@@ -14997,7 +14997,7 @@ name3 = 'Arky'
 state_1 = 'awake_rest'
 state_2 = 'mvt'
 
-state = 'rest'
+# state = 'rest'
 
 name_list = {name1, name2, name3}
 receiving_pop_list = {(name3, '1'): [(name1, '1')],
@@ -15032,7 +15032,7 @@ G_ratio_dict = {
 #                 }
 
 
-nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude,
+nuclei_dict = {name: [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude,
                               N, A, A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list,
                               smooth_kern_window, oscil_peak_threshold) for i in pop_list] for name in name_list}
 
@@ -15041,7 +15041,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path,
 
 
 
-n = 30
+n = 20
 syn_decay_dict = {'tau_1': {
     'tau_ratio': {(name2, name3): 1,
                   (name3, name1): 1,
@@ -15431,7 +15431,7 @@ N_sim = 100
 N = dict.fromkeys(N, N_sim)
 
 if_plot = False
-dt = 0.2
+dt = 0.1
 t_start = 1000
 t_sim = 20000 + t_start
 t_list = np.arange(int(t_sim/dt))
@@ -15470,7 +15470,7 @@ G = {
     (name1, name2): 1,
     (name1, name1): 1, 
 }
-n = 15
+n = 4; n_run = 2
 # g_P_list = - np.linspace(1, 4.3, n, endpoint=True) # Useless attempt to set up in rest state
 # g_FSI_list = - np.linspace(0.5, 4, n, endpoint=True)
 
@@ -15508,7 +15508,7 @@ filename = os.path.join(path_rate, 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0
 figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act[state_2], D_mvt,
                                          t_mvt, t_list, dt, filename, 
                                          loop_key_lists, nuclei_dict, duration, receiving_class_dict, 
-                                         color_dict, plot_firing = False, G_dict = G_dict, 
+                                         color_dict, plot_firing = False, G_dict = G_dict, n_run = n_run,
                                          legend_loc = 'upper left', vspan_stable = False, path = path_rate, 
                                          legend_fontsize = 12, ylim  = [-4, 76],
                                          legend_fontsize_rec= 18, n_windows = n_windows, check_stability = True,
@@ -15530,7 +15530,7 @@ filename =  'test_2d.pkl'
 filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_2.pkl'
-filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_15.pkl'
+filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_4.pkl'
 
 examples_ind = {'A' : (0, 14), 'B': (11, 14),
                 'C': (10, 12), 'D': (10, 10),
@@ -15542,8 +15542,9 @@ examples_ind = {'A' : (0, 14),
                 'B' : (8, 10),
                 'C': (10, 9),
                 'D': (6, 6),
-                'E':(14, 0),
-                'F':(14, 12)
+                'E':(11, 0),
+                'F':(14, 12),
+                
                 }
 # examples_ind = {'A' : (2, 2), 'B': (4, 6) , 
 #                 'C': (8, 5),  'D': (0, 9),
@@ -15595,9 +15596,6 @@ for name in name_list:  ####### one single run (hence the squeeze)
     f_peak_sig_dict[name] =  data[name, 'peak_significance']
 
     
-colormap = freq_dict
-# colormap = power_dict
-
 def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
     for i, x in enumerate(x_list):
         
@@ -15605,14 +15603,39 @@ def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thre
             
             for name in name_list:
                 
-                data[name, 'peak_significance'][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j], data[name,'pxx'][i,j],  n_std_thresh = 2, 
-                                                                                 min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
-                                                                                 ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
-                                                                                 xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
+                n_run = data[name, 'f'].shape[-2]
+                
+                for r in range(n_run):
+                    data[name, 'peak_significance'][i,j, r] = check_significance_of_PSD_peak(data[name, 'f'][i,j, r], data[name,'pxx'][i,j, r],  n_std_thresh = 2, 
+                                                                                     min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+                                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
+                                                                                     xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
 
     return data
 
-data = reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2)
+
+# def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
+#     for i, x in enumerate(x_list):
+        
+#         for j, y in enumerate(y_list):
+            
+#             for name in name_list:
+                
+#                 n_run = data[name, 'f'].shape[-1]
+                
+#                 # for r in range(n_run):
+    
+#                 data[name, 'peak_significance'][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j], data[name,'pxx'][i,j],  n_std_thresh = 2, 
+#                                                                                      min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+#                                                                                      ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
+#                                                                                      xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
+
+#     return data
+
+freq_dict, f_peak_sig_dict = eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2)
+colormap = freq_dict
+
+# data = reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.1)
 fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
                     size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
@@ -16137,12 +16160,20 @@ fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list
 # %% RATE MODEL : frequency vs. tau_inhibition (All Loops) new
 # plt.close('all')
 filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000_dt_0-1.pkl',
-                   'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000_dt_0-1_SP_2-8.pkl',
-                  # 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_20500_dt_0-1SP_2-8.pkl',
-
+               # 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000_dt_0-1_SP_2-8.pkl',
+                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_20500_dt_0-1SP_2-8.pkl',
                  'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_30_T_10000_dt_0-1.pkl',
                  'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000_dt_0-1.pkl']
-    
+
+c_list = ['stable_mvt_freq', 'stable_freq', 'stable_mvt_freq', 'stable_mvt_freq'] * len(filename_list)
+
+
+# filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000_dt_0-1.pkl',
+#                    'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_20_T_20500_dt_0-2SP_2-8.pkl',
+#                   'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_20_T_20500_dt_0-2.pkl',
+#                  'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000_dt_0-1.pkl']
+# c_list = ['stable_mvt_freq', 'stable_freq', 'stable_freq', 'stable_mvt_freq'] * len(filename_list)
+
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 figname = 'All_circuits_timescale'
 label_list = ['Proto-Proto', 'STN-Proto',  'FSI-D2-Proto', 'Arky-D2-Proto']
@@ -16153,8 +16184,7 @@ color_list = [color_dict['Proto'], color_dict['STN'],
               color_dict['FSI'], color_dict['Arky']]
 key_list = [('Proto', 'Proto'), ('STN', 'Proto'),
             ('Proto', 'D2'), ('Proto', 'D2')]
-c_list = ['stable_mvt_freq'] * len(filename_list)
-# c_list = ['stable_mvt_freq', 'stable_freq', 'stable_mvt_freq', 'stable_mvt_freq'] * len(filename_list)
+# c_list = ['stable_mvt_freq'] * len(filename_list)
 
 y_list = c_list
 colormap = 'hot'

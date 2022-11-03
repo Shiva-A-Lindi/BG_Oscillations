@@ -3115,7 +3115,6 @@ def save_pop_act_into_dataframe_2d(nuclei_dict, start,data, i,m, j):
 
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
-            
             data[(nucleus.name, 'pop_act')][i, m, j, :] = nucleus.pop_act[start:]
             
     return data
@@ -4580,40 +4579,7 @@ def create_df_for_iteration_SNN(nuclei_dict, iterating_param_dict, duration_base
     return data
 
 
-def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
-                                len_f_pxx = 200, save_pop_act = False, find_phase = False, divide_beta_band_in_power = False, 
-                                iterating_name = 'g', check_peak_significance = False, save_gamma = False):
-    
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
-        
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, n_run,  duration_base[1] - duration_base[0]))
-                                                       
-        if check_peak_significance:
-            data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        
-        if find_phase:
-            
-            data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter,  n_iter_2, n_run, nucleus.n, n_phase_bins-1))
-            data[(nucleus.name, 'rel_phase_hist_bins')] = np.zeros( n_phase_bins-1)
-            
-        if divide_beta_band_in_power:
-            if save_gamma:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 3))
-            else:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, n_run, 2))
-            
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2,  n_run))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
-        
-    data[iterating_name] = iterating_param_dict
-    
+
 def synaptic_tau_exploration_SNN(path, tau, nuclei_dict, filepath, duration_base, G, tau_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict, noise_amplitude, noise_variance,
                                  peak_threshold=0.1, smooth_kern_window=3, cut_plateau_epsilon=0.1, check_stability=False, freq_method='fft', plot_sig=False, n_run=1,
                                  lim_oscil_perc=10, plot_firing=False, smooth_window_ms=5, low_pass_filter=False, lower_freq_cut=1, upper_freq_cut=2000, set_seed=False, firing_ylim=[0, 80],
@@ -4902,7 +4868,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
     n_iter = len(G_dict[loop_key_lists[0][0]])
     n_iter_2 = len(G_dict[loop_key_lists[1][0]])
 
-    data = create_df_for_iteration_SNN_2d(nuclei_dict, G_dict, duration_base, n_iter, n_iter_2, n_run, 
+    data = create_df_for_iteration_2d(nuclei_dict, G_dict, duration_base, n_iter, n_iter_2, n_run, 
                                           n_phase_bins = n_phase_bins, 
                                        len_f_pxx = len_f_pxx, save_pop_act = save_pop_act, find_phase = find_phase, 
                                        divide_beta_band_in_power = divide_beta_band_in_power, iterating_name = 'g',
@@ -4970,7 +4936,7 @@ def synaptic_weight_exploration_SNN_2d(loop_key_lists, tau, path, nuclei_dict, f
                 nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
                 
                 if save_pop_act:
-                    data = save_pop_act_into_dataframe_2d(nuclei_dict, duration_base[0],data, i, m, j)
+                    data = save_pop_act_into_dataframe_2d(nuclei_dict, duration_base[0], data, i, m, j)
                 
                 if plot_raster:
                     fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=outer[i,m], title=title, fig=fig_raster, plot_start=plot_start_raster,
@@ -8203,7 +8169,7 @@ def create_df_for_iteration_RM(nuclei_dict, G, n):
         data['g'][k] = np.zeros(n)
     return data
 
-def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
+def create_df_for_iteration_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
                                 len_f_pxx = 200, save_pop_act = False, find_phase = False, divide_beta_band_in_power = False, 
                                 iterating_name = 'g', check_peak_significance = False, save_gamma = False):
     
@@ -8219,7 +8185,7 @@ def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_b
         if check_peak_significance:
             data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
         
-        if find_phase:
+        if find_phase and nucleus.neuronal_model == 'spiking':
             
             data[(nucleus.name, 'rel_phase_hist')] = np.zeros((n_iter,  n_iter_2, n_run, nucleus.n, n_phase_bins-1))
             data[(nucleus.name, 'rel_phase_hist_bins')] = np.zeros( n_phase_bins-1)
@@ -8236,38 +8202,8 @@ def create_df_for_iteration_SNN_2d(nuclei_dict, iterating_param_dict, duration_b
         data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_iter_2, n_run, len_f_pxx))
         
     data[iterating_name] = iterating_param_dict
-    
-def create_df_for_iteration_RM_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2,
-                                len_f_pxx = 200, save_pop_act = False, divide_beta_band_in_power = False, 
-                                iterating_name = 'g', check_peak_significance = False, save_gamma = False):
-    
-    data = {}
-    for nucleus_list in nuclei_dict.values():
-        
-        nucleus = nucleus_list[0]  # get only on class from each population
-        data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_iter_2))
-        
-        if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, duration_base[1] - duration_base[0]))
-                                                       
-        if check_peak_significance:
-            data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
-        
-
-        if divide_beta_band_in_power:
-            if save_gamma:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, 3))
-            else:
-                data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2, 2))
-            
-        else:
-            data[(nucleus.name, 'base_beta_power')] = np.zeros((n_iter, n_iter_2))
-        data[(nucleus.name, 'f')] = np.zeros((n_iter, n_iter_2, len_f_pxx))
-        data[(nucleus.name, 'pxx')] = np.zeros((n_iter, n_iter_2, len_f_pxx))
-        
-    data[iterating_name] = iterating_param_dict
-    
     return data
+
 
 def save_freq_analysis_to_df(data, state, i, nucleus, dt, duration, freq_method = 'zero_crossing'):
     
@@ -8467,16 +8403,15 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt,
                                        plot_sig_thresh = False, min_f = 0, max_f = 200, n_std_thresh = 2,
                                        save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
                                        check_peak_significance = True, print_AUC_ratio = False,
-                                       change_states = False, save_pop_act = True):
+                                       change_states = False, save_pop_act = True, n_run = 1):
     
     n_iter_1 = len(G_dict[loop_key_lists[0][0]])
     n_iter_2 = len(G_dict[loop_key_lists[1][0]])
 
     
-    data = create_df_for_iteration_RM_2d(nuclei_dict, G_dict, duration, n_iter_1, n_iter_2, 
+    data = create_df_for_iteration_2d(nuclei_dict, G_dict, duration, n_iter_1, n_iter_2, n_run,
                                          len_f_pxx = len_f_pxx, save_pop_act = True, divide_beta_band_in_power = False, 
                                          iterating_name = 'g', check_peak_significance = check_peak_significance)
-    
     figs = []
     if plot_firing:
         
@@ -8491,63 +8426,64 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt,
     
     count = 0
     G = {}
-    for i in range(n_iter_1):
-        
-        
-        for k in loop_key_lists[0]:
-            
-            G[k] = G_dict[k][i] *G_ratio_dict[k]
-
-        for m in range(n_iter_2):
-        
-            for k in loop_key_lists[1]:
-                
-                G[k] = G_dict[k][m] *G_ratio_dict[k]
-            nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, 
-                                              G, A, A_mvt, D_mvt, t_mvt, t_list, dt, 
-                                              change_states = change_states)
-            nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
-            
-            if plot_spectrum:
-                
-                ax_spec = fig_spec.add_subplot(n_iter_1, n_iter_2, count + 1)
-                
-            else: ax_spec = None
-            
     
-            if save_pop_act:
+    for r in range(n_run):
+        for i in range(n_iter_1):
+            
+            
+            for k in loop_key_lists[0]:
                 
-                data = save_pop_act_into_dataframe(nuclei_dict, duration[0], data, i, m)
+                G[k] = G_dict[k][i] *G_ratio_dict[k]
+    
+            for m in range(n_iter_2):
+            
+                for k in loop_key_lists[1]:
+                    
+                    G[k] = G_dict[k][m] *G_ratio_dict[k]
+                nuclei_dict = reinitialize_nuclei_RM(nuclei_dict, N, N_real, K_real, 
+                                                  G, A, A_mvt, D_mvt, t_mvt, t_list, dt, 
+                                                  change_states = change_states)
+                nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
                 
-            data, nuclei_dict = find_freq_all_nuclei_and_save(data, (i, m), dt, nuclei_dict, duration, 
-                                                              lim_oscil_perc, peak_threshold, smooth_kern_window, 
-                                                              smooth_window_ms, cut_plateau_epsilon,
-                                                              check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, 
-                                                              upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
-                                                              c_spec=color_dict, n_windows=n_windows, 
-                                                              fft_method= fft_method, find_beta_band_power= True,
-                                                              divide_beta_band_in_power = False, include_beta_band_in_legend=False,
-                                                              half_peak_range = 5, cut_off_freq = 100, 
-                                                              check_peak_significance=check_peak_significance, 
-                                                              save_pxx = save_pxx, len_f_pxx = len_f_pxx, 
-                                                              normalize_spec=normalize_spec, plot_sig_thresh = plot_sig_thresh, 
-                                                              plot_peak_sig = plot_peak_sig, min_f = min_f, max_f = max_f, 
-                                                              n_std_thresh= n_std_thresh, 
-                                                              AUC_ratio_thresh = AUC_ratio_thresh,
-                                                              print_AUC_ratio = print_AUC_ratio)                               
-       
-            if plot_firing:
-
-                ax_FR = fig_FR.add_subplot(n_iter_1, n_iter_2, count + 1)
-                plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax_FR, '', include_std=False, 
-                     round_dec=True,  plt_txt='horizontal', plt_mvt=False, plt_freq=True, 
-                     plot_start=duration[0] * dt, plot_end = duration[1] * dt, include_FR = False)
-                # ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
-                # ax.set_ylim(firing_ylim)
-                rm_ax_unnecessary_labels_in_subplots(count, n_iter_1, ax_FR)
+                if plot_spectrum:
+                    
+                    ax_spec = fig_spec.add_subplot(n_iter_1, n_iter_2, count + 1)
+                    
+                else: ax_spec = None
                 
-            count += 1
-            print(count, "from", (n_iter_1 * n_iter_2))
+        
+                if save_pop_act:
+                    data = save_pop_act_into_dataframe_2d(nuclei_dict, duration[0], data, i, m, r)
+                    
+                data, nuclei_dict = find_freq_all_nuclei_and_save(data, (i, m, r), dt, nuclei_dict, duration, 
+                                                                  lim_oscil_perc, peak_threshold, smooth_kern_window, 
+                                                                  smooth_window_ms, cut_plateau_epsilon,
+                                                                  check_stability, freq_method, plot_sig, low_pass_filter, lower_freq_cut, 
+                                                                  upper_freq_cut, plot_spectrum=plot_spectrum, ax=ax_spec,
+                                                                  c_spec=color_dict, n_windows=n_windows, 
+                                                                  fft_method= fft_method, find_beta_band_power= True,
+                                                                  divide_beta_band_in_power = False, include_beta_band_in_legend=False,
+                                                                  half_peak_range = 5, cut_off_freq = 100, 
+                                                                  check_peak_significance=check_peak_significance, 
+                                                                  save_pxx = save_pxx, len_f_pxx = len_f_pxx, 
+                                                                  normalize_spec=normalize_spec, plot_sig_thresh = plot_sig_thresh, 
+                                                                  plot_peak_sig = plot_peak_sig, min_f = min_f, max_f = max_f, 
+                                                                  n_std_thresh= n_std_thresh, 
+                                                                  AUC_ratio_thresh = AUC_ratio_thresh,
+                                                                  print_AUC_ratio = print_AUC_ratio)                               
+           
+                if plot_firing:
+    
+                    ax_FR = fig_FR.add_subplot(n_iter_1, n_iter_2, count + 1)
+                    plot(nuclei_dict, color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax_FR, '', include_std=False, 
+                         round_dec=True,  plt_txt='horizontal', plt_mvt=False, plt_freq=True, 
+                         plot_start=duration[0] * dt, plot_end = duration[1] * dt, include_FR = False)
+                    # ax.legend(fontsize=13, loc=legend_loc, framealpha=0.1, frameon=False)
+                    # ax.set_ylim(firing_ylim)
+                    rm_ax_unnecessary_labels_in_subplots(count, n_iter_1, ax_FR)
+                    
+                count += 1
+                print(count, "from", (n_iter_1 * n_iter_2 * n_run))
 
 
     
@@ -8581,7 +8517,7 @@ def create_receiving_class_dict(receiving_pop_list, nuclei_dict):
 
 
     
-def reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt, change_states = True):
+def reinitialize_nuclei_RM(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt, change_states = True):
     
     ''' Clear history of the population. Reinitialize the synaptic 
         weights and corresponding external inputs '''
@@ -8668,7 +8604,7 @@ def run_and_derive_freq(data, N, N_real, K_real, receiving_class_dict,
     
     G = multiply_G_by_key_ratio(g_transient, G, G_ratio_dict)
     
-    nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+    nuclei_dict = reinitialize_nuclei_RM(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
     run(receiving_class_dict,t_list, dt, nuclei_dict)
 
     nucleus_list = [nucleus_list[0] for nucleus_list in nuclei_dict.values()]
@@ -8699,7 +8635,7 @@ def sweep_time_scales_2d(g_list, G_ratio_dict, synaptic_time_constant, nuclei_di
             
             synaptic_time_constant = extract_syn_time_constant_from_dict(synaptic_time_constant, syn_decay_dict, 
                                                                          t_decay_1, t_decay_2, if_track_tau_2 = if_track_tau_2 )
-            nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, 
+            nuclei_dict = reinitialize_nuclei_RM(nuclei_dict, N, N_real, K_real, G, 
                                               A, A_mvt, D_mvt,t_mvt, t_list, dt, change_states=change_states)
             nuclei_dict = set_time_scale(nuclei_dict, synaptic_time_constant)
             
@@ -8761,7 +8697,7 @@ def find_oscillation_boundary(g_list,nuclei_dict,N, N_real, K_real, G, G_ratio_d
         
         G = multiply_G_by_key_ratio(g, G, G_ratio_dict)
         
-        nuclei_dict = reinitialize_nuclei(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
+        nuclei_dict = reinitialize_nuclei_RM(nuclei_dict, N, N_real, K_real, G, A, A_mvt, D_mvt,t_mvt, t_list, dt)
         run(receiving_class_dict,t_list, dt, nuclei_dict)
         
         nucleus = list(nuclei_dict.values())[0][0]
@@ -9558,10 +9494,31 @@ def get_max_min_from_column_in_df_dict(df_dict, colname):
     minimum = min(chain.from_iterable( df[colname] for df in df_dict.values()))
     return np.array([minimum, maximum])
 
+
+def eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
+    
+    peak = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
+    peak_significance = {name: np.zeros((len(x_list), len(y_list)), dtype = bool) for name in name_list}
+    for i, x in enumerate(x_list):
+        
+        for j, y in enumerate(y_list):
+            
+            for name in name_list:
+                                
+                pxx = np.average(data[name,'pxx'][i,j], axis = 0)
+                print(pxx)
+                peak[name][i,j] = data[name, 'f'][i,j, 0][np.argmax(pxx)]
+                peak_significance[name][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j, 0], pxx,  n_std_thresh = 2, 
+                                                                                 min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+                                                                                  AUC_ratio_thresh = AUC_ratio_thresh,if_plot = False,
+                                                                                 xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
+
+    return peak, peak_significance
+
 def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
                    size_list, xlabel, ylabel, clb_title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
                    annotate = True, ann_name = 'Proto', clb_tick_size  = 20, only_significant = True,
-                   y_ticks = None):
+                   y_ticks = None, multirun = False):
     
     """Plot the frequency as a colormap with different neural populations as different 
         markers tiling the plot.
