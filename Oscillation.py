@@ -14145,7 +14145,7 @@ state = 'rest'
 (synaptic_time_constant[(name2, name1)],
  synaptic_time_constant[(name1, name2)]) = [10], [6]
 
-g = -1.8
+g = -1.7
 G = {('STN', 'Proto'): g,
      ('Proto', 'STN'): -g}  # synaptic weight
 
@@ -15470,12 +15470,13 @@ G = {
     (name1, name2): 1,
     (name1, name1): 1, 
 }
-n = 4; n_run = 2
+n = 18; n_run = 1
 # g_P_list = - np.linspace(1, 4.3, n, endpoint=True) # Useless attempt to set up in rest state
 # g_FSI_list = - np.linspace(0.5, 4, n, endpoint=True)
 
 g_P_list = - np.linspace(0, 5, n, endpoint=True)
 g_FSI_list = - np.linspace(0., 3, n, endpoint=True)
+
 # g_P_list = np.array([-4.3])
 # g_FSI_list = np.array([-3])
 # n = len(g_P_list)
@@ -15524,13 +15525,10 @@ figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act
 
 plt.close('all')
 
-filename = 'RM_parameterscape_Proto-STN-0-5_4_Proto-D2_0-5_4_2d.pkl'
-filename =  'test_2d.pkl'
-# filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_12.pkl'
 filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_2.pkl'
-filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_4.pkl'
+filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_18.pkl'
 
 examples_ind = {'A' : (0, 14), 'B': (11, 14),
                 'C': (10, 12), 'D': (10, 10),
@@ -15546,17 +15544,24 @@ examples_ind = {'A' : (0, 14),
                 'F':(14, 12),
                 
                 }
+
+examples_ind = {'A' : (3, 17),
+                'B' : (9, 17),
+                'C': (8, 14),
+                'D': (12, 16),
+                # 'E':(11, 0),
+                # 'F':(14, 12),
+                
+                }
 # examples_ind = {'A' : (2, 2), 'B': (4, 6) , 
 #                 'C': (8, 5),  'D': (0, 9),
 #                 }
-
-
-# examples_ind = {'A' : (0, 0), 'B': (0, 3) , 
-#                 'C': (3, 0), 'D': (2, 2), 'E':(3,3)}
+# examples_ind = {'A' : (0, 0), 'B': (2, 4) , 
+#                 'C': (3, 4), 'D': (2, 2), 'E':(4,3)}
 # examples_ind = {'A' : (0, 0), 'B': (0, 1) , 
 #                 'C': (1, 0), 'D': (1, 1)}
 # examples_ind = {'A' : (0, 0)}
-dt = 0.2
+dt = 0.1
 key_y = ('Proto', 'D2')
 ylabel = r'$G_{Proto-D2}$'
 
@@ -15581,7 +15586,7 @@ x_list = abs(data['g'][key_x])
 y_list = abs(data['g'][key_y])    
 n_x = len(x_list)
 n_y = len(y_list)
-
+run = 0
 
 power_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
 freq_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
@@ -15595,58 +15600,33 @@ for name in name_list:  ####### one single run (hence the squeeze)
     freq_dict[name] = np.squeeze( data[name, 'base_freq'] )
     f_peak_sig_dict[name] =  data[name, 'peak_significance']
 
-    
-def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
-    for i, x in enumerate(x_list):
-        
-        for j, y in enumerate(y_list):
-            
-            for name in name_list:
-                
-                n_run = data[name, 'f'].shape[-2]
-                
-                for r in range(n_run):
-                    data[name, 'peak_significance'][i,j, r] = check_significance_of_PSD_peak(data[name, 'f'][i,j, r], data[name,'pxx'][i,j, r],  n_std_thresh = 2, 
-                                                                                     min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
-                                                                                     ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
-                                                                                     xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
+# plt.figure()
+# plt.plot(data['FSI', 'pop_act'][10,10,0])
+freq_dict, f_peak_sig_dict, last_first_peak_ratio = eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, 
+                                                                                        AUC_ratio_thresh = 0,
+                                                                                        examples_ind = examples_ind, n_ref_peak = 60)
+# freq_dict, f_peak_sig_dict = eval_averaged_PSD_peak_significance(data, [x_list[10]], [y_list[9]], name_list, 
+#                                                                  AUC_ratio_thresh = 0, plot = True, smooth = False)
 
-    return data
-
-
-# def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
-#     for i, x in enumerate(x_list):
-        
-#         for j, y in enumerate(y_list):
-            
-#             for name in name_list:
-                
-#                 n_run = data[name, 'f'].shape[-1]
-                
-#                 # for r in range(n_run):
-    
-#                 data[name, 'peak_significance'][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j], data[name,'pxx'][i,j],  n_std_thresh = 2, 
-#                                                                                      min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
-#                                                                                      ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
-#                                                                                      xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
-
-#     return data
-
-freq_dict, f_peak_sig_dict = eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2)
 colormap = freq_dict
 
-# data = reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.1)
-fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
+# fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
+#                     size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
+#                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
+
+fig = parameterscape_imshow(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
                     size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
 
-fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w')
+
+fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w',  )
 save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1.5, .8 * n_y))
 
 
 fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, 
-                                                  color_dict, Act, plt_duration = 600, run_no = 0,
-                                                  normalize_spec = True, PSD_ylim = (-5, 120), state = 'awake_rest')
+                                                  color_dict, Act, plt_duration = 600, run_no = 0, run = run,
+                                                  normalize_spec = True, PSD_ylim = (-5, 120), state = 'awake_rest',
+                                                  last_first_peak_ratio =last_first_peak_ratio )
 save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (8, 10))
 
 

@@ -1915,9 +1915,11 @@ class Nucleus:
                 
                 if check_stability:
                     
-                    if_stable, last_first_peak_ratio = if_stable_oscillatory(sig, max(cut_sig_ind), 
-                                                                             peak_threshold, start, dt,
-                                                                             smooth_kern_window, 
+                    if_stable, last_first_peak_ratio = if_stable_oscillatory(sig,
+                                                                             peak_threshold, dt = dt,
+                                                                             x_plateau = max(cut_sig_ind),
+                                                                             t_transition = start,
+                                                                             smooth_kern_window = smooth_kern_window, 
                                                                              amp_env_slope_thresh = - 0.05,
                                                                              plot = plot_oscil)
                 
@@ -6472,6 +6474,7 @@ def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before
     
     return noise
 
+
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
                       include_beta_band_in_legend=False, tick_label_fontsize = 18, normalize = True,
                       include_peak_f_in_legend = True, plot_sig_thresh = False, 
@@ -6574,7 +6577,7 @@ def freq_from_rfft(sig, dt, N):
     return f, pxx, peak_freq
 
 
-def freq_from_welch(sig, dt, n_windows=6, detrend  = False, window = 'hamming'):# detrend = 'constant'):
+def freq_from_welch(sig, dt, n_windows=6, detrend  = False, window = 'hann'):# detrend = 'constant'):
     
     """	Estimate frequency with Welch method
     """
@@ -8042,8 +8045,9 @@ def trim_start_end_sig_rm_offset(sig, start, end, cut_plateau_epsilon = 0.1, met
         
 #         return 0, 0, 0, 0, False
 
-def if_stable_oscillatory(sig, x_plateau, peak_threshold, t_transition, dt, smooth_kern_window, amp_env_slope_thresh = - 0.05, 
-                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.995,1.1], plot = False):
+def if_stable_oscillatory(sig, peak_threshold, dt = 0.1, smooth_kern_window = 5, amp_env_slope_thresh = - 0.05, 
+                          oscil_perc_as_stable = 0.9, last_first_peak_ratio_thresh = [0.995,1.1], multiple_peaks = False,
+                          plot = False, t_transition = 0, x_plateau = None, smooth = True, n_ref_peak = 1):
     
     ''' detect if there's stable oscillation defined as a non-decaying wave'''
     
@@ -8051,16 +8055,21 @@ def if_stable_oscillatory(sig, x_plateau, peak_threshold, t_transition, dt, smoo
     
     if plot:
         
-        fluctuations = gaussian_filter1d(sig[:x_plateau], smooth_kern_window)
+        x_plateau = x_plateau or len(sig)
+        
+        if smooth:
+            fluctuations = gaussian_filter1d(sig[:x_plateau], smooth_kern_window)
+        else: fluctuations = []
+        
         troughs,_ = signal.find_peaks(-sig, height = peak_threshold)
-        plot_oscillations(sig, x_plateau, peaks, troughs, fluctuations, t_transition, dt)
+        plot_oscillations(sig, x_plateau, peaks, troughs, t_transition, dt, fluctuations = fluctuations)
 
     # relative first and last peak ratio thresholding
-    if len(peaks) > 5 : # was 8 for STN-Proto 2 March 
-        
-        last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[1]]
-        
-        # print('last_first_peak_ratio = ', last_first_peak_ratio)
+    if len(peaks) > n_ref_peak + 2: # was 8 for STN-Proto 2 March 
+        if not multiple_peaks:
+            last_first_peak_ratio = sig[peaks[-1]] / sig[peaks[n_ref_peak]],
+        else:
+            last_first_peak_ratio = max(sig[peaks[-3:-1]]) / max(sig[peaks[n_ref_peak - 2: n_ref_peak]])
         
     else: 
         
@@ -8091,7 +8100,7 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, plot = Fa
     
     if plot:
 
-        plot_oscillations(sig, x_plateau, peaks, troughs, fluctuations)
+        plot_oscillations(sig, x_plateau, peaks, troughs, fluctuations = fluctuations)
         
     if len(peaks) > 0 and len(troughs) > 0: # to have at least one maxima and one minima to count as oscillation
     
@@ -8101,14 +8110,15 @@ def if_oscillatory(sig, x_plateau, peak_threshold, smooth_kern_window, plot = Fa
     
         return False
     
-def plot_oscillations(sig, x_plateau, peaks, troughs, fluctuations, t_transition, dt):
+def plot_oscillations(sig, x_plateau, peaks, troughs, t_transition, dt, fluctuations = [] ):
     
     ''' Plot signal, detected peaks and troughs as well as where the signal is cut'''
     fig, ax = plt.subplots()
     t_list = ( np.arange(len(sig)) + t_transition) * dt
     ax.plot(t_list, sig)
     ax.axvline(( x_plateau + t_transition) * dt)
-    ax.plot(t_list[:x_plateau], fluctuations, label = "Gaus kern smoothed")
+    if len(fluctuations) != 0:
+        ax.plot(t_list[:x_plateau], fluctuations, label = "Gaus kern smoothed")
     ax.plot( ( peaks + t_transition) * dt, sig[peaks],"x", markersize = 10,markeredgewidth = 2)
     ax.plot( ( troughs + t_transition) * dt,sig[troughs],"x", markersize = 10, markeredgewidth = 2)
     ax.legend()
@@ -8125,7 +8135,7 @@ def temp_oscil_check(sig_in,peak_threshold, smooth_kern_window,dt,start,end, cut
     
         sig = sig - plateau_y
         if_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window)
-        if_stable = if_stable_oscillatory(sig, max(cut_sig_ind),peak_threshold, smooth_kern_window)
+        if_stable = if_stable_oscillatory(sig, peak_threshold, dt = dt, smooth_kern_window = smooth_kern_window, x_plateau = max(cut_sig_ind))
         n_cycles,freq = zero_crossing_freq_detect(sig[cut_sig_ind],dt/1000)
 
         print("stable osillatory regime?", if_stable)
@@ -8169,9 +8179,9 @@ def create_df_for_iteration_RM(nuclei_dict, G, n):
         data['g'][k] = np.zeros(n)
     return data
 
-def create_df_for_iteration_2d(nuclei_dict, iterating_param_dict, duration_base, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
+def create_df_for_iteration_2d(nuclei_dict, iterating_param_dict, duration, n_iter, n_iter_2, n_run, n_phase_bins = 180, 
                                 len_f_pxx = 200, save_pop_act = False, find_phase = False, divide_beta_band_in_power = False, 
-                                iterating_name = 'g', check_peak_significance = False, save_gamma = False):
+                                iterating_name = 'g', check_peak_significance = False, save_gamma = False, pop_act_start = 0):
     
     data = {}
     for nucleus_list in nuclei_dict.values():
@@ -8180,7 +8190,7 @@ def create_df_for_iteration_2d(nuclei_dict, iterating_param_dict, duration_base,
         data[(nucleus.name, 'base_freq')] = np.zeros((n_iter, n_iter_2, n_run))
         
         if save_pop_act :
-            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, n_run,  duration_base[1] - duration_base[0]))
+            data[(nucleus.name, 'pop_act')] = np.zeros((n_iter, n_iter_2, n_run,  duration[1] - pop_act_start ))
                                                        
         if check_peak_significance:
             data[(nucleus.name, 'peak_significance')] = np.zeros((n_iter, n_iter_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
@@ -8403,15 +8413,17 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt,
                                        plot_sig_thresh = False, min_f = 0, max_f = 200, n_std_thresh = 2,
                                        save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
                                        check_peak_significance = True, print_AUC_ratio = False,
-                                       change_states = False, save_pop_act = True, n_run = 1):
+                                       change_states = False, save_pop_act = True, n_run = 1, pop_act_start = None
+                                       ):
     
     n_iter_1 = len(G_dict[loop_key_lists[0][0]])
     n_iter_2 = len(G_dict[loop_key_lists[1][0]])
-
+    pop_act_start = pop_act_start or 0
     
     data = create_df_for_iteration_2d(nuclei_dict, G_dict, duration, n_iter_1, n_iter_2, n_run,
                                          len_f_pxx = len_f_pxx, save_pop_act = True, divide_beta_band_in_power = False, 
-                                         iterating_name = 'g', check_peak_significance = check_peak_significance)
+                                         iterating_name = 'g', check_peak_significance = check_peak_significance,
+                                         pop_act_start = pop_act_start)
     figs = []
     if plot_firing:
         
@@ -8453,7 +8465,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt,
                 
         
                 if save_pop_act:
-                    data = save_pop_act_into_dataframe_2d(nuclei_dict, duration[0], data, i, m, r)
+                    data = save_pop_act_into_dataframe_2d(nuclei_dict, pop_act_start, data, i, m, r)
                     
                 data, nuclei_dict = find_freq_all_nuclei_and_save(data, (i, m, r), dt, nuclei_dict, duration, 
                                                                   lim_oscil_perc, peak_threshold, smooth_kern_window, 
@@ -9495,25 +9507,43 @@ def get_max_min_from_column_in_df_dict(df_dict, colname):
     return np.array([minimum, maximum])
 
 
-def eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
+def eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, 
+                                        AUC_ratio_thresh = 0.2, plot = False, 
+                                        smooth = False, n_ref_peak = 6,
+                                        examples_ind  = None, dt = 0.1,
+                                        last_first_peak_ratio_thresh = [0.9,1.19]):
     
     peak = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
     peak_significance = {name: np.zeros((len(x_list), len(y_list)), dtype = bool) for name in name_list}
+    last_first_peak_ratio = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
     for i, x in enumerate(x_list):
         
         for j, y in enumerate(y_list):
             
             for name in name_list:
                                 
-                pxx = np.average(data[name,'pxx'][i,j], axis = 0)
-                print(pxx)
+                pxx = np.nanmean(data[(name, 'pxx')][i, j], axis = 0)
+                pxx = drop_nan(pxx)
+                f = drop_nan(data[name, 'f'][i,j, 0])
                 peak[name][i,j] = data[name, 'f'][i,j, 0][np.argmax(pxx)]
-                peak_significance[name][i,j] = check_significance_of_PSD_peak(data[name, 'f'][i,j, 0], pxx,  n_std_thresh = 2, 
-                                                                                 min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
-                                                                                  AUC_ratio_thresh = AUC_ratio_thresh,if_plot = False,
-                                                                                 xlim = [0, 80], name = '', print_AUC_ratio = True, f_cut = 1)
+                pop_act = signal.detrend(data[(name, 'pop_act')][i, j, 0])
+                # if peak[name][i,j] > 0:
+                #     print(peak[name][i,j])
+                #     pop_act = butter_bandpass_filter(pop_act, max(peak[name][i,j] - 5, 1), peak[name][i,j] + 5, 1/dt/1000, order=5)
+                (if_stable, last_first_peak_ratio[name][i,j]) = if_stable_oscillatory(pop_act, 0, plot = plot, 
+                                                                         smooth = smooth, n_ref_peak = n_ref_peak, multiple_peaks = True,
+                                                                         last_first_peak_ratio_thresh = last_first_peak_ratio_thresh)
+                peak_significance[name][i,j] = if_stable
+                
+                if (i,j) in list(examples_ind.values()):
+                    print(i,j, name, last_first_peak_ratio[name][i,j])
 
-    return peak, peak_significance
+                # peak_significance[name][i,j] = check_significance_of_PSD_peak(f, pxx,  n_std_thresh = 2, 
+                #                                                                  min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+                #                                                                   AUC_ratio_thresh = AUC_ratio_thresh,if_plot = False,
+                #                                                                  xlim = [0, 80], name = '', print_AUC_ratio = False, f_cut = 1)
+
+    return peak, peak_significance,  last_first_peak_ratio
 
 def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
                    size_list, xlabel, ylabel, clb_title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
@@ -9585,8 +9615,43 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
     
     return fig
     
+def parameterscape_imshow(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
+                   size_list, xlabel, ylabel, clb_title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
+                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, only_significant = True,
+                   y_ticks = None, multirun = False, name = 'Proto'):
+    
+    """Plot the frequency as a colormap with different neural populations as different 
+        markers tiling the plot.
+    """
+    fig, ax = plt.subplots(1, 1)
+    cm = plt.cm.get_cmap(cmap)
+    
+    sig_mask = peak_significance[name].T
+    img1 = ax.imshow(sig_mask, cmap = plt.cm.binary)
+    img = ax.imshow(color_dict[name].T, cmap = cm)
 
+    # ax.set_xlim(x_list[0] - (x_list[1] - x_list[0]),
+    #             x_list[-1] + (x_list[1] - x_list[0]))
+    
+    # ax.set_ylim(y_list[0] - (y_list[1] - y_list[0]),
+    #             y_list[-1] + (y_list[1] - y_list[0]))
+                
+    # ax.set_xlabel(xlabel, fontsize = label_fontsize)
+    # ax.set_ylabel(ylabel, fontsize = label_fontsize)
+    # # ax.set_title(title, fontsize = label_fontsize)
+    ax.invert_yaxis()
+    ax.tick_params(axis='both', which='major', labelsize=tick_size)
+    y_ticks = y_ticks or ax.get_yticks().tolist()[:-1]
+    fig = set_y_ticks(fig, y_ticks)
+    
+    clb = fig.colorbar(img, shrink=0.5, ax = ax)
+    clb.set_label(clb_title, labelpad=-60, y=0.5, rotation=-90, fontsize = label_fontsize)
+    clb.ax.tick_params(labelsize=clb_tick_size )
+    set_max_dec_tick(ax)
+    clb.ax.yaxis.tick_right()
 
+    
+    return fig
 def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w', alpha = 0.5):
     
     ax = fig.gca()
@@ -9675,11 +9740,31 @@ def drop_nan(x):
     
     return x[~np.isnan(x)]
 
+    
+def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thresh = 0.2):
+    for i, x in enumerate(x_list):
+        
+        for j, y in enumerate(y_list):
+            
+            for name in name_list:
+                
+                n_run = data[name, 'f'].shape[-2]
+                
+                for r in range(n_run):
+                    
+                    data[name, 'peak_significance'][i,j, r] = check_significance_of_PSD_peak(data[name, 'f'][i,j, r], data[name,'pxx'][i,j, r],  n_std_thresh = 2, 
+                                                                                             min_f = 0, max_f = 200, n_pts_above_thresh = 2, 
+                                                                                             ax = None, legend = 'PSD', c = 'k', if_plot = False, AUC_ratio_thresh = AUC_ratio_thresh,
+                                                                                             xlim = [0, 80], name = '', print_AUC_ratio = False, f_cut = 1)
+                    
+    return data
+
 def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, 
                                            state = 'rest', plt_duration = 600, run_no = 0, window_ms = 5, 
                                            act_ylim = (-5, 90), PSD_ylim = None, PSD_xlim = (0, 80), ylabel = 'PSD',
                                            PSD_y_labels = [0, 40, 80, 120], act_y_labels = [0, 40, 80], normalize_spec = False,
-                                           PSD_x_labels = [0, 20, 40, 60], act_x_labels = [4000, 4150, 4300]):
+                                           PSD_x_labels = [0, 20, 40, 60], act_x_labels = [4000, 4150, 4300], run = 0,
+                                           last_first_peak_ratio = None):
     
     n_exmp = len(examples_ind)
     fig = plt.figure( figsize=(12, 20) ) 
@@ -9694,9 +9779,9 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
         ax_pop_act = plt.Subplot(fig, inner[1])
         
         for name in name_list:
-        
-            f = data[(name, 'f')][ind[0], ind[1], : ]
-            pxx = data[(name, 'pxx')][ind[0], ind[1], : ]
+
+            f = data[(name, 'f')][ind[0], ind[1], run, : ]
+            pxx = np.nanmean(data[(name, 'pxx')][ind[0], ind[1]], axis = 0)
             f = drop_nan(f)
             pxx = drop_nan(pxx)
 
@@ -9705,12 +9790,12 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
                 pxx = norm_PSD(pxx, f) * 100
                 ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
                 
-            peak_freq = np.round(data[(name, 'base_freq')][ind[0], ind[1]] , 1)
+            peak_freq = np.round(np.average(data[(name, 'base_freq')][ind[0], ind[1]]) , 1)
             ax_PSD.plot(f, pxx,'-', c = color_dict[name], 
                         label = name + ' ' +  str(int(round(peak_freq,0))) + ' Hz', lw=1.5)
         
             length = data[(name, 'pop_act')].shape[-1]
-            pop_act = data[(name, 'pop_act')][ind[0], ind[1], length - int( plt_duration/dt) : length]
+            pop_act = data[(name, 'pop_act')][ind[0], ind[1], run, length - int( plt_duration/dt) : length]
             pop_act = moving_average_array(pop_act, int(window_ms / dt))
             t_list = np.arange( length - int( plt_duration/ dt), length) * dt
             ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
