@@ -5228,7 +5228,7 @@ def find_freq_all_nuclei_and_save(data, element_ind,  dt, nuclei_dict, duration_
                                   plot_spectrum=False, ax=None, c_spec='navy', spec_figsize=(6, 5), find_beta_band_power=False,
                                   fft_method='welch', n_windows=3, include_beta_band_in_legend=True, divide_beta_band_in_power = False, 
                                   half_peak_range = 5, cut_off_freq = 100, check_peak_significance = False, len_f_pxx = 200, 
-                                  save_pxx = True, normalize_spec = True, plot_sig_thresh = False, plot_peak_sig = False, smooth = True,
+                                  save_pxx = True, normalize_spec = False, plot_sig_thresh = False, plot_peak_sig = False, smooth = True,
                                   min_f = 0, max_f = 300, n_std_thresh = 2, AUC_ratio_thresh = 0.2, save_gamma = False,
                                   print_AUC_ratio = False):
 
@@ -8409,7 +8409,7 @@ def synaptic_weight_exploration_RM_2d(N, N_real, K_real, G_ratio_dict, A, A_mvt,
                                        lower_freq_cut = 8, upper_freq_cut = 60, freq_method = 'fft', fft_method = 'Welch',
                                        peak_threshold=0.1, smooth_kern_window=3, smooth_window_ms = 5,
                                        cut_plateau_epsilon=0.1, plot_sig = False, low_pass_filter = False,
-                                       lim_oscil_perc=10, plot_spectrum = True, normalize_spec = True,
+                                       lim_oscil_perc=10, plot_spectrum = True, normalize_spec = False,
                                        plot_sig_thresh = False, min_f = 0, max_f = 200, n_std_thresh = 2,
                                        save_pxx = True, len_f_pxx = 150, AUC_ratio_thresh = 0.1, plot_peak_sig = False,
                                        check_peak_significance = True, print_AUC_ratio = False,
@@ -9223,9 +9223,9 @@ def mark_transient_stable_oscillation_pts(ax, mark_pts_with, g_transient, g_stab
                  facecolor = 'k', head_starts_at_zero = True, length_includes_head = True)
     return ax
 
-def set_max_dec_tick(ax):
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+def set_max_dec_tick(ax, n_decimal = 1):
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.'+ str(n_decimal) + 'f'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.'+ str(n_decimal) + 'f'))
     
 def set_n_ticks(ax, nx, ny):
     ax.xaxis.set_major_locator(MaxNLocator(nx)) 
@@ -9614,45 +9614,64 @@ def parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, color
     remove_tick_lines(ax)
     
     return fig
+
+def and_bools_multiple_keys(dictionary):
     
+    summed = np.ones_like(list(dictionary.values()[0]), dtype = bool)
+    for key, val in dictionary.items():
+        summed = np.logical_and(summed, val)
+        
+    return summed
+
 def parameterscape_imshow(x_list, y_list, name_list, markerstyle_list, freq_dict, color_dict, peak_significance,
-                   size_list, xlabel, ylabel, clb_title = '', label_fontsize = 18, cmap = 'jet', tick_size = 15,
-                   annotate = True, ann_name = 'Proto', clb_tick_size  = 20, only_significant = True,
-                   y_ticks = None, multirun = False, name = 'Proto'):
+                   size_list, xlabel, ylabel, clb_title = r'$Frequency\; (Hz)$', label_fontsize = 16, cmap = 'jet', tick_size = 15,
+                   annotate = True, ann_name = 'Proto', clb_tick_size  = 18, only_significant = True, x_ticks = None,
+                   y_ticks = None, multirun = False, name = 'Proto', figsize = (7,7), n_decimal = 0):
     
     """Plot the frequency as a colormap with different neural populations as different 
         markers tiling the plot.
     """
-    fig, ax = plt.subplots(1, 1)
+    fig, ax = plt.subplots(figsize = figsize)
     cm = plt.cm.get_cmap(cmap)
     
-    sig_mask = peak_significance[name].T
-    img1 = ax.imshow(sig_mask, cmap = plt.cm.binary)
-    img = ax.imshow(color_dict[name].T, cmap = cm)
 
-    # ax.set_xlim(x_list[0] - (x_list[1] - x_list[0]),
-    #             x_list[-1] + (x_list[1] - x_list[0]))
+    masked = np.ma.masked_where(~peak_significance[name].T, color_dict[name].T)
     
-    # ax.set_ylim(y_list[0] - (y_list[1] - y_list[0]),
-    #             y_list[-1] + (y_list[1] - y_list[0]))
-                
-    # ax.set_xlabel(xlabel, fontsize = label_fontsize)
-    # ax.set_ylabel(ylabel, fontsize = label_fontsize)
-    # # ax.set_title(title, fontsize = label_fontsize)
+    cm.set_bad(color='white')
+    n_x = len(x_list) - 1
+    n_y = len(y_list) - 1
+    binsize_x = (x_list[-1]- x_list[0]) / n_x
+    binsize_y = (y_list[-1]- y_list[0]) / n_y
+    img = ax.imshow(masked, cmap = cm, vmin = 0, vmax = 70, 
+                    extent=[x_list[0] - binsize_x/2, x_list[-1] + binsize_x/2, 
+                            y_list[-1] + binsize_y/2, y_list[0] - binsize_y/2],
+                    aspect='auto')
+
+    print(x_list[0] - binsize_x/2, x_list[-1] + binsize_x/2, 
+        y_list[-1] + binsize_y/2, y_list[0] - binsize_y/2)
+    ax.add_patch(matplotlib.patches.Rectangle((x_list[-4] - binsize_x/2, y_list[0] - binsize_y/2), 
+                                   binsize_x * 4, binsize_y * 2, hatch='//', fill=False, 
+                                   snap=False, linewidth=1))
+    ax.set_xlabel(xlabel, fontsize = label_fontsize)
+    ax.set_ylabel(ylabel, fontsize = label_fontsize)
     ax.invert_yaxis()
     ax.tick_params(axis='both', which='major', labelsize=tick_size)
     y_ticks = y_ticks or ax.get_yticks().tolist()[:-1]
-    fig = set_y_ticks(fig, y_ticks)
+    fig = set_y_ticks(fig,y_ticks)
     
-    clb = fig.colorbar(img, shrink=0.5, ax = ax)
-    clb.set_label(clb_title, labelpad=-60, y=0.5, rotation=-90, fontsize = label_fontsize)
+    x_ticks = x_ticks or ax.get_xticks().tolist()[:-1]
+    fig = set_x_ticks(fig, x_ticks)
+    clb = fig.colorbar(img, shrink=0.8, ax = ax)
+    clb.set_label(clb_title, labelpad=40, y=0.5, rotation=-90, fontsize = label_fontsize)
     clb.ax.tick_params(labelsize=clb_tick_size )
-    set_max_dec_tick(ax)
+    set_max_dec_tick(ax, n_decimal = n_decimal)
     clb.ax.yaxis.tick_right()
 
-    
+    fig.tight_layout()
     return fig
-def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w', alpha = 0.5):
+
+def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, 
+                          highlight_color = 'w', alpha = 0.5, annotate_shift = 0.1):
     
     ax = fig.gca()
     
@@ -9661,12 +9680,12 @@ def highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highligh
         s = size_list[0] * 1.5
         x = x_list[ind[0]] 
         y = y_list[ind[1]] 
-        shift_x = abs(x_list[1] - x_list[0])
-        shift_y = abs(y_list[1] - y_list[0])
+        x_span = abs(x_list[1] - x_list[0])
+        y_span = abs(y_list[1] - y_list[0])
         
         ax.scatter(x, y, marker = 'o', c = highlight_color, 
-                   alpha = alpha, s = s, edgecolors = None)
-        txt = ax.annotate(key, (x - shift_x/10 , y- shift_y/10), color = 'k', size = 18)
+                   alpha = alpha, s = s, edgecolors = 'k')
+        txt = ax.annotate(key, (x - x_span * annotate_shift , y - y_span * annotate_shift), color = 'k', size = 18)
         txt.set_path_effects([pe.withStroke(linewidth=5, foreground='w')])
 
     return fig
@@ -9691,8 +9710,8 @@ def plot_PSD_of_example_pts(data_all, examples_ind,  x_list, y_list, name_list, 
         
         
 def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, 
-                                        Act, state = 'awake_rest',
-                                        plt_duration = 600, run_no = 0, window_ms = 5):
+                                        Act, state = 'awake_rest',smooth = True, tick_size = 15,
+                                        plt_duration = 600, run_no = 0, window_ms = 5, tick_length = 5):
     
     n_exmp = len(examples_ind)
     fig = plt.figure( figsize=(12, 20) ) 
@@ -9717,12 +9736,21 @@ def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y
             duration = data[(name, 'pop_act')].shape[-1]
             
             pop_act = data[(name, 'pop_act')][ind[1], ind[0], run_no, duration - int( plt_duration/dt) : duration]
-            pop_act = moving_average_array(pop_act, int(window_ms / dt))
-            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt
-            ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
+            
+            if smooth:
+                pop_act = moving_average_array(pop_act, int(window_ms / dt))
+                
+            t_list = np.arange( duration - int( plt_duration/ dt), duration) * dt / 1000
+            ax_pop_act.plot(t_list, pop_act, c = color_dict[name], lw = 1.5)
             ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
                                                  c = color_dict[name],lw = 1, alpha=0.8 )
 
+        set_minor_locator(ax_PSD, n = 3, axis = 'y')
+        set_minor_locator(ax_pop_act, n = 2, axis = 'both')
+        ax_pop_act.tick_params(axis='both', which='major', labelsize=tick_size,  length = tick_length)
+        ax_PSD.tick_params(axis='both', which='major', labelsize=tick_size, length = tick_length)
+        ax_pop_act.tick_params(axis='both', which='minor', labelsize=tick_size,  length = tick_length/2)
+        ax_PSD.tick_params(axis='both', which='minor', labelsize=tick_size, length = tick_length/2)
         ax_PSD.set_xlim(0, 80)
         ax_PSD.legend(fontsize = 8, frameon = False, loc = 'upper right')
         ax_PSD.set_ylabel(key, fontsize = 20, rotation = 0, labelpad = 10)
@@ -9759,12 +9787,13 @@ def reeval_PSD_peak_significance(data, x_list, y_list, name_list, AUC_ratio_thre
                     
     return data
 
-def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, 
+def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, PSD_duration = None,
                                            state = 'rest', plt_duration = 600, run_no = 0, window_ms = 5, 
-                                           act_ylim = (-5, 90), PSD_ylim = None, PSD_xlim = (0, 80), ylabel = 'PSD',
+                                           act_ylim = (-5, 90), PSD_ylim = None, PSD_xlim = (0, 80), ylabel = 'Normalized Power',
                                            PSD_y_labels = [0, 40, 80, 120], act_y_labels = [0, 40, 80], normalize_spec = False,
                                            PSD_x_labels = [0, 20, 40, 60], act_x_labels = [4000, 4150, 4300], run = 0,
-                                           last_first_peak_ratio = None):
+                                           last_first_peak_ratio = None, unit_variance_PSD = False, f_in_PSD_label = False,
+                                           tick_size = 15, tick_length = 5):
     
     n_exmp = len(examples_ind)
     fig = plt.figure( figsize=(12, 20) ) 
@@ -9790,18 +9819,37 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
                 pxx = norm_PSD(pxx, f) * 100
                 ylabel = 'Norm. Power ' + r'$(\times 10^{-2})$'
                 
+
+
             peak_freq = np.round(np.average(data[(name, 'base_freq')][ind[0], ind[1]]) , 1)
-            ax_PSD.plot(f, pxx,'-', c = color_dict[name], 
-                        label = name + ' ' +  str(int(round(peak_freq,0))) + ' Hz', lw=1.5)
-        
+
             length = data[(name, 'pop_act')].shape[-1]
             pop_act = data[(name, 'pop_act')][ind[0], ind[1], run, length - int( plt_duration/dt) : length]
-            pop_act = moving_average_array(pop_act, int(window_ms / dt))
-            t_list = np.arange( length - int( plt_duration/ dt), length) * dt
+            
+            if unit_variance_PSD:
+                PSD_duration = PSD_duration or length
+                pxx = pxx/ np.var(data[(name, 'pop_act')][ind[0], ind[1], run, length - PSD_duration:])
+            
+            label = name 
+            if f_in_PSD_label:
+                label += ' ' +  str(int(round(peak_freq,0))) + ' Hz'
+
+            ax_PSD.plot(f, pxx,'-', c = color_dict[name], 
+                        label = label, lw=1.5)
+        
+            # t_list = np.arange( length - int( plt_duration/ dt), length) * dt 
+            t_list = np.arange(int( plt_duration/ dt)) * dt 
+
             ax_pop_act.plot( t_list, pop_act, c = color_dict[name], lw = 1.5)
             ax_pop_act.plot(t_list, np.full_like(t_list, Act[state][name]), '--', 
                                                  c = color_dict[name],lw = 1, alpha=0.8 )
-        
+        set_minor_locator(ax_PSD, n = 3, axis = 'y')
+        set_minor_locator(ax_pop_act, n = 2, axis = 'both')
+        ax_pop_act.tick_params(axis='both', which='major', labelsize=tick_size,  length = tick_length)
+        ax_PSD.tick_params(axis='both', which='major', labelsize=tick_size, length = tick_length)
+        ax_pop_act.tick_params(axis='both', which='minor', labelsize=tick_size,  length = tick_length/2)
+        ax_PSD.tick_params(axis='both', which='minor', labelsize=tick_size, length = tick_length/2)
+
         ax_pop_act.set_ylim(act_ylim)
         ax_PSD.set_ylim(PSD_ylim or ax_PSD.get_ylim())
         ax_PSD.set_xlim(PSD_xlim)
@@ -9810,7 +9858,7 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
         remove_frame(ax_PSD)
         remove_frame(ax_pop_act)
         ax_PSD.legend(fontsize = 10, frameon = False, loc = 'upper right')
-        ax_PSD.set_ylabel(key, fontsize = 30, rotation = 0, labelpad = 14)
+        ax_PSD.set_ylabel(key, fontsize = 30, rotation = 0, labelpad = -15)
         # ax_pop_act.set_title(key, fontsize = 15)
         rm_ax_unnecessary_labels_in_subplots(i, n_exmp, ax_PSD, axis = 'x')
         rm_ax_unnecessary_labels_in_subplots(i, n_exmp, ax_pop_act, axis = 'x')

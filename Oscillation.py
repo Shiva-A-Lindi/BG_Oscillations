@@ -15525,30 +15525,14 @@ figs = synaptic_weight_exploration_RM_2d(N, N_real, K_real, G, Act[state_1], Act
 
 plt.close('all')
 
-filename = 'RM_parameterscape_Proto-STN-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
-filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_15.pkl'
-filename = 'RM_parameterscape_Proto-Proto-0-5_3_Proto-D2_0-5_3_2d_n_2.pkl'
 filename = 'RM_parameterscape_Proto-Proto-0_5_Proto-D2_0_3_2d_n_18.pkl'
 
-examples_ind = {'A' : (0, 14), 'B': (11, 14),
-                'C': (10, 12), 'D': (10, 10),
-                'E' : (2, 3), 'F': (8, 8),
-                'G':(14, 0), 'H': (4, 10)
-                }
 
-examples_ind = {'A' : (0, 14),
-                'B' : (8, 10),
-                'C': (10, 9),
-                'D': (6, 6),
-                'E':(11, 0),
-                'F':(14, 12),
-                
-                }
 
-examples_ind = {'A' : (3, 17),
-                'B' : (9, 17),
-                'C': (8, 14),
-                'D': (12, 16),
+examples_ind = {'a' : (3, 15),
+                'b' : (11, 16),
+                'd': (13, 16),
+                'c': (14, 5),
                 # 'E':(11, 0),
                 # 'F':(14, 12),
                 
@@ -15563,15 +15547,15 @@ examples_ind = {'A' : (3, 17),
 # examples_ind = {'A' : (0, 0)}
 dt = 0.1
 key_y = ('Proto', 'D2')
-ylabel = r'$G_{Proto-D2}$'
+ylabel = r'$|G_{Proto-D2}|$'
 
 key_x = ('Proto', 'STN')
 name_list = ['D2', 'FSI', 'Proto', 'STN']
-xlabel = r'$G_{Proto-STN}$'
+xlabel = r'$|G_{Proto-STN}|$'
 
 key_x = ('Proto', 'Proto')
 name_list = ['D2', 'FSI', 'Proto']
-xlabel = r'$G_{Proto-Proto}$'
+xlabel = r'$|G_{Proto-Proto}|$'
 
 
 markerstyle_list = ['o', 'o', 's', 'o']
@@ -15600,33 +15584,33 @@ for name in name_list:  ####### one single run (hence the squeeze)
     freq_dict[name] = np.squeeze( data[name, 'base_freq'] )
     f_peak_sig_dict[name] =  data[name, 'peak_significance']
 
-# plt.figure()
-# plt.plot(data['FSI', 'pop_act'][10,10,0])
+
 freq_dict, f_peak_sig_dict, last_first_peak_ratio = eval_averaged_PSD_peak_significance(data, x_list, y_list, name_list, 
                                                                                         AUC_ratio_thresh = 0,
                                                                                         examples_ind = examples_ind, n_ref_peak = 60)
-# freq_dict, f_peak_sig_dict = eval_averaged_PSD_peak_significance(data, [x_list[10]], [y_list[9]], name_list, 
-#                                                                  AUC_ratio_thresh = 0, plot = True, smooth = False)
+
 
 colormap = freq_dict
 
 # fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
 #                     size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
 #                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
+# fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'grey')
+# save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1.5, .8 * n_y))
 
 fig = parameterscape_imshow(x_list, y_list, name_list, markerstyle_list, freq_dict, colormap, f_peak_sig_dict, 
-                    size_list, xlabel, ylabel, label_fontsize = 30, clb_title = param, 
-                    annotate = False, ann_name='Proto',  tick_size = 18, only_significant = True)
+                    size_list, xlabel, ylabel, label_fontsize = 32, clb_title = param, 
+                    x_ticks = [0, 1, 2, 3, 4, 5], y_ticks = [0, 1, 2, 3],
+                    annotate = False, ann_name='Proto',  tick_size = 22, only_significant = True, figsize = (8,7))
+fig = highlight_example_pts(fig, examples_ind, x_list, y_list, [1000], highlight_color = 'w', annotate_shift = 0.2)
+save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (0.4 * n_x + 2, 0.4 * n_y ))
 
 
-fig = highlight_example_pts(fig, examples_ind, x_list, y_list, size_list, highlight_color = 'w',  )
-save_pdf_png(fig, filepath.split('.')[0] + '_' + param, size = (.8 * n_x + 1.5, .8 * n_y))
-
-
-fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt, 
-                                                  color_dict, Act, plt_duration = 600, run_no = 0, run = run,
-                                                  normalize_spec = True, PSD_ylim = (-5, 120), state = 'awake_rest',
-                                                  last_first_peak_ratio =last_first_peak_ratio )
+fig_exmp = plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list, y_list, dt,
+                                                  color_dict, Act, plt_duration = 600, run_no = 0, run = run, act_ylim = (-2, 95),
+                                                  PSD_y_labels = [0,  1.5], act_y_labels = [0, 45, 90], normalize_spec = False,
+                                                  PSD_x_labels = [0, 20, 40, 60, 80], act_x_labels = [0, 200, 400,  600], PSD_ylim = (-0.1, 1.5), state = 'awake_rest',
+                                                  last_first_peak_ratio =last_first_peak_ratio, unit_variance_PSD = True,  PSD_duration = 200000)
 save_pdf_png(fig_exmp, filepath.split('.')[0] + '_' + param + '_details', size = (8, 10))
 
 
@@ -16138,21 +16122,12 @@ color_list = [color_dict['STN']]
 fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list, filename_list, x_label, y_label,
                                        tau_2_ind=0, ylabelpad=-5, title='', c_label='', ax=ax, key=('STN', 'Proto'))
 # %% RATE MODEL : frequency vs. tau_inhibition (All Loops) new
-# plt.close('all')
-filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000_dt_0-1.pkl',
-               # 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_10000_dt_0-1_SP_2-8.pkl',
-                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_20500_dt_0-1SP_2-8.pkl',
-                 'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_30_T_10000_dt_0-1.pkl',
-                 'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000_dt_0-1.pkl']
+plt.close('all')
+filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_20_T_20500_dt_0-1.pkl',
+                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_30_T_20500_SP_2-8_dt_0-1.pkl',
+                 'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_20_T_20500_dt_0-1.pkl',
+                 'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_20_T_20500_dt_0-1.pkl']
 
-c_list = ['stable_mvt_freq', 'stable_freq', 'stable_mvt_freq', 'stable_mvt_freq'] * len(filename_list)
-
-
-# filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000_dt_0-1.pkl',
-#                    'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_20_T_20500_dt_0-2SP_2-8.pkl',
-#                   'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_20_T_20500_dt_0-2.pkl',
-#                  'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_30_T_10000_dt_0-1.pkl']
-# c_list = ['stable_mvt_freq', 'stable_freq', 'stable_freq', 'stable_mvt_freq'] * len(filename_list)
 
 filename_list = [os.path.join(path_rate, file) for file in filename_list]
 figname = 'All_circuits_timescale'
@@ -16164,7 +16139,7 @@ color_list = [color_dict['Proto'], color_dict['STN'],
               color_dict['FSI'], color_dict['Arky']]
 key_list = [('Proto', 'Proto'), ('STN', 'Proto'),
             ('Proto', 'D2'), ('Proto', 'D2')]
-# c_list = ['stable_mvt_freq'] * len(filename_list)
+c_list = ['stable_freq'] * len(filename_list)
 
 y_list = c_list
 colormap = 'hot'
@@ -16205,9 +16180,9 @@ ax2.tick_params(axis='both', labelsize=22)
 
 remove_frame(ax2)
 ax2.set_xlim(4, 26)
-ax2.set_ylim(5, 70)
+ax2.set_ylim(5, 72)
 leg = ax2.legend(fontsize=18, frameon=False, framealpha=0.1,
-           bbox_to_anchor=(.4, 0.5), bbox_transform=ax2.transAxes)
+           bbox_to_anchor=(.6, 0.3), bbox_transform=ax2.transAxes)
 ax2.axhspan(13, 30, color='lightgrey', alpha=0.5, zorder=0)
 
 
