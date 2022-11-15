@@ -3303,17 +3303,19 @@ def scale_phase_spike_count(count, err, total_phase, n_bins, coef = 1):
     print('bin size in deg = ', bin_size_in_deg)
     return count * coef / bin_size_in_deg, err * coef / bin_size_in_deg
 
+
 def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_dict, path, y_max_series, n_bins = 36, f_stim = 20, scale_count_to_FR = False, 
-                                    total_phase = 360, alpha_sem = 0.2, box_plot = False, set_ylim = False,title_fontsize = 15,
+                                    total_phase = 360,  box_plot = False, set_ylim = False,title_fontsize = 15,
                                     print_stat_phase = False, coef = 1, phase_text_x_shift = 150, phase_txt_fontsize = 8, 
                                     phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8, tick_label_fontsize = 8,
-                                    name_ylabel_pad = [0,0,0], name_side = 'right', name_place = 'ylabel', alpha = 0.15, title = '',
+                                    name_ylabel_pad = [0,0,0], name_side = 'right', name_place = 'ylabel', alpha = 0.15, 
+                                    alpha_single_neuron = 0.1, title = '', lw_single_neuron = 1,
                                     xlabel_y = 0.05, ylabel_x = -0.1, n_fontsize = 8, plot_FR = False, n_decimal = 0,
                                     n_minor_tick_y = 4, n_minor_tick_x = 4, xlabel_fontsize = 8, FR_dict = None, 
                                     ylabel_fontsize = 8, xlabel = 'phase (deg)',strip_plot = False, state  = 'OFF',
                                     plot_single_neuron_hist = True, smooth_hist = False, hist_smoothing_wind = 5, 
                                     shift_phase = None, plot_mean_FR = True, align_to = 'Laser', 
-                                    shift_phase_deg =  0):
+                                    shift_phase_deg =  0, n_neurons_to_plot = 10, random_seed = None):
 
     n_subplots = len(name_list)
     xy = {name :(0.7, 0.7) for name in name_list}
@@ -3352,7 +3354,7 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
         hists =  smooth_hists(hists, hist_smoothing_wind, smooth_hist = smooth_hist)
         make_phase_plot(count, err, name, ax, centers, 
                         color_dict, phases,  coef, y_max_series,  plot_FR = plot_FR, state = state,
-                        f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha_sem ,
+                        f_stim = f_stim, scale_count_to_FR = scale_count_to_FR, lw = lw, alpha =alpha ,
                         print_stat_phase = print_stat_phase , box_plot = box_plot, FR_dict = FR_dict, 
                         phase_text_x_shift = phase_text_x_shift , phase_txt_fontsize = phase_txt_fontsize , 
                         phase_txt_yshift_coef = phase_txt_yshift_coef, total_phase = 720,
@@ -3363,9 +3365,9 @@ def phase_plot_experiment_laser_aligned( experiment_protocol, name_list, color_d
         
         if plot_single_neuron_hist:
             
-            plot_single_neuron_hists(name, hists, n_neurons,
+            plot_single_neuron_hists(name, hists, n_neurons_to_plot,
                                     coef, f_stim, centers, total_phase, ax, scale_count_to_FR,
-                                    color_dict, alpha = 0.1)
+                                    color_dict, alpha = alpha_single_neuron, random_seed = random_seed, lw = lw_single_neuron)
             
         set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
                           y_max_series, 720, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim)
@@ -3492,6 +3494,7 @@ def make_phase_plot(count, err, name, ax, angles, color_dict, phases,
         count, err = scale_spk_count_to_FR(count, err, f_stim,
                                            coef = coef)
         print('Mean FR-ON = ',  str(round(np.average(count), 2)))
+        
         if plot_mean_FR:
             plot_mean_FR_in_phase_hist(FR_dict, name, ax, angles, color_dict, 
                                        state, lw = lw, alpha = alpha, plot_FR = plot_FR)
@@ -3544,14 +3547,14 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
                   n = 1000, set_ylim = True, shift_phase = None, y_max_series = None, xlabel_fontsize = 8,
                   ylabel_fontsize = 8, phase_txt_fontsize = 8, tick_label_fontsize = 8, 
                   ylabel = None, xlabel = 'phase (deg)', coef = 1, lw = 0.5, name_fontsize = 8, 
-                  name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.1, f_stim = 20,
+                  name_ylabel_pad = 4, name_place = 'ylabel', alpha = 0.1, alpha_single_neuron = 0.1, f_stim = 20,
                   xlabel_y = 0.05, ylabel_x = -0.1, phase_txt_yshift_coef = 1.5, title = '', title_fontsize = 8,
-                  name_side = 'right', print_stat_phase = True, strip_plot = False,
+                  name_side = 'right', print_stat_phase = True, strip_plot = False, lw_single_neuron = 1,
                   box_plot = True, phase_text_x_shift = 150, n_decimal = 0, scale_count_to_FR = False,
                   state = 'OFF', FR_dict = None, plot_FR = False,
                   n_minor_tick_y = 2, n_minor_tick_x = 4, plot_single_neuron_hist = False,
                   n_neuron_hist = 10 , hist_smoothing_wind = 5, plot_mean_FR = True,
-                  smooth_hist = True, shift_phase_deg = None):
+                  smooth_hist = True, shift_phase_deg = None, random_seed = None):
     
     xy = {name :(0.6, 0.8) for name in name_list}
     n_subplots = len(name_list)
@@ -3565,7 +3568,6 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
     n_neuron = data[(name_list[0], 'rel_phase_hist')].shape[2] 
     name_ylabel_pad = handle_label_pads(name_list, name_ylabel_pad)
     
-    np.random.seed(50)
     for i, n_g in enumerate(n_g_list):
         
         inner = gridspec.GridSpecFromSubplotSpec(n_subplots, 1,
@@ -3610,7 +3612,7 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
                 
                 plot_single_neuron_hists(name, hists, n_neuron_hist,
                                         coef, f_stim, centers, total_phase, ax, scale_count_to_FR,
-                                        color_dict)
+                                        color_dict, lw = lw_single_neuron, random_seed = random_seed, alpha = alpha_single_neuron)
     
     set_fig_prop_phase(fig, n_x = n_minor_tick_x,  n_y = n_minor_tick_y , strip_plot = strip_plot, xlabel_y = xlabel_y, ylabel_x = ylabel_x,
                        xlabel_fontsize = xlabel_fontsize, ylabel_fontsize = ylabel_fontsize,  xlabel = xlabel, 
@@ -3620,15 +3622,23 @@ def phase_plot(filename, name_list, color_dict, n_g_list, phase_ref = 'Proto', t
 
 def plot_single_neuron_hists( name, hists, n_neuron_hist, coef, 
                              f_stim, centers, total_phase, ax,scale_count_to_FR,
-                             color_dict, alpha = 0.2):
+                             color_dict, alpha = 0.2, random_seed = None, lw = 1):
     
     # neuron_id = np.random.choice(n_neuron, size = n_neuron_hist, replace = False)
     # run_id = np.random.choice(n_run, size = n_neuron_hist)
     # frq_single_neurons = data[(name,'rel_phase_hist')][n_g, run_id, neuron_id, :].copy()
     
     n_neuron = hists.shape[0]
-    neuron_id = np.random.choice(n_neuron, size = n_neuron_hist, replace = False)
-    frq_single_neurons = hists[ neuron_id, :].copy()
+    n_neuron_hist = min(n_neuron, n_neuron_hist)
+    if isinstance(random_seed, int):
+        print('seed set')
+        rng = np.random.RandomState(random_seed)
+        neuron_id = rng.choice(n_neuron, size = n_neuron_hist, replace = False)
+
+    else:
+        
+        neuron_id = np.random.choice(n_neuron, size = n_neuron_hist, replace = False)
+    frq_single_neurons = hists[neuron_id, :].copy()
     frq_single_neurons, _ = scale_phase_spike_count(frq_single_neurons, np.empty((0,1)), total_phase, len(centers), coef  = coef)
 
     if scale_count_to_FR:
@@ -3641,7 +3651,7 @@ def plot_single_neuron_hists( name, hists, n_neuron_hist, coef,
                                                                  
         plot_hist_envelope( 
             frq_single_neurons[n,:] , 
-            centers, color_dict[ name ], ax = ax,  lw = 1., alpha = alpha)
+            centers, color_dict[ name ], ax = ax,  lw = lw, alpha = alpha)
         
 def set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name_place, name_side,
                       y_max_series, total_phase, n_decimal, tick_label_fontsize, n_subplots, j, set_ylim):
@@ -3969,7 +3979,6 @@ def set_boxplot_prop(bp, color_list,
                      face_color = 'white',
                      linewidths = {'box': 0.8, 'whiskers': 0.5,
                                    'caps': 0.5, 'median': 2}):
-
     for color, patch in zip( color_list, bp['boxes']): 
         patch.set(color = face_color, linewidth = linewidths['box']) 
         patch.set_edgecolor(color=color)
@@ -3998,7 +4007,7 @@ def boxplot_phases(ax, color_dict, phases,name, box_width, box_y, width,
                    text_x_shift = 50, print_stat_phase = True):
     
     
-    bp = ax.boxplot(phases, positions = [box_y], vert=False,
+    bp = ax.boxplot(phases, positions = [box_y], vert=False, patch_artist = True,
                     sym = '', widths = box_width, whis =  (0, 100))
     if print_stat_phase:
         
@@ -4444,9 +4453,6 @@ def multi_run_transition(
             G[k]['mean'] = values['mean'][i]
         
         G = set_G_dist_specs(G, order_mag_sigma = 1)
-
-
-        print(G)
         for j in range(n_run):
             
             print(' {} from {} runs'.format(j + 1 , n_run))

@@ -760,8 +760,35 @@ state_list = ['CTRL']
 name_list = ['Proto']
 plot_exper_FR_distribution(xls, name_list, state_list,
                            color_dict, bins=np.arange(0, 100, 5))
+# %% beta induction schematic
 
-#%% log-normal test
+filename = 'excitation'
+filename = 'inhibition'
+tick_length = 10
+c_d= {'excitation': 'b',
+      'inhibition': 'yellow'}
+n = 256
+X = np.linspace(0, 720, n, endpoint=True)
+Y =(np.sin(X/180 * np.pi))
+Y[Y<0] = 0
+fig, ax = plt.subplots()
+ax.plot(X, Y, color='k', alpha=1.00, lw = 4)
+ax.fill_between(X, Y, 0, color=c_d[filename], alpha=1)
+ax.set_xticks([0, 360, 720])
+ax.tick_params(which = 'major', axis='both', pad=1, length = tick_length)
+ax.tick_params(which = 'minor', axis='both', pad=1, length = tick_length/2)
+set_minor_locator(ax, n = 2, axis = 'x')
+ax.set_yticks([])
+ax.xaxis.set_ticklabels([])
+remove_whole_frame(ax)
+ax.set_ylim([-0.02,1.05])
+ax.set_xlim([0,720])
+
+ax.spines['bottom'].set_visible(True)
+
+save_pdf_png(fig, os.path.join(path, filename),
+             size=(6,1))
+# %% log-normal test
 
 size = 10 ** 5
 order = 2
@@ -943,16 +970,19 @@ experiment_protocol = 'ChR2_STN_CTL'
 y_max_series = {'STN': 320, 'Arky': 45, 'Proto': 160}
 sheet_name = 'Fig 3'
 FR_header = 'Fig 3F: Firing rate during spontaneous and induced Beta oscillations'
+y_max_series = {'STN': 36, 'Arky': 7, 'Proto': 20}
 
 # experiment_protocol = 'ArchT_STN_CTL'
 # y_max_series = {'STN': 50, 'Arky': 20, 'Proto': 35}
 # FR_header = 'SupFig 5H: Firing rate during spontaneous and induced Beta oscillations'
 # sheet_name = 'SupFig 5'
 
-experiment_protocol = 'ArchT_GP_CTL'
-y_max_series = {'STN': 100, 'Arky': 40, 'Proto': 125}
-FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
-sheet_name = 'Fig 6'
+# experiment_protocol = 'ArchT_GP_CTL'
+# y_max_series = {'STN': 100, 'Arky': 40, 'Proto': 125}
+# FR_header = 'Fig 6F: Firing rate during spontaneous and induced Beta oscillations'
+# sheet_name = 'Fig 6'
+# y_max_series = {'STN': 17, 'Arky': 8, 'Proto': 14}
+
 
 n_bins = 36
 path_Brice = os.path.join(root, 'Modeling_Data_Nico', 'Laser_beta_induction', experiment_protocol)
@@ -965,22 +995,21 @@ FR_dict = read_Brice_FR_states(os.path.join(root, 'Modeling_Data_Nico', 'Brice_p
 
 shift_phase = 'forward'
 # shift_phase = 'backward'
-shift_phase = None
-scale_count_to_FR = True
-# scale_count_to_FR = False
-# y_max_series = {'STN': 5, 'Arky': 4, 'Proto': 7}
+# shift_phase = None
+# scale_count_to_FR = True
+scale_count_to_FR = False
 
-fig = phase_plot_experiment_laser_aligned(experiment_protocol, name_list, color_dict, path_Brice, y_max_series, 
+fig = phase_plot_experiment_laser_aligned(experiment_protocol,  ['Proto', 'STN', 'Arky'], color_dict, path_Brice, y_max_series, 
                                            n_bins = n_bins, f_stim = 20, 
                                            scale_count_to_FR = scale_count_to_FR, title_fontsize = 10, FR_dict = FR_dict, 
-                                           total_phase = 720, alpha_sem = 0.2, box_plot = True, set_ylim= True,
+                                           total_phase = 720,  box_plot = True, set_ylim= True,
                                            print_stat_phase = True, coef = 1000, phase_text_x_shift = 150, 
-                                           phase_txt_fontsize = 8, 
-                                           phase_txt_yshift_coef = 1.4, lw = 0.5, name_fontsize = 8,  plot_FR = True, 
-                                           name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha = 0.15, title = '',
+                                           phase_txt_fontsize = 8, lw = 0.5,
+                                           phase_txt_yshift_coef = 1.4, lw_single_neuron = 1, name_fontsize = 8,  plot_FR = True, 
+                                           name_ylabel_pad = [0,0,0], name_place = 'ylabel', alpha_single_neuron = 0.12, title = '',
                                            xlabel_y = 0.01, ylabel_x = -0.1, n_fontsize = 8, state = 'OFF',
-                                           plot_single_neuron_hist = True, hist_smoothing_wind = 5,
-                                           smooth_hist = False, shift_phase = shift_phase)#, shift_phase_deg = -90)
+                                           plot_single_neuron_hist = True, hist_smoothing_wind = 5,n_neurons_to_plot = 10,
+                                           smooth_hist = False, shift_phase = shift_phase, random_seed = 1)#, shift_phase_deg = -90)
 
 save_pdf_png(fig,os.path.join(path_Brice, experiment_protocol + '_Phase'),
              size = (1.8, len(name_list) * 1))
@@ -7414,7 +7443,7 @@ G = {}
 
 
 
-g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
@@ -7424,6 +7453,17 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+      
+# g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.9}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
@@ -7436,7 +7476,18 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 #       (name5, name3) :{'mean': g * K[name5, name3] * 6.3},
 #       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}}#2.}}#, 
 #       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-      
+
+g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
+G = { (name2, name1) :{'mean': g * K[name2, name1]  * 0},#6}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 0},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+            
      
 # g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz scaled for large network
 # G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 13.5}, ## free
@@ -7447,16 +7498,6 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 #       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 3.2},
 #       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 6.3},
 #       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2}}
-
-# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
-# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 0}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 0}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 0}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 0}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 0},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 0}}
 
 
 
@@ -7481,18 +7522,6 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 #       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
 #       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
 #       (name3, name3) :{'mean': g * K[name3, name3] * 1.6}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-
-# g = -0.0025 ## FENS poster
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 10},#6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 10},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 10},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.5}}#2.}}#, 
 #       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
@@ -7828,8 +7857,8 @@ beta_induction_method = 'excitation'
 induction_nuc_name = 'Proto'
 beta_induction_method = 'inhibition'
 
-# induction_nuc_name = 'STN'
-# beta_induction_method = 'excitation'
+induction_nuc_name = 'STN'
+beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 # state_1 = '_'.join(['induction', induction_nuc_name, beta_induction_method])
 
@@ -7841,6 +7870,9 @@ amplitude_dict = {'inhibition':{'Proto': 6.4, 'STN': 2.28},
                   'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**2
 
 amplitude_dict = {'inhibition':{'Proto': 7.1, 'STN': 2.30}, 
+                  'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**1, 17.5 Hz
+
+amplitude_dict = {'inhibition':{'Proto': 6.5, 'STN': 2.30}, 
                   'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**1
 
 freq_dict = {induction_nuc_name: 20} 
@@ -7853,19 +7885,19 @@ print( " transition from " , state_1, ' to ',  induction_nuc_name, ' ', beta_ind
 name_list = [name1, name2, name3, name4, name5]
 
 
-g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
-# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz not tuned in DD?
+# g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz not tuned in DD?
 # G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
 #       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
 #       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
@@ -8908,9 +8940,6 @@ data = multi_run_transition(path, nuclei_dict, filepath, duration, G_dict, color
 pickle_obj(data, filepath)
 plt.figure()
 
-# %% Gradient descent 
-
-def updat_Gs()
 # %% Transition to Beta induction, All nuclei collective multi run
 
 
@@ -8954,11 +8983,11 @@ print( " transition from " , state_1, ' to ', state_2)
 induction_nuc_name = 'D2'
 beta_induction_method = 'excitation'
 
-# induction_nuc_name = 'Proto'
-# beta_induction_method = 'inhibition'
+induction_nuc_name = 'Proto'
+beta_induction_method = 'inhibition'
 
-induction_nuc_name = 'STN'
-beta_induction_method = 'excitation'
+# induction_nuc_name = 'STN'
+# beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 
 # neuronal_consts['Proto']['membrane_time_constant'] = {'mean': 43, 'var': 10, 'truncmin': 3, 'truncmax': 100}
@@ -8980,23 +9009,22 @@ name_list = [name1, name2, name3, name4, name5]
 G = {}
 
 
-g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 
 
-G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2, order_mag_sigma = 2)
+G = set_G_dist_specs(G, order_mag_sigma = 2)
 G_dict = {k: {'mean': [v['mean']]} for k, v in G.items()}
-
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -12621,8 +12649,6 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 
 
-# filename = os.path.join(path, 'Beta_power','STN_Proto_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','STN_Proto_Arky_N_1000_T_2000_1_pts_20_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','STN_Proto_Arky_N_1000_T_4000_1_pts_8_runs_dt_0-1_rest_Ornstein-Uhlenbeck_A_STN_7_Proto_39-84_Arky_14.pkl' )
 
 # coef = 10
@@ -12639,7 +12665,6 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # phase_text_x_shift = 100
 # phase_ref = 'Arky'
 
-# filename = os.path.join(path, 'Beta_power','D2_Proto_Arky_N_1000_T_5000_G_all_changing_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','D2_Proto_Arky_N_1000_T_5000_G_all_changing_1_pts_10_runs.pkl' )
 # name_list = ['Proto',  'Arky', 'D2']
 # loop = 'Arky Loop'
@@ -12655,8 +12680,6 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_FSI_D2_changing_16_pts_8_runs.pkl' )
 # n_g_list = np.linspace(0, 15, endpoint = True, num = 4).astype(int)
 # name_list = ['D2', 'Proto', 'FSI']
-# filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_4_pts_5_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_1_pts_10_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','D2_Proto_FSI_N_1000_T_5000_G_all_changing_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl' )
 # loop = 'FSI Loop'
 # filename = filename_dict[loop][0]
@@ -12669,9 +12692,7 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # figsize = (1.8, three_nuc_raster_y )
 
 
-# filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_2000_1_pts_10_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_2000_4_pts_5_runs.pkl' )
-# filename = os.path.join(path, 'Beta_power','STN_Proto_N_1000_T_5000_1_pts_10_runs.pkl' )
+
 # filename = os.path.join(path, 'Beta_power', 'STN_Proto_N_1000_T_2000_3_pts_5_runs_dt_0-1_Ornstein-Uhlenbeck.pkl')
 # loop = 'STN-Proto'
 # filename = filename_dict[loop][0]
@@ -12685,7 +12706,6 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 
 
-# filename = os.path.join(path, 'Beta_power','Proto_Proto_N_1000_T_5000_4_pts_5_runs.pkl' )
 # filename = os.path.join(path, 'Beta_power','Proto_Proto_N_1000_T_5000_1_pts_10_runs.pkl' )
 # loop = 'Proto-Proto'
 # filename = filename_dict[loop][0]
@@ -12698,9 +12718,6 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 # figsize = (1.8, three_nuc_raster_y * 1/3)
 
 
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_12300_n_6_runs_sparsed_aligned_to_D2.pkl' )
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_20300_n_2_runs_aligned_to_Proto_tuned_to_Brice.pkl' )
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_22300_n_2_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
 filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_22300_n_1_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
 
 y_max_series = {'D2': 3, 'STN': 9, 'Arky': 6, 'Proto': 13, 'FSI': 6}
@@ -12713,52 +12730,53 @@ scale_count_to_FR = False
 # y_max_series = {'D2': 6, 'STN': 36, 'Arky': 17, 'Proto': 30, 'FSI': 9}
 # y_max_series = {'D2': 15, 'STN': 75, 'Arky': 31, 'Proto': 70, 'FSI': 25} # with single neuron traces
 
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
 
-y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
-n_decimal = 0
-plot_FR = True; scale_count_to_FR = True
-y_max_series = {'D2': 1., 'STN': 40, 'Arky': 17, 'Proto': 84, 'FSI': 8}
-y_max_series = {'D2': 13., 'STN': 40, 'Arky': 40, 'Proto': 84, 'FSI': 20}  # with single neuron traces
-y_max_series = {'D2': 8., 'STN': 160, 'Arky': 40, 'Proto': 84, 'FSI': 11}  # with single neuron traces
 
-phase_ref = 'stimulation'
-
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_D2_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+# n_decimal = 0
+# phase_ref = 'stimulation'
+# scale_count_to_FR = False
 
 # y_max_series = {'D2': 0.3, 'STN': 1.5, 'Arky': 3, 'Proto': 7, 'FSI': 1}
-# n_decimal = 0
 # plot_FR = True; scale_count_to_FR = True
 # y_max_series = {'D2': 6., 'STN': 26, 'Arky': 30, 'Proto': 65, 'FSI': 20}
 # y_max_series = {'D2': 22., 'STN': 66, 'Arky': 55, 'Proto': 90, 'FSI': 35}  # with single neuron traces
 # y_max_series = {'D2': 60., 'STN': 80, 'Arky': 55, 'Proto': 100, 'FSI': 50}  # with single neuron traces
 
-# phase_ref = 'D2'
-# phase_ref = 'stimulation'
+filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_excitation_at_STN_N_1000_T_19700_n_1_runs_aligned_to_stimulation.pkl' )
+n_decimal = 1
+phase_ref = 'stimulation'
+random_seed = 6
+scale_count_to_FR = False
+y_max_series = {'D2': 0.5, 'STN': 36, 'Arky': 7, 'Proto': 20, 'FSI': 4}
 
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_12300_n_6_runs_aligned_to_stimulation.pkl' )
-# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_20300_n_1_runs_aligned_to_stimulation.pkl' )
+# scale_count_to_FR = Falseplot_FR = True; 
+# y_max_series = {'D2': 1., 'STN': 40, 'Arky': 17, 'Proto': 84, 'FSI': 8}
+# y_max_series = {'D2': 13., 'STN': 40, 'Arky': 40, 'Proto': 84, 'FSI': 20}  # with single neuron traces
+# y_max_series = {'D2': 8., 'STN': 160, 'Arky': 40, 'Proto': 84, 'FSI': 11}  # with single neuron traces
 
-# y_max_series = {'D2': 0.2, 'STN': 1., 'Arky': 2.5, 'Proto': 9, 'FSI': 0.8}
-# plot_FR = True; scale_count_to_FR = True
-# y_max_series = {'D2': 1, 'STN': 48, 'Arky': 40, 'Proto': 90, 'FSI': 42}
-# y_max_series = {'D2': 5, 'STN':90, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
-# y_max_series = {'D2': 5, 'STN':110, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
 
+
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_induction_with_inhibition_at_Proto_N_1000_T_19700_n_1_runs_aligned_to_stimulation.pkl' )
 # n_decimal = 0
 # phase_ref = 'stimulation'
+# random_seed = 1
+# scale_count_to_FR = False
+# y_max_series = {'D2': 1, 'STN': 17, 'Arky': 8, 'Proto': 14, 'FSI': 6}
+# # scale_count_to_FR = True; plot_FR = True; 
+# # y_max_series = {'D2': 5, 'STN':90, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
+# # y_max_series = {'D2': 5, 'STN':110, 'Arky': 60, 'Proto': 120, 'FSI': 68}  # with single neuron traces
+
 
 coef = 1000
-name_list = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto']
+name_list = [ 'Proto','STN', 'Arky', 'FSI', 'D2' ]
 n_g_list = np.array([0])
 name_ylabel_pad = [-10,-10,-15,-15,-15] # left side
 name_ylabel_pad = [-1] * 5 # left side
 
 state = 'rest'
-ylabel_fontsize, xlabel_fontsize = 13, 13
-xlabel_y = 0.05 ; phase_text_x_shift = 150
+ylabel_fontsize, xlabel_fontsize = 8, 8
+xlabel_y = 0.01 ; phase_text_x_shift = 150
 FR_dict =  {name: {state: {'mean' : Act[state][name], 'SEM' :0}
                           for state in ['rest']}
                   for  name  in name_list}
@@ -12769,21 +12787,23 @@ shift_phase = 'backward'
 shift_phase = None
 # shift_phase = 'both'
 
-plot_single_neuron_hist = False
 plot_single_neuron_hist = True
 smooth_hist = True
-box_plot = False
+box_plot = True
 fig = phase_plot(filename, name_list, color_dict, n_g_list, phase_ref=phase_ref,
                     shift_phase=shift_phase, set_ylim=True, y_max_series=y_max_series, coef = coef,
                     ylabel_fontsize = ylabel_fontsize,  xlabel_fontsize = xlabel_fontsize, 
-                    tick_label_fontsize = 10, lw = 1, name_fontsize = 12, 
+                    tick_label_fontsize = 10, lw = 0.5, name_fontsize = 8,  lw_single_neuron = 1,
                     name_ylabel_pad = name_ylabel_pad, name_place = 'ylabel', alpha = 0.1,
+                    alpha_single_neuron = 0.12,
                     xlabel_y = xlabel_y, ylabel_x = -0.1 * (n_decimal + 1), phase_txt_yshift_coef = 1.5,
                     phase_text_x_shift = phase_text_x_shift, n_decimal = n_decimal, state = 'rest',
                     plot_FR = plot_FR, scale_count_to_FR = scale_count_to_FR, FR_dict = FR_dict,
-                    plot_single_neuron_hist = plot_single_neuron_hist, n_neuron_hist = 8,
-                    hist_smoothing_wind = 5, smooth_hist = smooth_hist, shift_phase_deg = 40)#,
+                    plot_single_neuron_hist = plot_single_neuron_hist, n_neuron_hist = 10,
+                    hist_smoothing_wind = 5, smooth_hist = smooth_hist, shift_phase_deg = 40, random_seed = random_seed)#,
                     # box_plot = False, strip_plot = True)
+
+
 
 # fig = remove_all_x_labels(fig)
 # fig = set_y_ticks(fig, [0, n_neuron])
