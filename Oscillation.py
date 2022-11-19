@@ -5966,6 +5966,176 @@ _, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration_fft, lim_oscil_perc, 
                                      include_beta_band_in_legend=False)
 ax.set_xlim(0, 100)
 
+# %% effect of MC-induced transient input on a complete network collective
+
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+
+dt = 0.1
+t_transient = 200
+t_sim = t_transient + 500
+plot_start = t_transient - 50
+plot_start_raster = plot_start
+t_list = np.arange(int(t_sim/dt))
+t_mvt = t_sim
+D_mvt = t_sim - t_mvt
+
+name1 = 'FSI'
+name2 = 'D2'
+name3 = 'Proto'
+name4 = 'Arky'
+name5 = 'STN'
+
+name_list = [name1, name2, name3, name4, name5]
+
+state = 'trans_Kita_rat'
+state = 'rest'
+
+G = {}
+
+# stim_method = 'ChR2'
+stim_method = 'Projection'
+# ext_inp_method = 'step'
+ext_inp_method_trans = 'exponential'
+
+duration = 10
+n_run = 2
+duration_fft = [int((t_transient+100)/dt), int(t_sim/dt)]
+
+list_of_nuc_with_trans_inp = ['STN', 'D2']
+
+# ext_inp_dict = {'STN': {'mean' : 0.4, 'sigma': 0.4 * .1, 'tau_rise': 100, 'tau_decay': 5}, #### step
+#                 'D2': {'mean' : 2, 'sigma': 2 * .1, 'tau_rise': 100, 'tau_decay': 5}}
+
+# ext_inp_dict = {'STN': {'mean' : 60, 'sigma': 0.4 * .1, 'tau_rise': 100, 'tau_decay': 5}, #### exponential high FR ext sigma
+#                 'D2': {'mean' : 230, 'sigma': 2 * .1, 'tau_rise': 100, 'tau_decay': 4}}
+
+ext_inp_dict = {'STN': {'mean' : 40, 'sigma': 0.4 * .1, 'tau_rise': 100, 'tau_decay': 5}, #### exponential
+                'D2': {'mean' : 150, 'sigma': 2 * .1, 'tau_rise': 100, 'tau_decay': 4}}
+
+
+peak_jiggle_dict = {'D2': 15, 
+                    'STN': 0.5,
+                    'Proto': 0.2,
+                    'FSI': 0.2,
+                    'Arky': 0.2}
+
+
+
+# G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name1, name1)] = -0.008, 0.006, -0.0002, -0.000  # tau 25
+# G[(name2, name1)], G[(name1, name2)],  G[(name1, name3)], G[(name1, name1)] = -0.008, 0.006, -0.0006, -0.000  # tau 4
+
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+G = set_G_dist_specs(G, order_mag_sigma = 1)
+
+poisson_prop = {name: 
+                {'n': 10000, 'firing': 0.0475, 'tau': {
+                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
+                'g': 0.01} 
+                for name in name_list}
+    
+receiving_pop_list = {(name1, '1'): [(name3, '1')],
+                      (name2, '1'): [(name1, '1'), (name4, '1')],                      
+                      (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
+                      (name4, '1'): [(name3, '1')],
+                      (name5, '1'): [(name3, '1')]}
+
+pop_list = [1]
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+noise_method = 'Gaussian'
+noise_method = 'Ornstein-Uhlenbeck'
+use_saved_FR_ext = True
+
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
+               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie,
+               save_init=save_init, syn_component_weight=syn_component_weight, noise_method=noise_method) for i in pop_list] for name in name_list}
+
+
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state]
+               for name in list(nuclei_dict.keys())}
+
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list,
+                                          all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                          set_FR_range_from_theory=False, method='collective',  save_FR_ext=True,
+                                          use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
+
+syn_trans_delay_dict = filter_transmission_delay_for_downstream_projection(T, list_of_nuc_with_trans_inp, 
+                                                                           projecting = 'Ctx')
+
+if stim_method == 'Projection':
+    syn_trans_delay_dict = syn_trans_delay_heterogeneous( syn_trans_delay_dict, dt, N_sim )
+    
+elif stim_method == 'ChR2':
+    syn_trans_delay_dict = syn_trans_delay_homogeneous( syn_trans_delay_dict, dt, N_sim )
+    
+avg_act = average_multi_run_collective(path, receiving_pop_list, receiving_class_dict, t_list, dt, nuclei_dict,  
+                                       Act, G, N, N_real, K_real, K_all, syn_trans_delay_dict, poisson_prop,
+                                        n_FR, all_FR_list, end_of_nonlinearity, t_transient=int(t_transient/dt), 
+                                        duration=int(duration/dt), n_run=n_run, A_mvt=None, D_mvt=0, t_mvt=t_mvt, 
+                                        ext_inp_dict=ext_inp_dict, noise_amplitude=noise_amplitude, noise_variance=noise_variance, 
+                                        reset_init_dist=True, color_dict=color_dict, state = state, plot = False, 
+                                        ext_inp_method =ext_inp_method_trans, stim_method = stim_method)
+
+
+for nuclei_list in nuclei_dict.values():
+    for k, nucleus in enumerate(nuclei_list):
+        nucleus.pop_act = avg_act[nucleus.name][:, k]
+
+smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
+status = 'trans_Ctx_to_STN_and_D2_' + str(n_run) + '_run_'
+
+fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, t_transient / dt), 
+           Act[state], A_mvt, t_mvt, D_mvt, ax=None, title_fontsize=20, plot_start=plot_start, figsize=(20,4),
+           title="", plt_mvt=False, include_FR=False, xlim = (-50, t_sim - t_transient))  # , ylim = [0,150])]
+
+fig = plot_extermums_FR(nuclei_dict, peak_jiggle_dict, t_transient, dt, color_dict, fig )
+
+fig = set_x_ticks(fig, np.arange(0, 600, 100))
+fig = set_y_ticks(fig, np.arange(0, 175, 25))
+fig.gca().set_ylim(-10, 150)
+fig.gca().axvspan(0, duration, alpha=0.2, color='yellow')
+save_pdf_png(fig, os.path.join(path, 'MC_trans_stim_' + str(duration) +'ms_onto_D2-STN-Proto' + note), size = (8,3.5))
+
+peak_threshold = 0.1
+smooth_window_ms = 3
+smooth_window_ms = 5
+cut_plateau_epsilon = 0.1
+lim_oscil_perc = 10
+low_pass_filter = False
+
+fig_spec, ax = plt.subplots(1, 1)
+_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration_fft, lim_oscil_perc, peak_threshold, smooth_kern_window,
+                                     smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                                     low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
+                                     spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=2,
+                                     include_beta_band_in_legend=False)
+ax.set_xlim(0, 100)
+
 # %% effect of MC-induced transient input on a STR-GPe-STN network collective varying taus
 
 plt.close('all')
@@ -8852,7 +9022,7 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11}, ## free
 
 
 
-G = set_G_dist_specs(G, sd_to_mean_ratio = 0.5, n_sd_trunc = 2, order_mag_sigma = 2)
+G = set_G_dist_specs(G,  order_mag_sigma = 1)
 G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
 
 # G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
@@ -9254,8 +9424,6 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
 # %% Parameterscape SNN
 
         
-filename =  'D2_Proto_FSI_N_1000_T_3000_1_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl'
-filename =  'D2_Proto_FSI_N_1000_T_3000_15_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl'
 filename =  'D2_Proto_FSI_N_1000_T_3000_15_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl' ## equal Gs
 
 examples_ind = {'A' : (3, 5), 'B': (14, 5),
@@ -9263,10 +9431,11 @@ examples_ind = {'A' : (3, 5), 'B': (14, 5),
                 'E': (14, 14)}
 
 filename =  'D2_Proto_FSI_N_1000_T_5000_12_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46.pkl' ## FSI-D2 double
+filename = 'D2_Proto_FSI_N_1000_T_5000_1_pts_1_runs_dt_0-25_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-41_Proto_46.pkl'
 examples_ind = {'A' : (3, 4), 'B': (11, 4),
                 'C' : (0, 11), 'D': (6, 11),
                 'E': (11, 11)}
-
+examples_ind = {'A' : (0, 0)}
 key_x = ('Proto', 'Proto')
 key_y = ('FSI', 'Proto')
 name_list = ['D2', 'FSI', 'Proto']
@@ -9275,12 +9444,12 @@ markerstyle_list = ['o', 'o', 's']
 size_list = np.array([4, 2, 1]) * 1000
 
 
-filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_all_avg.pkl'
-examples_ind = {'A' : (2, 3), 'B': (13, 0),
-                'C': (4, 8), 'D': (1, 10),
-                'E' : (0, 13), 'F': (2, 13),
-                'G':(5, 13), 'H': (13, 13), 'L':(2,11)
-                }
+# filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_all_avg.pkl'
+# examples_ind = {'A' : (2, 3), 'B': (13, 0),
+#                 'C': (4, 8), 'D': (1, 10),
+#                 'E' : (0, 13), 'F': (2, 13),
+#                 'G':(5, 13), 'H': (13, 13), 'L':(2,11)
+#                 }
 # filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_all_avg.pkl'
 
 # examples_ind = {'A' : (0, 0), 'B': (11, 2),
@@ -9288,30 +9457,33 @@ examples_ind = {'A' : (2, 3), 'B': (13, 0),
 #                 'E' : (0, 9), 'F': (8, 6),
 #                 'G':(6, 9), 'H': (13, 9)
 #                 }
-filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_5_pts_3_runs.pkl'
-examples_ind = {'A' :0, 'B': 1,
-                'C': 2, 'D': 3,
-                'E' : 4
-                }
-dt = 0.15
-key_x = ('Proto', 'STN')
-key_y = ('D2', 'FSI')
-name_list = ['D2', 'FSI', 'Proto', 'STN']
-xlabel = r'$G_{STN-Proto}$'
+# filename = 'D2_Proto_FSI_STN_N_1000_T_2000_G_STN_Proto_changing_5_pts_3_runs.pkl'
+# examples_ind = {'A' :0, 'B': 1,
+#                 'C': 2, 'D': 3,
+#                 'E' : 4
+#                 }
+
+
+filename = '2d_All_loops_N_1000_T_3300_3_pts_1_runs_dt_0-1_rest_all.pkl'
+dt = 0.1
+key_x = ('Proto', 'Proto')
+key_y = ('Proto', 'D2')
+name_list = ['D2', 'FSI', 'Proto', 'STN', 'Arky']
+xlabel = r'$G_{Proto-Proto}$'
 markerstyle_list = ['o', 'o', 's', 'o']
-size_list = np.array([4, 2, 1, 0.5]) * 1000
+size_list = np.array([4, 2, 1, 0.5, 0.25]) * 1000
 
 filepath = os.path.join(path, 'Beta_power', filename)
 
 
 
 data  = load_pickle(filepath)
-x_list = data['g'][key_x]
-y_list = data['g'][key_y]    
+x_list = data['g'][key_x]['mean']
+y_list = data['g'][key_y]['mean']
 n_x = len(x_list)
 n_y = len(y_list)
 
-ylabel = r'$G_{FSI-Proto}$'
+ylabel = r'$G_{Proto-D2}$'
 
 power_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
 freq_dict = {name: np.zeros((len(x_list), len(y_list))) for name in name_list}
@@ -9359,9 +9531,9 @@ for name in name_list:   ####### averaged multiprocessing results
 # save_pdf_png(fig, filepath.split('.')[0] + '_' + param + '_PSD_surf', size = (.8 * n_x + 1, .8 * n_y))
 
 
-# fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
-#                     size_list, xlabel, ylabel, label_fontsize = 22, title = param, 
-#                     annotate = False, ann_name='Proto',  tick_size = 18, only_significant = False)
+fig = parameterscape(x_list, y_list, name_list, markerstyle_list, freq_dict, freq_dict, f_peak_sig_dict, 
+                    size_list, xlabel, ylabel, label_fontsize = 22, 
+                    annotate = False, ann_name='Proto',  tick_size = 18, only_significant = False)
 
 
 # fig_exmp = plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, x_list, y_list, dt, color_dict, Act, plt_duration = 600, run_no = 0)
@@ -9413,36 +9585,49 @@ save_pdf_png(fig_exmp, filepath.split('.')[0] +  '_details', size = (10, 10))
 # %% Merge data from multiprocessing
 
 
-def get_specs_of_mp(ex_filename, path, name = 'FSI'):
+#### modified for heterogeneous & log-normal G
+
+def get_specs_of_mp(ex_filename, path, name = 'Proto'):
     
-    filepath = os.path.join(path, 'Beta_power', ex_filename + '0.pkl')
+    filepath = os.path.join(path, 'Beta_power', ex_filename + '_0.pkl')
     data  = load_pickle(filepath)
     n_iter_l_1, n_iter_l_2, n_run, len_f_pxx = data[(name, 'pxx')].shape
-    n_iter_l_1, n_iter_l_2, n_run, duration = data[(name, 'pop_act')].shape
-    
+    print(data[(name, 'pxx')].shape)
+    if (name, 'pop_act') in data:
+        n_iter_l_1, n_iter_l_2, n_run, duration = data[(name, 'pop_act')].shape
+    else:
+        duration = None
+        
     return n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx
 
 def create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_pxx, duration, 
-                                         n_iter_each_loop, loop_key_lists):
+                                         n_iter_each_loop, loop_key_lists, save_gamma = False):
     
     data = {}
     n_iter_l_1, n_iter_l_2 = n_iter_each_loop
     
     for name in name_list:
         data[(name, 'base_freq')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run))
-        data[(name, 'pop_act')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run,  duration))
         data[(name, 'peak_significance')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run), dtype = bool) # stores the value of the PSD at the peak and the mean of the PSD elsewhere
         
+        if duration != None:
+            data[(name, 'pop_act')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run,  duration))
+
         if find_phase:
             data[(name, 'rel_phase_hist')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, 2, n_phase_bins-1))
             data[(name, 'rel_phase')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run))
     
-        data[(name, 'base_beta_power')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, 3))
+        if save_gamma:
+            n = 3
+        else:
+            n = 2
+        data[(name, 'base_beta_power')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, n))
+        data[(name, 'power_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2, n))
+
         data[(name, 'f')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, len_f_pxx))
         data[(name, 'pxx')] = np.zeros((n_iter_l_1, n_iter_l_2, n_run, len_f_pxx))
         data[(name, 'peak_significance_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2))
         data[(name, 'peak_freq_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2))
-        data[(name, 'power_all_runs')] = np.zeros((n_iter_l_1, n_iter_l_2, 3))
         
     data = create_g_in_data(data, loop_key_lists, n_iter_each_loop)
 
@@ -9457,31 +9642,36 @@ def create_g_in_data(data, loop_key_lists, n_iter_each_loop):
         
         loop_keys = loop_key_lists[loop]
         for key in loop_keys:
-            data['g'][key] = np.zeros(n_iter_each_loop[loop])
+            data['g'][key] = {}
+            data['g'][key]['mean'] = np.zeros(n_iter_each_loop[loop])
     return data
 
-def get_the_other_loop_ind(changing_loop_ind):
-    if changing_loop_ind == 1:
+def get_the_other_loop_ind(segmented_loop_ind):
+    
+    if segmented_loop_ind == 1:
+        
         return 0
+    
     else:
+        
         return 1
     
-def save_g_to_data_all(loop_keys, n_iter, this_iter, data, changing_loop_ind = 0):
+def save_g_to_data_all(loop_keys, n_iter, this_iter, data, segmented_loop_ind = 0):
     
-    for key in loop_keys[changing_loop_ind]:
-        data_all['g'][key][this_iter: this_iter + n_iter]  = data['g'][key]
+    for key in loop_keys[segmented_loop_ind]:
+        data_all['g'][key]['mean'][this_iter: this_iter + n_iter]  = data['g'][key]['mean']
     
-    for key in loop_keys[get_the_other_loop_ind(changing_loop_ind)]:
-        data_all['g'] [key] = data['g'][key]
+    for key in loop_keys[get_the_other_loop_ind(segmented_loop_ind)]:
+        data_all['g'] [key]['mean'] = data['g'][key]['mean']
         
     return data_all
 
 def merge_mp_data(data_all, ex_filename, path, n_iter_mp, n_mp, loop_keys, find_phase = False, 
-                  changing_loop_ind = 0):
+                  segmented_loop_ind = 0):
     
     for mp in range(n_mp):
 
-        filename = ex_filename + str(mp) + '.pkl'
+        filename = ex_filename + '_' + str(mp) + '.pkl'
         print(filename)
         filepath = os.path.join(path, 'Beta_power', filename)
         data  = load_pickle(filepath)
@@ -9489,12 +9679,12 @@ def merge_mp_data(data_all, ex_filename, path, n_iter_mp, n_mp, loop_keys, find_
         this_iter = n_iter_mp * mp
         
         for name in name_list:
-            if changing_loop_ind == 0:
+            if segmented_loop_ind == 0:
                 data_all = fill_data_all_first_loop_mp(this_iter, n_iter_mp, data_all, data, name)
-            if changing_loop_ind == 1:
+            if segmented_loop_ind == 1:
                 data_all = fill_data_all_second_loop_mp(this_iter, n_iter_mp, data_all, data, name)
 
-        data_all = save_g_to_data_all(loop_keys, n_iter_mp, this_iter, data, changing_loop_ind = changing_loop_ind )
+        data_all = save_g_to_data_all(loop_keys, n_iter_mp, this_iter, data, segmented_loop_ind = segmented_loop_ind )
         
     return data_all
 
@@ -9509,7 +9699,9 @@ def fill_data_all_first_loop_mp(this_iter, n_iter, data_all, data, name):
         data_all[(name, 'rel_phase_hist')][this_iter: this_iter + n_iter, :, :, :] =  data[(name, 'rel_phase_hist')]  
         data_all[(name, 'rel_phase')][this_iter: this_iter + n_iter, : ] =  data[(name, 'rel_phase')] 
     
-    data_all[(name, 'pop_act')][this_iter: this_iter + n_iter, :, :] = data[(name, 'pop_act')] 
+    if (name, 'pop_act') in data_all:
+        
+        data_all[(name, 'pop_act')][this_iter: this_iter + n_iter, :, :] = data[(name, 'pop_act')] 
     data_all[(name, 'base_freq')][this_iter: this_iter + n_iter, :] = data[(name, 'base_freq')] 
 
     data_all[(name, 'base_beta_power')][this_iter: this_iter + n_iter, :, :, :]  = data[(name, 'base_beta_power')]
@@ -9530,8 +9722,10 @@ def fill_data_all_second_loop_mp(this_iter, n_iter, data_all, data, name):
         data_all[(name, 'rel_phase_hist')][:, this_iter: this_iter + n_iter, :, :] =  data[(name, 'rel_phase_hist')]  
         data_all[(name, 'rel_phase')][:, this_iter: this_iter + n_iter] =  data[(name, 'rel_phase')] 
     
+    if (name, 'pop_act') in data_all:
 
-    data_all[(name, 'pop_act')][:, this_iter: this_iter + n_iter, :] = data[(name, 'pop_act')] 
+        data_all[(name, 'pop_act')][:, this_iter: this_iter + n_iter, :] = data[(name, 'pop_act')] 
+        
     data_all[(name, 'base_freq')][:, this_iter: this_iter + n_iter] = data[(name, 'base_freq')] 
 
     data_all[(name, 'base_beta_power')][:, this_iter: this_iter + n_iter, :, :]  = data[(name, 'base_beta_power')]
@@ -9540,41 +9734,74 @@ def fill_data_all_second_loop_mp(this_iter, n_iter, data_all, data, name):
     
     return data_all
 
-name1 = 'FSI'  
-name2 = 'D2'  
+# name1 = 'FSI'  
+# name2 = 'D2'  
+# name3 = 'Proto'
+# name4 = 'STN'
+# name_list = [name1, name2, name3, name4]
+# n_mp = 7
+# find_phase = False ; n_phase_bins = 180
+
+# loop_key_lists = [ [(name2, name1),
+#                     (name3, name2),
+#                     (name1, name3)], 
+#                   [(name4, name3), (name3, name4)]]
+
+# ex_filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_'
+# t_sim = 2300
+# dt = 0.15
+# segmented_loop_ind = 0
+# n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
+
+# ex_filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_'
+# t_sim = 5300
+# dt = 0.2
+# segmented_loop_ind = 1
+# n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
+
+
+
+name1 = 'FSI'
+name2 = 'D2'
 name3 = 'Proto'
-name4 = 'STN'
-name_list = [name1, name2, name3, name4]
-n_mp = 7
+name4 = 'Arky'
+name5 = 'STN'
+
+name_list = [name1, name2, name3, name4, name5]
+
+n_mp = 3
 find_phase = False ; n_phase_bins = 180
 
-loop_key_lists = [ [(name2, name1),
-                    (name3, name2),
-                    (name1, name3)], 
-                  [(name4, name3), (name3, name4)]]
+    
+loop_key_lists = [[(name2, name1),
+                   (name3, name2),
+                   (name1, name3),
+                   (name2, name4),
+                   (name4, name3),
+                   (name3, name5),
+                   (name5, name3)],
+                  [(name3, name3)]]
 
-ex_filename = 'STN_D2_Proto_FSI_N_1000_T_2300_2_pts_3_runs_dt_0-15_awake_rest_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_15_'
-t_sim = 2300
-dt = 0.15
-changing_loop_ind = 0
-n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
+ex_filename = '2d_All_loops_N_1000_T_3300_3_pts_1_runs_dt_0-1_rest'
+t_sim = 3300
+dt = 0.1
+segmented_loop_ind = 1
+n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'Proto')
 
-ex_filename = 'STN_D2_Proto_FSI_G_DF_&_PS_changing_N_1000_T_5300_10_pts_3_runs_dt_0-2_awake_rest_4_wind_Ornstein-Uhlenbeck_A_FSI_15-2_D2_1-1_Proto_46_STN_10-12_'
-t_sim = 5300
-dt = 0.2
-changing_loop_ind = 1
-n_iter_l_1, n_iter_l_2, duration, n_run, len_f_pxx = get_specs_of_mp(ex_filename, path, name = 'FSI')
+
+
+
 
 n_iter_each_loop_each_file = [n_iter_l_1, n_iter_l_2 ]
-mp_to_multiply = np.ones(2); mp_to_multiply[changing_loop_ind] = n_mp
+mp_to_multiply = np.ones(2); mp_to_multiply[segmented_loop_ind] = n_mp
 n_iter_each_loop = (n_iter_each_loop_each_file * mp_to_multiply).astype(int)
 
 data_all = create_df_for_merging_all_mp_results(name_list, n_run, n_phase_bins, len_f_pxx, duration, 
                                                 n_iter_each_loop, loop_key_lists)
 
-data_all = merge_mp_data(data_all, ex_filename, path, n_iter_each_loop_each_file[changing_loop_ind], n_mp, loop_key_lists, 
-                         find_phase = False,changing_loop_ind  = changing_loop_ind)
-pickle_obj(data_all,os.path.join(path, 'Beta_power', ex_filename + 'all.pkl'))
+data_all = merge_mp_data(data_all, ex_filename, path, n_iter_each_loop_each_file[segmented_loop_ind], n_mp, loop_key_lists, 
+                         find_phase = False,segmented_loop_ind  = segmented_loop_ind)
+pickle_obj(data_all,os.path.join(path, 'Beta_power', ex_filename + '_all.pkl'))
  
 # %% average data from multiprocessing
 
@@ -9740,7 +9967,6 @@ filename = 'Proto_Proto_N_1000_T_' + str(t_sim) + '_' + str(n) + '_pts_' + str(
     n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') +   \
      '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '.pkl'
 
-# G_dict = {k: v * K[k] for k, v in G_dict.items()}
 
 fft_method = 'Welch'
 filepath = os.path.join(path, 'Beta_power', filename)
@@ -11228,10 +11454,13 @@ name_list = [name1, name2, name3]
 state = 'awake_rest'
 
 g = 0
-G = {}
+G = {(name2, name1) :{'mean': g * K[name2, name1] * 2},
+      (name1, name3) :{'mean': g * K[name1, name3]},
+      (name3, name2) :{'mean': g * K[name3, name2]},
+      (name3, name3) :{'mean': g * K[name3, name3]}
+      }
+G = set_G_dist_specs(G, order_mag_sigma = 1)
 
-(G[(name2, name1)], G[(name3, name2)], 
- G[(name1, name3)], G[(name3, name3)]) = g, g, g, g
 
 poisson_prop = {name: 
                 {'n': 10000, 'firing': 0.0475, 'tau': {
@@ -11260,7 +11489,7 @@ use_saved_FR_ext = True
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie,
                save_init=save_init, syn_component_weight=syn_component_weight, noise_method=noise_method) for i in pop_list] for name in name_list}
 
 n_FR = 20
@@ -11284,21 +11513,24 @@ n_neuron = 50
 legend_loc = 'center right'
 low_f = 8; high_f = 40
 
-g_FSI_list = - np.linspace(0.15, 2, 12, endpoint=True)
-g_GPe_list = - np.linspace(0.15, 1.7, 12, endpoint=True)
+n = 1
+g_FSI_list = - np.linspace(0.15, 2, n, endpoint=True)
+g_GPe_list = - np.linspace(0.15, 1.7, n, endpoint=True)
 
 
-G_dict = {(name2, name1): g_FSI_list * 2,
-          (name3, name2): g_FSI_list,
-          (name1, name3): g_FSI_list,
-          (name3, name3): g_GPe_list}
+G_dict = {(name2, name1):  { 'mean' : g_FSI_list * 2 *  K[name2, name1]} ,
+          (name3, name2):  { 'mean' : g_FSI_list  *  K[name3, name2]},
+          (name1, name3):  { 'mean' : g_FSI_list *  K[name1, name3]} ,
+          (name3, name3):  { 'mean' : g_GPe_list *  K[name3, name3]}}
+
+
 
 loop_key_lists = [ [(name2, name1),
                     (name3, name2),
                     (name1, name3)], [(name3, name3)]]
 
-filename = 'D2_Proto_FSI_N_1000_T_' + str(t_sim) + '_' + str(len(g_FSI_list)) + '_pts_' + str(
-    n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + state + '_' + noise_method +  \
+filename = '2d_D2_Proto_FSI_N_1000_T_' + str(t_sim) + '_' + str(len(g_FSI_list)) + '_pts_' + str(
+    n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') + '_' + state +   \
      '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '.pkl'
 
 
@@ -11308,7 +11540,9 @@ fft_method = 'Welch'
 filepath = os.path.join(path, 'Beta_power', filename)
 nuc_order = ['D2', 'Proto', 'FSI']
 phase_ref = 'D2'
-figs, title, data = synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict,
+find_phase = False
+figs, title, data = synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuclei_dict, filepath, duration_base, G_dict, color_dict, dt, t_list, Act, A_mvt, 
+                                                       t_mvt, D_mvt, receiving_class_dict,
                                                     noise_amplitude, noise_variance, lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
                                                     lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
                                                     plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
@@ -11317,15 +11551,13 @@ figs, title, data = synaptic_weight_exploration_SNN_2d(loop_key_lists, path, nuc
                                                     state=state, K_real=K_real, K_all = K_all, N_real=N_real, N=N, divide_beta_band_in_power=True,
                                                     receiving_pop_list=receiving_pop_list, poisson_prop=poisson_prop, return_saved_FR_ext=False,
                                                     use_saved_FR_ext=True, check_peak_significance= True,
-                                                    find_phase=True, phase_thresh_h=0, filter_order=6, low_f=low_f, high_f=high_f,
+                                                    find_phase=find_phase, phase_thresh_h=0, filter_order=6, low_f=low_f, high_f=high_f,
                                                     n_phase_bins=180, start_phase= duration_base[0], phase_ref=phase_ref, save_pxx=save_pxx,
                                                     plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=True,
                                                     nuc_order=nuc_order, len_f_pxx=150)
 
 
 # pickle_obj(data, filepath)
-
-
 def _generate_filename_3_nuclei(nuclei_dict, G, noise_variance, fft_method, scale=1):
     G = G_dict
     names = [list(nuclei_dict.values())[i]
@@ -12863,22 +13095,22 @@ three_nuc_raster_y = (60 + 5) * 0.05
 figsize = (2.5, three_nuc_raster_y )
 ylim = [0, 15]
 
-# loop = 'FSI Loop'
-# filename = filename_dict[loop][0]
-# name_list = ['D2', 'FSI', 'Proto']
-# n_g_list = np.array([0])
-# three_nuc_raster_y = (60 + 5) * 0.05
-# figsize = (2.5, three_nuc_raster_y )
-# ylim = [0, 10]
-
-
-loop = 'STN-Proto'
+loop = 'FSI Loop'
 filename = filename_dict[loop][0]
-name_list = ['STN', 'Proto']
+name_list = ['D2', 'FSI', 'Proto']
 n_g_list = np.array([0])
 three_nuc_raster_y = (60 + 5) * 0.05
-figsize = (2.5, three_nuc_raster_y * 2/3)
-ylim = [0, 8]
+figsize = (2.5, three_nuc_raster_y )
+ylim = [0, 10]
+
+
+# loop = 'STN-Proto'
+# filename = filename_dict[loop][0]
+# name_list = ['STN', 'Proto']
+# n_g_list = np.array([0])
+# three_nuc_raster_y = (60 + 5) * 0.05
+# figsize = (2.5, three_nuc_raster_y * 2/3)
+# ylim = [0, 8]
 
 
 # loop = 'Proto-Proto'
@@ -12926,8 +13158,8 @@ fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # ins
 
 # fig = remove_all_x_labels(fig)
 figsize = (2.5, 2.5 * len(n_g_list) / 2.5)
-save_pdf_png(fig, filename.split('.')[0] + '_PSD',
-             size=figsize)
+# save_pdf_png(fig, filename.split('.')[0] + '_PSD',
+#              size=figsize)
 
 
 # %% Boxplot frequency vs loop
