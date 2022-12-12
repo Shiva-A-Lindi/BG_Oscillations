@@ -3,13 +3,15 @@ from scipy import signal, stats
 from numpy.fft import rfft, fft, fftfreq
 from scipy import optimize
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.transforms import Bbox
 from Oscillation_module import *
 import seaborn as sns
 import pandas as pd
 import sys
 import pickle
 from scipy.ndimage import gaussian_filter1d
-from matplotlib import cm
+from matplotlib import cm, patches
 from mpl_toolkits.mplot3d import Axes3D
 from tempfile import TemporaryFile
 import timeit
@@ -7617,186 +7619,6 @@ ax.tick_params(axis='both', labelsize=15)
 ax.legend(fontsize=10, frameon=False)
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
              size=(5, 3))
-
-
-# %% Transition collective, all loops
-
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.2
-t_sim = 4000
-t_list = np.arange(int(t_sim/dt))
-plot_start = int(t_sim / 5)
-t_transition = plot_start + int(t_sim / 4)
-duration_base = [int(500/dt), int(t_transition/dt)]
-length = duration_base[1] - duration_base[0]
-duration_DD = [int(t_sim / dt) - length +
-               int(t_transition / 4 / dt), int(t_sim / dt)]
-
-
-plot_start = t_transition - 500
-plot_end = t_transition + 1000
-
-
-
-name1 = 'FSI'
-name2 = 'D2'
-name3 = 'Proto'
-name4 = 'Arky'
-name5 = 'STN'
-
-
-state_1 = 'awake_rest'
-state_2 = 'mvt'
-
-print( " transition from " , state_1, ' to ', state_2)
-name_list = [name1, name2, name3, name4, name5]
-
-G = {}
-
-g = -0.002
-
-(G[(name2, name1)], G[(name3, name2)],
- G[(name1, name3)], G[(name2, name4)],
- G[(name4, name3)], G[(name3, name5)],
- G[(name5, name3)], G[(name3, name3)]) = 2* g, 2.5 * g, 1.5 * g, 2. * g, 1.5 * g, 3.5 * -g , 3 * g , g * 0.1
-
-# [2, 2.5, 1, 1, 1, 3, 1, 0.1] --> 15 Hz g = 0.002
-# 2* g, 2.5 * g, 1.5 * g, 2. * g, 1.5 * g, 3 * -g , 2 * g , g * 0.1 --> 16.4 Hz g = 0.002
-# 2* g, 2.5 * g, 1.5 * g, 2. * g, 1.5 * g, 3.5 * -g , 3 * g , g * 0.1 --> 17 Hz g = 0.002
-
-# 2* g, 2.5 * g, 1.5 * g, 2. * g, 1.5 * g, 4 * -g , 3 * g , g * 0.1 --> 17 Hz g = 0.0019
-# 2* g, 2.5 * g, 1.5 * g, 2. * g, 1.5 * g, 4 * -g , 3 * g , g * 0.1 --> 18.9 Hz g = 0.002 but small peak at rest at ~40 Hz
-
-G = {k: v * K[k] for k, v in G.items()}
-
-poisson_prop = {name: 
-                {'n': 10000, 'firing': 0.0475, 'tau': {
-                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
-                'g': 0.01} 
-                for name in name_list}
-receiving_pop_list = {(name1, '1'): [(name3, '1')],
-                      (name2, '1'): [(name1, '1'), (name4, '1')],
-                      # (name3, '1'): [(name2,'1'), (name5,'1')],
-                      # with GP-GP
-                      (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
-                      (name4, '1'): [(name3, '1')],
-                      (name5, '1'): [(name3, '1')]}
-
-
-pop_list = [1]
-init_method = 'heterogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-keep_mem_pot_all_t = False
-set_input_from_response_curve = True
-der_ext_I_from_curve = True
-save_init = False
-noise_method = 'Gaussian'
-noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext = True
-low_f = 8; high_f = 20
-
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
-               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1) for i in pop_list] for name in name_list}
-n_FR = 20
-all_FR_list = {name: FR_ext_range[name][state_1]
-               for name in list(nuclei_dict.keys())}
-
-receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list,
-                                          all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
-                                          set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
-                                          use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
-
-nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_amplitude, path, receiving_class_dict, receiving_pop_list, 
-                                                      t_list, dt, nuclei_dict, Act, state_1, state_2, K_all, N, N_real,
-                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition = int(t_transition/dt))
-
-
-nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
-status = 'transition_to_' + state_2
-
-D_mvt = t_sim - t_transition
-if 'DD' in state_2:
-    fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
-               plot_start= plot_start, title='', legend_loc='upper left', plot_end=t_transition-10, ylim=(-4, 80),
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8)
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
-                 size=(8, 5))
-    
-    fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
-               plot_start = t_sim - (t_transition-plot_start), title='',
-               legend_loc='upper left', plot_end= t_sim, vspan=True, ylim=(-4, 80),
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, axvspan_color = axvspan_color[state_2])
-    
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                 size=(8, 5))
-    fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start,
-                                             labelsize=10, title_fontsize=15, lw=1., linelengths=2, n_neuron=40, include_title=False, set_xlim=True,
-                                             axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x=0.01,
-                                             t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=12, include_nuc_name=False)
-
-    save_pdf_png(fig_state_1, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(3, 5))
-    save_pdf_png(fig_state_2, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(3, 5))
-    
-elif 'mvt' in state_2:
-    
-    fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
-               plot_start= plot_start, plot_end = plot_end, title='', legend_loc='upper left',  ylim=(-4, 80), vspan=True,
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, axvspan_color=axvspan_color[state_2])
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_from_' + state_1),
-                 size=(15, 5))
-    
-    fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start, plot_end=plot_end, ax_label = True,
-                                  labelsize=10, title_fontsize=15, lw=1., linelengths=2, n_neuron=40, include_title=True, set_xlim=True, ylabel_x = 0.01,
-                                  axvspan=True, span_start=t_transition, span_end=t_sim, axvspan_color=axvspan_color[state_2], include_nuc_name = False,
-                                   tick_label_fontsize=12)
-    save_pdf_png(fig_raster, os.path.join(
-        path, 'SNN_raster_' + status ), size=(5, 5))
-
-
-peak_threshold = 0.1
-smooth_window_ms = 3
-smooth_window_ms = 5
-cut_plateau_epsilon = 0.1
-lim_oscil_perc = 10
-low_pass_filter = False
-
-fig, ax = plt.subplots(1, 1)
-find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                         low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-                         fft_method='Welch', n_windows= n_windows, include_beta_band_in_legend=False)
-
-ax.set_xlim(5, 55)
-ax.axvspan(5, 55, alpha=0.2, color=axvspan_color[state_2])
-ax.set_ylim(-0.01, 0.1)
-ax.legend(fontsize=10, frameon=False)
-ax.tick_params(axis='both', labelsize=15)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
-             size=(5, 3))
-
-fig, ax = plt.subplots(1, 1)
-find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                         low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-                         fft_method='Welch', n_windows= n_windows, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
-
-ax.set_xlim(5, 55)
-ax.set_ylim(-0.01, 0.1)
-ax.tick_params(axis='both', labelsize=15)
-ax.legend(fontsize=10, frameon=False)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
-             size=(5, 3))
-
-
 # %% Transition to DD collective, all loops
 
 mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
@@ -7807,16 +7629,19 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.1
-t_sim = 6600 
+t_sim = 8600 
+t_base = 0
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
-t_transition = plot_start + 3000# int(t_sim / 5)3
-duration_base = np.array( [int(300/dt), int(t_transition/dt)] )
+t_transition = plot_start + t_base# int(t_sim / 5)3
+duration_base = np.array( [int(plot_start/dt), int(t_transition/dt)] )
 duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 n_windows_DD = int((t_sim - 600) / 1000)
 n_windows_base = (t_transition - 300) / 1000
+keep_mem_pot_all_t = False
+# keep_mem_pot_all_t = True
 
 
 name1 = 'FSI'
@@ -7854,19 +7679,19 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.24}}#2.}}#, 
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
       
-g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
-G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.9}}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+# g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.9}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
@@ -7891,7 +7716,8 @@ G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
 #       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
 #       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
             
-     
+
+          
 # g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz scaled for large network
 # G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 13.5}, ## free
 #       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 13.5}, ## free
@@ -8009,7 +7835,7 @@ G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
 #       }
 
 
-G = set_G_dist_specs(G,  order_mag_sigma = 2)
+G = set_G_dist_specs(G,  order_mag_sigma = 1)
 
 
 
@@ -8028,13 +7854,14 @@ receiving_pop_list = {(name1, '1'): [(name3, '1')],#, (name5, '1')],
                       (name5, '1'): [(name3, '1')]}
 
 
+
+
 pop_list = [1]
 init_method = 'heterogeneous'
 syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
 save_init = False
@@ -8059,6 +7886,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
                                                        set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
                                                        use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
 
+# nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
 
 nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_amplitude, path, receiving_class_dict, receiving_pop_list, 
                                                       t_list, dt, nuclei_dict, Act, state_1, state_2, K_all, N, N_real,
@@ -13776,50 +13604,118 @@ plt.plot(data['Proto', 'pop_act'][0,0,:])
 
 
 
-# %% Cross correlation & Cccccccccccccccoherremce
+# %% Cross correlation & coherence
 
-def plot_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, name_list =[]):
-    
-    
-    if name_list == []:
-        
-        name_list = list(nuclei_dict.keys())
-        
-    fig, ax = plt.subplots(len(name_list), len(name_list))
+# nuclei_dict = load_pickle(os.path.join(path_lacie, 'nuclei_dict_DD.pkl'))
+# pickle_obj(nuclei_dict, os.path.join(path_lacie, 'nuclei_dict_DD.pkl'))
 
-    for i, name_1 in enumerate(name_list):
-        
-        for j, name_2 in enumerate(name_list[i:]):
-            
-            nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
-            ind_1, ind_2 = choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs)
-            
-            lags, cross_cor = spike_cross_correlation(nuclei_dict[name_1][0], nuclei_dict[name_2][0], n_pairs, ind_1, ind_2)
-            plot_average_spike_cross_correlation(lags, cross_cor, ax = ax[i, j + i], lag_lim = 200)
-                        
-            if name_1 != name_2:
-                
-
-                f, coherence = spike_coherence(nuc1, nuc2,  n_pairs, ind_1, ind_2, window_len = 1000)
-                plot_average_spike_coherence(f, coherence, ax = ax[j + i, i], flim = 80)
-                
-
-            
-        
+plt.close('all')         
 name_1 = 'Proto'
 name_2 = 'Proto'
-n_pairs = 500
-lag_lim = 200
-plot_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, name_list =[])
+n_pairs = 100
+lag_lim = 0.2
+name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']
+# name_list = ['Proto', 'D2']
 
+n = len(name_list)
+duration = [6000, 96000]
+
+# duration = [66000, 126000]
+# duration = [3000, 66000]
+
+# fig_1 = plot_pop_cross_cor_coherence_in_subplots(nuclei_dict.copy(), n_pairs, color_dict, duration, name_list =name_list)
+# save_pdf_png(fig_1, os.path.join(path, 'Pop_correlation_coherence'),
+#               size = (5 *n,5 * n))
+fig_2 = plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, color_dict, 
+                                                    duration, name_list =name_list, seed = 10)
+save_pdf_png(fig_2, os.path.join(path, 'Neuron_correlation_coherence_2'),
+              size = (3 *n, 3 * n))
+
+
+
+# plot_cross_correlation_individual_pairs(nuc1, nuc2, n_pairs, start, end) 
 # nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
 # ind_1, ind_2 = choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs)
 # f, coherence = spike_coherence(nuc1, nuc2,  n_pairs, ind_1, ind_2, window_len = 1000)
 # plot_average_spike_coherence(f, coherence, ax = None, flim = 80)
 # lags, cross_cor = spike_scross_correlation(nuclei_dict[name_1][0], nuclei_dict[name_2][0], n_pairs, ind_1, ind_2)
 # plot_average_spike_cross_correlation(lags, cross_cor, ax = None, lag_lim = 200)
-# plot_cross_correlation_individual_pairs(lags, cross_cor, lag_lim = 200)
 
+
+
+
+# %% Single action potential digram
+def plot_exemplary_V_trace_all_nuclei(nuclei_dict, name_list,color_dict, start, end,  ax = None,
+label_fontsize = 8, length = 30, lw = 1):
+    
+    
+    # fig, ax = get_axes(ax)
+    fig  = plt.figure()
+    
+    for i, name in enumerate(name_list):
+        nucleus = nuclei_dict[name][0]
+        print(nucleus.name)
+        non_zero_ind = nucleus.get_active_neuron_ind(start , end - int(length/ nucleus.dt))
+        ind = np.random.choice(non_zero_ind, 1)
+        spike = int(
+            np.random.choice(
+            np.where(
+            nucleus.spikes[ind, start : end - int(length/ nucleus.dt)])[1], 1
+            ))
+        t_series = np.arange(int(length/ nucleus.dt))
+        t = len(t_series)
+        ax = fig.add_subplot(len(name_list), 1, i + 1)
+        ax.plot(t_series * nucleus.dt, 
+                nucleus.all_mem_pot[ind, 
+                                    start + spike -20 : 
+                                    start + spike + t - 20 ][0],
+                color = color_dict[nucleus.name], label = nucleus.name, lw = lw)
+        remove_frame(ax)
+
+        # ax.set_xticks([-length, int(-length/2), 0])
+        ax.set_yticks([])
+        if i == 0:
+            ax.set_yticks([-82, -48])
+        ax.set_ylim(-82, -48)
+        ax.set_xlim(-1, length )
+        ax.set_xticks([])
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        # ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        spikes = np.where(nucleus.spikes[ind, 
+                            start + spike -20 : 
+                            start + spike + t - 20])[1]
+        print(len(spikes))
+        ax.plot(spikes * dt, np.ones_like(spikes) * -82, c=color_dict[name],
+                                        marker = '|', markersize = 4, lw = 0)
+        print_pop_name(ax, name, color_dict[name], 0.08, label_fontsize, 'ylabel', 'right')
+    # ax.set_xlabel("time (ms)", fontsize = label_fontsize)
+    # ax.set_ylabel("Membrane Potential (mV)", fontsize = label_fontsize)
+    scalebar = AnchoredSizeBar(ax.transData,
+                              20, '20 ms', 'lower right', 
+                               pad = 0.1,
+                               color='k',
+                               frameon=False,
+                               size_vertical=1.5, 
+                               fontproperties = matplotlib.font_manager.FontProperties(size = 10))
+    ax.add_artist(scalebar)
+
+    # set_minor_locator_all_axes(fig, n = 3, axis = 'both')
+    # fig.text(0.5, 0.01, "time (ms)", ha='center',
+    #              va='center', fontsize=label_fontsize)
+    fig.text(0.02, 0.5, "Membrane Potential (mV)", ha='center',
+                 va='center', fontsize=label_fontsize, rotation = 'vertical')
+    return fig
+
+duration = duration_base
+# duration = duration_DD
+name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']
+
+fig = plot_exemplary_V_trace_all_nuclei(nuclei_dict, name_list,color_dict,
+                                        *duration, label_fontsize = 10, length =  200)
+save_pdf_png(fig, os.path.join(path, 'Example_action_potential'),
+              size = (5, 2.5))
 # %% Boxplot frequency vs loop
 
 state_list = ['rest'] #, 'DD_anesth', 'awake_rest', 'mvt']

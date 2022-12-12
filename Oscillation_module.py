@@ -9,14 +9,15 @@ import scipy
 import math
 import imageio
 
-import matplotlib
+import matplotlib 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as pe
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter, AutoMinorLocator
 from matplotlib import cm
-
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.transforms import Bbox
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -432,7 +433,7 @@ class Nucleus:
                 
                 plot_histogram(self.tau[key][tc_plot], bins = bins, 
                                title = self.name,
-                               xlabel = r'$\tau_{' + tc_plot +'} \; (ms)$')     
+                               xlabel = r'$\tau_{' + tc_plot +r'} \; (ms)$')     
         
         
     def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc = 0.8, upper_bound_perc=1.2,
@@ -542,6 +543,7 @@ class Nucleus:
         
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
+
             
         if plot_initial_V_m_dist:
             self.plot_mem_potential_distribution_of_one_t(0, bins=50)
@@ -1108,8 +1110,8 @@ class Nucleus:
         self.reset_potential_with_interpolation(spiking_ind,dt)
         
         # self.update_representative_measures(t)
-        # if self.keep_mem_pot_all_t:
-        #     self.all_mem_pot[:, t] = self.mem_potential
+        if self.keep_mem_pot_all_t:
+            self.all_mem_pot[:, t] = self.mem_potential
         
     def cal_coherence(self, dt, sampling_t_distance_ms = 1):
         
@@ -2046,33 +2048,50 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
  
-def spike_cross_correlation(nuc1, nuc2,  n_pairs,  ind_1, ind_2, mode = 'full'):
+    def get_active_neuron_ind(self, start, end):
+        neuron_act = np.sum(self.spikes[:,  start : end], axis = 1)
+        non_zero_nuc = np.where(neuron_act > 0)[0]
+        return non_zero_nuc
     
-    sig_len = len(nuc1.spikes[0, :])
+def choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, duration, auto =False, seed = None):
     
-    corr = np.array(
-            [signal.correlate(nuc1.spikes[i, :] - np.average(nuc1.spikes[i, :]),
-                              nuc2.spikes[j, :] - np.average(nuc2.spikes[j, :]),
-                                mode = mode) 
-             for i,j in zip(ind_1, ind_2)]
-            )
-    lags = signal.correlation_lags(sig_len,
-                                   sig_len,
-                                   mode = mode) * nuc1.dt
-    return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
-
-def choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs):
+    rng = np.random.default_rng(seed)
+    non_zero_neuron_1 = nuc1.get_active_neuron_ind(*duration)
     
     if nuc1 == nuc2:
-        all_possible_pairs = np.array(list(itertools.combinations(np.arange(nuc1.n), 2)))
-        np.random.shuffle(all_possible_pairs)
-        inds = np.random.choice(len(all_possible_pairs), n_pairs)
-        return all_possible_pairs[inds][:, 0], all_possible_pairs[inds][:, 1]
-    
-    else:
         
-        ind_1 = np.random.choice(np.arange(nuc1.n), n_pairs, replace = False)
-        ind_2 = np.random.choice(np.arange(nuc2.n), n_pairs, replace = False)
+        if auto:
+            
+            inds = rng.choice(non_zero_neuron_1, n_pairs)
+            
+            return inds, inds
+        
+        else:
+            
+            all_possible_pairs = np.array(
+                list(itertools.combinations(non_zero_neuron_1, 2))
+                )
+            np.random.shuffle(all_possible_pairs)
+            inds = rng.choice(
+                len(all_possible_pairs), 
+                n_pairs)
+            
+            return all_possible_pairs[inds][:, 0], all_possible_pairs[inds][:, 1]
+        
+    else:
+        non_zero_neuron_2 = nuc2.get_active_neuron_ind(*duration)
+
+        n1, n2 = len(non_zero_neuron_1) , len(non_zero_neuron_2)
+        
+        ind = rng.permutation(
+            np.arange(n1 * n2)
+            )[:n_pairs]
+
+        print(nuc1.name, n1, nuc2.name, n2)
+
+        ind_1 = non_zero_neuron_1 [ind // n2]
+        ind_2 = non_zero_neuron_2 [ind % n2]
+        
         return ind_1, ind_2
 
 def normalize_2d_array(arr, axis = 1):
@@ -2087,60 +2106,336 @@ def normalize_2d_array(arr, axis = 1):
     
 
 def average_2d_array(arr, norm_axis = 1, avg_axis = 0, norm_bef_avg = False):
-    
     if norm_bef_avg:
         arr = normalize_2d_array(arr, axis = norm_axis)
 
-    return np.average(arr, axis = avg_axis)
+    return np.average(arr, axis = avg_axis), scipy.stats.sem(arr, axis = avg_axis)
 
-def plot_cross_correlation_individual_pairs(lags, cross_cor, lag_lim = 200):
+def plot_cross_correlation_individual_pairs(nuc1, nuc2, n_pairs, start, end, 
+                                            lag_lim = 0.2, seed = None, 
+                                            auto = True, label_fontsize = 8):
     
-    n_pairs = cross_cor.shape[0]
-    
+    ind1, ind2 = choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, end - start, 
+                                                      auto =auto, seed = seed)
     fig = plt.figure()
-    
-    for n in range(n_pairs):
+    sig_len = end - start
+    for count, (i,j) in enumerate(zip(ind1, ind2)):
         
-        ax = fig.add_subplot(n_pairs // 4 + 1, 4,  n + 1) 
-        
-        ax.plot(lags, cross_cor[n,:])
+        ax = fig.add_subplot(n_pairs, n_pairs, count + 1) 
+        f, cc = signal.correlate(nuc1.all_mem_pot[i, start:end],
+                                 nuc2.all_mem_pot[j, sig_len])
+        lags = signal.correlation_lags(sig_len,
+                                        sig_len,
+                                        mode = 'full') * nuc1.dt / 1000 # in seconds
+        ax.bar(lags, cc, c = 'k')
         
         ax.set_xlim(-lag_lim, lag_lim) 
+        ax.set_xticks(-lag_lim, 0, lag_lim) 
         ax.set_ylim(0, ax.get_ylim()[1])
-        
-def plot_average_spike_cross_correlation(lags, cross_cor, ax = None, lag_lim = 200):
+        ax.set_yticks([0, ax.get_ylim()[1]])
+        ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+        ax.set_ylabel('Frequency (Hz)', fontsize = label_fontsize)
+
+    return fig
+def plot_average_spike_cross_correlation(lags, cross_cor, cc_sem, ax = None, lag_lim = 0.2):
     
-    cross_cor_mean = average_2d_array(cross_cor)
     
     fig, ax = get_axes(ax)
-    ax.plot(lags, cross_cor_mean)
+    
+    print(lags.shape, cross_cor.shape)
+    ax.bar(lags, cross_cor, color = 'k')
+    ax.errorbar(lags, cross_cor, yerr = cc_sem, color = 'k')
     ax.set_xlim(-lag_lim, lag_lim)
     ax.set_ylim(0, ax.get_ylim()[1])
+    return ax
 
-def plot_average_spike_coherence(f, coherence, ax = None, flim = 80):
+def plot_average_spike_coherence(f, coherence, c_sem, ax = None, flim = 80, lw = 1):
     
-    coherence_mean = average_2d_array(coherence)
     
     fig, ax = get_axes(ax)
-    ax.plot(f, coherence_mean, '-o')
+    ax.plot(f, coherence, c = 'k', lw = lw)
+    ax.fill_between(f, coherence - c_sem,    coherence + c_sem, color = 'k', alpha = 0.2)
     ax.set_xlim(0, flim)
-
-def spike_coherence(nuc1, nuc2,  n_pairs, ind_1, ind_2, window_len = 1000):
     
-    sig_len = len(nuc1.spikes[0, :])
-    f = signal.coherence(nuc1.spikes[0, :] - np.average(nuc1.spikes[0, :]),
-                         nuc2.spikes[0, :] - np.average(nuc2.spikes[0, :]),
-                         fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
+    return ax
+
+
+def spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2, 
+                                    start, end, window_len = 1000, average = False):
+    
+    sig_len = end - start 
+    f = signal.coherence(nuc1.spikes[ind_1[0], start:end],
+                          nuc2.spikes[ind_2[0], start:end],
+                          fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
                       )[0]
     coherence = np.array(
-            [signal.coherence(nuc1.spikes[i, :] - np.average(nuc1.spikes[i, :]),
-                              nuc2.spikes[j, :] - np.average(nuc2.spikes[j, :]),
+            [signal.coherence(nuc1.spikes[i, start:end] - np.average(nuc1.spikes[i, start:end]),
+                              nuc2.spikes[j, start:end] - np.average(nuc2.spikes[j, start:end]),
                               fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
                               )[1]
-             for i,j in zip(ind_1, ind_2)]
+              for i,j in zip(ind_1, ind_2)]
             )
+    
+    # coherence = np.zeros((n_pairs, len(f)))
+    
+    # for count, (i,j) in enumerate(zip(ind_1, ind_2)):
+        
+    #     try:
+            
+    #         coherence[count,:] = signal.coherence(nuc1.spikes[i, start:end],
+    #                               nuc2.spikes[j, start:end],
+    #                               fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
+    #                               )[1]
+    #     except RuntimeWarning:
+            
+    #         print(nuc1.name, np.sum(nuc1.spikes[i, start:end]), 
+    #               nuc2.name, np.sum(nuc2.spikes[j, start:end]))
+    if average:
+        return f, *(average_2d_array(coherence))
+    else:
+        return f, coherence#scipy.ndimage.gaussian_filter1d(corr, 2)
 
-    return f, coherence#scipy.ndimage.gaussian_filter1d(corr, 2)
+def spike_cross_correlation_sampled_neurons(nuc1, nuc2,  n_pairs,  ind_1, ind_2,
+                                            start, end, mode = 'full', average = False):
+    
+    sig_len = end - start 
+    corr = np.array(
+            [signal.correlate((nuc1.spikes[i, start:end] - np.average(nuc1.spikes[i, start:end])), #/ np.std(nuc1.spikes[i, :]),
+                              (nuc2.spikes[j, start:end] - np.average(nuc2.spikes[j, start:end])),# / np.std(nuc1.spikes[i, :]),
+                                mode = mode) 
+              for i,j in zip(ind_1, ind_2)]
+            )
+    lags = signal.correlation_lags(sig_len,
+                                    sig_len,
+                                    mode = mode) * nuc1.dt / 1000 # in seconds
+    print(lags.shape, corr.shape)
+    if average:
+        return lags, *(average_2d_array(corr))
+    else:
+        return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
+
+def pop_activity_coherence(nuc1, nuc2, start, end, window_len = 1000):
+    
+    sig_len = end - start
+    return signal.coherence(nuc1.pop_act[start:end]- np.average(nuc1.pop_act[start:end]),
+                            nuc2.pop_act[start:end] - np.average(nuc1.pop_act[start:end]),
+                         fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
+                      )
+
+def pop_activity_cross_correlation(nuc1, nuc2, start, end, mode = 'full'):
+    
+    sig_len = end - start 
+
+    corr = signal.correlate((nuc1.pop_act[start:end] - np.average(nuc1.pop_act[start:end])), #/ np.std(nuc1.spikes[i, :]),
+                              (nuc2.pop_act[start:end] - np.average(nuc2.pop_act[start:end])),# / np.std(nuc1.spikes[i, :]),
+                                mode = mode) 
+
+    lags = signal.correlation_lags(sig_len,
+                                    sig_len,
+                                    mode = mode) * nuc1.dt / 1000 # in seconds
+    return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
+
+def rm_ax_unnecessary_labels_in_subplots_2d(axes):
+    
+    n_rows = axes.shape[0]
+    n_cols = axes.shape[0]
+    for col in range(n_cols):
+        
+        for row in range(n_rows):
+            
+            if col != 0 :
+                axes[row, col].axes.yaxis.set_ticklabels([])
+            if row != n_rows-1:
+                axes[row, col].axes.xaxis.set_ticklabels([])
+            
+def annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = 8):
+    
+    for i, name in enumerate(name_list):
+        axes[i, 0].annotate(name,  fontsize = fontsize,
+            xy=(-.4, 0.5), xycoords='axes fraction', 
+            color = color_dict[name], rotation = 90,
+            )
+        axes[0, i].annotate(name, 
+                            # xy=(3, 1),  xycoords='data',
+            xy=(0.5, 1.2), xycoords='axes fraction', 
+            color = color_dict[name], fontsize = fontsize,
+            )
+         
+def plot_pop_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, 
+                                         color_dict, duration, name_list =[],
+                                         n_x = 2, n_y = 2,
+                                         label_fontsize = 20):
+    
+    
+    if name_list == []:
+        name_list = list(nuclei_dict.keys())
+        
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
+
+            lags, cross_cor_mean = pop_activity_cross_correlation(nuc1, nuc2,  *duration)
+            ax = plot_average_spike_cross_correlation(lags, cross_cor_mean, ax = axes[i, j + i])#, lag_lim = 200)
+            
+            ax.set_ylim(0, 1)
+            ax.set_yticks([0, 1])
+            if i == 0 and j == 0:
+                ax.set_ylabel('Rate (Hz)', fontsize = label_fontsize)
+
+            if i == n - 1 and j == 0:
+                ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+                
+            if name_1 != name_2:
+
+
+                f, coherence_mean = pop_activity_coherence(nuc1, nuc2,  *duration, window_len = 1000)
+                ax = plot_average_spike_coherence(f, coherence_mean, ax = axes[j + i, i], flim = 80)
+
+                ax.set_xlim(0, 80)
+                ax.set_xticks([0,20, 40, 60, 80])
+                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+
+                if i == 0 and j == n-1 :
+                    ax.set_xlabel('frequeny (hz)', fontsize = label_fontsize)
+                    ax.set_ylabel('Coherence', fontsize = label_fontsize)
+                    
+                ax.set_ylim(0, 1)
+                ax.set_yticks([0, 1])
+            
+            if i == i + j: # plot coherence as inset on diagonal
+
+                axins = ax.inset_axes([0.6, 0.6, 0.3, 0.3])
+
+                f, coherence_mean = pop_activity_coherence(nuc1, nuc2, *duration, window_len = 1000)
+                axins = plot_average_spike_coherence(f, coherence_mean, ax = axins, flim = 80, lw = 0.5)
+
+                axins.set_xlabel('frequeny (hz)', fontsize = label_fontsize * .6)
+                axins.set_ylabel('Coherence', fontsize = label_fontsize * .6)
+                axins.set_xlim(0, 80)
+                axins.set_xticks([0, 20, 40, 60, 80])
+                axins.set_ylim(0, 1)
+                axins.set_yticks([0, 1])
+                axins.tick_params(labelsize = 1)
+                # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
+                # axins.add_patch(rect)
+                
+    rm_ax_unnecessary_labels_in_subplots_2d(axes)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize)
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'y')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+
+    return fig
+
+def plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, 
+                                         color_dict, duration, 
+                                         name_list =[], seed  = None,
+                                         n_x = 2, n_y = 2,  lag = 0.2,
+                                         label_fontsize = 20):
+    
+    
+    if name_list == []:
+        name_list = list(nuclei_dict.keys())
+        
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(nuc1, nuc2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
+            lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(nuc1, nuc2, n_pairs, 
+                                                                      ind_1, ind_2, *duration, average =   True)
+            
+            
+            ax = plot_average_spike_cross_correlation(lags, cross_cor, 
+                                                      cross_cor_sem, ax = axes[i, j + i])#, lag_lim = 200)
+            ax.set_ylim(0, .1)
+            ax.set_yticks([0, .1])
+            ax.set_xticks([-lag, 0, lag])
+
+            if i == 0 and j == 0:
+                ax.set_ylabel('Rate (Hz)', fontsize = label_fontsize)
+                ax.set_xticks([-lag, 0, lag])
+            if i == n - 1 and j == 0:
+                ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+                
+            if name_1 != name_2:
+
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2, 
+                                                               *duration, window_len = 1000, average =   True)
+
+                ax = plot_average_spike_coherence(f, coherence, coherence_sem, ax = axes[j + i, i], flim = 80)
+
+                ax.set_xlim(0, 80)
+                ax.set_xticks([0, 40, 80])
+                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+
+                if i == 0 and j == n-1 :
+                    ax.set_xlabel('frequeny (Hz)', fontsize = label_fontsize)
+                    ax.set_ylabel('Coherence', fontsize = label_fontsize)
+                    
+                ax.set_ylim(0.08, .2)
+                ax.set_yticks([0.08, .2])
+            
+            if i == i + j: # plot coherence as inset on diagonal
+
+                axins = ax.inset_axes([0.6, 0.6, 0.3, 0.3])
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2,
+                                                               *duration, window_len = 1000, average =   True)
+                
+                axins = plot_average_spike_coherence(f, coherence, coherence_sem,
+                                                     ax = axins, flim = 80, lw = 0.5)
+
+                axins.set_xlabel('frequeny (Hz)', fontsize = label_fontsize * .6)
+                axins.set_ylabel('Coherence', fontsize = label_fontsize * .6)
+                axins.set_xlim(0, 80)
+                axins.set_xticks([0,  40, 80])
+                axins.set_ylim(0.08, 0.2)
+                axins.set_yticks([0.08, .2])
+                axins.tick_params(labelsize = label_fontsize * .6)
+                # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
+                # axins.add_patch(rect)
+                
+    rm_ax_unnecessary_labels_in_subplots_2d(axes)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+
+    return fig
+
+# def spike_cross_correlation(nuc1, nuc2,  n_pairs,  ind_1, ind_2, mode = 'full'):
+    
+#     sig_len = len(nuc1.spikes[0, :])
+    
+#     corr = np.array(
+#             [signal.correlate2d(nuc1.spikes[i, :, None] - np.average(nuc1.spikes[i, :, None]),
+#                               nuc2.spikes[j, :] - np.average(nuc2.spikes[j, :]),
+#                                 mode = mode, boundary = 'wrap') 
+#              for i,j in zip(ind_1, ind_2)]
+#             )
+#     lags = signal.correlation_lags(sig_len,
+#                                    sig_len,
+#                                    mode = mode) * nuc1.dt
+#     return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
 
 def shift_phase_hist_all_nuclei(nuclei_dict, theta, phase_ref, total_phase = 720):
     
@@ -3242,8 +3537,9 @@ def set_minor_locator(ax, n = 2, axis = 'x'):
         ax.yaxis.set_minor_locator(minor_locator)
         minor_locator = AutoMinorLocator(n)
         ax.xaxis.set_minor_locator(minor_locator)
-        
-def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x'):
+    
+def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x', 
+                               tick_length = 8, tick_label_fontsize = 8):
     
     
     for ax in fig.axes:
@@ -3263,6 +3559,8 @@ def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x'):
             ax.yaxis.set_minor_locator(minor_locator_y)
             minor_locator_x = AutoMinorLocator(n_x)
             ax.xaxis.set_minor_locator(minor_locator_x)
+        ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
+        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
    
 def create_FR_dict_from_sim(nuclei_dict, start, stop, state = 'rest'):
 
@@ -4261,6 +4559,11 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, ylim = N
 
     return fig
 
+def set_tick_lengths_all_axes(fig, length = 8, label_fontsize = 8):
+    for ax in fig.axes:
+        ax.tick_params(which = 'major', axis='both', labelsize=label_fontsize, pad=1, length = length)
+        ax.tick_params(which = 'minor', axis='both', labelsize=label_fontsize, pad=1, length = length/2)
+        
 def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
                                inset_props = [0.65, 0.6, 0.3, 0.3], ax = None, 
                                inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
@@ -5656,6 +5959,9 @@ def remove_frame(ax):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
+def remove_frame_all_axes(fig):
+    for ax in fig.axes:
+        remove_frame(ax)
 def remove_whole_frame(ax):
     
     ax.spines['right'].set_visible(False)
@@ -6363,8 +6669,7 @@ def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label
     ax.tick_params(which = 'both', axis='x', length = x_tick_length, labelsize=tick_label_fontsize)
     ax.tick_params(which = 'both', axis='y', length = y_tick_length, labelsize=tick_label_fontsize)
     set_axis_thickness(ax, linewidth  = axis_linewidth)
-    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
-    from matplotlib.transforms import Bbox
+
 
     scalebar = AnchoredSizeBar(ax.transData,
                                100, '100 ms', 'lower right', 
