@@ -3460,24 +3460,24 @@ firing_fig_ylims_dict = {'rest': [20, 65],
                          'mvt': [0, 50]}
 
 firing_fig_ylims = firing_fig_ylims_dict[state]
-three_nuc_raster_y = (60 + 5) * 0.025
+three_nuc_raster_y = (80 + 5) * 0.025
 
 fig_sizes = {'firing': (5, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025),
              'raster': (5, three_nuc_raster_y/3),
              'spectrum': (3, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025)}
 
-
 fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = firing_fig_ylims,
-           include_FR=False, include_std=False, plt_mvt=False,
-           legend_loc='upper right', ylim=firing_fig_ylims, label_fontsize = 8)
+           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = firing_fig_ylims, legend = False,
+           include_FR=False, include_std=False, plt_mvt=False, lw = 0.8, x_ticks = [0, 200, 400, 600],
+           n_minor_x = None, n_minor_y = 4, tick_label_fontsize = 12,
+           legend_loc='upper right', ylim=firing_fig_ylims, FR_lines = False)
+fig.gca().set_ylabel('')
 
 fig = remove_all_x_labels(fig)
-
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(),
-#            title_fontsize=15, plot_start = plot_start, title = '',
+# fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
+#             title_fontsize=15, plot_start = plot_start, title = '',
 #             include_FR = False, include_std=False, plt_mvt=False,
-#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = low_f, high_f = high_f)
 
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
              size=fig_sizes['firing'])
@@ -3673,7 +3673,7 @@ name_list = [name1, name2]
 np.random.seed(1)
 state = 'rest' # set
 g = -0.029 # rest
-g = -0.04
+# g = -0.04
 # state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
 
@@ -3782,24 +3782,26 @@ firing_fig_ylims_dict = {'rest': [0, 65],
                          'DD_anesth': [10, 55],
                          'mvt': [0, 55]}
 firing_fig_ylims = firing_fig_ylims_dict[state]
-three_nuc_raster_y = (60 + 5) * 0.025
+three_nuc_raster_y = (80 + 5) * 0.025
 fig_sizes = {'firing': (5, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.025),
              'raster': (5, three_nuc_raster_y/3 * 2),
              'spectrum': (3, ( firing_fig_ylims[1] - firing_fig_ylims[0] ) * 0.025)}
 
-fig = plot(nuclei_dict, color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-            title_fontsize=15, plot_start=plot_start, title='', y_ticks = firing_fig_ylims,
-            include_FR=False, include_std=False, plt_mvt=False,
-            legend_loc='upper right', ylim=firing_fig_ylims)
+fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
+           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = [0, 65], legend = False,
+           include_FR=False, include_std=False, plt_mvt=False, lw = 0.8, x_ticks = [0, 200, 400, 600],
+           n_minor_x = None, n_minor_y = 4, tick_label_fontsize = 12,
+           legend_loc='upper right', ylim=firing_fig_ylims, FR_lines = False)
+fig.gca().set_ylabel('')
 
 fig = remove_all_x_labels(fig)
-# fig = plot(nuclei_dict,color_dict, dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = plt.gca(),
+# fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
 #             title_fontsize=15, plot_start = plot_start, title = '',
 #             include_FR = False, include_std=False, plt_mvt=False,
-#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = 8, high_f = 70)
+#             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = low_f, high_f = high_f)
 
-save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status ),
-              size = fig_sizes['firing'])
+save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
+             size=fig_sizes['firing'])
 
 n_neuron = 25
 include_nuc_name = False
@@ -4067,7 +4069,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 4000
+t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -4172,7 +4174,7 @@ fig_sizes = {'firing': (10, 6),
              'raster': (11, 7),
              'spectrum': (6, 5)}
 
-firing_fig_ylims_dict = {'rest': [-5, 60],
+firing_fig_ylims_dict = {'rest': [-5, 80],
                          'awake_rest': [-5, 60],
                          'DD_anesth': [-5, 60],
                          'mvt': [-5, 60]}
@@ -4182,9 +4184,11 @@ fig_sizes = {'firing': (5, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025),
              'spectrum': (3, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025)}
 
 fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = [0, firing_fig_ylims[1]],
-           include_FR=False, include_std=False, plt_mvt=False,
-           legend_loc='upper right', ylim=firing_fig_ylims)
+           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = [0, 60], legend = False,
+           include_FR=False, include_std=False, plt_mvt=False, lw = 0.8, x_ticks = [0, 200, 400, 600],
+           n_minor_x = None, n_minor_y = 4, tick_label_fontsize = 12,
+           legend_loc='upper right', ylim=firing_fig_ylims, FR_lines = False, D2_as_inset = True)
+fig.gca().set_ylabel('')
 
 fig = remove_all_x_labels(fig)
 # fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
@@ -4203,8 +4207,8 @@ fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig
                                     include_nuc_name=include_nuc_name, set_xlim=True, name_list=raster_order,
                                     remove_ax_frame=True, y_tick_length=0, x_tick_length=3)
 
-save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
-             size=fig_sizes['raster'])
+# save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
+#              size=fig_sizes['raster'])
 
 peak_threshold = 0.1
 smooth_window_ms = 3
@@ -4252,7 +4256,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 dt = 0.1
-t_sim = 3000
+t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -4349,7 +4353,7 @@ n_neuron = 25
 fig_sizes = {'firing': (10, 6),
              'raster': (11, 7),
              'spectrum': (6, 5)}
-firing_fig_ylims_dict = {'rest': [-5, 60],
+firing_fig_ylims_dict = {'rest': [-5, 80],
                          'awake_rest': [-5, 60],
                          'DD_anesth': [-5, 60],
                          'mvt': [-5, 60]}
@@ -4358,11 +4362,12 @@ firing_fig_ylims = firing_fig_ylims_dict[state]
 fig_sizes = {'firing': (5, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025),
              'raster': (5, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025),
              'spectrum': (3, (firing_fig_ylims[1] - firing_fig_ylims[0]) * 0.025)}
-
 fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
-           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = [0, firing_fig_ylims[1]],
-           include_FR=False, include_std=False, plt_mvt=False,
-           legend_loc='upper right', ylim=firing_fig_ylims)#, label_fontsize = 8)
+           title_fontsize=15, plot_start=plot_start, title='',  y_ticks = [0, 60], legend = False,
+           include_FR=False, include_std=False, plt_mvt=False, lw = 0.8, x_ticks = [0, 200, 400, 600],
+           n_minor_x = None, n_minor_y = 4, tick_label_fontsize = 12,
+           legend_loc='upper right', ylim=firing_fig_ylims, FR_lines = False, D2_as_inset = True)
+fig.gca().set_ylabel('')
 
 fig = remove_all_x_labels(fig)
 # fig = plot(nuclei_dict,color_dict, dt, t_list, Act[state], A_mvt, t_mvt, D_mvt, ax = plt.gca(),
@@ -4372,7 +4377,6 @@ fig = remove_all_x_labels(fig)
 
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
              size=fig_sizes['firing'])
-
 include_nuc_name = False
 raster_order = ['Proto', 'Arky', 'D2']
 fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
@@ -7629,8 +7633,8 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.1
-t_sim = 8600 
-t_base = 0
+t_sim = 1500
+t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
 t_transition = plot_start + t_base# int(t_sim / 5)3
@@ -7674,7 +7678,9 @@ G = {}
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
+       
+      ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
@@ -7900,35 +7906,38 @@ ylim = (-2, 60)
 
 D_mvt = t_sim - t_transition
 plot_end_rest = t_transition - 10
-plot_start_rest =  t_transition - 700
+plot_start_rest =  t_transition - 710
 plot_start_DD = t_sim - 700
 plot_end_DD = t_sim
 
 if 'DD' in state_2:
     
-    fig = plot(nuclei_dict, color_dict, dt, (t_list - np.full_like(t_list, plot_start_rest / dt)), 
+    fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
                Act[state_1], Act[state_2], 
                t_transition, D_mvt, ax=None, title_fontsize=15,  tick_label_fontsize = 8,
-               plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, ylim=ylim,
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, ncol_legend = 1,
-               xlim = (0, (plot_end_rest - plot_start_rest )), lw = 0.8,
-               legend_fontsize = 8, label_fontsize = 8, legend = False)
+               plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, FR_lines = False,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8, ncol_legend = 1,
+               xlim = (0, (plot_end_rest - plot_start_rest )), lw = 0.8, x_ticks = [0, 350, 700], y_ticks = [0, 60],
+               ylim = (-2, 75), tick_length  =5,
+               legend_fontsize = 8, label_fontsize = 8, legend = False, 
+               D2_as_inset = True, n_minor_x = None, n_minor_y = 4, inset_ylim = (-0.1, 1.5), 
+               inset_yticks = [0, 1.5])
 
-    set_x_ticks_one_ax(fig.gca(), [0, 200, 400])
-    set_x_ticks_one_ax(fig.gca(), [0, 350, 700])
-    set_y_ticks_one_ax(fig.gca(), [0, 60])
-    set_minor_locator(fig.gca(), n = 4, axis = 'both')
+
     
     save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
-                 size=(5, 1.625))
+                 size=(5, 1.7))
     
     fig = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
                Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
-               plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 8,
-               legend_loc='upper left', plot_end= plot_end_DD, vspan=False, ylim=ylim,
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
-               axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
-               xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 8, lw = 0.8)
+               plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
+               legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
+               axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
+               y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
+               xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
+              inset_ylim = (0.5, 5.5), 
+               inset_yticks = [0.5, 5.5])
     # fig_filtered = plot(nuclei_dict, color_dict, dt, t_list, 
     #            Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
     #             title='',  legend_fontsize = 15, label_fontsize = 25,
@@ -7936,13 +7945,13 @@ if 'DD' in state_2:
     #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
     #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
     #            plot_filtered=True, low_f = low_f, high_f = high_f, threshold_peak_by_max = 0.5)
-    set_y_ticks_one_ax(fig.gca(), [0, 60])
+    # set_y_ticks_one_ax(fig.gca(), )
     
-    set_x_ticks_one_ax(fig.gca(), [0, 350, 700])
-    set_minor_locator(fig.gca(), n = 4, axis = 'both')
+    # set_x_ticks_one_ax(fig.gca(), )
+    # set_minor_locator(fig.gca(), n = 4, axis = 'both')
     
     save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                  size=(5, 1.625))
+                  size=(5, 2.))
 
     fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
                                                                  labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
@@ -13521,7 +13530,19 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 # legend = False
 # xlabel_y = -0.05
 
-fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
+# fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
+#                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
+#                   err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
+#                   legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
+#                    f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
+#                   axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = True, f_decimal = 1,
+#                     x_ticks = x_ticks, xaxis_invert = xaxis_invert, ylim = ylim,
+#                    y_ticks = [0, ylim[-1]], leg_lw = 1,
+#                    xlabel = xlabel, ylabel_norm =ylabel)
+filename_list = [os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' ),
+              os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )   
+    ]
+fig = PSD_summary_comparison(filename_list, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
                   err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
                   legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
@@ -13530,7 +13551,6 @@ fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # ins
                     x_ticks = x_ticks, xaxis_invert = xaxis_invert, ylim = ylim,
                    y_ticks = [0, ylim[-1]], leg_lw = 1,
                    xlabel = xlabel, ylabel_norm =ylabel)
-
 
 # fig = remove_all_x_labels(fig) # for individual loop
 # figsize = (2.5, 2.5 * len(n_g_list) / 2.5) # individual loop
@@ -13541,25 +13561,38 @@ save_pdf_png(fig, filename.split('.')[0] + '_PSD',
 # %% nuc_specific_PSD_comarison
 
 nuc = 'STN'
-
-nuc= 'Proto'
+# nuc= 'Proto'
 filenames = [
     os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' ),
     os.path.join(path, 'Beta_power','All_nuc_from_inh_' + nuc + '_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl')]
 filename =  nuc + '_inh_PSD_comparison'
 leg_list =['baseline', nuc + ' inhibited']
+ylim = {'STN': (-0.5,14), 'Proto': (-.5,12), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, 1.2), 'Arky':(-0.5,7.5)}
+coef = 1
 
 filenames = [
     os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
-    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl')]
-filename =  'STN-GPE_no_connection_comparison'
-leg_list =['Not connected','STN-GPe connected']
+    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl'),
+    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
+]
+filename =  'STN-GPE_no_connection_comparison_DD'
+leg_list =['Discon','STN-loop','DD']
+ylim = {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)}
 
-filenames = [
-    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
-    os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' )]
-filename = 'healthy_rest_no_connection_comparison'
-leg_list =['Not connected','Healthy anesthetized']
+ylim_inset = {'STN': (-0.5,13), 'Proto': (-.5,9), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)}
+inset = True
+ls_list = [ '-', '-', '-.']
+# filenames = [
+#     os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
+#     os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' )]
+# filename = 'healthy_rest_no_connection_comparison'
+# leg_list =['Disconnected','Healthy anesthetized']
+# ylim = {'STN': (-0.5,8), 'Proto': (-.5,49), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 3.5), 'Arky':(-0.5,18)}
+
+ylim = {k:( -v[1] / 20, v[1]) for k,v in ylim.items()}
+# ylim_inset = {k:( -v[1] / 20, v[1]) for k,v in ylim_inset.items()}
+
+coef = 1
 
 f_in_leg = False
 legend = True
@@ -13572,9 +13605,8 @@ span_beta = True
 
 name_list = ['D2', 'FSI', 'Arky', 'Proto',  'STN']
 
-ylim = {'STN': (-0.5,14), 'Proto': (-.5,12), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, 1.2), 'Arky':(-0.5,7.5)}
-ylim = {k:( -v[1] / 20, v[1]) for k,v in ylim.items()}
-ylim = {k:None for k in name_list}
+
+# ylim = {k:None for k in name_list}
 n_g_list = np.array([0])
 # n_g_list = np.arange(4)
 ylabel = 'Normalized PSD ' #+ r'$(\times 10^{-2})$'
@@ -13583,11 +13615,11 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 
 fig = nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
-                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
-                  legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
+                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 5,  ylim_inset = ylim_inset,
+                  legend_loc='lower right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
                    f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
-                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = False, f_decimal = 1,
-                    x_ticks = x_ticks,  ylim = ylim,
+                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = False, f_decimal = 1, coef_inset = 100,
+                    x_ticks = x_ticks,  ylim = ylim, coef = coef, inset = inset, ls_list = ls_list,
                    y_ticks = None, leg_lw = 1, leg_list =leg_list,
                    xlabel = xlabel, ylabel_norm =ylabel)
 
@@ -13607,115 +13639,142 @@ plt.plot(data['Proto', 'pop_act'][0,0,:])
 # %% Cross correlation & coherence
 
 # nuclei_dict = load_pickle(os.path.join(path_lacie, 'nuclei_dict_DD.pkl'))
-# pickle_obj(nuclei_dict, os.path.join(path_lacie, 'nuclei_dict_DD.pkl'))
+# pickle_obj(nuclei_dict, os.path.jsoin(path_lacie, 'nuclei_dict_DD.pkl'))
 
-plt.close('all')         
-name_1 = 'Proto'
-name_2 = 'Proto'
-n_pairs = 100
+plt.close('all')  
+path_cc_coh = os.path.join(path, 'CC_Coherence')
+
 lag_lim = 0.2
-name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']
-# name_list = ['Proto', 'D2']
+
+state = 'DD'
+state = 'healthy'
+
+name_list = ['Proto', 'STN', 'Arky']
+ylim_cc = {'DD': (- 40, 40), 'healthy':(-14, 14)}
+ylim = {'DD': (1.2, 7), 'healthy':(1., 2.)}
+note = 'org'
+
+name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']#; name_list.reverse() # for supplementary fig
+ylim_cc = {'DD': (- 8, 8), 'healthy':(-14, 14)}
+ylim = {'DD': (1.2, 2.5), 'healthy':(1.2, 2.)}
+note = 'supp'
+
 
 n = len(name_list)
-duration = [6000, 96000]
+duration = [3000, 353000]
 
-# duration = [66000, 126000]
-# duration = [3000, 66000]
-
-# fig_1 = plot_pop_cross_cor_coherence_in_subplots(nuclei_dict.copy(), n_pairs, color_dict, duration, name_list =name_list)
-# save_pdf_png(fig_1, os.path.join(path, 'Pop_correlation_coherence'),
-#               size = (5 *n,5 * n))
-fig_2 = plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, color_dict, 
-                                                    duration, name_list =name_list, seed = 10)
-save_pdf_png(fig_2, os.path.join(path, 'Neuron_correlation_coherence_2'),
-              size = (3 *n, 3 * n))
+# save_spikes_sparse(nuclei_dict, path_cc_coh, * duration, state)
 
 
+# fig_2 = plot_neuron_coherence_cc_in_subplots(path_cc_coh, state, 
+#                                             color_dict, duration, name_list = name_list, 
+#                                             ylim = ylim[state], ylim_cc = ylim_cc[state],
+#                                             n_pairs_cc = 2000, n_pairs = 1000)
+# save_pdf(fig_2, os.path.join(path_cc_coh, f'Neuron_coherence_n_{1000}_cc_{2000}_{state}_{duration[1]}_{note}'),
+#               size = (3 *n, 3 * n))
 
-# plot_cross_correlation_individual_pairs(nuc1, nuc2, n_pairs, start, end) 
-# nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
-# ind_1, ind_2 = choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs)
-# f, coherence = spike_coherence(nuc1, nuc2,  n_pairs, ind_1, ind_2, window_len = 1000)
-# plot_average_spike_coherence(f, coherence, ax = None, flim = 80)
-# lags, cross_cor = spike_scross_correlation(nuclei_dict[name_1][0], nuclei_dict[name_2][0], n_pairs, ind_1, ind_2)
-# plot_average_spike_cross_correlation(lags, cross_cor, ax = None, lag_lim = 200)
+# fig_coh = plot_neuron_coherence_in_subplots(1000, path_cc_coh, state, 
+#                                             color_dict, duration, name_list = name_list, 
+#                                             ylim = ylim[state])
+# save_pdf(fig_coh, os.path.join(path_cc_coh, f'Neuron_coherence_{state}_n_{1000}_{duration[1]}_{note}'),
+#               size = (3 * n, 3 * n))
 
+fig_cc = plot_neuron_cross_cor_in_subplots(2000, path_cc_coh, state,
+                                            color_dict, duration, ylim = ylim_cc[state],
+                                            name_list = name_list, step = 10)
 
+save_pdf(fig_cc, os.path.join(path_cc_coh,  f'Neuron_CC_{state}_n_{2000}_{duration[1]}_{note}'),
+              size = (3 * n, 3 * n))
 
+# fig = plot_neuron_auto_correlation(nuclei_dict, 2, *duration, 
+#                                  name_list)
+# plot_cross_correlation_individual_pairs(nuclei_dict[name_1][0], nuclei_dict[name_2][0], 1, *duration) 
 
 # %% Single action potential digram
+
+    
+    
+
+plt.close('all')
 def plot_exemplary_V_trace_all_nuclei(nuclei_dict, name_list,color_dict, start, end,  ax = None,
-label_fontsize = 8, length = 30, lw = 1):
+                                      label_fontsize = 8, length = 30, lw = 1, ylim = (-80, 0)):
     
     
     # fig, ax = get_axes(ax)
     fig  = plt.figure()
     
     for i, name in enumerate(name_list):
+        
+        ax = fig.add_subplot(len(name_list), 1, i + 1)
+
         nucleus = nuclei_dict[name][0]
-        print(nucleus.name)
-        non_zero_ind = nucleus.get_active_neuron_ind(start , end - int(length/ nucleus.dt))
+        t_series = np.arange(int(length/ nucleus.dt))
+        t = len(t_series)
+
+        non_zero_ind = get_active_neuron_ind(nucleus.spikes, start , end - int(length/ nucleus.dt))
         ind = np.random.choice(non_zero_ind, 1)
         spike = int(
             np.random.choice(
             np.where(
             nucleus.spikes[ind, start : end - int(length/ nucleus.dt)])[1], 1
             ))
-        t_series = np.arange(int(length/ nucleus.dt))
-        t = len(t_series)
-        ax = fig.add_subplot(len(name_list), 1, i + 1)
-        ax.plot(t_series * nucleus.dt, 
-                nucleus.all_mem_pot[ind, 
-                                    start + spike -20 : 
-                                    start + spike + t - 20 ][0],
+        
+        spikes = np.where(nucleus.spikes[ind, 
+                            start + spike -20 : 
+                            start + spike + t - 20])[1]
+
+        mem_pot =  nucleus.all_mem_pot[ind, 
+                                       start + spike -20 : 
+                                       start + spike + t - 20 ][0]      
+        mem_pot = add_extra_height_to_V_m_at_spikes(mem_pot, spikes, depo_val = 0)
+        ax.plot(t_series * nucleus.dt, mem_pot,
                 color = color_dict[nucleus.name], label = nucleus.name, lw = lw)
         remove_frame(ax)
 
         # ax.set_xticks([-length, int(-length/2), 0])
         ax.set_yticks([])
-        if i == 0:
-            ax.set_yticks([-82, -48])
-        ax.set_ylim(-82, -48)
+        print(i)
+        
+        if name == name_list[0]:
+            ax.set_yticks(ylim, fontsize = 20)
+            
+        ax.tick_params(labelsize = 15)
+        ax.set_ylim(ylim)
         ax.set_xlim(-1, length )
         ax.set_xticks([])
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         # ax.spines['left'].set_visible(False)
         ax.spines['bottom'].set_visible(False)
-        spikes = np.where(nucleus.spikes[ind, 
-                            start + spike -20 : 
-                            start + spike + t - 20])[1]
-        print(len(spikes))
-        ax.plot(spikes * dt, np.ones_like(spikes) * -82, c=color_dict[name],
-                                        marker = '|', markersize = 4, lw = 0)
+
+        print(nucleus.name, len(spikes) )
+        # ax.plot(spikes * dt, np.ones_like(spikes) * -82, c=color_dict[name],
+        #                                 marker = '|', markersize = 4, lw = 0)
         print_pop_name(ax, name, color_dict[name], 0.08, label_fontsize, 'ylabel', 'right')
     # ax.set_xlabel("time (ms)", fontsize = label_fontsize)
     # ax.set_ylabel("Membrane Potential (mV)", fontsize = label_fontsize)
     scalebar = AnchoredSizeBar(ax.transData,
                               20, '20 ms', 'lower right', 
-                               pad = 0.1,
-                               color='k',
-                               frameon=False,
-                               size_vertical=1.5, 
-                               fontproperties = matplotlib.font_manager.FontProperties(size = 10))
+                                pad = 0.1,
+                                color='k',
+                                frameon=False,
+                                size_vertical=1.5, 
+                                fontproperties = matplotlib.font_manager.FontProperties(size = 10))
     ax.add_artist(scalebar)
 
-    # set_minor_locator_all_axes(fig, n = 3, axis = 'both')
-    # fig.text(0.5, 0.01, "time (ms)", ha='center',
-    #              va='center', fontsize=label_fontsize)
+    # # set_minor_locator_all_axes(fig, n = 3, axis = 'both')
+    # # fig.text(0.5, 0.01, "time (ms)", ha='center',
+    # #              va='center', fontsize=label_fontsize)
     fig.text(0.02, 0.5, "Membrane Potential (mV)", ha='center',
-                 va='center', fontsize=label_fontsize, rotation = 'vertical')
+                  va='center', fontsize=12, rotation = 'vertical')
     return fig
 
-duration = duration_base
-# duration = duration_DD
 name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']
 
 fig = plot_exemplary_V_trace_all_nuclei(nuclei_dict, name_list,color_dict,
-                                        *duration, label_fontsize = 10, length =  200)
+                                        3000, 15000, label_fontsize = 10, length =  200/5*3)
 save_pdf_png(fig, os.path.join(path, 'Example_action_potential'),
-              size = (5, 2.5))
+              size = (3, 2.5))
 # %% Boxplot frequency vs loop
 
 state_list = ['rest'] #, 'DD_anesth', 'awake_rest', 'mvt']

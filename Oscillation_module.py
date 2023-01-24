@@ -2048,17 +2048,18 @@ class Nucleus:
         """ to add a certain external input to all neurons of the neucleus."""
         self.rest_ext_input = self.rest_ext_input + ad_ext_inp
  
-    def get_active_neuron_ind(self, start, end):
-        neuron_act = np.sum(self.spikes[:,  start : end], axis = 1)
-        non_zero_nuc = np.where(neuron_act > 0)[0]
-        return non_zero_nuc
-    
-def choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, duration, auto =False, seed = None):
+def get_active_neuron_ind(spikes, start, end):
+    neuron_act = np.sum(spikes[:,  start : end], axis = 1)
+    non_zero_nuc = np.where(neuron_act > 0)[0]
+    return non_zero_nuc
+
+def choose_indices_for_pairwise_analysis(spikes_1, spikes_2, name_1, name_2,
+                                         n_pairs, duration, auto =False, seed = None):
     
     rng = np.random.default_rng(seed)
-    non_zero_neuron_1 = nuc1.get_active_neuron_ind(*duration)
+    non_zero_neuron_1 = get_active_neuron_ind(spikes_1, *duration)
     
-    if nuc1 == nuc2:
+    if name_1 == name_2:
         
         if auto:
             
@@ -2079,7 +2080,7 @@ def choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, duration, auto =Fa
             return all_possible_pairs[inds][:, 0], all_possible_pairs[inds][:, 1]
         
     else:
-        non_zero_neuron_2 = nuc2.get_active_neuron_ind(*duration)
+        non_zero_neuron_2 = get_active_neuron_ind(spikes_2, *duration)
 
         n1, n2 = len(non_zero_neuron_1) , len(non_zero_neuron_2)
         
@@ -2087,7 +2088,7 @@ def choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, duration, auto =Fa
             np.arange(n1 * n2)
             )[:n_pairs]
 
-        print(nuc1.name, n1, nuc2.name, n2)
+        print(name_1, n1, name_2, n2)
 
         ind_1 = non_zero_neuron_1 [ind // n2]
         ind_2 = non_zero_neuron_2 [ind % n2]
@@ -2106,7 +2107,9 @@ def normalize_2d_array(arr, axis = 1):
     
 
 def average_2d_array(arr, norm_axis = 1, avg_axis = 0, norm_bef_avg = False):
+    
     if norm_bef_avg:
+        
         arr = normalize_2d_array(arr, axis = norm_axis)
 
     return np.average(arr, axis = avg_axis), scipy.stats.sem(arr, axis = avg_axis)
@@ -2115,38 +2118,159 @@ def plot_cross_correlation_individual_pairs(nuc1, nuc2, n_pairs, start, end,
                                             lag_lim = 0.2, seed = None, 
                                             auto = True, label_fontsize = 8):
     
-    ind1, ind2 = choose_indices_for_pairwise_analysis(nuc1, nuc2, n_pairs, end - start, 
+    ind1, ind2 = choose_indices_for_pairwise_analysis(nuc1.spikes, nuc2.spikes,
+                                                      nuc1.name, nuc2.name,
+                                                      n_pairs, [start, end], 
                                                       auto =auto, seed = seed)
     fig = plt.figure()
     sig_len = end - start
-    for count, (i,j) in enumerate(zip(ind1, ind2)):
+    lags = signal.correlation_lags(sig_len,
+                                    sig_len,
+                                    mode = 'full') * nuc1.dt / 1000 # in seconds
+    count = 0
+    for n1, i in enumerate(ind1):
+        for n2, j in enumerate(ind2):
+            
+
+            print("{} out of {}".format(count + 1, n_pairs ** 2))
+            ax = fig.add_subplot(n_pairs, n_pairs, count + 1) 
+            # cc = signal.correlate(nuc1.all_mem_pot[i, start:end],
+            #                          nuc2.all_mem_pot[j, start:end])
+            cc = signal.correlate(gaussian_filter1d(nuc1.spikes[i, start:end],  5),
+                                  gaussian_filter1d(nuc2.spikes[j, start:end], 5))
+            # ax.plot(np.arange(sig_len), gaussian_filter1d(nuc1.spikes[i, start:end],  .11))
+            # ax.plot(np.arange(sig_len),nuc1.spikes[i, start:end])
+
+            ax.bar(lags, cc, color = 'k')
+            
+            ax.set_xlim(-lag_lim, lag_lim) 
+            ax.set_xticks([-lag_lim, 0, lag_lim]) 
+            ax.set_ylim(0, ax.get_ylim()[1])
+            ax.set_yticks([0, ax.get_ylim()[1]])
+            ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+            ax.set_ylabel('Frequency (Hz)', fontsize = label_fontsize)
+            count += 1
+            
+    return fig
+
+def shrink_2d(data, rows, cols):
+    return data.reshape(rows, data.shape[0]/rows, cols, data.shape[1]/cols).sum(axis=1).sum(axis=2)
+
+
+def shrink(data, s):
+    reshaped = data.reshape(int(len(data)/s), s)
+    return np.sum(reshaped, axis=1)
+
+def plot_neuron_auto_correlation_shrink(nuclei_dict, n, start, end, 
+                                 name_list, bin_size_ms = 5,
+                                 lag_lim = 0.2, seed = None, 
+                                 label_fontsize = 8):
+    
+    fig = plt.figure()
+    sig_len = end - start
+    # lags = signal.correlation_lags(sig_len,
+    #                                 sig_len,
+    #                                 mode = 'full') * nuc1.dt / 1000 # in seconds
+    for j, name in enumerate(name_list):
         
-        ax = fig.add_subplot(n_pairs, n_pairs, count + 1) 
-        f, cc = signal.correlate(nuc1.all_mem_pot[i, start:end],
-                                 nuc2.all_mem_pot[j, sig_len])
-        lags = signal.correlation_lags(sig_len,
-                                        sig_len,
-                                        mode = 'full') * nuc1.dt / 1000 # in seconds
-        ax.bar(lags, cc, c = 'k')
+        # nuc = nuclei_dict[name][0] 
+        bin_size = int(bin_size_ms / nuclei_dict[name][0].dt)
+        rng = np.random.default_rng(seed)
+    
+        non_zero_neuron = nuclei_dict[name][0].get_active_neuron_ind(start, end)
+        ind = rng.choice(non_zero_neuron, n, replace = False)
+        i = ind[0]
+        ax = fig.add_subplot(1, len(name_list), j + 1) 
+        # lags, cc, cc_sem = spike_cross_correlation_sampled_neurons(nuc, nuc,   ind, ind,
+        #                                     start, end, mode = 'full', average = True)
+        print('hellow')
+        lags = signal.correlation_lags(int(sig_len/bin_size),
+                                        int(sig_len/bin_size),
+                                        mode = 'full') * bin_size_ms / 1000 # in seconds
+        # ax.plot(np.arange(sig_len),nuclei_dict[name][0].spikes[i, start:end])
+        # ax.plot(np.arange(sig_len/ bin_size) * bin_size, shrink( nuclei_dict[name][0].spikes[i, start:end], bin_size), '-o')
+
+        cc = signal.correlate(
+            shrink(
+                nuclei_dict[name][0].spikes[i, start:end] - np.average(nuclei_dict[name][0] .spikes[i, start:end]
+                                                      ), 
+                bin_size), #/ np.std(nuc1.spikes[i, :]),
+            shrink(
+                nuclei_dict[name][0].spikes[i, start:end] - np.average(nuclei_dict[name][0] .spikes[i, start:end]
+                                                      ), 
+                bin_size),# / np.std(nuc1.spikes[i, :]),
+                            mode = 'full') 
+        
+        ax.bar(lags, cc, color = 'k')
         
         ax.set_xlim(-lag_lim, lag_lim) 
-        ax.set_xticks(-lag_lim, 0, lag_lim) 
+        ax.set_xticks([-lag_lim, 0, lag_lim]) 
         ax.set_ylim(0, ax.get_ylim()[1])
         ax.set_yticks([0, ax.get_ylim()[1]])
         ax.set_xlabel('lags (s)', fontsize = label_fontsize)
         ax.set_ylabel('Frequency (Hz)', fontsize = label_fontsize)
-
+            
     return fig
+
+
+
+
+def plot_neuron_auto_correlation(nuclei_dict, n, start, end, 
+                                 name_list, bin_size_ms = 5,
+                                 lag_lim = 0.2, seed = None, 
+                                 label_fontsize = 8):
+    
+    fig = plt.figure()
+
+    for j, name in enumerate(name_list):
+                
+        sig_len = end - start
+        lags = signal.correlation_lags(sig_len,
+                                        sig_len,
+                                        mode = 'full') * nuclei_dict[name][0] .dt / 1000 # in seconds
+        
+        rng = np.random.default_rng(seed)
+    
+        non_zero_neuron = nuclei_dict[name][0].get_active_neuron_ind(start, end)
+        ind = rng.choice(non_zero_neuron, n, replace = False)
+        ax = fig.add_subplot(1, len(name_list), j + 1) 
+        lags, cc, cc_sem = spike_cross_correlation_sampled_neurons(nuclei_dict[name][0] , nuclei_dict[name][0] ,
+                                                                   ind, ind, start, end, 
+                                                                   mode = 'full', average = True)
+        print('hellow')
+
+        # ax.plot(np.arange(sig_len),nuclei_dict[name][0].spikes[i, start:end])
+        # ax.plot(np.arange(sig_len/ bin_size) * bin_size, shrink( nuclei_dict[name][0].spikes[i, start:end], bin_size), '-o')
+
+        # cc = signal.correlate(
+        #         nuclei_dict[name][0].spikes[i, start:end] - np.average(nuclei_dict[name][0] .spikes[i, start:end]),
+        #         nuclei_dict[name][0].spikes[i, start:end] - np.average(nuclei_dict[name][0] .spikes[i, start:end]),
+        #                     mode = 'full') 
+        
+        ax.set_yscale('log')
+        ax.bar(lags, cc, color = 'k')
+        # ax.fill_between(lags,0, cc, facecolor='k', alpha=1)
+        
+        # ax.set_xlim(-lag_lim, lag_lim) 
+        # ax.set_xticks([-lag_lim, 0, lag_lim]) 
+        # ax.set_ylim(0, ax.get_ylim()[1])
+        # ax.set_yticks([0, ax.get_ylim()[1]])
+        # ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+        # ax.set_ylabel('Frequency (Hz)', fontsize = label_fontsize)
+            
+    return fig
+
 def plot_average_spike_cross_correlation(lags, cross_cor, cc_sem, ax = None, lag_lim = 0.2):
     
     
     fig, ax = get_axes(ax)
-    
-    print(lags.shape, cross_cor.shape)
-    ax.bar(lags, cross_cor, color = 'k')
-    ax.errorbar(lags, cross_cor, yerr = cc_sem, color = 'k')
+    cross_cor = moving_average_array(cross_cor, 5)
+    cc_sem = moving_average_array(cc_sem, 5)
+    ax.plot(lags, cross_cor, color = 'k')
+    ax.fill_between(lags, cross_cor - cc_sem, cross_cor + cc_sem,  color = 'k', alpha = 0.2)
     ax.set_xlim(-lag_lim, lag_lim)
     ax.set_ylim(0, ax.get_ylim()[1])
+    
     return ax
 
 def plot_average_spike_coherence(f, coherence, c_sem, ax = None, flim = 80, lw = 1):
@@ -2160,18 +2284,18 @@ def plot_average_spike_coherence(f, coherence, c_sem, ax = None, flim = 80, lw =
     return ax
 
 
-def spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2, 
+def spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
                                     start, end, window_len = 1000, average = False):
     
     sig_len = end - start 
-    f = signal.coherence(nuc1.spikes[ind_1[0], start:end],
-                          nuc2.spikes[ind_2[0], start:end],
-                          fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
+    f = signal.coherence((spikes_1[ind_1[0], :] - np.average(spikes_1[ind_1[0], :])),
+                      (spikes_2[ind_2[0], :] - np.average(spikes_2[ind_2[0], :])),
+                          fs = 1/ (dt / 1000), nperseg = int(window_len / dt)
                       )[0]
     coherence = np.array(
-            [signal.coherence(nuc1.spikes[i, start:end] - np.average(nuc1.spikes[i, start:end]),
-                              nuc2.spikes[j, start:end] - np.average(nuc2.spikes[j, start:end]),
-                              fs = 1/ (nuc1.dt / 1000), nperseg = int(window_len / nuc1.dt)
+            [signal.coherence((spikes_1[i, :] - np.average(spikes_1[i, :])), 
+                              (spikes_2[j, :] - np.average(spikes_2[j, :])),
+                              fs = 1/ (dt / 1000), nperseg = int(window_len / dt)
                               )[1]
               for i,j in zip(ind_1, ind_2)]
             )
@@ -2195,24 +2319,32 @@ def spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2,
     else:
         return f, coherence#scipy.ndimage.gaussian_filter1d(corr, 2)
 
-def spike_cross_correlation_sampled_neurons(nuc1, nuc2,  n_pairs,  ind_1, ind_2,
-                                            start, end, mode = 'full', average = False):
+def spike_cross_correlation_sampled_neurons(spikes_1, spikes_2,  ind_1, ind_2, dt,
+                                          mode = 'full', average = False):
     
-    sig_len = end - start 
-    corr = np.array(
-            [signal.correlate((nuc1.spikes[i, start:end] - np.average(nuc1.spikes[i, start:end])), #/ np.std(nuc1.spikes[i, :]),
-                              (nuc2.spikes[j, start:end] - np.average(nuc2.spikes[j, start:end])),# / np.std(nuc1.spikes[i, :]),
-                                mode = mode) 
-              for i,j in zip(ind_1, ind_2)]
-            )
+    sig_len = spikes_1.shape[1]
     lags = signal.correlation_lags(sig_len,
                                     sig_len,
-                                    mode = mode) * nuc1.dt / 1000 # in seconds
-    print(lags.shape, corr.shape)
+                                    mode = mode) * dt / 1000 # in seconds
+    ind = np.intersect1d(np.where(lags > -0.2)[0],  np.where(lags < 0.2)[0])
+    
+    lags = lags [ind]
+    corr = np.array(
+            [signal.correlate((spikes_1[i, :] - np.average(spikes_1[i, :])), #/ np.std(nuc1.spikes[i, :]),
+                              (spikes_2[j, :] - np.average(spikes_2[j, :])),# / np.std(nuc1.spikes[i, :]),
+                                mode = mode)[ind] 
+              for i,j in zip(ind_1, ind_2)]
+            )
+
+    
     if average:
+        
         return lags, *(average_2d_array(corr))
+    
     else:
+        
         return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
+
 
 def pop_activity_coherence(nuc1, nuc2, start, end, window_len = 1000):
     
@@ -2252,14 +2384,14 @@ def annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = 8):
     
     for i, name in enumerate(name_list):
         axes[i, 0].annotate(name,  fontsize = fontsize,
-            xy=(-.4, 0.5), xycoords='axes fraction', 
+            xy=(-.8, 0.5), xycoords='axes fraction', 
             color = color_dict[name], rotation = 90,
-            )
+            va='center')
         axes[0, i].annotate(name, 
                             # xy=(3, 1),  xycoords='data',
             xy=(0.5, 1.2), xycoords='axes fraction', 
             color = color_dict[name], fontsize = fontsize,
-            )
+            ha='center')
          
 def plot_pop_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, 
                                          color_dict, duration, name_list =[],
@@ -2299,7 +2431,7 @@ def plot_pop_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs,
 
                 ax.set_xlim(0, 80)
                 ax.set_xticks([0,20, 40, 60, 80])
-                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
 
                 if i == 0 and j == n-1 :
                     ax.set_xlabel('frequeny (hz)', fontsize = label_fontsize)
@@ -2336,16 +2468,22 @@ def plot_pop_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs,
 
     return fig
 
-def plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs, 
+def CI_coh(window_len, duration, dt, p = 0.05):
+    
+    l = int((duration[1] - duration[0]) * dt / window_len)
+    ci = 1- p ** (1/ (l-1))
+    return ci
+
+def plot_neuron_coherence_cc_in_subplots(path, state,
                                          color_dict, duration, 
                                          name_list =[], seed  = None,
-                                         n_x = 2, n_y = 2,  lag = 0.2,
-                                         label_fontsize = 20):
+                                         n_x = 2, n_y = 2,  lag = 0.2, step = 1,
+                                         n_pairs = 1000, n_pairs_cc = 2000, 
+                                         label_fontsize = 20, ylim =(2,  2.5), ylim_cc = (-40,40)):
     
     
-    if name_list == []:
-        name_list = list(nuclei_dict.keys())
-        
+
+    dt = 0.1 
     n = len(name_list)
     fig, axes = plt.subplots(n, n)
 
@@ -2354,63 +2492,176 @@ def plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs,
         for j, name_2 in enumerate(name_list[i:]):
             
             col = i + j
-            nuc1, nuc2 = nuclei_dict[name_1][0], nuclei_dict[name_2][0]
-            ind_1, ind_2 = choose_indices_for_pairwise_analysis(nuc1, nuc2,
-                                                                n_pairs, duration,
+            start, end = duration
+            
+            spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs_cc, duration,
                                                                 seed = seed)
-            lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(nuc1, nuc2, n_pairs, 
-                                                                      ind_1, ind_2, *duration, average =   True)
+            lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(spikes_1, spikes_2, 
+                                                                                     ind_1, ind_2, dt,
+                                                                                      average =   True)
             
-            
-            ax = plot_average_spike_cross_correlation(lags, cross_cor, 
-                                                      cross_cor_sem, ax = axes[i, j + i])#, lag_lim = 200)
-            ax.set_ylim(0, .1)
-            ax.set_yticks([0, .1])
+            ax = plot_average_spike_cross_correlation(lags[::step], cross_cor[::step] * 100, 
+                                                      cross_cor_sem[::step] * 100, ax = axes[i, j + i])#, lag_lim = 200)
+            ax.set_ylim(ylim_cc)
+            ax.set_yticks([ylim_cc[0], 0, ylim_cc[1]])
             ax.set_xticks([-lag, 0, lag])
-
             if i == 0 and j == 0:
-                ax.set_ylabel('Rate (Hz)', fontsize = label_fontsize)
+                ax.set_ylabel('Rate (Hz) '+r'$(.10^{-2})$', fontsize = label_fontsize)
                 ax.set_xticks([-lag, 0, lag])
             if i == n - 1 and j == 0:
                 ax.set_xlabel('lags (s)', fontsize = label_fontsize)
-                
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
             if name_1 != name_2:
 
-                f, coherence, coherence_sem = spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2, 
-                                                               *duration, window_len = 1000, average =   True)
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
+                                                                              *duration, window_len = 1000, average =   True)
 
-                ax = plot_average_spike_coherence(f, coherence, coherence_sem, ax = axes[j + i, i], flim = 80)
-
+                ax = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100, ax = axes[j + i, i], flim = 80)
+                ax.axhline(CI_coh(1000, duration, dt), 0, 80, ls = '--', c = 'k')
                 ax.set_xlim(0, 80)
                 ax.set_xticks([0, 40, 80])
-                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
 
                 if i == 0 and j == n-1 :
                     ax.set_xlabel('frequeny (Hz)', fontsize = label_fontsize)
-                    ax.set_ylabel('Coherence', fontsize = label_fontsize)
+                    ax.set_ylabel('Coherence '+ r'$(.10^{-2})$', fontsize = label_fontsize)
                     
-                ax.set_ylim(0.08, .2)
-                ax.set_yticks([0.08, .2])
+                ax.set_ylim(ylim)
+                ax.set_yticks(ylim)
             
             if i == i + j: # plot coherence as inset on diagonal
 
-                axins = ax.inset_axes([0.6, 0.6, 0.3, 0.3])
-                f, coherence, coherence_sem = spike_coherence_sampled_neurons(nuc1, nuc2,  n_pairs, ind_1, ind_2,
+                # axes[i, j + i].set_xticks([])
+                # axes[i, j + i].set_yticks([])
+                axins = axes[i, j + i].inset_axes([0.6, 0.7, 0.3, 0.3])
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
                                                                *duration, window_len = 1000, average =   True)
-                
-                axins = plot_average_spike_coherence(f, coherence, coherence_sem,
-                                                     ax = axins, flim = 80, lw = 0.5)
+                axins.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
 
-                axins.set_xlabel('frequeny (Hz)', fontsize = label_fontsize * .6)
-                axins.set_ylabel('Coherence', fontsize = label_fontsize * .6)
+                axins = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100,
+                                                     ax = axins, flim = 80, lw = 0.5)
+                axins.axhline(CI_coh(1000, duration, dt), 0, 80,ls =  '--', c = 'k', lw = 0.5)
                 axins.set_xlim(0, 80)
+                axins.set_ylim(ylim)
                 axins.set_xticks([0,  40, 80])
-                axins.set_ylim(0.08, 0.2)
-                axins.set_yticks([0.08, .2])
-                axins.tick_params(labelsize = label_fontsize * .6)
-                # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
-                # axins.add_patch(rect)
+                axins.set_yticks(ylim)
+                axins.tick_params(labelsize =0)
+                axins.axhline(CI_coh(2000, duration, dt), 0, 80, ls = '--', c = 'k', lw = 0.5)
+
+                if i + 1 == n:
+                    
+                    axins.set_xlabel('frequeny (Hz)', fontsize = label_fontsize * .6)
+                    axins.set_ylabel('Coherence ' + r'$(.10^{-2})$', fontsize = label_fontsize * .6)
+                    axins.set_xticks([0,  40, 80])
+                    axins.set_yticks(ylim)
+                    axins.tick_params(labelsize = label_fontsize * .6)
+                    # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
+                    # axins.add_patch(rect)
+                    
+            elif name_1 != name_2:
+                remove_whole_frame(axes[i, j + i])
+                axes[i, j + i].set_xticks([])
+                axes[i, j + i].set_yticks([])
                 
+
+    rm_ax_unnecessary_labels_in_subplots_2d(axes)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+
+    return fig
+def plot_neuron_coherence_in_subplots(n_pairs, path, state,
+                                         color_dict, duration, 
+                                         name_list =[], seed  = None,
+                                         n_x = 2, n_y = 2,  lag = 0.2,
+                                         label_fontsize = 20, ylim =(2,  2.5)):
+    
+    
+
+    dt = 0.1 
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            start, end = duration
+            
+            spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
+
+            if name_1 != name_2:
+
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
+                                                                              *duration, window_len = 1000, average =   True)
+
+                ax = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100, ax = axes[j + i, i], flim = 80)
+                ax.axhline(CI_coh(1000, duration, dt), 0, 80, ls = '--', c = 'k')
+                ax.set_xlim(0, 80)
+                ax.set_xticks([0, 40, 80])
+                ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+
+                if i == 0 and j == n-1 :
+                    ax.set_xlabel('frequeny (Hz)', fontsize = label_fontsize)
+                    ax.set_ylabel('Coherence '+ r'$(.10^{-2})$', fontsize = label_fontsize)
+                    
+                ax.set_ylim(ylim)
+                ax.set_yticks(ylim)
+            
+            if i == i + j: # plot coherence as inset on diagonal
+
+                axes[i, j + i].set_xticks([])
+                axes[i, j + i].set_yticks([])
+                axins = axes[i, j + i].inset_axes([0.6, 0.7, 0.3, 0.3])
+                f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
+                                                               *duration, window_len = 1000, average =   True)
+                axins.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+
+                axins = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100,
+                                                     ax = axins, flim = 80, lw = 0.5)
+                axins.axhline(CI_coh(1000, duration, dt), 0, 80,ls =  '--', c = 'k', lw = 0.5)
+                axins.set_xlim(0, 80)
+                axins.set_ylim(ylim)
+                axins.set_xticks([0,  40, 80])
+                axins.set_yticks(ylim)
+                axins.tick_params(labelsize =0)
+                axins.axhline(CI_coh(2000, duration, dt), 0, 80, ls = '--', c = 'k', lw = 0.5)
+
+                if i + 1 == n:
+                    
+                    axins.set_xlabel('frequeny (Hz)', fontsize = label_fontsize * .6)
+                    axins.set_ylabel('Coherence ' + r'$(.10^{-2})$', fontsize = label_fontsize * .6)
+                    axins.set_xticks([0,  40, 80])
+                    axins.set_yticks(ylim)
+                    axins.tick_params(labelsize = label_fontsize * .6)
+                    # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
+                    # axins.add_patch(rect)
+                    
+            elif name_1 != name_2:
+                remove_whole_frame(axes[i, j + i])
+                axes[i, j + i].set_xticks([])
+                axes[i, j + i].set_yticks([])
+                
+
     rm_ax_unnecessary_labels_in_subplots_2d(axes)
     annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
     set_minor_locator_all_axes(fig, n_x = n_x, 
@@ -2422,6 +2673,64 @@ def plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs,
 
     return fig
 
+
+def plot_neuron_cross_cor_in_subplots(n_pairs,  path, state,
+                                         color_dict, duration, 
+                                         name_list =[], seed  = None, dt = 0.1,
+                                         n_x = 2, n_y = 2,  lag = 0.2, ylim = (-7.5, 7.5),
+                                         label_fontsize = 20, step = 1):
+    
+
+        
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            start, end = duration
+            
+            spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
+            lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(spikes_1, spikes_2, 
+                                                                                     ind_1, ind_2, dt,
+                                                                                      average =   True)
+            
+            ax = plot_average_spike_cross_correlation(lags[::step], cross_cor[::step] * 100, 
+                                                      cross_cor_sem[::step] * 100, ax = axes[i, j + i])#, lag_lim = 200)
+            ax.set_ylim(ylim)
+            ax.set_yticks([ylim[0], 0, ylim[1]])
+            ax.set_xticks([-lag, 0, lag])
+
+            if i == 0 and j == 0:
+                ax.set_ylabel('Rate (Hz) '+r'$(.10^{-2})$', fontsize = label_fontsize)
+                ax.set_xticks([-lag, 0, lag])
+            if i == n - 1 and j == 0:
+                ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+                
+            if name_1 != name_2:
+                
+                remove_whole_frame(axes[j + i, i])
+                axes[j + i, i].set_xticks([])
+                axes[j + i, i].set_yticks([])
+                
+    rm_ax_unnecessary_labels_in_subplots_2d(axes)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+
+    return fig
 # def spike_cross_correlation(nuc1, nuc2,  n_pairs,  ind_1, ind_2, mode = 'full'):
     
 #     sig_len = len(nuc1.spikes[0, :])
@@ -2437,6 +2746,20 @@ def plot_neuron_cross_cor_coherence_in_subplots(nuclei_dict, n_pairs,
 #                                    mode = mode) * nuc1.dt
 #     return lags, corr#scipy.ndimage.gaussian_filter1d(corr, 2)
 
+def save_spikes_sparse(nuclei_dict, path, start, end, state):
+
+	for nuclei_list in nuclei_dict.values():
+		for nucleus in nuclei_list:
+
+			mat = sp.csc_array(nucleus.spikes[:, start:end])
+			scipy.sparse.save_npz(
+			os.path.join(path, f'{nucleus.name}_{int(nucleus.dt * (end - start))}_{state}'), mat, compressed=True)
+
+def add_extra_height_to_V_m_at_spikes(mem_pot, spikes, depo_val):
+    
+    mem_pot[spikes - 1] = depo_val
+    
+    return mem_pot        
 def shift_phase_hist_all_nuclei(nuclei_dict, theta, phase_ref, total_phase = 720):
     
     for nuclei_list in nuclei_dict.values():
@@ -3453,6 +3776,10 @@ def get_centers_from_edges(edges):
     
     return centers
 
+def get_edges_from_centers(centers):
+    half_bin = (centers[1] - centers[0])/2
+    edges = np.concatenate((centers - half_bin, [centers[-1] + half_bin] ))
+    return edges
 def save_phases_into_dataframe(nuclei_dict, data, i,j, phase_ref, shift_phase = None):
 
     for nuclei_list in nuclei_dict.values():
@@ -4517,7 +4844,7 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, ylim = N
                 
         if span_beta:
             
-            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
         
         if x_ticks != None:
             ax.set_xticks(x_ticks)
@@ -4555,84 +4882,93 @@ def PSD_summary(filename, name_list, color_dict, n_g_list, xlim = None, ylim = N
         fig.text(0.01, 0.5, ylabel_PSD, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
     if vspan:
-        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color)
+        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color, ec = None)
 
     return fig
 
-def set_tick_lengths_all_axes(fig, length = 8, label_fontsize = 8):
-    for ax in fig.axes:
-        ax.tick_params(which = 'major', axis='both', labelsize=label_fontsize, pad=1, length = length)
-        ax.tick_params(which = 'minor', axis='both', labelsize=label_fontsize, pad=1, length = length/2)
+
+def PSD_summary_comparison(filename_list, name_list, color_dict, n_g_list, xlim = None, ylim = None,
+                           inset_props = [0.65, 0.6, 0.3, 0.3], ax = None, 
+                           inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
+                           plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
+                           normalize_PSD = True, include_AUC_ratio = False, x_y_label_size = 10,
+                           ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1, state_list = ['Ctr', 'DD'],
+                           ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
+                           xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
+                           leg_lw = 2.5, span_beta = True, x_ticks = None, ls_list = ['--', '-'], alpha_list = [0.5, 1],
+                           y_ticks = None, xlabel_y = -0.05, xaxis_invert =False):
         
-def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
-                               inset_props = [0.65, 0.6, 0.3, 0.3], ax = None, 
-                               inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
-                               plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
-                               normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
-                               ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1,
-                               ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
-                               xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
-                               leg_lw = 2.5, span_beta = True, x_ticks = None, name_fontsize = 8, 
-                               y_ticks = None, xlabel_y = -0.05, xaxis_invert =False, leg_list = []):
-    fig= plt.figure()
-    n_subplots = len(name_list)
-    n_g = 0
-    ls_list = ['-', '--']
-    c = [color_dict, 
-             {name:'grey' for name in name_list}]
-    for j, name in enumerate(name_list):
-        
-        ax = fig.add_subplot(1, n_subplots, j + 1)
-        ax.annotate(name, xy = (0.8,0.5), xycoords='axes fraction', color = color_dict[name],
-                    fontsize = name_fontsize )
+
+    fig = plt.figure()
+    
+    i = 0
+    ax = fig.add_subplot(1, 1, 1)
+
+    for m, filename in enumerate(filename_list):
+        data = load_pickle(filename)
+        n_run = data[(name_list[0], 'pxx')].shape[1] 
+        n_subplots = 1; n_g = 0
         max_pxx = 0
-        y_ticks = None
-        for i, (filename, ls) in enumerate(zip(filenames, ls_list)):
-
-            data = load_pickle(filename)
+        
+        for j, name in enumerate(name_list):
             
-            n_run = data[(name_list[0], 'pxx')].shape[1] 
-                
-
             if normalize_PSD:
-                data = norm_PSDs(data, n_run, name, n_g, log_scale =log_scale)
+                data = norm_PSDs(data, n_run, name, i, log_scale =log_scale)
                 
             f = data[(name,'f')][0,0].reshape(-1,)
             pxx_mean = np.average( data[(name,'pxx')][n_g,:,:], axis = 0) 
             mean_peak_f =np.average( data[(name,'base_freq')][n_g,:], axis = 0)
             sd_peak_f = np.std( data[(name,'base_freq')][n_g,:], axis = 0)
             pxx_std = np.std( data[(name,'pxx')][n_g,:,:], axis = 0)
-            all_std = np.std( data[(name,'pxx')][n_g,:,:].flatten())
+            all_std = np.std( data[(name,'pxx')][n_g,:,:].flatten() )
 
             
-            if ls == '-.':
-                ax.plot(f, pxx_mean, color = c[i][name], lw = 1, label = leg_list[i], ls = ls)#, dashes = (5,5))
-            else:
-                ax.plot(f, pxx_mean, color = c[i][name], lw = 1, label = leg_list[i], ls = ls)
+            leg_label = f'{state_list[m]}'
+            if f_in_leg:
+                
+                leg_label += (' f= '
+                              + r'$' + "{:."
+                              + str(f_decimal) + "f}"). format(mean_peak_f)+ '\;Hz$'
+            if peak_f_sd:
+                leg_label += '$' +' \pm ' + "{:.1f}". format(sd_peak_f) + '$' + ' Hz'
+            if err_plot == 'fill_between':
 
-            ax.fill_between(f, pxx_mean - pxx_std ,
-                                pxx_mean + pxx_std, color = c[i][name], alpha = 0.2)
-
-
+                ax.plot(f, pxx_mean, color = color_dict[name], lw = .5, label = leg_label, 
+                        ls = ls_list[m], alpha = alpha_list[m])
+                ax.fill_between(f, pxx_mean - pxx_std ,
+                                pxx_mean + pxx_std, color = color_dict[name], alpha = 0.2)
+            if err_plot == 'errorbar':
+                ax.errorbar(f, pxx_mean, yerr = pxx_std, color = color_dict[name], label = name, lw = .5)
+                
+            if plot_lines:
+                ax.axhline(2 * all_std, 0, 200, ls = '--', color = color_dict[name], lw = 0.5, dashes=(10, 10))
+                # ax.axvline(f[np.argmax(pxx_mean)], linestyle = '--', color = color_dict[name])
+            
+            if name == inset_name:
+                plot_D2_as_inset(f, pxx_mean, pxx_std, color_dict,ax, name = 'D2', 
+                                 inset_props = inset_props, inset_yaxis_loc = inset_yaxis_loc)
+                
             max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
+
+                
         if span_beta:
             
-            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
         
-        # rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax)
-            
-        this_ylim = ylim[name] or [0, max_pxx] #[0, max_pxx]
-        y_ticks  = y_ticks or [0, this_ylim[1]]
-        
+        if x_ticks != None:
+            ax.set_xticks(x_ticks)
+        if ylim != None and y_ticks == None:
+            y_ticks = ylim
+        y_ticks = y_ticks or [0, int(max_pxx)]
         ax.set_yticks(y_ticks)
-        ax.set_xticks(x_ticks)
-
+        rm_ax_unnecessary_labels_in_subplots(i, n_subplots, ax)
         remove_frame(ax)
         
         ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
         ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
+        ylim = ylim or [-0.01, max_pxx]
         xlim = xlim or (6, 80)
-        manage_ax_lims(xlim, xlim , ax, this_ylim, this_ylim)
+        manage_ax_lims(xlim, xlim , ax, ylim, ylim)
         
         if xaxis_invert:
             ax.invert_xaxis()
@@ -4641,8 +4977,7 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
             leg = ax.legend(fontsize = legend_font_size , loc = legend_loc,  framealpha = 0.1, frameon = False)
             [l.set_linewidth(leg_lw) for l in leg.get_lines()]
 
-    set_minor_locator_all_axes(fig, n = 2, axis = 'x')
-    set_minor_locator_all_axes(fig, n = 4, axis = 'y')
+    set_minor_locator_all_axes(fig, n = 2, axis = 'both')
 
     fig.text(0.5, xlabel_y, xlabel, ha='center',
                  va='center', fontsize=x_y_label_size)
@@ -4656,7 +4991,162 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
         fig.text(0.01, 0.5, ylabel_PSD, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
     if vspan:
-        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color)
+        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color, ec = None)
+
+    return fig
+
+def set_tick_lengths_all_axes(fig, length = 8, label_fontsize = 8):
+    for ax in fig.axes:
+        ax.tick_params(which = 'major', axis='both', labelsize=label_fontsize, pad=1, length = length)
+        ax.tick_params(which = 'minor', axis='both', labelsize=label_fontsize, pad=1, length = length/2)
+        
+def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
+                               inset_props = [0.65, 0.6, 0.3, 0.3],  inset = False,  ylim_inset = None,
+                               inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
+                               plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
+                               normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
+                               ylabel = None , log_scale = 0,  f_decimal = 1,
+                                f_in_leg = True, axvspan_color = 'grey', vspan = False,
+                               xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
+                               leg_lw = 2.5, span_beta = True, x_ticks = None, name_fontsize = 8,  coef = 1,lw = 1,
+                               y_ticks = None, xlabel_y = -0.05, xaxis_invert =False, leg_list = [], ls_list = [ '--', '-', '-']):
+    max_pxx = 0
+    y_ticks = None
+    
+    for i, (filename, ls) in enumerate(zip(filenames, ls_list)):
+
+
+        data = load_pickle(filename)
+        
+        n_run = data[(name_list[0], 'pxx')].shape[1] 
+            
+
+        if normalize_PSD:
+            data = norm_PSDs(data, n_run, name, n_g, log_scale =log_scale)
+            
+        f = data[(name,'f')][0,0].reshape(-1,)
+        pxx_mean = np.average( data[(name,'pxx')][n_g,:,:], axis = 0) 
+        mean_peak_f =np.average( data[(name,'base_freq')][n_g,:], axis = 0)
+        sd_peak_f = np.std( data[(name,'base_freq')][n_g,:], axis = 0)
+        pxx_std = np.std( data[(name,'pxx')][n_g,:,:], axis = 0)
+        all_std = np.std( data[(name,'pxx')][n_g,:,:].flatten())
+
+        if coef != 1:
+            pxx_mean = pxx_mean * coef
+            pxx_std = pxx_std * coef
+        if ls == '-.':
+            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls)#, dashes = (5,5))
+        else:
+            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls)#, zorder = z_order[i])
+
+        ax.fill_between(f, pxx_mean - pxx_std ,
+                            pxx_mean + pxx_std, color = c[i][name], alpha = 0.2)
+
+
+        max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
+        
+        if span_beta:
+            
+            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+        
+        # rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax)
+            
+        this_ylim = ylim[name] or [0, max_pxx] #[0, max_pxx]
+        y_ticks  = y_ticks or [0, np.round(this_ylim[1],1)]
+        
+        ax.set_yticks(y_ticks)
+        ax.set_xticks(x_ticks)
+
+        remove_frame(ax)
+        
+        ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
+        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
+        xlim = xlim or (6, 80)
+        manage_ax_lims(xlim, xlim , ax, this_ylim, this_ylim)
+        
+        if ylabel != None:
+            ax.set_ylabel(ylabel, fontsize = tick_label_fontsize)
+
+            
+        if xaxis_invert:
+            ax.invert_xaxis()
+        if legend:
+            
+            leg = ax.legend(fontsize = legend_font_size , frameon = False, bbox_to_anchor = [0.6,0.1])#loc = legend_loc,  )
+            [l.set_linewidth(leg_lw) for l in leg.get_lines()]
+        
+        
+def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
+                               inset_props = [0.65, 0.6, 0.3, 0.3], ax = None, inset = False,  ylim_inset = None,
+                               inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'lower right',
+                               plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
+                               normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
+                               ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1,
+                               ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
+                               xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
+                               leg_lw = 2.5, span_beta = True, x_ticks = None, name_fontsize = 8,  coef = 1, coef_inset = 100,
+                               y_ticks = None, xlabel_y = -0.05, xaxis_invert =False, leg_list = [], ls_list = [ '--', '-']):
+    fig= plt.figure()
+    n_subplots = len(name_list)
+    n_g = 0
+    
+    c = [
+        {name:'grey' for name in name_list},
+        color_dict,
+        {name:'grey' for name in name_list}]
+    for j, name in enumerate(name_list):
+        
+        ax = fig.add_subplot(1, n_subplots, j + 1)
+        # ax.annotate(name, xy = (0.8,0.5), xycoords='axes fraction', color = color_dict[name],
+        #             fontsize = name_fontsize )
+        ax.set_title(name,color = color_dict[name],
+                    fontsize = name_fontsize  )
+       
+        plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim, ylim = ylim,
+                                       inset_props = inset_props,   
+                                        err_plot = err_plot, legend_loc = legend_loc,
+                                       plot_lines = plot_lines, tick_label_fontsize = tick_label_fontsize, legend_font_size = legend_font_size, 
+                                       normalize_PSD = normalize_PSD, include_AUC_ratio = include_AUC_ratio, x_y_label_size = x_y_label_size,
+                                       log_scale = log_scale,  f_decimal = f_decimal,
+                                        f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
+                                       xlabel = xlabel, peak_f_sd = peak_f_sd, legend = legend, tick_length = tick_length,
+                                       leg_lw = leg_lw, span_beta = span_beta, x_ticks = x_ticks, name_fontsize = name_fontsize,  coef = coef,
+                                       y_ticks = y_ticks, xlabel_y = xlabel_y, xaxis_invert =xaxis_invert, leg_list = leg_list, ls_list = ls_list)
+
+        if inset:
+    
+            axins = ax.inset_axes(
+                       inset_props )
+            plot_all_conditions(axins, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim, ylim = ylim_inset,
+                                           inset_props = inset_props,   
+                                            err_plot = err_plot, legend_loc = legend_loc,
+                                           plot_lines = plot_lines, tick_label_fontsize = tick_label_fontsize/1.5, legend_font_size = legend_font_size, 
+                                           normalize_PSD = normalize_PSD, include_AUC_ratio = include_AUC_ratio, x_y_label_size = x_y_label_size,
+                                            log_scale = log_scale,  f_decimal = f_decimal, lw = 0.5, 
+                                           ylabel = r'$(\times 10^{-2})$', f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
+                                           xlabel = xlabel, peak_f_sd = peak_f_sd, legend = False, tick_length = tick_length / 1.5,
+                                           leg_lw = leg_lw, span_beta = span_beta, x_ticks = [0,40,80], name_fontsize = name_fontsize,  coef = coef_inset,
+                                           y_ticks = y_ticks, xlabel_y = xlabel_y, xaxis_invert =xaxis_invert, leg_list = leg_list, ls_list = ls_list)
+            set_minor_locator(axins, n = 2, axis = 'both')
+    set_minor_locator_all_axes(fig, n = 2, axis = 'x')
+    set_minor_locator_all_axes(fig, n = 4, axis = 'y')
+
+    fig.text(0.5, xlabel_y, xlabel, ha='center',
+                 va='center', fontsize=x_y_label_size)
+    
+    if normalize_PSD:
+        # if log_scale > 0 :
+           # ylabel_norm += r'$(\times 10^{-' + str(log_scale) + '})$'
+        fig.text(-0.05, 0.5, ylabel_norm, ha='center', va='center',
+                     rotation='vertical', fontsize=x_y_label_size)
+    else:
+        if coef != 1:
+            ylabel_PSD += (' ' + r'$(.10^{-2})$')
+
+        fig.text(0.01, 0.5, ylabel_PSD, ha='center', va='center',
+                     rotation='vertical', fontsize=x_y_label_size)
+    if vspan:
+        ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color, ec = None)
 
     return fig
 
@@ -6644,7 +7134,7 @@ def get_str_of_A_with_state(name_list, Act, state):
 def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label_fontsize=5, title_fontsize=15, linelengths=2.5, lw=3,
                 axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', orientation = 'horizontal',
                 xlim=None, include_nuc_name = True, y_tick_length = 2, x_tick_length = 5, remove_ax_frame = False, 
-                remove_whole_ax_frame = False, y_ticks = None, axis_linewidth = 0.5):
+                remove_whole_ax_frame = False, y_ticks = None, axis_linewidth = 0.5, scale_bar = True):
     
     fig, ax = get_axes(ax)
 
@@ -6655,7 +7145,7 @@ def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label
         ax.set_title(name, c=color_dict[name], fontsize=title_fontsize)
         
     if axvspan:
-        ax.axvspan(span_start, span_end, alpha=0.2, color=axvspan_color)
+        ax.axvspan(span_start, span_end, alpha=0.2, color=axvspan_color, ec = None)
 
     if xlim != None:
         ax.set_xlim(xlim)
@@ -6668,17 +7158,19 @@ def raster_plot(spikes_sparse, name, color_dict, color='k',  ax=None, tick_label
     ax.legend(loc='upper right', framealpha=0.1, frameon=False)
     ax.tick_params(which = 'both', axis='x', length = x_tick_length, labelsize=tick_label_fontsize)
     ax.tick_params(which = 'both', axis='y', length = y_tick_length, labelsize=tick_label_fontsize)
+    ax.tick_params(left = False)
     set_axis_thickness(ax, linewidth  = axis_linewidth)
 
-
-    scalebar = AnchoredSizeBar(ax.transData,
-                               100, '100 ms', 'lower right', 
-                               pad=0.1,
-                               color='k',
-                               frameon=False,
-                               size_vertical=0.1, 
-                               fontproperties = matplotlib.font_manager.FontProperties(size = 10))
-    ax.add_artist(scalebar)
+    if scale_bar:
+        
+        scalebar = AnchoredSizeBar(ax.transData,
+                                   100, '100 ms', 'lower right', 
+                                   pad=0.1,
+                                   color='k',
+                                   frameon=False,
+                                   size_vertical=0.1, 
+                                   fontproperties = matplotlib.font_manager.FontProperties(size = 10))
+        ax.add_artist(scalebar)
 
     ax.set_xticks([])
     if remove_ax_frame:
@@ -6715,7 +7207,7 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
     if outer == None:
         fig = plt.figure(figsize=(10, 8))
         outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
-
+    scale_bar = False
     inner = gridspec.GridSpecFromSubplotSpec(len(nuclei_dict), 1,
                     subplot_spec=outer, wspace=0.1, hspace=0.1)
     if include_title:
@@ -6758,11 +7250,15 @@ def raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  t
         
         c_dict = color_dict.copy()
         c_dict['Arky'] = 'darkorange'
+        if name == name_list[-1]:
+            
+            scale_bar = True
         ax = raster_plot(spikes_sparse, nucleus.name, c_dict,  ax=ax, tick_label_fontsize=tick_label_fontsize, 
                          title_fontsize=title_fontsize, linelengths=linelengths, lw=lw, xlim=xlim,
                         axvspan=axvspan, span_start = span_start_n, span_end = span_end_n, axvspan_color=axvspan_color,
                         include_nuc_name = include_nuc_name, remove_ax_frame = remove_ax_frame, y_ticks = [n_neuron],
-                         x_tick_length = x_tick_length, y_tick_length = y_tick_length, remove_whole_ax_frame = remove_whole_ax_frame)
+                         x_tick_length = x_tick_length, y_tick_length = y_tick_length, remove_whole_ax_frame = remove_whole_ax_frame,
+                         scale_bar = scale_bar)
         
         fig.add_subplot(ax)
         rm_ax_unnecessary_labels_in_subplots(j, len(nuclei_dict), ax)
@@ -6792,7 +7288,7 @@ def raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, f
                             axvspan=False, span_start=None, span_end=None, axvspan_color='lightskyblue', ax_label=False, n = 1000, 
                             t_transition = None, t_sim = None, ylabel_x = 0.03, include_nuc_name = True, remove_whole_ax_frame = True,
                             plot_start_state_1=0, plot_end_state_1=0, plot_start_state_2=0, plot_end_state_2=0, y_tick_length=0,
-                            name_list = None, vspan = True,):
+                            name_list = None, vspan = True):
     
     neurons = np.random.choice(n, n_neuron, replace=False )
     
@@ -7675,7 +8171,7 @@ def plot_fr_response_from_experiment(FR_df, filename, color_dict, xlim = None, y
     ax.legend(fontsize = 10, frameon = False, loc = legend_loc)
     ax.set_xlabel('Time (ms)', fontsize = 14)
     ax.set_ylabel('Firing rate (spk/s)', fontsize = 14)
-    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow')
+    ax.axvspan(0, stim_duration, alpha=0.2, color='yellow', ec = None)
     ax.axvline(0, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
     ax.axvline(stim_duration, *ax.get_ylim(), c= 'grey', ls = '--', lw = 1)
     ax.axhline(0, c= 'grey', ls = ':')
@@ -7897,7 +8393,7 @@ def selective_additive_ext_input_time_series(nuclei_dict, t_list,  ext_inp_dict,
             
             fig, ax = plt.subplots()
             ax.plot(t_list * dt, nucleus.external_inp_t_series)
-            ax.axvspan(t_start* dt, (t_start + duration) * dt, alpha=0.2, color='yellow')
+            ax.axvspan(t_start* dt, (t_start + duration) * dt, alpha=0.2, color='yellow', ec = None)
 
     return nuclei_dict
 
@@ -8192,17 +8688,19 @@ def get_start_end_plot(plot_start, plot_end, dt, t_list):
 def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = None, title = "", n_subplots = 1, 
          title_fontsize = 12, plot_start = 0, ylabelpad = 0, include_FR = True, alpha_mvt = 0.2, plot_end = None, 
          figsize = (6,5), plt_txt = 'vertical', plt_mvt = True, plt_freq = False, ylim = None, include_std = True, 
-         round_dec = 2, legend_loc = 'upper right', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
-         tick_label_fontsize = 18, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
+         round_dec = 2, legend_loc = 'center', continuous_firing_base_lines = True, axvspan_color = 'lightskyblue', 
+         tick_label_fontsize = 8, plot_filtered = False, low_f = 8, high_f = 30, filter_order = 6, vspan = False, 
          tick_length = 8, title_pad = None, ncol_legend = 1, line_type = ['-', '--'], alpha = 1, legend = True,
-         xlim = None, lw = 1.5, legend_fontsize = 14, label_fontsize = 12, threshold_by_percentile = 75,
-         xlabel = "time (ms)", peak_threshold = None, leg_lw = 2, y_ticks = None, FR_lines = True):    
-
+         xlim = None, lw = 1.5, legend_fontsize = 8, label_fontsize = 8, threshold_by_percentile = 75, x_ticks = None,
+         xlabel = "time (ms)", peak_threshold = None, leg_lw = 2, y_ticks = None, FR_lines = True, D2_as_inset = False,
+         n_minor_x = 4, n_minor_y = 4, inset_ylim = (-0.1, 2), inset_yticks = [0,2]):
     fig, ax = get_axes (ax)
     
     plot_start, plot_end  = get_start_end_plot(plot_start, plot_end, dt, t_list)
+    print([plot_start, plot_end])
+
     count = 0
-    
+    t_list = np.arange(plot_end - plot_start)
     for nuclei_list in nuclei_dict.values():
         for nucleus in [nuclei_list[0]]:
             
@@ -8240,13 +8738,12 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
                         c = color_dict[nucleus.name],lw = 1.5, alpha = 0.4)
             
             else:
-                
-                ax.plot(t_list[plot_start: plot_end] * dt, nucleus.pop_act[plot_start: plot_end], 
+                ax.plot(t_list* dt, nucleus.pop_act[plot_start: plot_end], 
                         line_type[int(nucleus.population_num)-1], label = label, c = color_dict[nucleus.name],
                         lw = lw, alpha = alpha)
-                
+            
+
             if FR_lines:
-                print('h')
                 if continuous_firing_base_lines:
                 
                     ax.plot(t_list[plot_start: plot_end]*dt, np.ones_like(t_list[plot_start: plot_end])*A[nucleus.name], 
@@ -8292,24 +8789,57 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
             
             count = count + 1
 
+    if D2_as_inset:
+        duration = plot_end - plot_start
+        axins = ax.inset_axes([0.1, 0.8, 0.8, 0.2])
+        axins.plot(t_list[int(0.1 * duration) :  - int(0.1 * duration)] * dt, 
+                   nuclei_dict['D2'][0].pop_act[plot_start + int(0.1 * duration): plot_end - int(0.1 * duration)], 
+                   line_type[int(nucleus.population_num)-1], label = label, c = color_dict['D2'],
+                   lw = lw, alpha = 1)
+        axins.set_ylim(inset_ylim)
+        axins.set_yticks(inset_yticks)
+        if x_ticks != None:
+            axins.set_xticks(x_ticks)
+            axins.tick_params(axis = 'x', labelsize = 0)
+
+        if n_minor_x != None:
+            set_minor_locator(axins, n = n_minor_x, axis = 'x')
+
+        axins.set_xlim(duration * 0.1 *dt, duration * 0.9 *dt)
+        remove_frame(axins)
+        axins.patch.set_alpha(0)
+
+        axins.tick_params(axis = 'y', labelsize = tick_label_fontsize * 0.6)
+        rect = matplotlib.patches.Rectangle((0.1 * duration * dt, inset_ylim[0]), int(0.8 * duration) * dt,
+                                            inset_ylim[1], alpha = 0.1, color = 'b', ec = None)
+        ax.add_patch(rect)
+        axins.axvspan(duration * 0.1 *dt, duration * 0.9 *dt, alpha=0.1, color= 'b', ec = None)
 
     ax.set_title(title, fontsize = title_fontsize, pad = title_pad)
     ax.set_xlabel(xlabel, fontsize = label_fontsize)
     ax.set_ylabel("firing rate (spk/s)", fontsize = label_fontsize,labelpad=ylabelpad)
     ax_label_adjust(ax, fontsize = tick_label_fontsize, nbins = 5)   
-    set_minor_locator(ax, n = 4, axis = 'y')
-    ax.tick_params(which = 'major', axis='both', length = tick_length)
-    ax.tick_params(which = 'minor', axis='both', length = tick_length * .6)
+    if n_minor_x != None:
+
+        set_minor_locator(ax, n = n_minor_x, axis = 'x')
+    set_minor_locator(ax, n = n_minor_y, axis = 'y')
+    ax.tick_params(which = 'major', axis='both', length = tick_length, labelsize = tick_label_fontsize)
+    ax.tick_params(which = 'minor', axis='both', length = tick_length * .6, labelsize = tick_label_fontsize)
+    
+
     if y_ticks != None:
-        ax.set_yticks(y_ticks, fontsize = tick_label_fontsize)
+        ax.set_yticks(y_ticks)
+    if x_ticks != None:
+        ax.set_xticks(x_ticks)
 
     remove_frame(ax)
     
     if vspan:
-        ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color=axvspan_color)
+        ax.axvspan(t_mvt, t_mvt+D_mvt, alpha=0.2, color=axvspan_color, ec = None)
         
     if legend:
-        leg = ax.legend(fontsize = legend_fontsize, loc = legend_loc, framealpha = 0.1, frameon = False, ncol=ncol_legend)
+        leg = ax.legend(ncol = len(nuclei_dict), fontsize = legend_fontsize,  frameon = False,  
+                        bbox_to_anchor=[1, 1.1], loc = legend_loc)
         [l.set_linewidth(leg_lw) for l in leg.get_lines()]
     if ylim != None:
         ax.set_ylim(ylim)
@@ -8318,7 +8848,7 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
         ax.set_xlim(xlim)
         
     else:
-        ax.set_xlim(plot_start * dt - 10, plot_end * dt + 10) 
+        ax.set_xlim(-10, int((plot_end - plot_start) * dt) + 10 ) 
     
     return fig
 
@@ -8339,10 +8869,10 @@ def plot_multi_run_SNN( data,nuclei_dict,color_dict,  x, dt, t_list,  xlabel = '
             ax.fill_between(x,mean - std, mean + std, color = color_dict[nucleus.name], alpha = 0.3)
     if np.average(x) < 0 :
         ax.invert_xaxis()
-    plt.title(title, fontsize = title_fontsize)
-    plt.xlabel( xlabel, fontsize = 15)
-    plt.ylabel("frequency", fontsize = 15)
-    plt.legend(fontsize = 15, loc = 'upper right', framealpha = 0.1, frameon = False)
+    ax.title(title, fontsize = title_fontsize)
+    ax.set_xlabel( xlabel, fontsize = 15)
+    ax.set_ylabel("frequency", fontsize = 15)
+    ax.legend(fontsize = 15, framealpha = 0.1, frameon = False, bbox_to_anchor=[0.5, 1],loc = 'lower center')
     # ax.tick_params(axis='both', which='major', labelsize=10)
     plt.locator_params(axis='y', nbins=6)
     plt.locator_params(axis='x', nbins=5)
@@ -10373,7 +10903,7 @@ def plot_pop_act_and_PSD_of_example_pts(data, name_list, examples_ind, dt, color
         ax_PSD.tick_params(axis='both', which='major', labelsize=tick_size, length = tick_length)
         ax_pop_act.tick_params(axis='both', which='minor', labelsize=tick_size,  length = tick_length/2)
         ax_PSD.tick_params(axis='both', which='minor', labelsize=tick_size, length = tick_length/2)
-        ax_PSD.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+        ax_PSD.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
 
         ax_pop_act.set_ylim(act_ylim)
         ax_PSD.set_ylim(PSD_ylim or ax_PSD.get_ylim())
@@ -10493,7 +11023,7 @@ def plot_pop_act_and_PSD_of_example_pts_RM(data, name_list, examples_ind, x_list
         ax_PSD.tick_params(axis='both', which='major', labelsize=tick_size, length = tick_length)
         ax_pop_act.tick_params(axis='both', which='minor', labelsize=tick_size,  length = tick_length/2)
         ax_PSD.tick_params(axis='both', which='minor', labelsize=tick_size, length = tick_length/2)
-        ax_PSD.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, lw = lw)
+        ax_PSD.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, lw = lw, ec = None)
 
         ax_pop_act.set_ylim(act_ylim or ax_pop_act.get_ylim())
         ax_PSD.set_ylim(PSD_ylim or ax_PSD.get_ylim())
