@@ -763,6 +763,93 @@ state_list = ['CTRL']
 name_list = ['Proto']
 plot_exper_FR_distribution(xls, name_list, state_list,
                            color_dict, bins=np.arange(0, 100, 5))
+
+# %% numerical solving of analytical solution
+
+
+def solve_1_nucleus(f, tau_inh, tau_exc, sum_T):
+    return (
+     tau_inh * f 
+     + np.sin(sum_T/1000 * f) 
+        / np.cos(sum_T/1000 * f)
+    )
+def solve_2_nuclei(f, tau_inh, tau_exc, sum_T):
+    # print('2_nuclei', tau_inh, tau_exc, sum_T)
+    
+    return (
+    tau_exc * tau_inh * f ** 2
+    -(tau_exc + tau_inh)
+        * f 
+        * np.cos(sum_T/1000 * f) 
+        / np.sin(sum_T/1000 * f)
+    -1)
+
+
+def solve_3_nuclei(f, tau_inh, tau_exc, sum_T):
+    return (        
+    tau_inh ** 3 * f ** 3
+    + (3 * tau_inh**2 * f ** 2 - 1) 
+        * np.sin(sum_T/1000 * f) 
+        / np.cos(sum_T/1000 * f)
+    -3 * tau_inh)
+
+def freq_vs_tau_inh_theory(tau_exc, sum_T, tau_inh_list, func = solve_2_nuclei, x0 = 0):
+    
+    freq_list = np.zeros(len(tau_inh_list))
+    
+    for i, tau_inh in enumerate(tau_inh_list):
+        
+        freq_list[i] = (
+            scipy.optimize.fsolve(func, x0[i], args = (tau_inh, tau_exc, sum_T)) 
+            / (2 * np.pi)
+            )
+        
+        
+    return tau_inh_list * 1000, freq_list
+
+def freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6, n = 100, plot = True):
+    
+    tau_inh_list = np.linspace(4, 24, n) / 1000
+
+    func_dict = {'Proto loop': {'func': solve_1_nucleus, 'x0': np.linspace(200,100, n)},
+                 'STN loop': {'func': solve_2_nuclei, 'x0':  np.linspace(100,60, n)},
+                 'FSI loop': {'func': solve_3_nuclei, 'x0': np.linspace(130,45, n)},#120},
+                 'Arky loop': {'func': solve_3_nuclei, 'x0': np.linspace(100, 50, n)}} 
+    
+    data = {'Proto loop': None,
+            'STN loop': None,
+            'FSI loop': None,
+            'Arky loop': None}
+    
+    sum_T_dict = {'Proto loop': T['Proto', 'Proto']['mean'],
+                  'STN loop': T['STN','Proto']['mean'] + T['Proto', 'STN']['mean'] ,
+                  'FSI loop': T['FSI','Proto']['mean'] + T['Proto', 'D2']['mean']+ T['D2', 'FSI']['mean'],
+                  'Arky loop': T['Arky','Proto']['mean'] + T['Proto', 'D2']['mean']+ T['D2', 'Arky']['mean']}
+    
+    if plot:
+        fig, ax = plt.subplots()
+        
+    for i, loop in enumerate(list(data.keys())):
+        
+        tau, f= freq_vs_tau_inh_theory(tau_exc, 
+                                    sum_T_dict[loop],
+                                    tau_inh_list, 
+                                    func = func_dict[loop]['func'],
+                                    x0 = func_dict[loop]['x0'])
+        ax.plot(tau_inh_list * 1000, f, '-o', label = loop)
+        nonzero = np.where(f > 0)[0]
+        print(len(nonzero))
+        data[loop] = {'tau': tau[nonzero],
+                      'f': f[nonzero]}
+    ax.legend()
+    pickle_obj(data, os.path.join(path, 'theory_frequencies.pkl'))
+    
+plt.close('all')
+freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6/1000, plot = True)
+# tau_inh_list, freq_list = freq_vs_tau_inh_theory(tau_exc, 
+#                                                  T[name_1, name_2]['mean'] + T[name_2, name_1]['mean'], 
+#                                                  n = 20)
+
 # %% beta induction schematic
 
 filename = 'excitation'
@@ -1627,8 +1714,6 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 # %% Deriving F_ext from response curve of collective behavior in heterogeneous mode
 
-
-
 plt.close('all')
 name = 'D2'
 # name = 'FSI'
@@ -1653,7 +1738,7 @@ FSI_on_log = False
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1    
-t_sim = 2000
+t_sim = 4000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -1670,18 +1755,21 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
+mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
 set_input_from_response_curve = True
 save_init = True
+
+
+save_init = False
 der_ext_I_from_curve = True
 if_plot = True
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = False
-# use_saved_FR_ext = True
+use_saved_FR_ext = True
 
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
@@ -9000,7 +9088,16 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
-
+# name1 = 'FSI' name2 = 'D2' name3 = 'Proto' name4 = 'Arky' name5 = 'STN'
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 0},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+      (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.6 Hz
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 11}, ## free
@@ -9025,16 +9122,16 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 #       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
       
       
-g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
-G = { (name2, name1) :{'mean': g * K[name2, name1]  * 0},#13.5},#6}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0},
-      (name5, name3) :{'mean': g * K[name5, name3] * 0},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 11},#13.5},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 0},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 # g = -0.0025 ## K_connections tuned July 2022 N = 1000 f = 17-18 Hz
@@ -9121,6 +9218,8 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
+mem_pot_init_method = 'uniform'
+
 keep_mem_pot_all_t = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
@@ -9142,8 +9241,9 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt
                                                        all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
                                                        set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
                                                        use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
-
-
+for nuc_list in  nuclei_dict.values():
+    for nuc in nuc_list:
+        print(nuc.synaptic_weight_specs)
 
 # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
 n_run = 3; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
@@ -9159,7 +9259,7 @@ low_f = 12; high_f = 30
 phase_ref = 'Proto'
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_only_no_connection.pkl')
+             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_FSI-loop.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -13649,14 +13749,20 @@ lag_lim = 0.2
 state = 'DD'
 state = 'healthy'
 
+ylim_coh = {'DD': {'Proto': (1.3, 7), 'STN': (1.3, 7), 'Arky':(1.3, 7), 
+                   'D2': (1.3, 2.5), 'FSI' :(1.3, 2.5)}, 
+            'healthy':{'Proto': (1.3, 7), 'STN': (1.3, 7), 'Arky':(1.3,7), 
+                       'D2': (1.3, 2.5), 'FSI' :(1.3, 2.5)}}
+
+ylim_cc = {'DD': {'Proto': (-40, 40), 'STN': (-40, 40), 'Arky':(-40, 40), 
+                  'D2': (-8,8), 'FSI' :(-8,8)}, 
+           'healthy':{'Proto': (-14, 14), 'STN': (-14, 14), 'Arky':(-14, 14), 
+                      'D2': (-14, 14), 'FSI' :(-14, 14)}}
+
 name_list = ['Proto', 'STN', 'Arky']
-ylim_cc = {'DD': (- 40, 40), 'healthy':(-14, 14)}
-ylim = {'DD': (1.2, 7), 'healthy':(1., 2.)}
 note = 'org'
 
 name_list = ['Proto', 'STN', 'Arky', 'D2', 'FSI']#; name_list.reverse() # for supplementary fig
-ylim_cc = {'DD': (- 8, 8), 'healthy':(-14, 14)}
-ylim = {'DD': (1.2, 2.5), 'healthy':(1.2, 2.)}
 note = 'supp'
 
 
@@ -13673,18 +13779,32 @@ duration = [3000, 353000]
 # save_pdf(fig_2, os.path.join(path_cc_coh, f'Neuron_coherence_n_{1000}_cc_{2000}_{state}_{duration[1]}_{note}'),
 #               size = (3 *n, 3 * n))
 
-# fig_coh = plot_neuron_coherence_in_subplots(1000, path_cc_coh, state, 
-#                                             color_dict, duration, name_list = name_list, 
-#                                             ylim = ylim[state])
-# save_pdf(fig_coh, os.path.join(path_cc_coh, f'Neuron_coherence_{state}_n_{1000}_{duration[1]}_{note}'),
-#               size = (3 * n, 3 * n))
-
-fig_cc = plot_neuron_cross_cor_in_subplots(2000, path_cc_coh, state,
+fig_cc = plot_neuron_cross_cor_in_subplots_above_diagonal(2000, path_cc_coh, state,
                                             color_dict, duration, ylim = ylim_cc[state],
                                             name_list = name_list, step = 10)
 
 save_pdf(fig_cc, os.path.join(path_cc_coh,  f'Neuron_CC_{state}_n_{2000}_{duration[1]}_{note}'),
               size = (3 * n, 3 * n))
+
+# fig_coh = plot_neuron_coherence_in_subplots_with_inset_diagonal(1000, path_cc_coh, state, 
+#                                             color_dict, duration, name_list = name_list, 
+#                                             ylim = ylim_coh[state])
+# save_pdf(fig_coh, os.path.join(path_cc_coh, f'Neuron_coherence_{state}_n_{1000}_{duration[1]}_{note}'),
+#               size = (3 * n, 3 * n))
+
+# fig_coh = plot_neuron_coherence_in_subplots_below_diagonal(1000, path_cc_coh, state, 
+#                                             color_dict, duration, name_list = name_list, 
+#                                             ylim = ylim_coh[state])
+# save_pdf(fig_coh, os.path.join(path_cc_coh, f'Neuron_coherence_{state}_n_{1000}_{duration[1]}_{note}'),
+#               size = (3 * n, 3 * n))
+# plt.close('all')  
+
+# fig_cc = plot_neuron_cross_cor_in_subplots_below_diagonal(2000, path_cc_coh, state,
+#                                             color_dict, duration, ylim = ylim_cc[state],
+#                                             name_list = name_list, step = 10)
+
+# save_pdf(fig_cc, os.path.join(path_cc_coh,  f'Neuron_CC_{state}_n_{2000}_{duration[1]}_{note}'),
+#               size = (3 * n, 3 * n))
 
 # fig = plot_neuron_auto_correlation(nuclei_dict, 2, *duration, 
 #                                  name_list)
@@ -16944,7 +17064,7 @@ fig, ax = multi_plot_as_f_of_timescale(y_list, color_list, label_list, name_list
 # %% RATE MODEL : frequency vs. tau_inhibition (All Loops) new
 plt.close('all')
 filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_20_T_20500_dt_0-1.pkl',
-                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_20_T_20500_dt_0-1_SP_2-8.pkl',
+                 'Tau_sweep_STN-GPe_tau_ratio_PS_1_SP_1_G_ratio_PS_1_SP_1_n_20_T_20500_SP_2-8_dt_0-1.pkl',
                  'Tau_sweep_D2-P-F_tau_ratio_FD_1_PF_1_DP_1_G_ratio_FD_1_FP_1_DP_1_n_20_T_20500_dt_0-1.pkl',
                  'Tau_sweep_D2-P-A_tau_ratio_AD_1_PA_1_DP_1_G_ratio_AD_1_AP_1_DP_1_n_20_T_20500_dt_0-1.pkl']
 
@@ -16971,7 +17091,7 @@ markerstyle = ['+', 's', 'o', '^']
 fig, ax2 = plt.subplots(1, 1, sharex=True, figsize=(6, 5))
 i = 1
 
-
+data_theory = load_pickle(os.path.join(path, 'theory_frequencies.pkl'))
 def plot__(ax):
     for i in range(len(filename_list)):
         # i = 0; filename_list[i] = 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl'
@@ -16984,8 +17104,12 @@ def plot__(ax):
         # ax.plot(x_spec,y_spec, marker = 's', c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = 'k')
         ax.scatter(x_spec, y_spec, marker = marker_list[i],
                    c=color_list[i], lw=0.2, label=label_list[i], zorder=1, s=40)  # ,  ec = 'k')
-
-
+        ax.plot(
+            data_theory[label_list[i]]['tau'],
+            data_theory[label_list[i]]['f'], 
+            c=color_list[i], lw=2, zorder=2)
+        print(            data_theory[label_list[i]]['tau'],
+            data_theory[label_list[i]]['f'])
 plot__(ax2)
 
 tick_length = 10
@@ -17008,10 +17132,10 @@ remove_frame(ax2)
 ax2.set_xlim(3, 25)
 ax2.set_ylim(0, 80)
 leg = ax2.legend(fontsize=18, frameon=False,loc = 'lower right',
-            bbox_to_anchor=(1, .1), bbox_transform=ax2.transAxes)
+            bbox_to_anchor=(1, .09), bbox_transform=ax2.transAxes)
 ax2.axhspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
 
-
+ax2.set_title(r'$\tau_{decay}^{inhibition} \in [5, 28] \; ms$', fontsize = 20)
 for i, text in enumerate(leg.get_texts()):
     text.set_color(color_list[i])
 

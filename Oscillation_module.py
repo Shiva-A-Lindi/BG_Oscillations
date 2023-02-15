@@ -2379,17 +2379,25 @@ def rm_ax_unnecessary_labels_in_subplots_2d(axes):
                 axes[row, col].axes.yaxis.set_ticklabels([])
             if row != n_rows-1:
                 axes[row, col].axes.xaxis.set_ticklabels([])
-            
-def annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = 8):
+    return axes
+
+def annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = 8,
+                                   x = -.8, y = 1.2, horizontal = 'above'):
+    if horizontal =='above':
+        
+        row = 0
+    elif horizontal == 'below':
     
+        row = len(name_list) - 1
+
     for i, name in enumerate(name_list):
         axes[i, 0].annotate(name,  fontsize = fontsize,
-            xy=(-.8, 0.5), xycoords='axes fraction', 
+            xy=(x, 0.5), xycoords='axes fraction', 
             color = color_dict[name], rotation = 90,
             va='center')
-        axes[0, i].annotate(name, 
+        axes[row, i].annotate(name, 
                             # xy=(3, 1),  xycoords='data',
-            xy=(0.5, 1.2), xycoords='axes fraction', 
+            xy=(0.5, y), xycoords='axes fraction', 
             color = color_dict[name], fontsize = fontsize,
             ha='center')
          
@@ -2582,7 +2590,7 @@ def plot_neuron_coherence_cc_in_subplots(path, state,
     # fig.tight_layout()
 
     return fig
-def plot_neuron_coherence_in_subplots(n_pairs, path, state,
+def plot_neuron_coherence_in_subplots_with_inset_diagonal(n_pairs, path, state,
                                          color_dict, duration, 
                                          name_list =[], seed  = None,
                                          n_x = 2, n_y = 2,  lag = 0.2,
@@ -2600,7 +2608,7 @@ def plot_neuron_coherence_in_subplots(n_pairs, path, state,
             
             col = i + j
             start, end = duration
-            
+            ax = axes[j + i, i]
             spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
             spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
             
@@ -2624,8 +2632,8 @@ def plot_neuron_coherence_in_subplots(n_pairs, path, state,
                     ax.set_xlabel('frequeny (Hz)', fontsize = label_fontsize)
                     ax.set_ylabel('Coherence '+ r'$(.10^{-2})$', fontsize = label_fontsize)
                     
-                ax.set_ylim(ylim)
-                ax.set_yticks(ylim)
+                ax.set_ylim(ylim[name_2])
+                ax.set_yticks(ylim[name_2])
             
             if i == i + j: # plot coherence as inset on diagonal
 
@@ -2633,25 +2641,24 @@ def plot_neuron_coherence_in_subplots(n_pairs, path, state,
                 axes[i, j + i].set_yticks([])
                 axins = axes[i, j + i].inset_axes([0.6, 0.7, 0.3, 0.3])
                 f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
-                                                               *duration, window_len = 1000, average =   True)
-                axins.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+                                                                *duration, window_len = 1000, average =   True)
 
                 axins = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100,
-                                                     ax = axins, flim = 80, lw = 0.5)
+                                                      ax = axins, flim = 80, lw = 0.5)
+                axins.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
                 axins.axhline(CI_coh(1000, duration, dt), 0, 80,ls =  '--', c = 'k', lw = 0.5)
                 axins.set_xlim(0, 80)
-                axins.set_ylim(ylim)
-                axins.set_xticks([0,  40, 80])
-                axins.set_yticks(ylim)
-                axins.tick_params(labelsize =0)
-                axins.axhline(CI_coh(2000, duration, dt), 0, 80, ls = '--', c = 'k', lw = 0.5)
+                axins.set_ylim(ylim[name_2])
+                axins.set_yticks(ylim[name_1])
+                axins.set_xticks([0,  80])
+                # axins.tick_params(labelsize =0)
 
                 if i + 1 == n:
                     
                     axins.set_xlabel('frequeny (Hz)', fontsize = label_fontsize * .6)
                     axins.set_ylabel('Coherence ' + r'$(.10^{-2})$', fontsize = label_fontsize * .6)
                     axins.set_xticks([0,  40, 80])
-                    axins.set_yticks(ylim)
+                    axins.set_yticks(ylim[name_2])
                     axins.tick_params(labelsize = label_fontsize * .6)
                     # rect = patches.Rectangle((-10, -.30), 90, 1.3, edgecolor=None, facecolor='r', alpha = 0.5)
                     # axins.add_patch(rect)
@@ -2663,7 +2670,7 @@ def plot_neuron_coherence_in_subplots(n_pairs, path, state,
                 
 
     rm_ax_unnecessary_labels_in_subplots_2d(axes)
-    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize)
     set_minor_locator_all_axes(fig, n_x = n_x, 
                                     n_y = n_y, 
                                     axis = 'both')     
@@ -2672,13 +2679,149 @@ def plot_neuron_coherence_in_subplots(n_pairs, path, state,
     # fig.tight_layout()
 
     return fig
+def plot_neuron_cross_cor_in_subplots_above_diagonal(n_pairs,  path, state,
+                                                     color_dict, duration, 
+                                                     name_list =[], seed  = None, dt = 0.1,
+                                                     n_x = 2, n_y = 2,  lag = 0.2, ylim = (-7.5, 7.5),
+                                                     label_fontsize = 20, step = 1):
+    
+
+        
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            start, end = duration
+            ax = axes[i, j + i]
+            spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
+            lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(spikes_1, spikes_2, 
+                                                                                      ind_1, ind_2, dt,
+                                                                                      average =   True)
+            
+            ax = plot_average_spike_cross_correlation(lags[::step], cross_cor[::step] * 100, 
+                                                      cross_cor_sem[::step] * 100, ax = axes[i, j + i])#, lag_lim = 200)
+            ax.set_ylim(ylim[name_2])
+            ax.set_yticks([ylim[name_2][0], 0, ylim[name_2][1]])
+            ax.set_xticks([-lag, 0, lag])
+
+            if i == 0 and j == 0:
+                
+                ax.set_ylabel('Rate (Hz) '+r'$(.10^{-2})$', fontsize = label_fontsize)
+                ax.set_xticks([-lag, 0, lag])
+                
+            if i == n - 1 and j == 0:
+                
+                ax.set_xlabel('lags (s)', fontsize = label_fontsize)
+                ax.set_xticks([-lag, 0, lag])
+
+            else:
+                ax.axes.xaxis.set_ticklabels([])
+
+            if i+j == n-2:
+                
+                ax.set_yticks([ylim[name_2][0], 0, ylim[name_2][1]])
+
+            elif i+j != 0 :
+                ax.axes.yaxis.set_ticklabels([])
+
+            if name_1 != name_2:
+                
+                remove_whole_frame(axes[j + i, i])
+                axes[j + i, i].set_xticks([])
+                axes[j + i, i].set_yticks([])
+    
+    
+    # axes = rm_ax_unnecessary_labels_in_subplots_2d(axes)
+
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize)
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+
+    return fig
+def plot_neuron_coherence_in_subplots_below_diagonal(n_pairs, path, state,
+                                                     color_dict, duration, 
+                                                     name_list =[], seed  = None,
+                                                     n_x = 2, n_y = 2,  lag = 0.2,
+                                                     label_fontsize = 20, ylim =(2,  2.5)):
+    
+    
+
+    dt = 0.1 
+    n = len(name_list)
+    fig, axes = plt.subplots(n, n)
+
+    for i, name_1 in enumerate(name_list):
+        
+        for j, name_2 in enumerate(name_list[i:]):
+            
+            col = i + j
+            start, end = duration
+            ax = axes[j + i, i]
+            spikes_1 = scipy.sparse.load_npz(os.path.join(path, f'{name_1}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            spikes_2 = scipy.sparse.load_npz(os.path.join(path, f'{name_2}_{int(dt * (end - start))}_{state}.npz')).toarray()
+            
+            ind_1, ind_2 = choose_indices_for_pairwise_analysis(spikes_1, spikes_2,
+                                                                name_1, name_2,
+                                                                n_pairs, duration,
+                                                                seed = seed)
 
 
-def plot_neuron_cross_cor_in_subplots(n_pairs,  path, state,
-                                         color_dict, duration, 
-                                         name_list =[], seed  = None, dt = 0.1,
-                                         n_x = 2, n_y = 2,  lag = 0.2, ylim = (-7.5, 7.5),
-                                         label_fontsize = 20, step = 1):
+            f, coherence, coherence_sem = spike_coherence_sampled_neurons(spikes_1, spikes_2, ind_1, ind_2, dt,
+                                                                          *duration, window_len = 1000, average =   True)
+
+            ax = plot_average_spike_coherence(f, coherence * 100, coherence_sem * 100, ax = axes[j + i, i], flim = 80)
+            ax.axhline(CI_coh(1000, duration, dt), 0, 80, ls = '--', c = 'k')
+            ax.set_xlim(0, 80)
+            ax.set_xticks([0, 40, 80])
+            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+
+                
+            ax.set_ylim(ylim[name_1])
+            ax.set_yticks(ylim[name_1])
+            
+            if name_1 != name_2:
+                
+                remove_whole_frame(axes[i, j + i])
+                axes[i, j + i].set_xticks([])
+                axes[i, j + i].set_yticks([])
+                
+    rm_ax_unnecessary_labels_in_subplots_2d(axes)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize,
+                                   x = -0.4, y = -0.35,horizontal = 'below')
+    set_minor_locator_all_axes(fig, n_x = n_x, 
+                                    n_y = n_y, 
+                                    axis = 'both')     
+    remove_frame_all_axes(fig)
+    set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
+    # fig.tight_layout()
+ 
+    fig.text(0.5, 0, 'frequeny (Hz)', ha='center',
+                 va='center', fontsize=label_fontsize)
+    fig.text(0, 0.5, 'Coherence '+ r'$(.10^{-2})$', ha='center', va='center',
+                 rotation='vertical', fontsize = label_fontsize)
+    return fig
+
+
+
+def plot_neuron_cross_cor_in_subplots_below_diagonal(n_pairs,  path, state,
+                                                     color_dict, duration, 
+                                                     name_list =[], seed  = None, dt = 0.1,
+                                                     n_x = 2, n_y = 2,  lag = 0.2, ylim = (-7.5, 7.5),
+                                                     label_fontsize = 20, step = 1):
     
 
         
@@ -2700,36 +2843,36 @@ def plot_neuron_cross_cor_in_subplots(n_pairs,  path, state,
                                                                 n_pairs, duration,
                                                                 seed = seed)
             lags, cross_cor, cross_cor_sem = spike_cross_correlation_sampled_neurons(spikes_1, spikes_2, 
-                                                                                     ind_1, ind_2, dt,
+                                                                                      ind_1, ind_2, dt,
                                                                                       average =   True)
             
             ax = plot_average_spike_cross_correlation(lags[::step], cross_cor[::step] * 100, 
-                                                      cross_cor_sem[::step] * 100, ax = axes[i, j + i])#, lag_lim = 200)
+                                                      cross_cor_sem[::step] * 100, ax = axes[j + i, i])#, lag_lim = 200)
             ax.set_ylim(ylim)
             ax.set_yticks([ylim[0], 0, ylim[1]])
             ax.set_xticks([-lag, 0, lag])
 
-            if i == 0 and j == 0:
-                ax.set_ylabel('Rate (Hz) '+r'$(.10^{-2})$', fontsize = label_fontsize)
-                ax.set_xticks([-lag, 0, lag])
-            if i == n - 1 and j == 0:
-                ax.set_xlabel('lags (s)', fontsize = label_fontsize)
                 
             if name_1 != name_2:
                 
-                remove_whole_frame(axes[j + i, i])
-                axes[j + i, i].set_xticks([])
-                axes[j + i, i].set_yticks([])
+                remove_whole_frame(axes[i, j + i])
+                axes[i, j + i].set_xticks([])
+                axes[i, j + i].set_yticks([])
+                
                 
     rm_ax_unnecessary_labels_in_subplots_2d(axes)
-    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize* 1.6)
+    annotate_pop_name_for_subplots(name_list, axes, color_dict, fontsize = label_fontsize,
+                                   x = -0.4, y = -0.35, horizontal = 'below')
     set_minor_locator_all_axes(fig, n_x = n_x, 
                                     n_y = n_y, 
                                     axis = 'both')     
     remove_frame_all_axes(fig)
     set_tick_lengths_all_axes(fig, length = 8, label_fontsize = label_fontsize)
     # fig.tight_layout()
-
+    fig.text(0.5, 0, 'lags (s)', ha='center',
+                 va='center', fontsize=label_fontsize)
+    fig.text(0, 0.5, 'Rate (Hz) '+r'$(.10^{-2})$', ha='center', va='center',
+                 rotation='vertical', fontsize = label_fontsize)
     return fig
 # def spike_cross_correlation(nuc1, nuc2,  n_pairs,  ind_1, ind_2, mode = 'full'):
     
