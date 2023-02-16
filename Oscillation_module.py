@@ -3473,6 +3473,22 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
 
     return receiving_class_dict, nuclei_dict
 
+def save_FR_ext_to_pkl(nuclei_dict, path, dt = 0.1):
+    
+    # FR_dict = {}
+    FR_dict = {'FSI': {'mean': 0.05649141, 'sd': 0, 'truncmin': 0, 'truncmax': 100},
+                 'D2': {'mean': 0.02955257, 'sd': 1e-05, 'truncmin': 0, 'truncmax': 100}, 
+                 'Proto': {'mean': 0.009640724697049179, 'sd': 0, 'truncmin': 0, 'truncmax': 100}, 
+                 'Arky': {'mean': 0.007531243202482634, 'sd': 0.0008, 'truncmin': 0, 'truncmax': 100}, 
+                 'STN': {'mean': 0.00984699, 'sd': 0.0008, 'truncmin': 0, 'truncmax': 100}}
+    
+    FR_path_dict = create_FR_ext_filename_dict(nuclei_dict, path, dt)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            
+            # FR_dict[nucleus.name] = load_pickle(FR_path_dict[nucleus.name])
+            pickle_obj(FR_dict[nucleus.name], FR_path_dict[nucleus.name])
+            
 def der_ext_I_collective(nucleus, all_FR_list, t_list, dt, receiving_class_dict, state, FR_ext_filename_dict,
                          FR_ext_all_nuclei, if_plot = False, end_of_nonlinearity =None,
                          maxfev = 5000, c='grey', n_FR=50, save_FR_ext = True):
