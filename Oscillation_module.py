@@ -5193,13 +5193,14 @@ def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_
         if coef != 1:
             pxx_mean = pxx_mean * coef
             pxx_std = pxx_std * coef
-        if ls == '-.':
-            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls)#, dashes = (5,5))
-        else:
-            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls)#, zorder = z_order[i])
-
         ax.fill_between(f, pxx_mean - pxx_std ,
                             pxx_mean + pxx_std, color = c[i][name], alpha = 0.2)
+        if ls == '-.' or ls =='--':
+            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls, dashes = (7,6), zorder = 2)
+        else:
+            ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls, zorder = 1)
+
+
 
 
         max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
@@ -5236,11 +5237,11 @@ def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_
         
         
 def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
-                               inset_props = [0.65, 0.6, 0.3, 0.3], ax = None, inset = False,  ylim_inset = None,
+                               inset_props = [0.6, 0.6, 0.4, 0.4], ax = None, inset = False,  ylim_inset = None,
                                inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'lower right',
                                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
                                normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
-                               ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1,
+                               ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1, xlim_inset = None,
                                ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
                                xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
                                leg_lw = 2.5, span_beta = True, x_ticks = None, name_fontsize = 8,  coef = 1, coef_inset = 100,
@@ -5276,13 +5277,17 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
     
             axins = ax.inset_axes(
                        inset_props )
-            plot_all_conditions(axins, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim, ylim = ylim_inset,
-                                           inset_props = inset_props,   
+            if coef_inset != 1:
+                ylabel_inset = r'$(\times 10^{-' + str(round(np.log10(coef_inset))) +'})$'
+            else:
+                ylabel_inset = ' '
+            plot_all_conditions(axins, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim_inset, ylim = ylim_inset,
+                                           inset_props = inset_props,
                                             err_plot = err_plot, legend_loc = legend_loc,
                                            plot_lines = plot_lines, tick_label_fontsize = tick_label_fontsize/1.5, legend_font_size = legend_font_size, 
                                            normalize_PSD = normalize_PSD, include_AUC_ratio = include_AUC_ratio, x_y_label_size = x_y_label_size,
                                             log_scale = log_scale,  f_decimal = f_decimal, lw = 0.5, 
-                                           ylabel = r'$(\times 10^{-2})$', f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
+                                           ylabel = ylabel_inset, f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
                                            xlabel = xlabel, peak_f_sd = peak_f_sd, legend = False, tick_length = tick_length / 1.5,
                                            leg_lw = leg_lw, span_beta = span_beta, x_ticks = [0,40,80], name_fontsize = name_fontsize,  coef = coef_inset,
                                            y_ticks = y_ticks, xlabel_y = xlabel_y, xaxis_invert =xaxis_invert, leg_list = leg_list, ls_list = ls_list)
@@ -5302,7 +5307,7 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
         if coef != 1:
             ylabel_PSD += (' ' + r'$(.10^{-2})$')
 
-        fig.text(0.01, 0.5, ylabel_PSD, ha='center', va='center',
+        fig.text(0.1, 0.5, ylabel_PSD, ha='center', va='center',
                      rotation='vertical', fontsize=x_y_label_size)
     if vspan:
         ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color, ec = None)

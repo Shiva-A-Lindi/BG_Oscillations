@@ -763,233 +763,174 @@ I_ext_range = {'Proto': [0.175*100, 0.185*100],
                'Arky': []}
 ext_inp_delay = 0
 
-# %% save_FR_ext_to_pkl
-
-
-path = os.getcwd()
-
-plt.close('all')
-N_sim = 1000
-N = dict.fromkeys(N, N_sim)
-K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.1
-t_sim = 25800 
-t_list = np.arange(int(t_sim/dt))
-plot_start = 200
-t_transition = plot_start + 0# int(t_sim / 5)
-duration_base = np.array( [int(200/dt), int(t_transition/dt)] )
-duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
-t_mvt = t_sim
-D_mvt = t_sim - t_mvt
-
-duration = duration_DD - int( t_transition /dt )
-t_sim = t_sim - t_transition
-t_list = np.arange(int(t_sim/dt))
-# end_phase = t_sim
-n_phase_bins = 72
-n_windows = int(t_sim - 800) / 1000
-
-name1 = 'FSI'
-name2 = 'D2'
-name3 = 'Proto'
-name4 = 'Arky'
-name5 = 'STN'
-name_list = [name1, name2, name3, name4, name5]
-
-state_1 = 'rest'
-state_2 = 'DD_anest5h'
-G = {}
-
-print( " transition from " , state_1, ' to ', state_2)
-
-
-
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 0},#}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0},
-      (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
-
-
-
-G = set_G_dist_specs(G,  order_mag_sigma = 1)
-G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
-
-# G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
-# G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
-
-poisson_prop = {name: 
-                {'n': 10000, 'firing': 0.0475, 'tau': {
-                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
-                'g': 0.01} 
-                for name in name_list}
-    
-receiving_pop_list = {(name1, '1'): [(name3, '1')],
-                      (name2, '1'): [(name1, '1'), (name4, '1')],                      
-                      (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
-                      (name4, '1'): [(name3, '1')],
-                      (name5, '1'): [(name3, '1')]}
-
-
-pop_list = [1]
-init_method = 'heterogeneous'
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
-ext_inp_method = 'const+noise'
-mem_pot_init_method = 'draw_from_data'
-mem_pot_init_method = 'uniform'
-
-keep_mem_pot_all_t = False
-set_input_from_response_curve = True
-der_ext_I_from_curve = True
-save_init = False
-noise_method = 'Gaussian'
-noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext = True
-
-nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
-               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
-               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method,Act = Act, state = state_1) for i in pop_list] for name in name_list}
-
-save_FR_ext_to_pkl(nuclei_dict, path, dt = dt)
-
 #%%
+
 
 # path = os.getcwd()
 path_lacie = path
 
-
 plt.close('all')
-name_list = ['D2', 'FSI', 'STN', 'Proto', 'Arky']
+loop_list = ['Arky']#, 'Proto', 'Arky']
 
-for name in name_list:
+for loop in loop_list:
 
-    
-    state = 'rest'
-    
-    print('desired activity =', Act[state][name])
-    save_mem_pot_dist = True
-    # save_mem_pot_dist = False
-    
-    FSI_on_log = False
+    plt.close('all')
     N_sim = 1000
     N = dict.fromkeys(N, N_sim)
-    dt = 0.1    
-    t_sim = 2000
+    K = calculate_number_of_connections(N, N_real, K_real)
+    dt = 0.1
+    t_sim = 25800 
     t_list = np.arange(int(t_sim/dt))
-    duration = [int(t_sim/dt/2), int(t_sim/dt)]
+    plot_start = 200
+    t_transition = plot_start + 0# int(t_sim / 5)
+    duration_base = np.array( [int(200/dt), int(t_transition/dt)] )
+    duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
     t_mvt = t_sim
     D_mvt = t_sim - t_mvt
-    
+
+    duration = duration_DD - int( t_transition /dt )
+    t_sim = t_sim - t_transition
+    t_list = np.arange(int(t_sim/dt))
+    # end_phase = t_sim
+    n_phase_bins = 72
+    n_windows = int(t_sim - 800) / 1000
+
+    name1 = 'FSI'
+    name2 = 'D2'
+    name3 = 'Proto'
+    name4 = 'Arky'
+    name5 = 'STN'
+    name_list = [name1, name2, name3, name4, name5]
+
+    state_1 = 'rest'
+    state_2 = 'DD_anesth'
     G = {}
-    receiving_pop_list = {(name, '1'): []}
+
+    print( " transition from " , state_1, ' to ', state_2)
+
+
+
+    g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+    if loop == 'Arky':
+        G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+              (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+              (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
+              (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+              (name4, name3) :{'mean': g * K[name4, name3] * 0},
+              (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+              (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
+              (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+
+    # name1 = 'FSI' name2 = 'D2' name3 = 'Proto' name4 = 'Arky' name5 = 'STN'
     
+    if loop == 'FSI':
+        
+        G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+              (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+              (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+              (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+              (name4, name3) :{'mean': g * K[name4, name3] * 0},
+              (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+              (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
+              (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+    
+
+    if loop == 'Proto':
+        G = { (name2, name1) :{'mean': g * K[name2, name1] * 0},#}, ## free
+              (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
+              (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
+              (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+              (name4, name3) :{'mean': g * K[name4, name3] * 0},
+              (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+              (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
+              (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+
+
+
+    G = set_G_dist_specs(G,  order_mag_sigma = 1)
+    G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
+
+    # G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
+    # G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
+
+    poisson_prop = {name: 
+                    {'n': 10000, 'firing': 0.0475, 'tau': {
+                    'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
+                    'g': 0.01} 
+                    for name in name_list}
+        
+    receiving_pop_list = {(name1, '1'): [(name3, '1')],
+                          (name2, '1'): [(name1, '1'), (name4, '1')],                      
+                          (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
+                          (name4, '1'): [(name3, '1')],
+                          (name5, '1'): [(name3, '1')]}
+
+
     pop_list = [1]
-    
-    g = -0.01
     init_method = 'heterogeneous'
     syn_input_integ_method = 'exp_rise_and_decay'
     ext_input_integ_method = 'dirac_delta_input'
     ext_inp_method = 'const+noise'
     mem_pot_init_method = 'draw_from_data'
-    mem_pot_init_method = 'uniform'
-    keep_mem_pot_all_t = True
-    keep_noise_all_t = True
-    set_FR_range_from_theory = False
+
+    keep_mem_pot_all_t = False
     set_input_from_response_curve = True
-    save_init = False
     der_ext_I_from_curve = True
-    if_plot = True
+    save_init = False
     noise_method = 'Gaussian'
     noise_method = 'Ornstein-Uhlenbeck'
-    use_saved_FR_ext = False
     use_saved_FR_ext = True
-    
-    poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
-        'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
-    
-    class Nuc_keep_V_m(Nucleus):
-    
-        def solve_IF(self, t, dt, receiving_from_class_list, mvt_ext_inp=None):
-            
-            self.cal_ext_inp_method_dict [self.external_input_bool](dt, t)
-            synaptic_inputs = self.sum_synaptic_input(receiving_from_class_list, dt, t)
-            self.update_potential(synaptic_inputs, dt, t, receiving_from_class_list)
-            spiking_ind = self.find_and_save_new_spikes(t)
-            # self.reset_potential(spiking_ind)
-            self.reset_potential_with_interpolation(spiking_ind,dt)
-            self.all_mem_pot[:, t] = self.mem_potential
-    
-        # def cal_ext_inp(self, dt, t):
-    
-        #     # choose method of exerting external input from dictionary of methods
-        #     I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt)
-    
-        #     self.noise_all_t[:, t] = self.noise.reshape(-1,)
-        #     # print(self.rest_ext_input.shape, self.noise.shape)
-        #     self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](
-        #         I_ext, dt,
-        #         I_rise=self.I_rise['ext_pop', '1'],
-        #         I=self.I_syn['ext_pop', '1'],
-        #         tau_rise=self.tau_ext_pop['rise'],
-        #         tau_decay=self.tau_ext_pop['decay'])
-    
-        # def constant_ext_input_with_noise(self, dt):
-    
-    
-        #     self.noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude,
-        #                                                                  self.noise_std,
-        #                                                                  self.n,
-        #                                                                  dt,
-        #                                                                  self.sqrt_dt,
-        #                                                                  tau=self.noise_tau,
-        #                                                                  noise_dt_before=self.noise
-        #                                                                  )
-    
-        #     return self.rest_ext_input + self.noise.reshape(-1,)
-    
-    
-    nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, 
-                        N, Act[state], A_mvt, name, G, T, t_sim, dt, synaptic_time_constant, receiving_pop_list, 
-                        smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve, 
-                        state = state, poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, 
-                        mem_pot_init_method=mem_pot_init_method, keep_mem_pot_all_t=keep_mem_pot_all_t, 
-                        ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method,
-                        path=path_lacie, save_init=save_init, noise_method=noise_method, keep_noise_all_t=keep_noise_all_t,
-                        Act  = Act, FR_ext_specs = FR_ext_specs[name][state],
-                        plot_spike_thresh_hist= False, plot_RMP_to_APth = False) for i in pop_list]
-    
-    
-     # {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
-     #               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
-     #               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
-     #               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-     #               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, 
-     #               hetero_trans_delay = hetero_trans_delays, hetero_tau = hetero_tau, Act  = Act) for i in pop_list] for name in name_list}
-    
-    nuclei_dict = {name: nuc}
-    nucleus = nuc[0]
-    
-    # plot_action_potentials(nucleus, n_neuron=1, t_end=5000)
-    
-    
+
+    nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
+                   synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
+                   poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
+                   ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
+                   syn_component_weight=syn_component_weight, noise_method=noise_method,Act = Act, state = state_1) for i in pop_list] for name in name_list}
     n_FR = 20
-    all_FR_list = {name: FR_ext_range[name][state]
+    all_FR_list = {name: FR_ext_range[name][state_1]
                    for name in list(nuclei_dict.keys())}
     
-    receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, 
-                                                           receiving_pop_list, nuclei_dict, t_list, all_FR_list=all_FR_list,
-                                                            n_FR=n_FR, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity,
-                                                           set_FR_range_from_theory=False, method='collective', save_FR_ext=False,
-                                                           use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
-    
-    nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
-    if save_mem_pot_dist:
-        save_all_mem_potential(nuclei_dict, path, state)
-        
+
+    receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_1], receiving_pop_list, nuclei_dict, t_list,
+                                                           all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                                           set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
+                                                           use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
+
+
+    # n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+    n_run = 3; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+    save_pop_act = True
+    round_dec = 1
+    include_std = False
+    plot_start = int(t_sim * 3/4)
+    plot_raster_start = int(t_sim * 3/4)
+    n_neuron = 50
+    legend_loc = 'center right'
+    check_peak_significance = False
+    low_f = 12; high_f = 30
+    phase_ref = 'Proto'
+
+    filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
+                 '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_' + loop +'-loop.pkl')
+
+    filepath = os.path.join(path, 'Beta_power', filename)
+    fft_method = 'Welch'
+    nuc_order = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
+
+
+    multi_run_transition(path, nuclei_dict, filepath, duration, G_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict,
+                                noise_amplitude, noise_variance, lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
+                                lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
+                                plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
+                                find_beta_band_power=True, fft_method=fft_method, n_windows=n_windows, include_beta_band_in_legend=True, save_pkl=save_pkl,
+                                reset_init_dist=True, all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                K_real=K_all[state_2], N_real=N_real, N=N, divide_beta_band_in_power=True,
+                                receiving_pop_list=receiving_pop_list, poisson_prop=poisson_prop, return_saved_FR_ext=False,
+                                use_saved_FR_ext=True, check_peak_significance=check_peak_significance,
+                                find_phase=True, phase_thresh_h=None, filter_order=6, low_f= low_f, high_f= high_f,
+                                n_phase_bins=n_phase_bins, start_phase= duration[0], phase_ref=phase_ref, save_pxx=save_pxx,
+                                plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=False,
+                                nuc_order=nuc_order, len_f_pxx=150, state_1 = state_1, state_2 = state_2, K_all = K_all, 
+                                state_change_func = change_network_states, end_phase = duration[1], save_pop_act = save_pop_act,
+                                only_rtest_entrained = True, threshold_by_percentile = 50, shift_phase_deg = 45)
+  

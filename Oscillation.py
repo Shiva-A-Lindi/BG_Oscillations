@@ -13660,6 +13660,7 @@ save_pdf_png(fig, filename.split('.')[0] + '_PSD',
               size=figsize)
 # %% nuc_specific_PSD_comarison
 
+plt.close('all')
 nuc = 'STN'
 # nuc= 'Proto'
 filenames = [
@@ -13670,18 +13671,38 @@ leg_list =['baseline', nuc + ' inhibited']
 ylim = {'STN': (-0.5,14), 'Proto': (-.5,12), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, 1.2), 'Arky':(-0.5,7.5)}
 coef = 1
 
+loop = 'Proto'
 filenames = [
-    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
-    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl'),
+    os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' ),
+    # os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
+    os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_'+ loop +'-loop.pkl'),
     os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
-]
-filename =  'STN-GPE_no_connection_comparison_DD'
-leg_list =['Discon','STN-loop','DD']
-ylim = {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)}
 
-ylim_inset = {'STN': (-0.5,13), 'Proto': (-.5,9), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)}
-inset = True
-ls_list = [ '-', '-', '-.']
+]
+filename =  loop + '-loop_only_with_DD_comparison'
+leg_list = ['Discon','STN-loop','DD']
+ylim = {
+   'STN-loop':
+    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
+    'FSI-loop':
+    {'STN': (-0.5,14), 'Proto': (-.5,150), 'D2':(-0.0005, 0.82), 'FSI':(-0.05, 12), 'Arky':(-0.5,3)},
+    'Proto-loop':
+    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
+    'Arky-loop':
+    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)}
+    }
+ylim_inset = {
+    'STN-loop':{
+        'STN': (-0.5,13), 'Proto': (-.5,9), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+    'FSI-loop':{
+        'STN': (-0.5,14/2), 'Proto': (-.5,150/2), 'D2':(-0.0005, 0.82/2), 'FSI':(-0.05, 12/2), 'Arky':(-0.5,3/2)},
+    'Proto-loop':{
+        'STN': (-0.5,13), 'Proto': (-.5,7), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+    'Arky-loop':{
+        'STN': (-0.5,13), 'Proto': (-.5,75), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+    }
+
+ls_list = ['-','-', '--']
 # filenames = [
 #     os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
 #     os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' )]
@@ -13689,11 +13710,14 @@ ls_list = [ '-', '-', '-.']
 # leg_list =['Disconnected','Healthy anesthetized']
 # ylim = {'STN': (-0.5,8), 'Proto': (-.5,49), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 3.5), 'Arky':(-0.5,18)}
 
-ylim = {k:( -v[1] / 20, v[1]) for k,v in ylim.items()}
-# ylim_inset = {k:( -v[1] / 20, v[1]) for k,v in ylim_inset.items()}
+ylim[loop + '-loop'] = {k:( -v[1] / 20, v[1]) for k,v in ylim[loop + '-loop'].items()}
+ylim_inset[loop + '-loop'] = {k:( -v[1]/20, v[1]) for k,v in ylim_inset[loop + '-loop'].items()}
 
 coef = 1
-
+coef_inset= 100
+inset = True
+# inset = False
+xlim_inset = (0, 80)
 f_in_leg = False
 legend = True
 xaxis_invert = False
@@ -13715,12 +13739,13 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 
 fig = nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
-                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 5,  ylim_inset = ylim_inset,
+                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 5, 
+                  ylim_inset = ylim_inset[loop + '-loop'], xlim_inset = xlim_inset,
                   legend_loc='lower right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
                    f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
-                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = False, f_decimal = 1, coef_inset = 100,
-                    x_ticks = x_ticks,  ylim = ylim, coef = coef, inset = inset, ls_list = ls_list,
-                   y_ticks = None, leg_lw = 1, leg_list =leg_list,
+                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = False, f_decimal = 1, coef_inset = coef_inset,
+                    x_ticks = x_ticks,  ylim = ylim[loop + '-loop'], coef = coef, inset = inset, ls_list = ls_list,
+                   y_ticks = None, leg_lw = 1, leg_list =leg_list, 
                    xlabel = xlabel, ylabel_norm =ylabel)
 
 figsize = (1.8* len(name_list), 1.2  ) # all loops
@@ -13730,7 +13755,7 @@ save_pdf_png(fig, os.path.join(path, 'Beta_power', filename),
 
 data = load_pickle(filenames[1])
 # plt.figure()
-plt.plot(data['Proto', 'pop_act'][0,0,:])
+# plt.plot(data['Proto', 'pop_act'][0,0,:])
 
 
 
