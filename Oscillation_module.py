@@ -5160,7 +5160,7 @@ def set_tick_lengths_all_axes(fig, length = 8, label_fontsize = 8):
         ax.tick_params(which = 'minor', axis='both', labelsize=label_fontsize, pad=1, length = length/2)
         
 def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
-                               inset_props = [0.65, 0.6, 0.3, 0.3],  inset = False,  ylim_inset = None,
+                               inset_props = [0.65, 0.45, 0.3, 0.3],  inset = False,  ylim_inset = None,
                                inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'upper right',
                                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
                                normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
@@ -5190,6 +5190,9 @@ def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_
         pxx_std = np.std( data[(name,'pxx')][n_g,:,:], axis = 0)
         all_std = np.std( data[(name,'pxx')][n_g,:,:].flatten())
 
+        if isinstance(coef, dict):
+            coef = coef[name]
+    
         if coef != 1:
             pxx_mean = pxx_mean * coef
             pxx_std = pxx_std * coef
@@ -5200,54 +5203,64 @@ def plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_
         else:
             ax.plot(f, pxx_mean, color = c[i][name], lw = lw, label = leg_list[i], ls = ls, zorder = 1)
 
-
-
-
         max_pxx = max(np.max(pxx_mean + pxx_std), max_pxx)
         
-        if span_beta:
-            
-            ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
-        
-        # rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax)
-            
-        this_ylim = ylim[name] or [0, max_pxx] #[0, max_pxx]
-        y_ticks  = y_ticks or [0, np.round(this_ylim[1],1)]
-        
-        ax.set_yticks(y_ticks)
-        ax.set_xticks(x_ticks)
-
-        remove_frame(ax)
-        
-        ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
-        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
-        xlim = xlim or (6, 80)
-        manage_ax_lims(xlim, xlim , ax, this_ylim, this_ylim)
-        
-        if ylabel != None:
-            ax.set_ylabel(ylabel, fontsize = tick_label_fontsize)
 
             
-        if xaxis_invert:
-            ax.invert_xaxis()
-        if legend:
+    this_ylim = ylim[name] or [0, max_pxx] #[0, max_pxx]
+    y_ticks  = y_ticks or [0, np.round(this_ylim[1],1)]
+    
+    ax.set_yticks(y_ticks)
+    ax.set_xticks(x_ticks)
+
+    remove_frame(ax)
+    ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize,length = tick_length)
+    ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize,length = tick_length/2)
+    xlim = xlim or (6, 80)
+    manage_ax_lims(xlim, xlim , ax, this_ylim, this_ylim)
+    
+
+    if xaxis_invert:
+        ax.invert_xaxis()
+    if legend:
+        
+        leg = ax.legend(fontsize = legend_font_size , frameon = False, bbox_to_anchor = [0.6,0.1])#loc = legend_loc,  )
+        [l.set_linewidth(leg_lw) for l in leg.get_lines()]
+        
+    if coef != 1:
+        ylabel = r'$(\times 10^{-' + str(round(np.log10(coef))) +'})$'
+    else:
+        ylabel = ' '
+        
+    if ylabel != None:
+        ax.set_ylabel(ylabel, fontsize = tick_label_fontsize)
+
             
-            leg = ax.legend(fontsize = legend_font_size , frameon = False, bbox_to_anchor = [0.6,0.1])#loc = legend_loc,  )
-            [l.set_linewidth(leg_lw) for l in leg.get_lines()]
+    if span_beta:
         
+        ax.axvspan(12, 30, color='lightgrey', alpha=0.5, zorder=0, ec = None)
+    
         
-def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
+def nuc_specific_PSD_comparison(filenames, name_list, color_dict, n_g_list, xlim = None, ylim = None,
                                inset_props = [0.6, 0.6, 0.4, 0.4], ax = None, inset = False,  ylim_inset = None,
                                inset_yaxis_loc = 'right', inset_name = 'D2', err_plot = 'fill_between', legend_loc = 'lower right',
                                plot_lines = False, tick_label_fontsize = 15, legend_font_size = 10, 
                                normalize_PSD = False, include_AUC_ratio = False, x_y_label_size = 10,
                                ylabel_norm = 'Norm. Power ' , log_scale = 0,  f_decimal = 1, xlim_inset = None,
                                ylabel_PSD = 'PSD', f_in_leg = True, axvspan_color = 'grey', vspan = False,
-                               xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 8,
+                               xlabel = 'Frequency (Hz)', peak_f_sd = False, legend = True, tick_length = 3,
                                leg_lw = 2.5, span_beta = True, x_ticks = None, name_fontsize = 8,  coef = 1, coef_inset = 100,
-                               y_ticks = None, xlabel_y = -0.05, xaxis_invert =False, leg_list = [], ls_list = [ '--', '-']):
-    fig= plt.figure()
+                               y_ticks = None, xlabel_y = -0.05, xaxis_invert =False, leg_list = [], ls_list = [ '--', '-'],
+                               remove_x_tick_labels = False, outer = None, title = True, fig = None, loop = None):
+
+    if outer == None:
+        outer = gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)[0]
+        fig= plt.figure()
+
+    
     n_subplots = len(name_list)
+    inner = gridspec.GridSpecFromSubplotSpec(1,n_subplots,
+                    subplot_spec=outer, wspace=0.35, hspace=1)
     n_g = 0
     
     c = [
@@ -5255,13 +5268,16 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
         color_dict,
         {name:'grey' for name in name_list}]
     for j, name in enumerate(name_list):
-        
-        ax = fig.add_subplot(1, n_subplots, j + 1)
+        # ax = fig.add_subplot(1, n_subplots, j + 1)
+        ax = plt.Subplot(fig, inner[j])
         # ax.annotate(name, xy = (0.8,0.5), xycoords='axes fraction', color = color_dict[name],
         #             fontsize = name_fontsize )
-        ax.set_title(name,color = color_dict[name],
+        if title:
+            ax.set_title(name,color = color_dict[name],
                     fontsize = name_fontsize  )
-       
+            
+        if loop =='Arky' or loop == 'FSI': 
+           xlim_inset = (0,60)
         plot_all_conditions(ax, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim, ylim = ylim,
                                        inset_props = inset_props,   
                                         err_plot = err_plot, legend_loc = legend_loc,
@@ -5272,28 +5288,29 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
                                        xlabel = xlabel, peak_f_sd = peak_f_sd, legend = legend, tick_length = tick_length,
                                        leg_lw = leg_lw, span_beta = span_beta, x_ticks = x_ticks, name_fontsize = name_fontsize,  coef = coef,
                                        y_ticks = y_ticks, xlabel_y = xlabel_y, xaxis_invert =xaxis_invert, leg_list = leg_list, ls_list = ls_list)
-
+        
+        if remove_x_tick_labels:
+            ax.set_xticklabels([])
         if inset:
     
             axins = ax.inset_axes(
                        inset_props )
-            if coef_inset != 1:
-                ylabel_inset = r'$(\times 10^{-' + str(round(np.log10(coef_inset))) +'})$'
-            else:
-                ylabel_inset = ' '
+
             plot_all_conditions(axins, name, n_g, c, filenames, name_list, color_dict, n_g_list, xlim = xlim_inset, ylim = ylim_inset,
                                            inset_props = inset_props,
                                             err_plot = err_plot, legend_loc = legend_loc,
                                            plot_lines = plot_lines, tick_label_fontsize = tick_label_fontsize/1.5, legend_font_size = legend_font_size, 
                                            normalize_PSD = normalize_PSD, include_AUC_ratio = include_AUC_ratio, x_y_label_size = x_y_label_size,
                                             log_scale = log_scale,  f_decimal = f_decimal, lw = 0.5, 
-                                           ylabel = ylabel_inset, f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
+                                            f_in_leg = f_in_leg, axvspan_color = axvspan_color, vspan = vspan,
                                            xlabel = xlabel, peak_f_sd = peak_f_sd, legend = False, tick_length = tick_length / 1.5,
                                            leg_lw = leg_lw, span_beta = span_beta, x_ticks = [0,40,80], name_fontsize = name_fontsize,  coef = coef_inset,
                                            y_ticks = y_ticks, xlabel_y = xlabel_y, xaxis_invert =xaxis_invert, leg_list = leg_list, ls_list = ls_list)
             set_minor_locator(axins, n = 2, axis = 'both')
-    set_minor_locator_all_axes(fig, n = 2, axis = 'x')
-    set_minor_locator_all_axes(fig, n = 4, axis = 'y')
+            fig.add_subplot(ax)
+
+    set_minor_locator_all_axes(fig, n = 2, axis = 'x', tick_length = tick_length)
+    set_minor_locator_all_axes(fig, n = 4, axis = 'y', tick_length = tick_length)
 
     fig.text(0.5, xlabel_y, xlabel, ha='center',
                  va='center', fontsize=x_y_label_size)
@@ -5311,6 +5328,7 @@ def nuc_specific_PSD_comarison(filenames, name_list, color_dict, n_g_list, xlim 
                      rotation='vertical', fontsize=x_y_label_size)
     if vspan:
         ax.axvspan(*ax.get_xlim(), alpha=0.2, color=axvspan_color, ec = None)
+    
 
     return fig
 

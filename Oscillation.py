@@ -811,7 +811,7 @@ def freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6, n = 100, plot = True)
     
     tau_inh_list = np.linspace(4, 24, n) / 1000
 
-    func_dict = {'Proto loop': {'func': solve_1_nucleus, 'x0': np.linspace(200,100, n)},
+    func_dict = {'Proto loop': {'func': solve_1_nucleus, 'x0': np.linspace(500,400, n)},
                  'STN loop': {'func': solve_2_nuclei, 'x0':  np.linspace(100,60, n)},
                  'FSI loop': {'func': solve_3_nuclei, 'x0': np.linspace(130,45, n)},#120},
                  'Arky loop': {'func': solve_3_nuclei, 'x0': np.linspace(100, 50, n)}} 
@@ -7712,7 +7712,7 @@ ax.legend(fontsize=10, frameon=False)
 save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
              size=(5, 3))
 # %% Transition to DD collective, all loops
-
+path_lacie = path
 mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
 plt.close('all')
 N_sim = 1000
@@ -7721,7 +7721,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.1
-t_sim = 1500
+t_sim = 6500
 t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
@@ -7764,7 +7764,7 @@ G = {}
 
 
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 10},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
        
@@ -7773,8 +7773,22 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+      
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
+       
+#       ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
       
 # g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
 # G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
@@ -13658,7 +13672,9 @@ figsize = (1.8, 1.2 * len(n_g_list) ) # all loops
 
 save_pdf_png(fig, filename.split('.')[0] + '_PSD',
               size=figsize)
+
 # %% nuc_specific_PSD_comarison
+
 
 plt.close('all')
 nuc = 'STN'
@@ -13680,27 +13696,8 @@ filenames = [
 
 ]
 filename =  loop + '-loop_only_with_DD_comparison'
-leg_list = ['Discon','STN-loop','DD']
-ylim = {
-   'STN-loop':
-    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
-    'FSI-loop':
-    {'STN': (-0.5,14), 'Proto': (-.5,150), 'D2':(-0.0005, 0.82), 'FSI':(-0.05, 12), 'Arky':(-0.5,3)},
-    'Proto-loop':
-    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
-    'Arky-loop':
-    {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)}
-    }
-ylim_inset = {
-    'STN-loop':{
-        'STN': (-0.5,13), 'Proto': (-.5,9), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
-    'FSI-loop':{
-        'STN': (-0.5,14/2), 'Proto': (-.5,150/2), 'D2':(-0.0005, 0.82/2), 'FSI':(-0.05, 12/2), 'Arky':(-0.5,3/2)},
-    'Proto-loop':{
-        'STN': (-0.5,13), 'Proto': (-.5,7), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
-    'Arky-loop':{
-        'STN': (-0.5,13), 'Proto': (-.5,75), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
-    }
+leg_list = ['Discon', loop + '-loop', 'DD']
+
 
 ls_list = ['-','-', '--']
 # filenames = [
@@ -13708,11 +13705,15 @@ ls_list = ['-','-', '--']
 #     os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' )]
 # filename = 'healthy_rest_no_connection_comparison'
 # leg_list =['Disconnected','Healthy anesthetized']
-# ylim = {'STN': (-0.5,8), 'Proto': (-.5,49), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 3.5), 'Arky':(-0.5,18)}
+ylim = {'STN': (-0.5,8), 'Proto': (-.5,49), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 3.5), 'Arky':(-0.5,18)}
 
 ylim[loop + '-loop'] = {k:( -v[1] / 20, v[1]) for k,v in ylim[loop + '-loop'].items()}
 ylim_inset[loop + '-loop'] = {k:( -v[1]/20, v[1]) for k,v in ylim_inset[loop + '-loop'].items()}
-
+conf_inset = {'STN': 100, 
+              'FSI': 10,
+              'Arky': 100,
+              'Proto': 10,
+              'D2': 10}
 coef = 1
 coef_inset= 100
 inset = True
@@ -13758,7 +13759,108 @@ data = load_pickle(filenames[1])
 # plt.plot(data['Proto', 'pop_act'][0,0,:])
 
 
+# %% nuc_specific_PSD_comarison
 
+
+loop_list= ['FSI', 'Arky', 'STN', 'Proto']
+remove_x_tick_labels = True
+fig = plt.figure()
+outer = gridspec.GridSpec(len(loop_list), 1, wspace=.2, hspace=.2)
+for c, loop in enumerate(loop_list):
+    filenames = [
+        # os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' ),
+        os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_no_connection.pkl' ),
+        os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_'+ loop +'-loop.pkl'),
+        os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
+    
+    ]
+    filename =  'loop_specific_only_with_DD_comparison'
+    leg_list = ['Discon', loop + '-loop', 'DD']
+    ylim = {
+       'STN-loop':
+        {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
+        'FSI-loop':
+        {'STN': (-0.5,14), 'Proto': (-.5,150), 'D2':(-0.0005, 0.82), 'FSI':(-0.05, 12), 'Arky':(-0.5,3)},
+        'Proto-loop':
+        {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)},
+        'Arky-loop':
+        {'STN': (-0.5,14), 'Proto': (-.5,5), 'D2':(-0.0005, 0.1), 'FSI':(-0.05, .5), 'Arky':(-0.5,3)}
+        }
+    ylim_inset = {
+        'STN-loop':{
+            'STN': (-0.5,13), 'Proto': (-.5,9), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+        'FSI-loop':{
+            'STN': (-0.5,13), 'Proto': (-.5,50), 'D2':(-0.0005,0.3), 'FSI':(-0.05, 3), 'Arky':(-0.5,4)},
+        'Proto-loop':{
+            'STN': (-0.5,13), 'Proto': (-.5,7), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+        'Arky-loop':{
+            'STN': (-0.5,13), 'Proto': (-.5,90), 'D2':(-0.05, 0.8), 'FSI':(-0.05, 2), 'Arky':(-0.5,4)},
+        }
+    
+    ls_list = ['-','-', '--']
+    
+    ylim[loop + '-loop'] = {k:( -v[1] / 20, v[1]) for k,v in ylim[loop + '-loop'].items()}
+    ylim_inset[loop + '-loop'] = {k:( -v[1]/20, v[1]) for k,v in ylim_inset[loop + '-loop'].items()}
+    
+    
+    name_list = ['D2', 'FSI', 'Arky', 'Proto',  'STN']
+
+    coef = {name: 1 for name in name_list}
+    inset = True
+    # inset = False
+    xlim_inset = (0, 80)
+    f_in_leg = False
+    legend = True
+    xaxis_invert = False
+    x_ticks = [0,20,40,60,80]
+    xlabel_y = -0.1
+    axvspan_c = axvspan_color['DD_anesth']
+    vspan = False
+    span_beta = True
+    
+    
+    n_g_list = np.array([0])
+    ylabel = 'Normalized PSD ' #+ r'$(\times 10^{-2})$'
+    xlabel = 'Frequency (Hz)'
+    x_y_label_size = 8 ; tick_label_fontsize = 8
+    
+    if c == 0:
+        title = True
+        coef_inset = {'STN': 100, 
+                      'FSI': 10,
+                      'Arky': 100,
+                      
+                      'Proto': 10,
+                      'D2': 10}
+    else:
+        title = False
+        coef_inset = {'STN': 100, 
+                      'FSI': 100,
+                      'Arky': 100,
+                      'Proto': 100,
+                      'D2': 100}
+    if c == len(loop_list) - 1:
+        remove_x_tick_labels = False
+   
+    fig = nuc_specific_PSD_comparison(filenames, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
+                      # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
+                      err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 5, 
+                      ylim_inset = ylim_inset[loop + '-loop'], xlim_inset = xlim_inset, loop = loop,
+                      legend_loc='lower right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 4,
+                       f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
+                      axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = False, f_decimal = 1, coef_inset = coef_inset,
+                        x_ticks = x_ticks,  ylim = ylim[loop + '-loop'], coef = coef, inset = inset, ls_list = ls_list,
+                       y_ticks = None, leg_lw = 1, leg_list =leg_list, title = title,outer = outer[c], fig = fig,
+                       xlabel = xlabel, ylabel_norm =ylabel, remove_x_tick_labels = remove_x_tick_labels)
+# fig.tight_layout()
+figsize = (1.8* len(name_list), 1.2 * len(loop_list)  ) # all loops
+
+save_pdf_png(fig, os.path.join(path, 'Beta_power', filename),
+              size=figsize)
+
+# data = load_pickle(filenames[1])
+# plt.figure()
+# plt.plot(data['Proto', 'pop_act'][0,0,:])
 
 
 # %% Cross correlation & coherence
@@ -13834,6 +13936,7 @@ save_pdf(fig_cc, os.path.join(path_cc_coh,  f'Neuron_CC_{state}_n_{2000}_{durati
 # fig = plot_neuron_auto_correlation(nuclei_dict, 2, *duration, 
 #                                  name_list)
 # plot_cross_correlation_individual_pairs(nuclei_dict[name_1][0], nuclei_dict[name_2][0], 1, *duration) 
+
 
 # %% Single action potential digram
 
