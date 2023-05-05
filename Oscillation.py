@@ -174,7 +174,8 @@ neuronal_consts = {
         # Paz et al. 2005 GAERS -59 ±  1.2 sem = 0.4 in-vivo intracellular electric stim Fig.6B n = 9 temp = (36.5–37.5°C) sd decreased to match FR dist of De la Crompe 2020/ 
         # 'u_rest': {'mean': -60.3, 'var': 5.12, 'truncmin': -1000, 'truncmax': -46}, 
         # Beurrier et al. 1999 Table 1. n = 41 AHP range = (-50, -76) rat in vitro electric stim temp = 30 ±  2 
-        'membrane_time_constant': {'mean': 5.13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 10},  
+        # 'membrane_time_constant': {'mean': 5.13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 10},  
+        'membrane_time_constant': {'mean': 13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 25},  # for JN review process
         # Paz et al. 2005 GAERS 5.13 ±  2.38 sem = 0.97  in-vivo intracellular electric stim Fig.6B n = 6 temp = (36.5–37.5°C) sd decreased to match FR dist of De la Crompe 2020/ 
         # Kita et al. 1983 reports 6 ± 2 n=7  range = (4,9)
         'spike_thresh': {'mean': -50.8, 'var': 0.5}}  
