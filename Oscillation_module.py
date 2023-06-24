@@ -8797,6 +8797,7 @@ def mvt_step_ext_input(D_mvt, t_mvt, delay, value, t_series):
     ext_add_inp = value * np.ones_like(t_series)
     ind = np.logical_or(t_series < t_mvt + delay, t_series > t_mvt + D_mvt + delay)
     ext_add_inp[ind] = 0
+    
     return ext_add_inp
 
 def calculate_number_of_connections(N_sim, N_real, number_of_connection):

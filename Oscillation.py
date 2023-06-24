@@ -27,11 +27,24 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/home/shiva/BG_Oscillations'
+root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
 path = os.path.join(root, 'Outputs_SNN')
 path_rate = os.path.join(root, 'Outputs_rate_model')
+path_lacie = path
+isExist = os.path.exists(path)
+if not isExist:
+
+   # Create a new directory because it does not exist
+   os.makedirs(path)
+   
+isExist = os.path.exists(path_rate)
+if not isExist:
+
+   # Create a new directory because it does not exist
+   os.makedirs(path_rate)
 file_dir = os.path.dirname(__file__)
 sys.path.append(file_dir)
 tau_Proto = 12.94
@@ -3761,7 +3774,9 @@ name_list = [name1, name2]
 
 np.random.seed(1)
 state = 'rest' # set
-g = -0.029 # rest
+g = -0.029 # rest tau_m = 5
+g = -0.02 # rest tau_m  = 13
+
 # g = -0.04
 # state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
@@ -3924,8 +3939,8 @@ _, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak
 # # ax.axhline(x_l, ls = '--', c = 'grey')
 # # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 ax.set_xlim(0, 100)
-save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
-              size = fig_sizes['spectrum'])
+# save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
+#               size = fig_sizes['spectrum'])
 
 
 
@@ -10406,8 +10421,8 @@ G = {}
 
 
 state = 'rest' # set
-g = -0.029 # rest
-
+g = -0.029 # rest tau_m = 5
+g = -0.02 # rest tau_m = 13
 # state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
 
@@ -10487,7 +10502,7 @@ G_dict = {(name2, name1): { 'mean' : -g * x *  K[name2, name1]},
 
 filename = 'STN_Proto_N_1000_T_' + str(t_sim) + '_' + str(n) + '_pts_' + str(
     n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') +  \
-     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '.pkl'
+     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '_tau_STN_13.pkl'
 
 # G_dict = {k: v * K[k] for k, v in G_dict.items()}
 
@@ -13533,7 +13548,7 @@ save_pdf_png(fig, figname, size=(1.8, len(name_list) * 1))
 
 state_list = ['rest']#, 'DD_anesth', 'awake_rest', 'mvt']
 # state_list = ['awake_rest']
-n_runs = 5
+n_runs = 8
 t = 10000
 state = 'rest'
 filename_dict = {
@@ -13600,14 +13615,15 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 # x_y_label_size = 8 ; tick_label_fontsize = 12
 
 
-# loop = 'STN-Proto'
-# filename = filename_dict[loop][0]
-# name_list = ['STN', 'Proto']
-# n_g_list = np.array([0])
-# three_nuc_raster_y = (60 + 5) * 0.05
-# figsize = (2.5, three_nuc_raster_y * 2/3)
-# ylim = [0, 8]
-# x_y_label_size = 8 ; tick_label_fontsize = 12
+loop = 'STN-Proto'
+filename = filename_dict[loop][0]
+filename = filename_dict[loop][0].split('.')[0] + '_tau_STN_13.pkl'
+name_list = ['STN', 'Proto']
+n_g_list = np.array([0])
+three_nuc_raster_y = (60 + 5) * 0.05
+figsize = (2.5, three_nuc_raster_y * 2/3)
+ylim = [0, 8]
+x_y_label_size = 8 ; tick_label_fontsize = 12
 
 
 # loop = 'Proto-Proto'
@@ -13645,7 +13661,19 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 # legend = False
 # xlabel_y = -0.05
 
-# fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
+fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
+                  # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
+                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
+                  legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
+                    f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
+                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = True, f_decimal = 1,
+                    x_ticks = x_ticks, xaxis_invert = xaxis_invert, ylim = ylim,
+                    y_ticks = [0, ylim[-1]], leg_lw = 1,
+                    xlabel = xlabel, ylabel_norm =ylabel)
+# filename_list = [os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' ),
+#               os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )   
+#     ]
+# fig = PSD_summary_comparison(filename_list, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
 #                   # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
 #                   err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
 #                   legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
@@ -13654,22 +13682,10 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 #                     x_ticks = x_ticks, xaxis_invert = xaxis_invert, ylim = ylim,
 #                    y_ticks = [0, ylim[-1]], leg_lw = 1,
 #                    xlabel = xlabel, ylabel_norm =ylabel)
-filename_list = [os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' ),
-              os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )   
-    ]
-fig = PSD_summary_comparison(filename_list, name_list, color_dict, n_g_list, xlim=(0, 80), # inset_props=inset_props,
-                  # err_plot = 'errorbar', inset_name=None)#, inset_yaxis_loc = 'left')
-                  err_plot='fill_between', inset_name=None, plot_lines=False, legend_font_size = 6, 
-                  legend_loc='upper right', x_y_label_size =x_y_label_size, tick_label_fontsize = tick_label_fontsize, tick_length = 6,
-                   f_in_leg = f_in_leg,  xlabel_y = xlabel_y, legend = legend, log_scale = 2, span_beta = span_beta,
-                  axvspan_color = axvspan_c, vspan = vspan, normalize_PSD = True, f_decimal = 1,
-                    x_ticks = x_ticks, xaxis_invert = xaxis_invert, ylim = ylim,
-                   y_ticks = [0, ylim[-1]], leg_lw = 1,
-                   xlabel = xlabel, ylabel_norm =ylabel)
 
 # fig = remove_all_x_labels(fig) # for individual loop
 # figsize = (2.5, 2.5 * len(n_g_list) / 2.5) # individual loop
-figsize = (1.8, 1.2 * len(n_g_list) ) # all loops
+# figsize = (1.8, 1.2 * len(n_g_list) ) # all loops
 
 save_pdf_png(fig, filename.split('.')[0] + '_PSD',
               size=figsize)
@@ -14113,6 +14129,94 @@ def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run,
 plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
                          color_dict_loops, xlabels)
 
+# %% Boxplot frequency for STN tau_m changes
+
+state_list = ['rest'] #, 'DD_anesth', 'awake_rest', 'mvt']
+T_list = [10000] * 2
+n_run = 8
+
+
+filename_dict = {
+    
+    'Proto-Proto': [('Proto_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
+                      '_A_' + get_str_of_A_with_state(['Proto'], Act, state)) for state,t in zip(state_list,T_list)],
+
+    'STN-Proto': [('STN_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
+                      '_A_' + get_str_of_A_with_state(['STN', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)],
+
+    'FSI Loop': [('D2_Proto_FSI_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
+                      '_A_' + get_str_of_A_with_state(['FSI', 'D2', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)],
+
+    'Arky Loop': [('D2_Proto_Arky_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state +  
+                      '_A_' + get_str_of_A_with_state(['Arky', 'D2', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)]
+}
+
+filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
+                         for file in filename_list] 
+                 for key, filename_list in filename_dict.items()}
+
+loop_list = list( filename_dict.keys() )
+
+color_list = [color_dict['Proto'], color_dict['STN'],
+              color_dict['FSI'], color_dict['Arky']]
+
+color_dict_loops = {'Proto-Proto': color_dict['Proto'], 'STN-Proto' :color_dict['STN'],
+                    'FSI Loop': color_dict['FSI'], 'Arky Loop': color_dict['Arky']}
+
+
+xlabels = loop_list    
+# size = (2, 4)
+size = (4, 2.5)
+
+def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
+                          color_dict_loops, xlabels):
+    
+    fig, ax = plt.subplots()
+    state = state_list[0]
+    xs = []
+    vals = []
+    freq = np.zeros((n_run, len(list( filename_dict. keys()))))
+    
+    for i, (loop, filename_list) in enumerate( filename_dict.items() ):
+        data = load_pickle(filename_list[0])
+        base_freq = data[('Proto', 'base_freq')]
+        freq[:, i] = base_freq
+        xs.append(np.random.normal(i+1, 0.04, n_run))
+        vals.append(base_freq)
+
+    bp = ax.boxplot(freq, labels=loop_list, patch_artist=True,
+                    whis=(0, 100), zorder=0, widths = 0.3)
+    
+    bp = set_boxplot_prop(bp, color_list, linewidths = {'box': 0.5, 'whiskers': 0.5,
+                                                        'caps': 0.5, 'median': .5})
+    
+    for x, val, c in zip(xs, vals, color_list):
+        ax.scatter(x, val, c=c, alpha=0.4, s=10, ec='k', zorder=1, lw = 0.5)
+        
+        set_minor_locator(ax, n = 4, axis = 'y')
+
+    ax.tick_params(axis='x', labelsize=10, rotation=40, length = 8)
+    ax.tick_params(axis='y', labelsize=12, length = 8)
+    ax.tick_params(axis='y', which = 'minor', labelsize=12, length = 4)
+
+    ax.axhspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+    ax.set_ylabel('Frequency (Hz)', fontsize = 18)
+    set_y_ticks(fig, [0, 40 ,80])
+    remove_frame(ax)
+    ax.set_ylim(0, 80)
+    for tick in ax.xaxis.get_majorticklabels():
+        tick.set_horizontalalignment("right")
+    # set_boxplot_prop(bp, color_list)
+    save_pdf_png(fig, os.path.join(path, 'mean_F_all_loops_' + state),
+                  size=size)
+    # ax.set_xlabel('')
+    # ax.set_ylabel('')
+
+    
+
+
+plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
+                         color_dict_loops, xlabels)
 # %% Boxplot frequency vs loop (tau explore FSI loop)
 
 state_list = ['rest'] #, 'DD_anesth', 'awake_rest', 'mvt']
