@@ -26,8 +26,8 @@ import math
 from pygifsicle import optimize
 import itertools, random
 
-root = '/home/shiva/BG_Oscillations'
-root = r'C:\Users\Shiva\BG_Oscillations'
+root = '/Users/shivaa.lindi/BG_Oscillations'
+# root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -536,6 +536,7 @@ FR_ext_range = {
     #           'DD_anesth': [1/300, 2/300], 'mvt': [1/300, 2/300],  
     #           'trans_Nico_mice': [1/300, 2/300],  'trans_Kita_rat': [1/300, 2/300]},
     
+    ## tau_m = 5.13
     'STN': {'rest': np.array([8/1000, 11/1000]), 'awake_rest': np.array([9.5/1000, 11.5/1000]), 
             'DD_anesth': [5/1000, 20/1000], 'mvt':  [9/1000, 12/1000], 
             'trans_Nico_mice': np.array([8.5/1000, 12/1000]), 'trans_Kita_rat': np.array([8/1000, 11/1000]),
@@ -1730,8 +1731,8 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 
 ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
-neuronal_const['STN']['membrane_time_constant']= {'mean': ta_m[1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
-FR_ext_range['STN']['rest'] = np.array([8/1000, 11/1000])
+neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+FR_ext_range['STN']['rest'] = np.array([5/1000, 10/1000])
 noise_variance['rest']['STN'] = 5
 plt.close('all')
 name = 'D2'
@@ -1788,7 +1789,7 @@ if_plot = True
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = False
-use_saved_FR_ext = True
+# use_saved_FR_ext = True
 
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
@@ -1866,7 +1867,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
                                                        receiving_pop_list, nuclei_dict, t_list, all_FR_list=all_FR_list,
                                                         n_FR=n_FR, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity,
                                                        set_FR_range_from_theory=False, method='collective', save_FR_ext=True,
-                                                       use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state)
+                                                       use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state, time = True)
 
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 if save_mem_pot_dist:

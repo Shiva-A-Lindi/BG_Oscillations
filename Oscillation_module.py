@@ -3419,7 +3419,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                         all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
                         use_saved_FR_ext = False, save_FR_ext = True, normalize_G_by_N = False, state = 'rest',
-                        change_states = True, plot_syn_weight_hist = False):
+                        change_states = True, plot_syn_weight_hist = False, time = False):
     
     '''find number of connections and build J matrix, set ext inputs as well
         Note: end_of_nonlinearity has been modified to be passed as dict (incompatible with single neuron setting)'''
@@ -3428,6 +3428,8 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
     receiving_class_dict = create_receiving_class_dict(receiving_pop_list, nuclei_dict)
     
     FR_ext_all_nuclei = {}
+    if time:
+        start = timeit.default_timer()
     
     if nuclei_dict[ list( nuclei_dict.keys())[0]][0].neuronal_model != 'rate':
         
@@ -3470,7 +3472,9 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
                     
                 nucleus.set_ext_input(A, A_mvt, D_mvt, t_mvt, t_list, dt, 
                                       end_of_nonlinearity = end_of_nonlinearity[nucleus.name][state])
-
+    if time:
+        stop = timeit.default_timer()
+        print(f"runtime = {stop - start}")
     return receiving_class_dict, nuclei_dict
 
 def save_FR_ext_to_pkl(nuclei_dict, path, dt = 0.1):
