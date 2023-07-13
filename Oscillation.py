@@ -1728,10 +1728,15 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 # %% Deriving F_ext from response curve of collective behavior in heterogeneous mode
 
+
+ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
+neuronal_const['STN']['membrane_time_constant']= {'mean': ta_m[1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+FR_ext_range['STN']['rest'] = np.array([8/1000, 11/1000])
+noise_variance['rest']['STN'] = 5
 plt.close('all')
 name = 'D2'
 # name = 'FSI'
-# name = 'STN'
+name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
 
