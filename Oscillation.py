@@ -7792,18 +7792,31 @@ G = {}
 
 
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 10},#}, ## free
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
-       
-      ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 10},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
+       
+#       ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
       
 
 # g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
@@ -8229,8 +8242,8 @@ beta_induction_method = 'excitation'
 induction_nuc_name = 'Proto'
 beta_induction_method = 'inhibition'
 
-induction_nuc_name = 'STN'
-beta_induction_method = 'excitation'
+# induction_nuc_name = 'STN'
+# beta_induction_method = 'excitation'
 # beta_induction_method = 'inhibition'
 # state_1 = '_'.join(['induction', induction_nuc_name, beta_induction_method])
 
@@ -8247,6 +8260,9 @@ amplitude_dict = {'inhibition':{'Proto': 7.1, 'STN': 2.30},
 amplitude_dict = {'inhibition':{'Proto': 6.5, 'STN': 2.30}, 
                   'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**1
 
+amplitude_dict = {'inhibition':{'Proto': 6.7, 'STN': 2.30}, 
+                  'excitation': {'D2': 15, 'STN': 7.5}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
+
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
 end_dict = {induction_nuc_name: int(t_sim / dt)}
@@ -8257,16 +8273,29 @@ print( " transition from " , state_1, ' to ',  induction_nuc_name, ' ', beta_ind
 name_list = [name1, name2, name3, name4, name5]
 
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz not tuned in DD?
