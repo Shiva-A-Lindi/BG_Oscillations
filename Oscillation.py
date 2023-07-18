@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-# root = r'C:\Users\Shiva\BG_Oscillations'
+root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -451,7 +451,7 @@ noise_variance = {
                 # 'Proto': 16, # tau_m = 25.4
                 # 'Proto': 9, # tau_m = 4
                 'Proto': 12, # tau_m = 12.94
-               'STN': 5., 
+               'STN': 5, 
                'FSI':  18, 
                # 'D2': 16, # FR = 1.4
                'D2': 15, # FR = 0.5
@@ -1731,28 +1731,33 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 
 ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
-neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
-FR_ext_range['STN']['rest'] = np.array([5/1000, 10/1000])
-noise_variance['rest']['STN'] = 5
+
 plt.close('all')
-name = 'D2'
+# name = 'D2'
 # name = 'FSI'
 name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
 
-state = 'rest'
+# state = 'rest'
 # state = 'awake_rest'
-# state = 'DD_anesth'
+state = 'DD_anesth'
 # state = 'mvt'
 # state = 'trans_Nico_mice'
 # state = 'trans_Kita_rat'
 # state = 'induction_STN_excitation'
 # state = 'induction_Proto_inhibition'
 
+
+neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+FR_ext_range['STN'][state] = np.array([5/1000, 10./1000])
+noise_variance[state]['STN'] = 6
+
+
+
 print('desired activity =', Act[state][name])
 save_mem_pot_dist = True
-# save_mem_pot_dist = False
+save_mem_pot_dist = False
 
 FSI_on_log = False
 N_sim = 1000
@@ -3781,7 +3786,9 @@ name_list = [name1, name2]
 np.random.seed(1)
 state = 'rest' # set
 g = -0.029 # rest tau_m = 5
-g = -0.02 # rest tau_m  = 13
+g = -0.025 # rest tau_m  = 7.75
+# g = -0.023 # rest tau_m  = 10.38
+# g = -0.02 # rest tau_m  = 13
 
 # g = -0.04
 # state = 'DD_anesth' # set
@@ -10411,13 +10418,13 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 dt = 0.1
-t_sim = 10000
+t_sim = 11000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
 duration_base = [int(1000/dt), int(t_sim/dt)]
 
-n_windows = 9
+n_windows = 10
 name2 = 'Proto'
 name1 = 'STN'
 name_list = [name1, name2]
@@ -10428,7 +10435,9 @@ G = {}
 
 state = 'rest' # set
 g = -0.029 # rest tau_m = 5
-g = -0.02 # rest tau_m = 13
+# g = -0.025 # rest tau_m  = 7.75
+# g = -0.023 # rest tau_m  = 10.38
+# g = -0.02 # rest tau_m  = 13
 # state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
 
@@ -10506,9 +10515,9 @@ G_dict = {(name2, name1): { 'mean' : -g * x *  K[name2, name1]},
           (name1, name2): { 'mean' : g * x *  K[name1, name2]}
           }
 
-filename = 'STN_Proto_N_1000_T_' + str(t_sim) + '_' + str(n) + '_pts_' + str(
-    n_run) + '_runs' + '_dt_' + str(dt).replace('.', '-') +  \
-     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + '_tau_STN_13.pkl'
+filename = f'STN_Proto_N_1000_T_{t_sim}_{n}_pts_{n_run}_runs_dt_' + str(dt).replace('.', '-') +  \
+     '_A_' + get_str_of_nuclei_FR(nuclei_dict, name_list) + f'_tau_STN_' + \
+         str(round(neuronal_consts['STN']['membrane_time_constant']['mean'], 2)).replace('.','-') + '.pkl'
 
 # G_dict = {k: v * K[k] for k, v in G_dict.items()}
 
@@ -14137,29 +14146,16 @@ plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run,
 
 # %% Boxplot frequency for STN tau_m changes
 
-state_list = ['rest'] #, 'DD_anesth', 'awake_rest', 'mvt']
-T_list = [10000] * 2
+plt.close('all')
 n_run = 8
+filename_dict = { str(round(tau_m, 2)): "STN_Proto_N_1000_T_11000_1_pts_8_runs_dt_0-1_A_STN_7_Proto_39-84_tau_STN_"
+                 + str(round(tau_m, 2)).replace('.','-')
+                 for tau_m in np.linspace(5.13, 13, endpoint=True, num =4)}
 
 
-filename_dict = {
-    
-    'Proto-Proto': [('Proto_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
-                      '_A_' + get_str_of_A_with_state(['Proto'], Act, state)) for state,t in zip(state_list,T_list)],
-
-    'STN-Proto': [('STN_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
-                      '_A_' + get_str_of_A_with_state(['STN', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)],
-
-    'FSI Loop': [('D2_Proto_FSI_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state + 
-                      '_A_' + get_str_of_A_with_state(['FSI', 'D2', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)],
-
-    'Arky Loop': [('D2_Proto_Arky_N_1000_T_'+ str(t) + '_1_pts_' + str(n_run) + '_runs_dt_0-1' + #'_' + state +  
-                      '_A_' + get_str_of_A_with_state(['Arky', 'D2', 'Proto'], Act, state)) for state,t in zip(state_list,T_list)]
-}
-
-filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
-                         for file in filename_list] 
-                 for key, filename_list in filename_dict.items()}
+filename_dict = { key : os.path.join(path, 'Beta_power', filename + '.pkl')
+                         
+                 for key, filename in filename_dict.items()}
 
 loop_list = list( filename_dict.keys() )
 
@@ -14169,22 +14165,22 @@ color_list = [color_dict['Proto'], color_dict['STN'],
 color_dict_loops = {'Proto-Proto': color_dict['Proto'], 'STN-Proto' :color_dict['STN'],
                     'FSI Loop': color_dict['FSI'], 'Arky Loop': color_dict['Arky']}
 
-
+color_dict_loops = {k: 'k' for k in  filename_dict.keys()}
 xlabels = loop_list    
 # size = (2, 4)
 size = (4, 2.5)
 
-def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
+def plot_loop_state_freq(filename_dict, loop_list,  n_run, 
                           color_dict_loops, xlabels):
     
     fig, ax = plt.subplots()
-    state = state_list[0]
+    state = 'rest'
     xs = []
     vals = []
     freq = np.zeros((n_run, len(list( filename_dict. keys()))))
     
     for i, (loop, filename_list) in enumerate( filename_dict.items() ):
-        data = load_pickle(filename_list[0])
+        data = load_pickle(filename_list)
         base_freq = data[('Proto', 'base_freq')]
         freq[:, i] = base_freq
         xs.append(np.random.normal(i+1, 0.04, n_run))
@@ -14207,13 +14203,15 @@ def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run,
 
     ax.axhspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
     ax.set_ylabel('Frequency (Hz)', fontsize = 18)
-    set_y_ticks(fig, [0, 40 ,80])
+    ax.set_xlabel(r'$\tau_m \; (ms)$', fontsize = 18)
+    
+    set_y_ticks(fig, [ 40, 45, 50])
     remove_frame(ax)
-    ax.set_ylim(0, 80)
+    ax.set_ylim(40, 50)
     for tick in ax.xaxis.get_majorticklabels():
         tick.set_horizontalalignment("right")
     # set_boxplot_prop(bp, color_list)
-    save_pdf_png(fig, os.path.join(path, 'mean_F_all_loops_' + state),
+    save_pdf(fig, os.path.join(path, 'STN_mean_F_' + state),
                   size=size)
     # ax.set_xlabel('')
     # ax.set_ylabel('')
@@ -14221,7 +14219,7 @@ def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run,
     
 
 
-plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
+plot_loop_state_freq(filename_dict, loop_list,  n_run, 
                          color_dict_loops, xlabels)
 # %% Boxplot frequency vs loop (tau explore FSI loop)
 

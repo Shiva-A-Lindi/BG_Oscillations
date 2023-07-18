@@ -3391,7 +3391,7 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
             filename_dict[nucleus.name] = os.path.join(path, 
                                                        'FR_ext_' + nucleus.name + 
                                                        '_noise_var_' + str( round(
-                                                                           nucleus.noise_variance , 2)
+                                                                           nucleus.noise_variance, 2)
                                                                            ).replace('.', '-') +
                                                        '_dt_' + str(0.1).replace('.', '-') +
                                                        '_A_' + str(nucleus.basal_firing).replace('.', '-') +
