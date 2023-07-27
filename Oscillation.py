@@ -187,8 +187,8 @@ neuronal_consts = {
         # Paz et al. 2005 GAERS -59 ±  1.2 sem = 0.4 in-vivo intracellular electric stim Fig.6B n = 9 temp = (36.5–37.5°C) sd decreased to match FR dist of De la Crompe 2020/ 
         # 'u_rest': {'mean': -60.3, 'var': 5.12, 'truncmin': -1000, 'truncmax': -46}, 
         # Beurrier et al. 1999 Table 1. n = 41 AHP range = (-50, -76) rat in vitro electric stim temp = 30 ±  2 
-        # 'membrane_time_constant': {'mean': 5.13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 10},  
-        'membrane_time_constant': {'mean': 13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 25},  # for JN review process
+        'membrane_time_constant': {'mean': 5.13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 10},  
+        # 'membrane_time_constant': {'mean': 13, 'var': 0.6 , 'truncmin': 2, 'truncmax': 25},  # for JN review process
         # Paz et al. 2005 GAERS 5.13 ±  2.38 sem = 0.97  in-vivo intracellular electric stim Fig.6B n = 6 temp = (36.5–37.5°C) sd decreased to match FR dist of De la Crompe 2020/ 
         # Kita et al. 1983 reports 6 ± 2 n=7  range = (4,9)
         'spike_thresh': {'mean': -50.8, 'var': 0.5}}  
@@ -341,6 +341,11 @@ tau = {
                      'decay' : {'mean': [28], 'sd' : [5], 'truncmin': [0.5], 'truncmax': [30]}},
     # in vitro Jerome now. Before: 65 was measured from Glajch et al. 2016 [Fig. 2]. They report >200ms
     # ('D1','D2'):{'rise':[3],'decay':[35]}, # Straub et al. 2016
+    ('Arky', 'STN'): {'rise': {'mean' : [0.6], 'sd' : [0.2], 'truncmin': [0.1], 'truncmax': [10]},
+                        'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
+    ('Arky', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.22], 'truncmin': [0.2], 'truncmax': [10]},
+                      'decay' : {'mean' :[6.13], 'sd' : [1.42], 'truncmin': [0.5], 'truncmax': [30]}},
+    
 }
 
 T = {
@@ -371,8 +376,12 @@ T = {
     # Gittis et al 2010 mice in vitro electric stim temp = 31-33 sd = 0.29, range = (0.8, 2)
     ('STN', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}, 
     # Fujimoto & Kita 1993 3 ±  1.3 ipsi Sensorimotor Ctx stim
-    ('D2', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}} 
+    ('D2', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}, 
     # Jaeger & Kita 2016 assumes it's similar to Ctx-STN
+    ('Arky', 'D2'): {'mean': 6.89, 'sd' : 0.6, 'truncmin': 5.8, 'truncmax': 9.9},
+    ('Arky', 'STN'): {'mean': 2.8, 'sd' : 0.6, 'truncmin': 2, 'truncmax': 4.4}
+
+}
 # #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
 # #       # ('FSI', 'Ctx'): 8/12.5 * 10.5 ,# Kita & Kita (2011) x FSI/MSN latency in SW- Mallet et al. 2005
 # #       ('FSI', 'Ctx') : 7.5, # Based on Fig. 2A of Mallet et. al 2005 (average of MC-stim (80-400 micA))
@@ -709,10 +718,14 @@ K_real = {
     # = 51, There are 2840 striatal neurons inside the volume of a spiny dendritic tree
     # (Oorschot, 1996; Kincaid et al., 1998). 5% of which are FSIs n = 140 (Koos and Tepper, 1999), P_connection = 36% Gitties et al. 2011
     ('Proto', 'D2'): round(226 * N_real['D2'] / N_real['Proto']/ n_bouton_per_neuron),
-    # = 3100, Koshimizu et al., 2013 an axon of an indirect projection neuron is 226.
+    # = 3100, Kawaguchi et al., 1990 an axon of an indirect projection neuron is 226.
     ('D2', 'Arky'): 10,
     # estimate
-    ('Arky', 'Proto'): round(442 * N_real['Proto'] / (N_real['Proto'] + N_real['Arky']) / n_bouton_per_neuron)}
+    ('Arky', 'Proto'): round(442 * N_real['Proto'] / (N_real['Proto'] + N_real['Arky']) / n_bouton_per_neuron),
+    ('Arky', 'STN'): round(558 * 0.8 * N_real['STN'] / N_real['Proto'] / n_bouton_per_neuron/5), 
+    ('Arky', 'D2'): round(226 * N_real['D2'] / N_real['Proto']/ n_bouton_per_neuron/5),
+
+}
     # = 104 Sadek et al. 2006
     
 K_real_DD = {
@@ -724,7 +737,11 @@ K_real_DD = {
     ('STN', 'Proto'): K_real[('STN', 'Proto')],
     ('D2', 'Arky'): K_real[('D2', 'Arky')], 
     ('Arky', 'Proto'): K_real[('Arky', 'Proto')],
-    ('Proto', 'Proto'): K_real[('Proto', 'Proto')]}
+    ('Proto', 'Proto'): K_real[('Proto', 'Proto')],
+    ('Arky', 'D2'): K_real[('Arky', 'D2')],
+    ('Arky', 'STN'): K_real[('Arky', 'STN')],
+
+}
 
 K_all = {'rest': K_real, 'DD_anesth': K_real_DD, 
          'awake_rest': K_real, 'mvt': K_real,
@@ -3762,15 +3779,14 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
              size=(6, 5))
 # %% STN-Proto
 
-plt.close('all')
-
+# plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 
 
-dt = 0.1
+dt = 0.005
 t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
@@ -3783,12 +3799,11 @@ name2 = 'Proto'
 name_list = [name1, name2]
 
 
-np.random.seed(1)
 state = 'rest' # set
-g = -0.029 # rest tau_m = 5
-g = -0.025 # rest tau_m  = 7.75
-# g = -0.023 # rest tau_m  = 10.38
-# g = -0.02 # rest tau_m  = 13
+g = -0.029 # rest tau_m STN = 5
+# g = -0.025 # rest tau_m STN = 7.75
+# g = -0.023 # rest tau_m STN = 10.38
+# g = -0.02 # rest tau_m STN = 13
 
 # g = -0.04
 # state = 'DD_anesth' # set
@@ -3840,11 +3855,12 @@ noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 hetero_trans_delays = True
 hetero_tau = True
+random_seed = 210
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, 
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, random_seed = random_seed,
                hetero_trans_delay = hetero_trans_delays, hetero_tau = hetero_tau, Act  = Act) for i in pop_list] for name in name_list}
 
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
@@ -3940,12 +3956,13 @@ lim_oscil_perc = 10
 low_pass_filter = False
 
 fig_spec, ax = plt.subplots(1, 1)
-_, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+blah , f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
                                      include_beta_band_in_legend=False)
-
+print(sum(
+    np.logical_and(f>0, f<100)))
 # fig_spec = remove_all_x_labels(fig_spec)
 
 # # x_l = 0.75
@@ -7749,7 +7766,7 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
-dt = 0.1
+dt = 0.01
 t_sim = 6500
 t_base =  1000
 t_list = np.arange(int(t_sim/dt))
@@ -7793,16 +7810,39 @@ G = {}
 
 
 
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
@@ -8094,8 +8134,8 @@ if 'DD' in state_2:
     # set_x_ticks_one_ax(fig.gca(), )
     # set_minor_locator(fig.gca(), n = 4, axis = 'both')
     
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                  size=(5, 2.))
+    save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+                 size=(5, 2.))
 
     fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
                                                                  labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
@@ -8181,6 +8221,474 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale
 save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
               size=(3, 1.5 * len (name_list)))
 
+
+# %% transition to DD all nuclei Arky -D2/STN added
+path_lacie = path
+mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
+K_ratio = {key :v/K[key] for key, v in K_small.items()}
+dt = 0.1
+t_sim = 6500
+t_base =  1000
+t_list = np.arange(int(t_sim/dt))
+plot_start = 300
+t_transition = plot_start + t_base# int(t_sim / 5)3
+duration_base = np.array( [int(plot_start/dt), int(t_transition/dt)] )
+duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
+t_mvt = t_sim
+D_mvt = t_sim - t_mvt
+n_windows_DD = int((t_sim - 600) / 1000)
+n_windows_base = (t_transition - 300) / 1000
+keep_mem_pot_all_t = False
+# keep_mem_pot_all_t = True
+
+
+name1 = 'FSI'
+name2 = 'D2'
+name3 = 'Proto'
+name4 = 'Arky'
+name5 = 'STN'
+
+state_1 = 'rest'
+state_2 = 'DD_anesth'
+
+
+print( " transition from " , state_1, ' to ', state_2)
+
+name_list = [name3, name5, name4,  name2, name1]
+
+G = {}
+
+
+### Uniform Gs
+# g = -0.0035
+# (G[(name2, name1)], G[(name3, name2)],
+#   G[(name1, name3)], G[(name2, name4)],
+#   G[(name4, name3)], G[(name3, name5)],
+#   G[(name5, name3)], G[(name3, name3)]) = 3* g, 4 * g, 2.5 * g, 2.5 * g, 2.5 * g, 2. * -g , 3. * g , g * 0.1
+# G = {k: v * K[k] for k, v in G.items()}
+
+
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.3},
+      (name4, name2) :{'mean': g * K[name4, name2] * 11},
+      (name4, name5) :{'mean': g * K[name4, name5] * 2.45}
+
+}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 10},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
+       
+#       ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+      
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
+       
+#       ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+      
+# g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.9}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.2},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 6.3},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 0},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+            
+
+          
+# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz scaled for large network
+# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 13.5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 13.5}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 13.5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 3.2},
+#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 6.3},
+#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2}}
+
+
+
+# g = -0.0025 ## K_connections tuned July 2022 N = 1000 f = 17 Hz, returned with brice
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.5},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 2.2}}
+#         # (name1, name5) :{'mean': g * K[name1, name5] * 3}}
+
+
+# g = -0.0025 ## FENS poster
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 10},#6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 10},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 10},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 10},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.6}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+
+# g = -0.0025 ## K_connections tuned July 2022 N = 1000  f = 18 Hz
+# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 6}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 0}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.2*62/60},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4*205/180},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.5}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+# g = -0.01 ### for N = 3500
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 9.63}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 1.53}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 6.3}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.5},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}
+#       }
+
+# g = -0.01
+# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 9.63}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 1.53}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 6.3}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 3.5},
+#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2},
+#       (name1, name5) :{'mean': g * K[name1, name5] * K_ratio[name1, name5] * 4}}
+
+
+# g = -0.0025 
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.65},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
+#       }
+# g = -0.0025 
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
+#       }
+
+# D2-Proto tuned
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 0.45},
+#       (name1, name3) :{'mean': g * K[name1, name3] * 5}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 3}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
+
+
+# g = -0.01 ## no tuning to experiments 
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
+#       (name3, name2) :{'mean': g * K[name3, name2] * 4},
+#       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
+#       (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
+#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
+#       }
+
+
+G = set_G_dist_specs(G,  order_mag_sigma = 1)
+
+
+
+
+poisson_prop = {name: 
+                {'n': 10000, 'firing': 0.0475, 
+                 'tau': { 'rise': {'mean': 1, 'var': .5}, 
+                         'decay': {'mean': 5, 'var': 3}}, 
+                'g': 0.01} 
+                for name in name_list}
+    
+receiving_pop_list = {(name1, '1'): [(name3, '1')],#, (name5, '1')],
+                      (name2, '1'): [(name1, '1'), (name4, '1')],
+                      (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
+                      (name4, '1'): [(name3, '1'), (name2, '1'), (name5, '1')],
+                      (name5, '1'): [(name3, '1')]}
+
+
+
+
+pop_list = [1]
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+noise_method = 'Ornstein-Uhlenbeck'
+use_saved_FR_ext = True
+low_f = 12; high_f = 30
+spike_history = 'long-term'
+set_random_seed = False
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
+               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1,
+               spike_history = spike_history, Act = Act) for i in pop_list] for name in name_list}
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state_1]
+               for name in list(nuclei_dict.keys())}
+
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, nuclei_dict, t_list,
+                                                       all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                                       set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
+                                                       use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
+
+# nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
+
+nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_amplitude, path, receiving_class_dict, receiving_pop_list, 
+                                                      t_list, dt, nuclei_dict, Act, state_1, state_2, K_all, N, N_real,
+                                                      A_mvt, D_mvt, t_mvt, all_FR_list, n_FR, end_of_nonlinearity, t_transition = int(t_transition/dt))
+
+
+nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
+status = 'transition_to_' + state_2 + '_tuned'
+
+ylim = (-2, 60)
+
+D_mvt = t_sim - t_transition
+plot_end_rest = t_transition - 10
+plot_start_rest =  t_transition - 710
+plot_start_DD = t_sim - 700
+plot_end_DD = t_sim
+
+if 'DD' in state_2:
+    
+    fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
+               Act[state_1], Act[state_2], 
+               t_transition, D_mvt, ax=None, title_fontsize=15,  tick_label_fontsize = 8,
+               plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, FR_lines = False,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8, ncol_legend = 1,
+               xlim = (0, (plot_end_rest - plot_start_rest )), lw = 0.8, x_ticks = [0, 350, 700], y_ticks = [0, 60],
+               ylim = (-2, 75), tick_length  =5,
+               legend_fontsize = 8, label_fontsize = 8, legend = False, 
+               D2_as_inset = True, n_minor_x = None, n_minor_y = 4, inset_ylim = (-0.1, 1.5), 
+               inset_yticks = [0, 1.5])
+
+
+    
+    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
+                 size=(5, 1.7))
+    
+    fig = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
+               Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
+               plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
+               legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
+               axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
+               y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
+               xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
+              inset_ylim = (0.5, 5.5), 
+               inset_yticks = [0.5, 5.5])
+    # fig_filtered = plot(nuclei_dict, color_dict, dt, t_list, 
+    #            Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
+    #             title='',  legend_fontsize = 15, label_fontsize = 25,
+    #            legend_loc='upper left', vspan=True, ylim=ylim,
+    #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
+    #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
+    #            plot_filtered=True, low_f = low_f, high_f = high_f, threshold_peak_by_max = 0.5)
+    # set_y_ticks_one_ax(fig.gca(), )
+    
+    # set_x_ticks_one_ax(fig.gca(), )
+    # set_minor_locator(fig.gca(), n = 4, axis = 'both')
+    
+    save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+                 size=(5, 2.))
+
+    fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
+                                                                 labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
+                                                                 n_neuron=30, include_title=False, set_xlim= True, vspan = False,
+                                                                 axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x= 0.08,
+                                                                 t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=8, 
+                                                                 include_nuc_name=False, remove_whole_ax_frame = True, y_tick_length=0,
+                                                                 plot_start_state_1=t_transition - 710, plot_end_state_1= plot_end_rest, 
+                                                                 plot_start_state_2=plot_start_DD, plot_end_state_2=t_sim,
+                                                                 name_list = name_list, ax_label = False)
+
+    # set_x_ticks(fig_state_1, [0, int( (plot_end_DD - plot_start_DD)/2 ), plot_end_DD - plot_start_DD])
+    # set_x_ticks(fig_state_2, [0,int( (plot_end_DD - plot_start_DD)/2 ), plot_end_DD - plot_start_DD])
+    rm_ax_unnecessary_labels_in_fig(fig_state_1)
+    rm_ax_unnecessary_labels_in_fig(fig_state_2)
+    save_pdf_png(fig_state_1, os.path.join(
+        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5., 3.5))
+    save_pdf_png(fig_state_2, os.path.join(
+        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5., 3.5))
+    
+elif 'mvt' in state_2:
+    
+    fig = plot(nuclei_dict, color_dict, dt, t_list, Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
+               plot_start= plot_start, plot_end = plot_end, title='', legend_loc='upper left',  ylim=(-4, 80), vspan=True,
+               include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, axvspan_color=axvspan_color[state_2])
+    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_from_' + state_1),
+                 size=(15, 5))
+    
+    fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='', plot_start=plot_start, plot_end=plot_end, ax_label = True,
+                                  labelsize=10, title_fontsize=15, lw=1., linelengths=2, n_neuron=25, include_title=True, set_xlim=True, ylabel_x = 0.01,
+                                  axvspan=True, span_start=t_transition, span_end=t_sim, axvspan_color=axvspan_color[state_2], include_nuc_name = False,
+                                   tick_label_fontsize=12)
+    save_pdf_png(fig_raster, os.path.join(
+        path, 'SNN_raster_' + status ), size=(5, 5))
+    
+
+peak_threshold = 0.1
+smooth_window_ms = 5
+cut_plateau_epsilon = 0.1
+lim_oscil_perc = 10
+low_pass_filter = False
+
+fig, ax = plt.subplots(1, 1)
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+                          fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
+
+ax.set_xlim(5, 70)
+ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
+# ax.set_ylim(-0.01, 40)
+ax.legend(fontsize=10, frameon=False)
+ax.tick_params(axis='both', labelsize=15)
+ylim = ax.get_ylim()
+save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
+              size=(5, 3))
+
+fig, ax = plt.subplots(1, 1)
+find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+                          fft_method='Welch', n_windows=n_windows_base, include_beta_band_in_legend=False, include_peak_f_in_legend = False)
+
+ax.set_xlim(5, 70)
+ax.set_ylim(ylim)
+ax.tick_params(axis='both', labelsize=15)
+ax.legend(fontsize=10, frameon=False)
+save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
+              size=(5, 3))
+
+phase_ref = 'Proto'
+nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=36,
+                                                peak_threshold=None, phase_ref= phase_ref, start=duration_DD[0], total_phase=360,
+                                                only_PSD_entrained_neurons= False, troughs = False,
+                                                only_rtest_entrained = True, threshold_by_percentile = 50, 
+                                                plot = False, shift_phase_deg = 45)
+y_max_series = {'D2': 10, 'STN': 35, 'Arky': 21, 'Proto': 26, 'FSI': 10} # with single neuron traces
+
+fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale_count_to_FR = True,
+                                    density=False, phase_ref= phase_ref, total_phase=720, projection=None,
+                                    outer=None, fig=None,  title='', tick_label_fontsize=18, n_decimal = 0,
+                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
+                                    ax_label=False, nuc_order = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto'], 
+                                    y_max_series = y_max_series, set_ylim = True)
+save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
+              size=(3, 1.5 * len (name_list)))
 # %% Transition to Beta induction, all nuclei
 
 # K_real = K_real_bouton
@@ -8261,7 +8769,7 @@ amplitude_dict = {'inhibition':{'Proto': 6.5, 'STN': 2.30},
                   'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**1
 
 amplitude_dict = {'inhibition':{'Proto': 6.7, 'STN': 2.30}, 
-                  'excitation': {'D2': 15, 'STN': 7.5}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
+                  'excitation': {'D2': 15, 'STN': 7.2}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
 
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
@@ -8278,9 +8786,9 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
@@ -8535,7 +9043,7 @@ fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1000,
 
 
 fig.suptitle(' '.join([induction_nuc_name, beta_induction_method]), fontsize = 15)
-save_pdf_png(fig, os.path.join(path, 'SNN_Phase_' + status + '_plot_' + state_1),
+save_pdf(fig, os.path.join(path, 'SNN_Phase_' + status + '_plot_' + state_1),
               size=(3, len(name_list) *1.5))
 
 # %% Transition to DD FSI-D2-GPe + STN-GPe collective
@@ -9108,7 +9616,7 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.1
+dt = 0.01
 t_sim = 25800 
 t_list = np.arange(int(t_sim/dt))
 plot_start = 200
@@ -9148,28 +9656,40 @@ print( " transition from " , state_1, ' to ', state_2)
 # print_G_items(G)
 
 
-
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
-# name1 = 'FSI' name2 = 'D2' name3 = 'Proto' name4 = 'Arky' name5 = 'STN'
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 0},
-      (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz JN submission
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+# # name1 = 'FSI' name2 = 'D2' name3 = 'Proto' name4 = 'Arky' name5 = 'STN'
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 0},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 0},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 0},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.6 Hz
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 11}, ## free
@@ -9331,7 +9851,155 @@ low_f = 12; high_f = 30
 phase_ref = 'Proto'
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_FSI-loop.pkl')
+             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_FSI-loop_tau_m_STN_13.pkl')
+
+filepath = os.path.join(path, 'Beta_power', filename)
+fft_method = 'Welch'
+nuc_order = ['D2', 'STN', 'Arky', 'Proto', 'FSI']
+
+
+multi_run_transition(path, nuclei_dict, filepath, duration, G_dict, color_dict, dt, t_list, Act, A_mvt, t_mvt, D_mvt, receiving_class_dict,
+                            noise_amplitude, noise_variance, lim_oscil_perc=10, plot_firing=plot_firing, low_pass_filter=low_pass_filter, legend_loc=legend_loc,
+                            lower_freq_cut=8, upper_freq_cut=40, set_seed=False, firing_ylim=None, n_run=n_run,  plot_start_raster=plot_raster_start,
+                            plot_spectrum=plot_spectrum, plot_raster=plot_raster, plot_start=plot_start, plot_end=t_sim, n_neuron=n_neuron, round_dec=round_dec, include_std=include_std,
+                            find_beta_band_power=True, fft_method=fft_method, n_windows=n_windows, include_beta_band_in_legend=True, save_pkl=save_pkl,
+                            reset_init_dist=True, all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                            K_real=K_all[state_2], N_real=N_real, N=N, divide_beta_band_in_power=True,
+                            receiving_pop_list=receiving_pop_list, poisson_prop=poisson_prop, return_saved_FR_ext=False,
+                            use_saved_FR_ext=True, check_peak_significance=check_peak_significance,
+                            find_phase=True, phase_thresh_h=None, filter_order=6, low_f= low_f, high_f= high_f,
+                            n_phase_bins=n_phase_bins, start_phase= duration[0], phase_ref=phase_ref, save_pxx=save_pxx,
+                            plot_phase=plot_phase, total_phase=720, phase_projection=None, troughs=False,
+                            nuc_order=nuc_order, len_f_pxx=150, state_1 = state_1, state_2 = state_2, K_all = K_all, 
+                            state_change_func = change_network_states, end_phase = duration[1], save_pop_act = save_pop_act,
+                            only_rtest_entrained = True, threshold_by_percentile = 50, shift_phase_deg = 45)
+plt.figure()
+
+# %% transition all nuclei mutli run Arky- D2/STN added
+
+
+plt.close('all')
+N_sim = 1000
+N = dict.fromkeys(N, N_sim)
+K = calculate_number_of_connections(N, N_real, K_real)
+dt = 0.1
+t_sim = 25800 
+t_list = np.arange(int(t_sim/dt))
+plot_start = 200
+t_transition = plot_start + 0# int(t_sim / 5)
+duration_base = np.array( [int(200/dt), int(t_transition/dt)] )
+duration_DD = np.array( [int(t_transition / dt) + int(300/dt) , int(t_sim / dt)] ) 
+t_mvt = t_sim
+D_mvt = t_sim - t_mvt
+
+duration = duration_DD - int( t_transition /dt )
+t_sim = t_sim - t_transition
+t_list = np.arange(int(t_sim/dt))
+# end_phase = t_sim
+n_phase_bins = 72
+n_windows = int(t_sim - 800) / 1000
+
+name1 = 'FSI'
+name2 = 'D2'
+name3 = 'Proto'
+name4 = 'Arky'
+name5 = 'STN'
+name_list = [name1, name2, name3, name4, name5]
+
+state_1 = 'rest'
+state_2 = 'DD_anesth'
+G = {}
+
+print( " transition from " , state_1, ' to ', state_2)
+
+
+# g = -0.0018
+# (G[(name2, name1)], G[(name3, name2)],
+#  G[(name1, name3)], G[(name2, name4)],
+#  G[(name4, name3)], G[(name3, name5)],
+#  G[(name5, name3)], G[(name3, name3)]) = 3* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3.8 * g , g * 0.1
+# G = {k: v * K[k] for k, v in G.items()}
+# print_G_items(G)
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.3},
+      (name4, name2) :{'mean': g * K[name4, name2] * 11},
+      (name4, name5) :{'mean': g * K[name4, name5] * 2.45}
+}
+G = set_G_dist_specs(G,  order_mag_sigma = 1)
+G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
+
+# G_dict = {k: {'mean': np.full(4, v['mean'])} for k, v in G.items()}
+# G_dict[(name3, name2)]['mean'] = G_dict[(name3, name2)]['mean'] * np.array([1, 0.7, 0.4, 0.1])
+
+poisson_prop = {name: 
+                {'n': 10000, 'firing': 0.0475, 'tau': {
+                'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 
+                'g': 0.01} 
+                for name in name_list}
+    
+receiving_pop_list = {(name1, '1'): [(name3, '1')],#, (name5, '1')],
+                      (name2, '1'): [(name1, '1'), (name4, '1')],
+                      (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
+                      (name4, '1'): [(name3, '1'), (name2, '1'), (name5, '1')],
+                      (name5, '1'): [(name3, '1')]}
+
+
+pop_list = [1]
+init_method = 'heterogeneous'
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+mem_pot_init_method = 'draw_from_data'
+mem_pot_init_method = 'uniform'
+
+keep_mem_pot_all_t = False
+set_input_from_response_curve = True
+der_ext_I_from_curve = True
+save_init = False
+noise_method = 'Gaussian'
+noise_method = 'Ornstein-Uhlenbeck'
+use_saved_FR_ext = True
+
+nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
+               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
+               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
+               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
+               syn_component_weight=syn_component_weight, noise_method=noise_method,Act = Act, state = state_1) for i in pop_list] for name in name_list}
+n_FR = 20
+all_FR_list = {name: FR_ext_range[name][state_1]
+               for name in list(nuclei_dict.keys())}
+
+receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state_1], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_all[state_1], receiving_pop_list, nuclei_dict, t_list,
+                                                       all_FR_list=all_FR_list, n_FR=n_FR, if_plot=False, end_of_nonlinearity=end_of_nonlinearity,
+                                                       set_FR_range_from_theory=False, method='collective',  save_FR_ext= False,
+                                                       use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state_1)
+for nuc_list in  nuclei_dict.values():
+    for nuc in nuc_list:
+        print(nuc.synaptic_weight_specs)
+
+# n_run = 1; plot_firing = True; plot_spectrum= True; plot_raster =True;plot_phase = True; low_pass_filter= False ; save_pkl = False ; save_figures = True; save_pxx = False
+n_run = 3; plot_firing = False; plot_spectrum = False; plot_raster = False; plot_phase = False; low_pass_filter = False; save_pkl = True; save_figures = False; save_pxx = True
+save_pop_act = True
+round_dec = 1
+include_std = False
+plot_start = int(t_sim * 3/4)
+plot_raster_start = int(t_sim * 3/4)
+n_neuron = 50
+legend_loc = 'center right'
+check_peak_significance = False
+low_f = 12; high_f = 30
+phase_ref = 'Proto'
+
+filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
+             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_FSI-loop_D2_STN_to_Arky.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -10446,7 +11114,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.1
+dt = 0.01
 t_sim = 11000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
@@ -13149,16 +13817,30 @@ name5 = 'STN'
 state = 'rest'
 name_list = [name1, name2, name3, name4, name5]
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
+
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
       
 G = set_G_dist_specs(G, order_mag_sigma = 1)
@@ -13213,7 +13895,7 @@ n_run = 3; plot_firing = False; plot_spectrum = False; plot_raster = False; plot
 
 
 filename = ('All_nuc_' + state + '_N_1000_T_' + str( int(( duration_base[1] -duration_base[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs' + '_tuned.pkl')
+             '_n_' + str(n_run) + '_runs' + '_tuned_tau_m_STN_13.pkl')
 
 round_dec = 1
 include_std = False
@@ -13487,6 +14169,7 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 
 filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
+# filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_tau_m_STN_13.pkl' )
 
 y_max_series = {'D2': 3, 'STN': 12, 'Arky': 6, 'Proto': 10, 'FSI': 3}
 # y_max_series = {'D2': 3, 'STN': 1, 'Arky': 1, 'Proto': 3, 'FSI': 1}
@@ -13586,19 +14269,19 @@ if scale_count_to_FR:
     
 if plot_single_neuron_hist:
     filename += '_with_single_neuron_traces'
-save_pdf_png(fig, figname, size=(1.8, len(name_list) * 1))
+save_pdf(fig, figname, size=(1.8, len(name_list) * 1))
 # save_pdf_png(fig, figname, size = figsize)
 # %% PSD summary 
 
 state_list = ['rest']#, 'DD_anesth', 'awake_rest', 'mvt']
 # state_list = ['awake_rest']
 n_runs = 8
-t = 10000
+t = 11000
 state = 'rest'
 filename_dict = {
     'Proto-Proto': [('Proto_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_runs) + '_runs_dt_0-1' + 
                       '_A_' + get_str_of_A_with_state(['Proto'], Act, state)) for state in state_list],
-    'STN-Proto': [('STN_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_runs) + '_runs_dt_0-1' +
+    'STN-Proto': [('STN_Proto_N_1000_T_'+ str(t) + '_1_pts_' + str(n_runs) + '_runs_dt_0-01' +
                       '_A_' + get_str_of_A_with_state(['STN','Proto'], Act, state)) for state in state_list],
     'FSI Loop': [('D2_Proto_FSI_N_1000_T_'+ str(t) + '_1_pts_' + str(n_runs) + '_runs_dt_0-1' +
                       '_A_' + get_str_of_A_with_state(['FSI', 'D2', 'Proto'], Act, state)) for state in state_list],
@@ -13612,8 +14295,11 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 
 
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
-filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl' )
+filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_tau_m_STN_13.pkl' )
+filename = os.path.join(path, 'Beta_power', 'All_nuc_rest_N_1000_T_25000_n_3_runs_tuned_tau_m_STN_13.pkl' )
+filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_D2_STN_to_Arky.pkl' )
+
+# filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl' )
 # data = load_pickle(filename)
 # plt.figure()
 # plt.plot(data['Proto', 'pop_act'][0,0,:])
@@ -13659,15 +14345,15 @@ x_y_label_size = 8 ; tick_label_fontsize = 8
 # x_y_label_size = 8 ; tick_label_fontsize = 12
 
 
-loop = 'STN-Proto'
-filename = filename_dict[loop][0]
-filename = filename_dict[loop][0].split('.')[0] + '_tau_STN_13.pkl'
-name_list = ['STN', 'Proto']
-n_g_list = np.array([0])
-three_nuc_raster_y = (60 + 5) * 0.05
-figsize = (2.5, three_nuc_raster_y * 2/3)
-ylim = [0, 8]
-x_y_label_size = 8 ; tick_label_fontsize = 12
+# loop = 'STN-Proto'
+# filename = filename_dict[loop][0]
+# filename = filename_dict[loop][0].split('.')[0] + '_tau_STN_5-13.pkl'
+# name_list = ['STN', 'Proto']
+# n_g_list = np.array([0])
+# three_nuc_raster_y = (60 + 5) * 0.05
+# figsize = (2.5, three_nuc_raster_y * 2/3)
+# ylim = [0, .25]
+# x_y_label_size = 8 ; tick_label_fontsize = 12
 
 
 # loop = 'Proto-Proto'
@@ -13729,9 +14415,9 @@ fig = PSD_summary(filename, name_list, color_dict, n_g_list, xlim=(0, 80), # ins
 
 # fig = remove_all_x_labels(fig) # for individual loop
 # figsize = (2.5, 2.5 * len(n_g_list) / 2.5) # individual loop
-# figsize = (1.8, 1.2 * len(n_g_list) ) # all loops
+figsize = (1.8, 1.2 * len(n_g_list) ) # all loops
 
-save_pdf_png(fig, filename.split('.')[0] + '_PSD',
+save_pdf(fig, filename.split('.')[0] + '_PSD',
               size=figsize)
 
 # %% nuc_specific_PSD_comarison
@@ -14173,20 +14859,23 @@ def plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run,
 plot_loop_state_freq(filename_dict, loop_list, state_list,  n_run, 
                          color_dict_loops, xlabels)
 
-# %% Boxplot frequency for STN tau_m changes
+# %% Boxplot frequency for STN-Proto revision manip
 
 plt.close('all')
 n_run = 8
+state = 'tau_m_STN' ; xlabel = r'$\tau_m \; (ms)$'
 filename_dict = { str(round(tau_m, 2)): "STN_Proto_N_1000_T_11000_1_pts_8_runs_dt_0-1_A_STN_7_Proto_39-84_tau_STN_"
-                 + str(round(tau_m, 2)).replace('.','-')
-                 for tau_m in np.linspace(5.13, 13, endpoint=True, num =4)}
+                  + str(round(tau_m, 2)).replace('.','-')
+                  for tau_m in np.linspace(5.13, 13, endpoint=True, num =4)}
+state = 'dt' ; xlabel = 'time step (ms)'
+filename_dict = { str(round(dt, 2)) : "STN_Proto_N_1000_T_11000_1_pts_8_runs_dt_" +  str(round(dt, 2)).replace('.','-') + "_A_STN_7_Proto_39-84_tau_STN_5-13"
+                for dt in [0.01, 0.1]}
 
-
-filename_dict = { key : os.path.join(path, 'Beta_power', filename + '.pkl')
+filename_dict = { key : os.path.join(path, 'Beta_power', filename+ '.pkl')
                          
                  for key, filename in filename_dict.items()}
 
-loop_list = list( filename_dict.keys() )
+loop_list = list( filename_dict.keys())
 
 color_list = [color_dict['Proto'], color_dict['STN'],
               color_dict['FSI'], color_dict['Arky']]
@@ -14195,15 +14884,15 @@ color_dict_loops = {'Proto-Proto': color_dict['Proto'], 'STN-Proto' :color_dict[
                     'FSI Loop': color_dict['FSI'], 'Arky Loop': color_dict['Arky']}
 
 color_dict_loops = {k: 'k' for k in  filename_dict.keys()}
+color_list = color_dict_loops.values()
 xlabels = loop_list    
 # size = (2, 4)
-size = (4, 2.5)
+size = (2, 3)
 
 def plot_loop_state_freq(filename_dict, loop_list,  n_run, 
                           color_dict_loops, xlabels):
     
     fig, ax = plt.subplots()
-    state = 'rest'
     xs = []
     vals = []
     freq = np.zeros((n_run, len(list( filename_dict. keys()))))
@@ -14231,16 +14920,16 @@ def plot_loop_state_freq(filename_dict, loop_list,  n_run,
     ax.tick_params(axis='y', which = 'minor', labelsize=12, length = 4)
 
     ax.axhspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
-    ax.set_ylabel('Frequency (Hz)', fontsize = 18)
-    ax.set_xlabel(r'$\tau_m \; (ms)$', fontsize = 18)
+    ax.set_ylabel('Frequency (Hz)', fontsize = 12)
+    ax.set_xlabel(xlabel, fontsize = 12)
     
-    set_y_ticks(fig, [ 40, 45, 50])
+    set_y_ticks(fig, [0, 40, 80])
     remove_frame(ax)
-    ax.set_ylim(40, 50)
+    ax.set_ylim(0, 80)
     for tick in ax.xaxis.get_majorticklabels():
         tick.set_horizontalalignment("right")
     # set_boxplot_prop(bp, color_list)
-    save_pdf(fig, os.path.join(path, 'STN_mean_F_' + state),
+    save_pdf_png(fig, os.path.join(path, 'STN_mean_F_' + state),
                   size=size)
     # ax.set_xlabel('')
     # ax.set_ylabel('')

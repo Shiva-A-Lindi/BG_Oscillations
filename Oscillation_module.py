@@ -35,7 +35,7 @@ from PIL import Image
 from astropy.stats import rayleightest
 import itertools, random
 
-
+# np.random.seed(10)
 
 
 def as_si(x, ndp):
@@ -108,12 +108,12 @@ class Nucleus:
         poisson_prop=None, AUC_of_input=None, init_method='homogeneous', ext_inp_method='const+noise', der_ext_I_from_curve=False, bound_to_mean_ratio=[0.8, 1.2],
         spike_thresh_bound_ratio= [1/20, 1/20], ext_input_integ_method='dirac_delta_input', path=None, mem_pot_init_method='uniform', plot_initial_V_m_dist=False, 
         set_input_from_response_curve=True, set_random_seed=False, keep_mem_pot_all_t=False, save_init=False, scale_g_with_N=True, syn_component_weight = None, 
-        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = 1996, FR_ext_specs = {},
+        time_correlated_noise = True, noise_method = 'Gaussian', noise_tau = 10, keep_noise_all_t = False, state = 'rest', random_seed = None, FR_ext_specs = {},
         plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
         keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2, spike_history = 'long-term',
         rtest_p_val_thresh = 0.05, refractory_period = 2, syn_w_dist = 'log-normal'):
 
-        if set_random_seed:
+        if random_seed != None:
             
             self.random_seed = random_seed
             np.random.seed(self.random_seed)
@@ -417,7 +417,7 @@ class Nucleus:
                                                           tc_plot = 'decay', syn_element_no = 0, 
                                                           plot_syn_tau_hist = False):
         
-        tc_list = list (tau_specs[ list(tau_specs.keys()) [0] ].keys() ) 
+        tc_list = list (tau_specs[ list(tau_specs.keys()) [0]].keys()) 
         for key, val in tau_specs.items():
             
             self.tau[key] = {tc : np.array( [truncated_normal_distributed(val[tc]['mean'][i],
@@ -2967,17 +2967,17 @@ def get_hist(obs, end_bins = 720, n_bins = 360, bins = []):
 #     for nuclei_list in nuclei_dict.values():
 #         for nucleus in nuclei_list:
 #             nucleus.shift_phase( theta, phase_ref, total_phase)
-def shift_array(arr, num, fill_value=np.nan):
-    result = np.empty_like(arr)
-    if num > 0:
-        result[:num] = fill_value
-        result[num:] = arr[:-num]
-    elif num < 0:
-        result[num:] = fill_value
-        result[:num] = arr[-num:]
-    else:
-        result[:] = arr
-    return result
+# def shift_array(arr, num, fill_value=np.nan):
+#     result = np.empty_like(arr)
+#     if num > 0:
+#         result[:num] = fill_value
+#         result[num:] = arr[:-num]
+#     elif num < 0:
+#         result[num:] = fill_value
+#         result[:num] = arr[-num:]
+#     else:
+#         result[:] = arr
+#     return result
 
 
 def generate_periodic_input(start, end, dt, amplitude, freq, mean, method):
@@ -3416,7 +3416,7 @@ def reset_connections(nuclei_dict, K_real, N, N_real):
 
 def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, receiving_pop_list, 
                        nuclei_dict, t_list, c='grey', scale_g_with_N=True,
-                        all_FR_list=np.linspace(0.05, 0.07, 100), n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
+                        all_FR_list=[], n_FR=50, if_plot=False, end_of_nonlinearity=None, left_pad=0.005,
                         right_pad=0.005, maxfev=5000, ax=None, set_FR_range_from_theory=True, method = 'single_neuron', FR_ext_all_nuclei_saved = None,
                         use_saved_FR_ext = False, save_FR_ext = True, normalize_G_by_N = False, state = 'rest',
                         change_states = True, plot_syn_weight_hist = False, time = False):
@@ -3427,6 +3427,7 @@ def set_connec_ext_inp(path, A, A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, rece
     K = calculate_number_of_connections(N, N_real, K_real)
     receiving_class_dict = create_receiving_class_dict(receiving_pop_list, nuclei_dict)
     
+    all_FR_list = all_FR_list or np.linspace(0.05, 0.07, 100)
     FR_ext_all_nuclei = {}
     if time:
         start = timeit.default_timer()
@@ -4561,7 +4562,7 @@ def set_ax_prop_phase(ax, name, color_dict, name_ylabel_pad, name_fontsize, name
     
     ax.axvline(total_phase/2, ls = '--', c = 'k', dashes=(5, 10), lw = 1)
     set_x_ticks_one_ax(ax, [0, 360, 720])
-    ax.tick_params(axis='both', labelsize=tick_label_fontsize)
+    ax.tick_params(axis='both', labelsize=tick_label_fontsize, length = 0)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.' + str(n_decimal) + 'f'))
     rm_ax_unnecessary_labels_in_subplots(j, n_subplots, ax, axis = 'x')
     remove_frame(ax)
@@ -7714,6 +7715,7 @@ def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before
                    std * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
     noise = fwd_Euler(dt, noise_dt_before, noise_prime)
     
+    # return np.zeros_like(noise)
     return noise
 
 
@@ -7739,7 +7741,7 @@ def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figs
         ylabel = '{\tiny{Norm}. PSD} ' + r'$(V^{2}/Hz \times 10^{-2})$'
         
     
-    ax.plot(f, pxx, c=c, label=label, lw=1.5, ls = ls)
+    ax.plot(f, pxx,  c=c, label=label, lw=1.5, ls = ls)
     ax.set_xlabel('frequency (Hz)', fontsize=15)
     ax.set_ylabel(ylabel, fontsize=15)
     ax.legend(fontsize=15, loc=legend_loc, framealpha=0.1, frameon=False)
@@ -7788,7 +7790,7 @@ def freq_from_fft(sig, dt, plot_spectrum=False, ax=None, c='navy', label='fft', 
     N = len(sig)
 
     if N == 0:
-        return 0 , 0, 0, 0
+        return 0 , 0, 0,
     else:
         if method not in ["rfft", "Welch"]:
             raise ValueError("method must be either 'rff', or 'Welch'")            
@@ -10176,9 +10178,10 @@ def synaptic_weight_transition_multiple_circuit_SNN_Fr_inset(filename, name_list
                                                              freq_list,colormap, x_axis = 'multiply', title = "", x_label = "G", key = (), 
                                                              param = 'all', y_line_fix = 4, inset_ylim = [0, 40],  legend_loc = 'upper right', 
                                                              include_Gs = True, double_xaxis = False, key_sec_ax = (), nuc_loop_lists = None, 
-                                                             loops = 'single', plot_phase = True, new_tick_locations = np.array([0.2, 0.5, 0.8]),
+                                                             loops = 'single', plot_phase = True, new_tick_locations = [],
                                                              second_axis_label = r"$G_{FSI-D2-P}$", inset_props = [0.02, 0.3, 0.35, 0.35],
                                                              ylim = None, plot_inset = True, markersize = 8):
+    new_tick_locations = new_tick_locations or np.array([0.2, 0.5, 0.8])
     maxs = [] ; mins = []
     fig, ax = plt.subplots(figsize=[8, 6])
     if plot_inset:
