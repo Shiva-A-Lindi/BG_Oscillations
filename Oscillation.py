@@ -345,6 +345,8 @@ tau = {
                         'decay' : {'mean' : [1.81], 'sd' : [2.5], 'truncmin': [0.43], 'truncmax': [6.86]}},
     ('Arky', 'D2'): {'rise': {'mean' : [0.8], 'sd' : [0.22], 'truncmin': [0.2], 'truncmax': [10]},
                       'decay' : {'mean' :[6.13], 'sd' : [1.42], 'truncmin': [0.5], 'truncmax': [30]}},
+    ('FSI', 'Arky'): {'rise': {'mean' : [1.1], 'sd' : [0.4], 'truncmin': [0.2], 'truncmax': [10]},
+                       'decay' : {'mean' : [7], 'sd' : [1], 'truncmin': [0.5], 'truncmax': [30]}},
     
 }
 
@@ -379,7 +381,9 @@ T = {
     ('D2', 'Ctx'): {'mean': 3, 'sd' : 1.3, 'truncmin': 1, 'truncmax': 10}, 
     # Jaeger & Kita 2016 assumes it's similar to Ctx-STN
     ('Arky', 'D2'): {'mean': 6.89, 'sd' : 0.6, 'truncmin': 5.8, 'truncmax': 9.9},
-    ('Arky', 'STN'): {'mean': 2.8, 'sd' : 0.6, 'truncmin': 2, 'truncmax': 4.4}
+    ('Arky', 'STN'): {'mean': 2.8, 'sd' : 0.6, 'truncmin': 2, 'truncmax': 4.4},
+    ('FSI', 'Arky'): {'mean': 4.3, 'sd' : 0.7, 'truncmin': 3.2, 'truncmax': 7.},     
+
 
 }
 # #       ('D2', 'Ctx'): 10.5, # excitation of MC--> Str Kita & Kita (2011) - [firing rate]
@@ -724,6 +728,7 @@ K_real = {
     ('Arky', 'Proto'): round(442 * N_real['Proto'] / (N_real['Proto'] + N_real['Arky']) / n_bouton_per_neuron),
     ('Arky', 'STN'): round(558 * 0.8 * N_real['STN'] / N_real['Proto'] / n_bouton_per_neuron/5), 
     ('Arky', 'D2'): round(226 * N_real['D2'] / N_real['Proto']/ n_bouton_per_neuron/5),
+    ('FSI', 'Arky'): round(791 * 0.44 * N_real['Proto'] / N_real['FSI'] / n_bouton_per_neuron/5),
 
 }
     # = 104 Sadek et al. 2006
@@ -740,6 +745,7 @@ K_real_DD = {
     ('Proto', 'Proto'): K_real[('Proto', 'Proto')],
     ('Arky', 'D2'): K_real[('Arky', 'D2')],
     ('Arky', 'STN'): K_real[('Arky', 'STN')],
+    ('FSI', 'Arky'): K_real[('FSI', 'Arky')], 
 
 }
 
@@ -1750,26 +1756,30 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
 
 plt.close('all')
-# name = 'D2'
-# name = 'FSI'
+name = 'D2'
+name = 'FSI'
 name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
 
-# state = 'rest'
+state = 'rest'
 # state = 'awake_rest'
-state = 'DD_anesth'
+# state = 'DD_anesth'
 # state = 'mvt'
 # state = 'trans_Nico_mice'
 # state = 'trans_Kita_rat'
 # state = 'induction_STN_excitation'
 # state = 'induction_Proto_inhibition'
 
+noise_variance[state][name] = 0
 
-neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
-FR_ext_range['STN'][state] = np.array([5/1000, 10./1000])
-noise_variance[state]['STN'] = 6
-
+# change time constant
+# neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+FR_ext_range['STN'][state] = np.array([12/1000, 16/1000])
+FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
+FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
+FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
+FR_ext_range['D2'][state] = np.array([32/1000, 43/1000])
 
 
 print('desired activity =', Act[state][name])
@@ -1797,7 +1807,7 @@ syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
 ext_inp_method = 'const+noise'
 mem_pot_init_method = 'draw_from_data'
-mem_pot_init_method = 'uniform'
+# mem_pot_init_method = 'uniform'
 keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
@@ -3786,7 +3796,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 
 
 
-dt = 0.005
+dt = 0.01
 t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
@@ -3799,14 +3809,15 @@ name2 = 'Proto'
 name_list = [name1, name2]
 
 
-state = 'rest' # set
-g = -0.029 # rest tau_m STN = 5
+# state = 'rest' # set
+# g = -0.029 # rest tau_m STN = 5
 # g = -0.025 # rest tau_m STN = 7.75
 # g = -0.023 # rest tau_m STN = 10.38
 # g = -0.02 # rest tau_m STN = 13
+g =-0.001
 
 # g = -0.04
-# state = 'DD_anesth' # set
+state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
 
 # state = 'awake_rest' # set
@@ -3814,6 +3825,11 @@ g = -0.029 # rest tau_m STN = 5
 
 # state = 'mvt' # set
 # g = -0.015 # 'mvt'
+
+
+
+noise_variance[state][name1] = 0
+noise_variance[state][name2] = 0
 
 G = {(name1, name2) :{'mean': g * K[name1, name2] },
       (name2, name1) :{'mean': -g * K[name2, name1]}
@@ -7767,7 +7783,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.01
-t_sim = 6500
+t_sim = 4500
 t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
@@ -7797,7 +7813,8 @@ print( " transition from " , state_1, ' to ', state_2)
 name_list = [name3, name5, name4,  name2, name1]
 
 G = {}
-
+noise_variance[state_2] = {name: 0 for name in name_list}
+noise_variance[state_1] = {name: 0 for name in name_list}
 
 ### Uniform Gs
 # g = -0.0035
@@ -7843,6 +7860,21 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
+
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/noise = 0
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 7},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 7},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 7},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 2},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 2.1},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 1.45},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 0.3}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+      
+# G = {k0: {'mean': v1 * 0.5 for k1,v1 in v0.items()}
+#      for k0,v0 in G.items()}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
@@ -7956,50 +7988,6 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 #       (name3, name3) :{'mean': g * K[name3, name3] * 1.5}}#, 
 #       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
-# g = -0.01 ### for N = 3500
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 9.63}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 1.53}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 6.3}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.5},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}
-#       }
-
-# g = -0.01
-# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 9.63}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 1.53}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 6.3}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 3.5},
-#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2},
-#       (name1, name5) :{'mean': g * K[name1, name5] * K_ratio[name1, name5] * 4}}
-
-
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
-#       }
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
-#       }
 
 # D2-Proto tuned
 # G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
@@ -8060,13 +8048,13 @@ use_saved_FR_ext = True
 low_f = 12; high_f = 30
 spike_history = 'long-term'
 set_random_seed = False
-
+random_seed = 10
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state_1], noise_amplitude, N, Act[state_1], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
                syn_component_weight=syn_component_weight, noise_method=noise_method, state = state_1,
-               spike_history = spike_history, Act = Act) for i in pop_list] for name in name_list}
+               spike_history = spike_history, Act = Act, random_seed = random_seed) for i in pop_list] for name in name_list}
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state_1]
                for name in list(nuclei_dict.keys())}
@@ -8222,7 +8210,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1)
               size=(3, 1.5 * len (name_list)))
 
 
-# %% transition to DD all nuclei Arky -D2/STN added
+# %% transition to DD all nuclei weak Arky connections added
 path_lacie = path
 mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}
 plt.close('all')
@@ -8263,39 +8251,9 @@ name_list = [name3, name5, name4,  name2, name1]
 
 G = {}
 
+noise_variance[state_2] = {name: 0 for name in name_list}
+noise_variance[state_1] = {name: 0 for name in name_list}
 
-### Uniform Gs
-# g = -0.0035
-# (G[(name2, name1)], G[(name3, name2)],
-#   G[(name1, name3)], G[(name2, name4)],
-#   G[(name4, name3)], G[(name3, name5)],
-#   G[(name5, name3)], G[(name3, name3)]) = 3* g, 4 * g, 2.5 * g, 2.5 * g, 2.5 * g, 2. * -g , 3. * g , g * 0.1
-# G = {k: v * K[k] for k, v in G.items()}
-
-
-
-
-# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
@@ -8305,194 +8263,12 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.3},
-      (name4, name2) :{'mean': g * K[name4, name2] * 11},
-      (name4, name5) :{'mean': g * K[name4, name5] * 2.45}
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.2},
+      (name4, name2) :{'mean': g * K[name4, name2] * 11/5},
+      (name4, name5) :{'mean': g * K[name4, name5] * 2.45/5},
+      (name1, name4) :{'mean': g * K[name1, name4] * 11/5},#30 * 66/63}, ## free
 
-}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-
-
-# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 10},#}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
-       
-#       ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-      
-
-# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63},
-       
-#       ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-      
-# g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.9}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-
-# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 13.5},#6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 13.5},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 13.5},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 5},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 3.2},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 6.3},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz SD = 10**2
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 0},#6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 0},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 0},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 0},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 0},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-            
-
-          
-# g = -0.0025 ## log-normal syn weight dist F = 17.3 Hz scaled for large network
-# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 13.5}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 13.5}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 13.5}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 3.2},
-#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 6.3},
-#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2}}
-
-
-
-# g = -0.0025 ## K_connections tuned July 2022 N = 1000 f = 17 Hz, returned with brice
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.5},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 2.2}}
-#         # (name1, name5) :{'mean': g * K[name1, name5] * 3}}
-
-
-# g = -0.0025 ## FENS poster
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 10},#6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 10},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 10},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 10},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.45 * 62/60},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.3 * 205/180},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.6}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-
-
-# g = -0.0025 ## K_connections tuned July 2022 N = 1000  f = 18 Hz
-# G = { (name2, name1) :{'mean': g * K[name2, name1]  * 6}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 8}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 0}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.2*62/60},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4*205/180},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.5}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
-
-# g = -0.01 ### for N = 3500
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 9.63}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 1.53}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 6.3}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.5},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.2}
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}
-#       }
-
-# g = -0.01
-# G = { (name2, name1) :{'mean': g * K[name2, name1]* K_ratio[name2, name1] * 9.63}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2]* K_ratio[name3, name2] * 1.53}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3]* K_ratio[name1, name3] * 6.3}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4]* K_ratio[name2, name4] * 5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3]* K_ratio[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5]* K_ratio[name3, name5]* 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3]* K_ratio[name5, name3] * 3.5},
-#       (name3, name3) :{'mean': g * K[name3, name3]* K_ratio[name3, name3] * 1.2},
-#       (name1, name5) :{'mean': g * K[name1, name5] * K_ratio[name1, name5] * 4}}
-
-
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 2.62},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.65},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
-#       }
-# g = -0.0025 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.7}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 3.8}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 3.6}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3.5}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.005}
-#       }
-
-# D2-Proto tuned
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 5}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 0.45},
-#       (name1, name3) :{'mean': g * K[name1, name3] * 5}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 3}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.2},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 0.75},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 3.2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-#       }
-
-
-# g = -0.01 ## no tuning to experiments 
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 3.1},
-#       (name3, name2) :{'mean': g * K[name3, name2] * 4},
-#       (name1, name3) :{'mean': g * K[name1, name3] * 2.5},
-#       (name2, name4) :{'mean': g * K[name2, name4] * 2.5},
-#       (name4, name3) :{'mean': g * K[name4, name3] * 1.3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 1.7},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 2},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 0.1}
-#       }
-
+}
 
 G = set_G_dist_specs(G,  order_mag_sigma = 1)
 
@@ -8506,7 +8282,7 @@ poisson_prop = {name:
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'): [(name3, '1')],#, (name5, '1')],
+receiving_pop_list = {(name1, '1'): [(name3, '1'), (name4, '1')],#, (name5, '1')],
                       (name2, '1'): [(name1, '1'), (name4, '1')],
                       (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
                       (name4, '1'): [(name3, '1'), (name2, '1'), (name5, '1')],
@@ -8771,6 +8547,9 @@ amplitude_dict = {'inhibition':{'Proto': 6.5, 'STN': 2.30},
 amplitude_dict = {'inhibition':{'Proto': 6.7, 'STN': 2.30}, 
                   'excitation': {'D2': 15, 'STN': 7.2}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
 
+amplitude_dict = {'inhibition':{'Proto': 4, 'STN': 2.30}, 
+                  'excitation': {'D2': 15, 'STN': 2.43}} ### N = 1000 log-normal G SD = 10**1 noise = 0
+
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
 end_dict = {induction_nuc_name: int(t_sim / dt)}
@@ -8781,16 +8560,30 @@ print( " transition from " , state_1, ' to ',  induction_nuc_name, ' ', beta_ind
 name_list = [name1, name2, name3, name4, name5]
 
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/noise = 0
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 3},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
+      (name4, name3) :{'mean': g * K[name4, name3] * 2.1},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 1.45},
+      (name5, name3) :{'mean': g * K[name5, name3] * 2.},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.3},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.6},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 
@@ -9913,13 +9706,7 @@ G = {}
 print( " transition from " , state_1, ' to ', state_2)
 
 
-# g = -0.0018
-# (G[(name2, name1)], G[(name3, name2)],
-#  G[(name1, name3)], G[(name2, name4)],
-#  G[(name4, name3)], G[(name3, name5)],
-#  G[(name5, name3)], G[(name3, name3)]) = 3* g, 3.5 * g, 2.5 * g, 2.5 * g, 2.5 * g, 3. * -g , 3.8 * g , g * 0.1
-# G = {k: v * K[k] for k, v in G.items()}
-# print_G_items(G)
+
 
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
@@ -9929,9 +9716,11 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.3},
-      (name4, name2) :{'mean': g * K[name4, name2] * 11},
-      (name4, name5) :{'mean': g * K[name4, name5] * 2.45}
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.2},
+      (name4, name2) :{'mean': g * K[name4, name2] * 11/5},
+      (name4, name5) :{'mean': g * K[name4, name5] * 2.45/5},
+      (name1, name4) :{'mean': g * K[name1, name4] * 11/5},#30 * 66/63}, ## free
+
 }
 G = set_G_dist_specs(G,  order_mag_sigma = 1)
 G_dict = {k: {'mean': [v['mean'] ]} for k, v in G.items()}
@@ -9945,7 +9734,7 @@ poisson_prop = {name:
                 'g': 0.01} 
                 for name in name_list}
     
-receiving_pop_list = {(name1, '1'): [(name3, '1')],#, (name5, '1')],
+receiving_pop_list = {(name1, '1'): [(name3, '1'), (name4, '1')],#, (name5, '1')],
                       (name2, '1'): [(name1, '1'), (name4, '1')],
                       (name3, '1'): [(name2, '1'), (name3, '1'), (name5, '1')],
                       (name4, '1'): [(name3, '1'), (name2, '1'), (name5, '1')],
@@ -9999,7 +9788,7 @@ low_f = 12; high_f = 30
 phase_ref = 'Proto'
 
 filename = ('All_nuc_from_' + state_1 + '_to_' + state_2 + '_N_1000_T_' + str( int(( duration[1] -duration[0]) * dt) ) +
-             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_FSI-loop_D2_STN_to_Arky.pkl')
+             '_n_' + str(n_run) + '_runs_aligned_to_' + phase_ref + '_tuned_to_Brice_G_lognormal_Arky_weak_proj_added.pkl')
 
 filepath = os.path.join(path, 'Beta_power', filename)
 fft_method = 'Welch'
@@ -13819,16 +13608,19 @@ name_list = [name1, name2, name3, name4, name5]
 
 
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ STN tau_m  = 13ms
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 0.7},
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.5},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+G = {k0: {'mean': v1 * .1 for k1,v1 in v0.items()}
+      for k0,v0 in G.items()}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
@@ -14170,6 +13962,7 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal.pkl' )
 # filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_tau_m_STN_13.pkl' )
+filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_Arky_weak_proj_added.pkl' )
 
 y_max_series = {'D2': 3, 'STN': 12, 'Arky': 6, 'Proto': 10, 'FSI': 3}
 # y_max_series = {'D2': 3, 'STN': 1, 'Arky': 1, 'Proto': 3, 'FSI': 1}
@@ -14297,7 +14090,7 @@ filename_dict = { key : [os.path.join(path, 'Beta_power', file + '.pkl')
 
 filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_tau_m_STN_13.pkl' )
 filename = os.path.join(path, 'Beta_power', 'All_nuc_rest_N_1000_T_25000_n_3_runs_tuned_tau_m_STN_13.pkl' )
-filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_FSI-loop_D2_STN_to_Arky.pkl' )
+filename = os.path.join(path, 'Beta_power', 'All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_Arky_weak_proj_added.pkl' )
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_from_rest_to_DD_anesth_N_1000_T_25300_n_3_runs_aligned_to_Proto_tuned_to_Brice_G_lognormal_only_STN_GP.pkl' )
 # data = load_pickle(filename)
@@ -14318,7 +14111,7 @@ n_g_list = np.array([0])
 # n_g_list = np.arange(4)
 ylabel = 'Normalized PSD ' #+ r'$(\times 10^{-2})$'
 xlabel = 'Frequency (Hz)'
-ylim = [-0.5, 12]
+ylim = [-0.5, 10]
 x_y_label_size = 8 ; tick_label_fontsize = 8
 
 # filename = os.path.join(path, 'Beta_power','All_nuc_rest_N_1000_T_25000_n_3_runs_tuned.pkl' )
