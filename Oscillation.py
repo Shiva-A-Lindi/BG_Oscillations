@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-root = r'C:\Users\Shiva\BG_Oscillations'
+# root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -1757,8 +1757,8 @@ ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
 
 plt.close('all')
 name = 'D2'
-name = 'FSI'
-name = 'STN'
+# name = 'FSI'
+# name = 'STN'
 # name = 'Proto'
 # name = 'Arky'
 
@@ -1775,12 +1775,19 @@ noise_variance[state][name] = 0
 
 # change time constant
 # neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+# rest
 FR_ext_range['STN'][state] = np.array([12/1000, 16/1000])
 FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
 FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
 FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
 FR_ext_range['D2'][state] = np.array([32/1000, 43/1000])
 
+#DD
+# FR_ext_range['STN'][state] = np.array([14/1000, 17/1000])
+# FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
+# FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
+# FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
+# FR_ext_range['D2'][state] = np.array([38/1000, 47/1000])
 
 print('desired activity =', Act[state][name])
 save_mem_pot_dist = True
@@ -7783,8 +7790,8 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.01
-t_sim = 4500
-t_base =  1000
+t_sim = 2600
+t_base =  2000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
 t_transition = plot_start + t_base# int(t_sim / 5)3
@@ -8072,7 +8079,7 @@ nuclei_dict = run_transition_state_collective_setting(G, noise_variance, noise_a
 
 
 nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
-status = 'transition_to_' + state_2 + '_tuned'
+status = 'transition_to_' + state_2 + '_tuned_dt_' + str(dt).replace('.','-')
 
 ylim = (-2, 60)
 
@@ -8085,31 +8092,31 @@ plot_end_DD = t_sim
 if 'DD' in state_2:
     
     fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
-               Act[state_1], Act[state_2], 
-               t_transition, D_mvt, ax=None, title_fontsize=15,  tick_label_fontsize = 8,
-               plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, FR_lines = False,
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8, ncol_legend = 1,
-               xlim = (0, (plot_end_rest - plot_start_rest )), lw = 0.8, x_ticks = [0, 350, 700], y_ticks = [0, 60],
-               ylim = (-2, 75), tick_length  =5,
-               legend_fontsize = 8, label_fontsize = 8, legend = False, 
-               D2_as_inset = True, n_minor_x = None, n_minor_y = 4, inset_ylim = (-0.1, 1.5), 
-               inset_yticks = [0, 1.5])
+                Act[state_1], Act[state_2], 
+                t_transition, D_mvt, ax=None, title_fontsize=15,  tick_label_fontsize = 8,
+                plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, FR_lines = False,
+                include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8, ncol_legend = 1,
+                xlim = (0, (plot_end_rest - plot_start_rest )), lw = 0.8, x_ticks = [0, 350, 700], y_ticks = [0, 60],
+                ylim = (-2, 75), tick_length  =5,
+                legend_fontsize = 8, label_fontsize = 8, legend = False, 
+                D2_as_inset = True, n_minor_x = None, n_minor_y = 4, inset_ylim = (-0.1, 1.5), 
+                inset_yticks = [0, 1.5])
 
 
     
-    save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
-                 size=(5, 1.7))
+    save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
+                  size=(5, 1.7))
     
-    fig = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
-               Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
-               plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
-               legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
-               include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
-               axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
-               y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
-               xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
-              inset_ylim = (0.5, 5.5), 
-               inset_yticks = [0.5, 5.5])
+    # fig = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
+    #            Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
+    #            plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
+    #            legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
+    #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
+    #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
+    #            y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
+    #            xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
+    #           inset_ylim = (0.5, 5.5), 
+               # inset_yticks = [0.5, 5.5])
     # fig_filtered = plot(nuclei_dict, color_dict, dt, t_list, 
     #            Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
     #             title='',  legend_fontsize = 15, label_fontsize = 25,
@@ -8122,27 +8129,27 @@ if 'DD' in state_2:
     # set_x_ticks_one_ax(fig.gca(), )
     # set_minor_locator(fig.gca(), n = 4, axis = 'both')
     
-    save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-                 size=(5, 2.))
+    # save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+    #              size=(5, 2.))
 
-    fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
-                                                                 labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
-                                                                 n_neuron=30, include_title=False, set_xlim= True, vspan = False,
-                                                                 axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x= 0.08,
-                                                                 t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=8, 
-                                                                 include_nuc_name=False, remove_whole_ax_frame = True, y_tick_length=0,
-                                                                 plot_start_state_1=t_transition - 710, plot_end_state_1= plot_end_rest, 
-                                                                 plot_start_state_2=plot_start_DD, plot_end_state_2=t_sim,
-                                                                 name_list = name_list, ax_label = False)
+    # fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
+    #                                                              labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
+    #                                                              n_neuron=30, include_title=False, set_xlim= True, vspan = False,
+    #                                                              axvspan_color=axvspan_color[state_2], n=N_sim,  ylabel_x= 0.08,
+    #                                                              t_transition=t_transition, t_sim=t_sim, tick_label_fontsize=8, 
+    #                                                              include_nuc_name=False, remove_whole_ax_frame = True, y_tick_length=0,
+    #                                                              plot_start_state_1=t_transition - 710, plot_end_state_1= plot_end_rest, 
+    #                                                              plot_start_state_2=plot_start_DD, plot_end_state_2=t_sim,
+    #                                                              name_list = name_list, ax_label = False)
 
     # set_x_ticks(fig_state_1, [0, int( (plot_end_DD - plot_start_DD)/2 ), plot_end_DD - plot_start_DD])
     # set_x_ticks(fig_state_2, [0,int( (plot_end_DD - plot_start_DD)/2 ), plot_end_DD - plot_start_DD])
-    rm_ax_unnecessary_labels_in_fig(fig_state_1)
-    rm_ax_unnecessary_labels_in_fig(fig_state_2)
-    save_pdf_png(fig_state_1, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5., 3.5))
-    save_pdf_png(fig_state_2, os.path.join(
-        path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5., 3.5))
+    # rm_ax_unnecessary_labels_in_fig(fig_state_1)
+    # rm_ax_unnecessary_labels_in_fig(fig_state_2)
+    # save_pdf_png(fig_state_1, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_1), size=(5., 3.5))
+    # save_pdf_png(fig_state_2, os.path.join(
+    #     path, 'SNN_raster_' + status + '_plot_' + state_2), size=(5., 3.5))
     
 elif 'mvt' in state_2:
     
@@ -8166,19 +8173,19 @@ cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
 
-fig, ax = plt.subplots(1, 1)
-find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-                          fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
+# fig, ax = plt.subplots(1, 1)
+# find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+#                           low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+#                           fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
 
-ax.set_xlim(5, 70)
-ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
-# ax.set_ylim(-0.01, 40)
-ax.legend(fontsize=10, frameon=False)
-ax.tick_params(axis='both', labelsize=15)
-ylim = ax.get_ylim()
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
-              size=(5, 3))
+# ax.set_xlim(5, 70)
+# ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
+# # ax.set_ylim(-0.01, 40)
+# ax.legend(fontsize=10, frameon=False)
+# ax.tick_params(axis='both', labelsize=15)
+# ylim = ax.get_ylim()
+# save_pdf(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
+#               size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
@@ -8188,26 +8195,26 @@ find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_thresh
 ax.set_xlim(5, 70)
 ax.set_ylim(ylim)
 ax.tick_params(axis='both', labelsize=15)
-ax.legend(fontsize=10, frameon=False)
-save_pdf_png(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
-              size=(5, 3))
+# ax.legend(fontsize=10, frameon=False)
+# save_pdf(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_1),
+#               size=(5, 3))
 
-phase_ref = 'Proto'
-nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=36,
-                                                peak_threshold=None, phase_ref= phase_ref, start=duration_DD[0], total_phase=360,
-                                                only_PSD_entrained_neurons= False, troughs = False,
-                                                only_rtest_entrained = True, threshold_by_percentile = 50, 
-                                                plot = False, shift_phase_deg = 45)
-y_max_series = {'D2': 10, 'STN': 35, 'Arky': 21, 'Proto': 26, 'FSI': 10} # with single neuron traces
+# phase_ref = 'Proto'
+# nuclei_dict = find_phase_hist_of_spikes_all_nuc(nuclei_dict, dt, low_f, high_f, filter_order=6, n_bins=36,
+#                                                 peak_threshold=None, phase_ref= phase_ref, start=duration_DD[0], total_phase=360,
+#                                                 only_PSD_entrained_neurons= False, troughs = False,
+#                                                 only_rtest_entrained = True, threshold_by_percentile = 50, 
+#                                                 plot = False, shift_phase_deg = 45)
+# y_max_series = {'D2': 10, 'STN': 35, 'Arky': 21, 'Proto': 26, 'FSI': 10} # with single neuron traces
 
-fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale_count_to_FR = True,
-                                    density=False, phase_ref= phase_ref, total_phase=720, projection=None,
-                                    outer=None, fig=None,  title='', tick_label_fontsize=18, n_decimal = 0,
-                                    labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
-                                    ax_label=False, nuc_order = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto'], 
-                                    y_max_series = y_max_series, set_ylim = True)
-save_pdf_png(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
-              size=(3, 1.5 * len (name_list)))
+# fig = phase_plot_all_nuclei_in_grid(nuclei_dict, color_dict, dt, coef = 1, scale_count_to_FR = True,
+#                                     density=False, phase_ref= phase_ref, total_phase=720, projection=None,
+#                                     outer=None, fig=None,  title='', tick_label_fontsize=18, n_decimal = 0,
+#                                     labelsize=15, title_fontsize=15, lw=1, linelengths=1, include_title=True, 
+#                                     ax_label=False, nuc_order = [ 'FSI', 'D2', 'STN', 'Arky', 'Proto'], 
+#                                     y_max_series = y_max_series, set_ylim = True)
+# save_pdf(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
+#               size=(3, 1.5 * len (name_list)))
 
 
 # %% transition to DD all nuclei weak Arky connections added
