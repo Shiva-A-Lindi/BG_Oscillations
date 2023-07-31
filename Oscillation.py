@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-# root = r'C:\Users\Shiva\BG_Oscillations'
+root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -3521,8 +3521,8 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.1
-t_sim = 3000
+dt = 0.01
+t_sim = 200
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -3533,7 +3533,9 @@ n_windows = 2
 
 state = 'rest' # set
 g = -0.015 # rest
+g = -0.008 # noise = 0
 
+noise_variance[state][name1]=0
 # state = 'DD_anesth' # set
 # g = -0.007 # 'DD_anesth'
 
@@ -3544,7 +3546,7 @@ g = -0.015 # rest
 # g = -0.007 # 'mvt'
 
 G = {}
-plot_start = t_sim - 600
+plot_start = 0# t_sim - 600
 plot_start_raster = plot_start
 
 
@@ -3574,12 +3576,12 @@ noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 low_f = 50; high_f = 70
-
+random_seed = 100
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, random_seed = random_seed) for i in pop_list] for name in name_list}
 
 n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state]
@@ -3595,7 +3597,7 @@ nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
 low_f = 8
 high_f = 80
 smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
-status = 'GPe-GPe_' + state #'_G_PP_' + str(round(abs(G[('Proto', 'Proto')]), 1))
+status = 'GPe-GPe_' + state + '_dt_' + str(dt).replace('.','-') #_G_PP_' + str(round(abs(G[('Proto', 'Proto')]), 1))
 fig_sizes = {'firing': (10, 6),
              'raster': (11, 7),
              'spectrum': (6, 5)}
@@ -4225,7 +4227,7 @@ plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
-dt = 0.1
+dt = 0.01
 t_sim = 2000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
@@ -4241,6 +4243,8 @@ G = {}
 
 state = 'rest' # set
 g = -0.045 # G(DF) = g x 1.6
+g = -0.04 # noise = 0
+noise_variance[state] = {name: 0 for name in name_list}
 
 # state = 'DD_anesth' # set
 # g = -0.03 # anesthetized G(DF) = g x 1.6
@@ -4288,12 +4292,12 @@ noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = True
 
-
+random_seed = 12
 nuclei_dict = {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
                synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
                poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
                ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
-               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state) for i in pop_list] for name in name_list}
+               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, random_seed = random_seed) for i in pop_list] for name in name_list}
 # receiving_class_dict = set_connec_ext_inp(A, A_mvt,D_mvt,t_mvt,dt, N, N_real, K_real, receiving_pop_list, nuclei_dict,t_list)
 
 # filepaths = {'FSI': 'tau_m_9-5_FSI_A_18-5_N_1000_T_2000_noise_var_8.pkl' ,
