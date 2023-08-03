@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-root = r'C:\Users\Shiva\BG_Oscillations'
+# root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -3521,8 +3521,13 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
+
+# 89.72688662316585
+# 897.2688662316585
+
+# 548, 493, 507, 474, 389, 441, 544, 508, 376, 657, 449, 545
 dt = 0.01
-t_sim = 200
+t_sim = 500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
 D_mvt = t_sim - t_mvt
@@ -3533,7 +3538,7 @@ n_windows = 2
 
 state = 'rest' # set
 g = -0.015 # rest
-g = -0.008 # noise = 0
+g = -0.008 #8 #-0.008 # noise = 0
 
 noise_variance[state][name1]=0
 # state = 'DD_anesth' # set
@@ -3631,39 +3636,39 @@ fig = remove_all_x_labels(fig)
 save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
              size=fig_sizes['firing'])
 
-include_nuc_name = False
-fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
-                                    plot_start=plot_start_raster, plot_end=t_sim, tick_label_fontsize=12,
-                                    title_fontsize=25, lw=0.6, linelengths=2, n_neuron=n_neuron, remove_whole_ax_frame = True,
-                                    include_nuc_name=include_nuc_name, set_xlim=True, 
-                                    remove_ax_frame=True, y_tick_length=0, x_tick_length=3)
+# include_nuc_name = False
+# fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
+#                                     plot_start=plot_start_raster, plot_end=t_sim, tick_label_fontsize=12,
+#                                     title_fontsize=25, lw=0.6, linelengths=2, n_neuron=n_neuron, remove_whole_ax_frame = True,
+#                                     include_nuc_name=include_nuc_name, set_xlim=True, 
+#                                     remove_ax_frame=True, y_tick_length=0, x_tick_length=3)
 
-save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
-             size=fig_sizes['raster'])
+# save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
+#              size=fig_sizes['raster'])
 
-peak_threshold = 0.1
-smooth_window_ms = 3
-smooth_window_ms = 5
-cut_plateau_epsilon = 0.1
-lim_oscil_perc = 10
-low_pass_filter = False
+# peak_threshold = 0.1
+# smooth_window_ms = 3
+# smooth_window_ms = 5
+# cut_plateau_epsilon = 0.1
+# lim_oscil_perc = 10
+# low_pass_filter = False
 
-fig_spec, ax = plt.subplots(1, 1)
-freq, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
-                                        smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                                        low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
-                                        spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
-                                        include_beta_band_in_legend=False)
+# fig_spec, ax = plt.subplots(1, 1)
+# freq, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+#                                         smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+#                                         low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
+#                                         spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
+#                                         include_beta_band_in_legend=False)
 
-fig_spec = remove_all_x_labels(fig_spec)
-# x_l = 0.75
-# ax.axhline(x_l, ls = '--', c = 'grey')
-# ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+# fig_spec = remove_all_x_labels(fig_spec)
+# # x_l = 0.75
+# # ax.axhline(x_l, ls = '--', c = 'grey')
+# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
 
-ax.set_xlim(0, 100)
-# ax.yaxis.set_major_locator(MaxNLocator(2))
-save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status),
-             size=fig_sizes['spectrum'])
+# ax.set_xlim(0, 100)
+# # ax.yaxis.set_major_locator(MaxNLocator(2))
+# save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status),
+#              size=fig_sizes['spectrum'])
 
 # fig, ax = plt.subplots()
 # check_significance_of_PSD_peak(f, pxx['Proto'],  n_std_thresh=2, min_f=0,
@@ -3804,9 +3809,12 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
 
+# [566.8052174163756 958.1024733582602]
+# [56.68052174163756 95.81024733582602]
 
-dt = 0.01
-t_sim = 2000
+
+dt = 0.025
+t_sim = 500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
 D_mvt = t_sim - t_mvt
@@ -3818,15 +3826,15 @@ name2 = 'Proto'
 name_list = [name1, name2]
 
 
-# state = 'rest' # set
+state = 'rest' # set
 # g = -0.029 # rest tau_m STN = 5
 # g = -0.025 # rest tau_m STN = 7.75
 # g = -0.023 # rest tau_m STN = 10.38
 # g = -0.02 # rest tau_m STN = 13
-g =-0.001
+g =-0.01
 
 # g = -0.04
-state = 'DD_anesth' # set
+# state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
 
 # state = 'awake_rest' # set
@@ -3834,7 +3842,6 @@ state = 'DD_anesth' # set
 
 # state = 'mvt' # set
 # g = -0.015 # 'mvt'
-
 
 
 noise_variance[state][name1] = 0
@@ -3849,7 +3856,7 @@ G = set_G_dist_specs(G, order_mag_sigma = 1)
 # G[(name1, name2)], G[(name2, name1)] = g, -g
 # G = {k: v * K[k] for k, v in G.items()}
 
-plot_start = t_sim - 600
+plot_start =0# t_sim - 600
 plot_start_raster = plot_start
 
 
@@ -3907,6 +3914,8 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
     
 
 nuclei_dict = run(receiving_class_dict, t_list, dt,  nuclei_dict)
+
+
 # for name in list(nuclei_dict.keys()):
 
 #     print('mean firing =', np.average(
@@ -3929,7 +3938,7 @@ nuclei_dict = smooth_pop_activity_all_nuclei(nuclei_dict, dt, window_ms=5)
 # ax.legend(fontsize = 15, loc= 'upper left')
 # ax.set_title('Voltage', fontsize = 20)
 
-status = 'STN-GPe_'  + state #+ '_slow'# '_G_SP_' + str(round(abs(G[('STN', 'Proto')]),1)) + '_G_PS_' + str(round(abs(G[('Proto', 'STN')]),1))
+status = 'STN-GPe_'  + state +'_dt_' + str(dt).replace('.','-')#+ '_slow'# '_G_SP_' + str(round(abs(G[('STN', 'Proto')]),1)) + '_G_PS_' + str(round(abs(G[('Proto', 'STN')]),1))
 
 fig_sizes = {'firing': (10,6),
               'raster': (11,7),
@@ -3958,42 +3967,42 @@ fig = remove_all_x_labels(fig)
 #             include_FR = False, include_std=False, plt_mvt=False,
 #             legend_loc='upper right', ylim = None, plot_filtered=True, low_f = low_f, high_f = high_f)
 
-save_pdf_png(fig, os.path.join(path, 'SNN_firing_' + status),
+save_pdf(fig, os.path.join(path, 'SNN_firing_' + status),
              size=fig_sizes['firing'])
 
-n_neuron = 25
-include_nuc_name = False
-raster_order = ['Proto', 'STN']
-fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
-                                    plot_start=plot_start_raster, plot_end=t_sim, tick_label_fontsize=12,
-                                    title_fontsize=25, lw=0.6, linelengths=2, n_neuron=n_neuron, remove_whole_ax_frame = True,
-                                    include_nuc_name=include_nuc_name, set_xlim=True, name_list=raster_order,
-                                    remove_ax_frame=True, y_tick_length=0, x_tick_length=3)
+# n_neuron = 25
+# include_nuc_name = False
+# raster_order = ['Proto', 'STN']
+# fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
+#                                     plot_start=plot_start_raster, plot_end=t_sim, tick_label_fontsize=12,
+#                                     title_fontsize=25, lw=0.6, linelengths=2, n_neuron=n_neuron, remove_whole_ax_frame = True,
+#                                     include_nuc_name=include_nuc_name, set_xlim=True, name_list=raster_order,
+#                                     remove_ax_frame=True, y_tick_length=0, x_tick_length=3)
 
-save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
-             size=fig_sizes['raster'])
+# save_pdf_png(fig_raster, os.path.join(path, 'SNN_raster_' + status),
+#              size=fig_sizes['raster'])
 
-peak_threshold = 0.1
-smooth_window_ms = 3
-smooth_window_ms = 5
-cut_plateau_epsilon = 0.1
-lim_oscil_perc = 10
-low_pass_filter = False
+# peak_threshold = 0.1
+# smooth_window_ms = 3
+# smooth_window_ms = 5
+# cut_plateau_epsilon = 0.1
+# lim_oscil_perc = 10
+# low_pass_filter = False
 
-fig_spec, ax = plt.subplots(1, 1)
-blah , f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
-                                     smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-                                     low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
-                                     spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
-                                     include_beta_band_in_legend=False)
-print(sum(
-    np.logical_and(f>0, f<100)))
-# fig_spec = remove_all_x_labels(fig_spec)
+# fig_spec, ax = plt.subplots(1, 1)
+# blah , f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
+#                                      smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+#                                      low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
+#                                      spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=n_windows,
+#                                      include_beta_band_in_legend=False)
+# print(sum(
+#     np.logical_and(f>0, f<100)))
+# # fig_spec = remove_all_x_labels(fig_spec)
 
-# # x_l = 0.75
-# # ax.axhline(x_l, ls = '--', c = 'grey')
-# # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
-ax.set_xlim(0, 100)
+# # # x_l = 0.75
+# # # ax.axhline(x_l, ls = '--', c = 'grey')
+# # # ax.axvspan(0,55, alpha = 0.2, color = 'lightskyblue')
+# ax.set_xlim(0, 100)
 # save_pdf_png(fig_spec, os.path.join(path, 'SNN_spectrum_' + status ),
 #               size = fig_sizes['spectrum'])
 
@@ -4036,7 +4045,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.2
+dt = 0.1
 t_sim = 1000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 

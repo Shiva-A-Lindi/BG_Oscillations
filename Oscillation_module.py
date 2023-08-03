@@ -411,6 +411,7 @@ class Nucleus:
         self.tau ={ proj: 
                    {tc: np.array(v['mean']) / dt for tc, v in tc_val.items()} 
                    for proj, tc_val in tau_specs.items()}
+
             
             
     def initialize_synaptic_time_constant_heterogeneously(self, dt, tau_specs, bins=50, color='grey', 
@@ -433,7 +434,11 @@ class Nucleus:
                 
                 plot_histogram(self.tau[key][tc_plot], bins = bins, 
                                title = self.name,
-                               xlabel = r'$\tau_{' + tc_plot +r'} \; (ms)$')     
+                               xlabel = r'$\tau_{' + tc_plot +r'} \; (ms)$') 
+                
+            # np.set_printoptions(precision=25)
+            # print(self.tau[key][tc_list[-1]][-1][-2:])
+            # exit()
         
         
     def initialize_transmission_delays(self, dt, T_specs, lower_bound_perc = 0.8, upper_bound_perc=1.2,
@@ -460,8 +465,10 @@ class Nucleus:
         self.transmission_delay = {key: np.array(truncated_normal_distributed(v['mean'],
                                                                               v['sd'], self.n,
                                                                               truncmin = v['truncmin'],
-                                                                              truncmax = v['truncmax']) / dt ).astype(int)
+                                                                              truncmax = v['truncmax']) / 0.1 ).astype(int) * int(0.1/dt)
                                    for key, v in T_specs.items()}
+        # print(self.transmission_delay)
+        
         
     def initialize_transmission_delays_homogeneously(self, dt, T_specs):
         
@@ -917,6 +924,8 @@ class Nucleus:
                                                                         (self.name, 
                                                                         projecting.name)])].tocsr().T).toarray().reshape(-1,) * \
                                       self.membrane_time_constant  / dt).reshape(-1,)
+                                                                                 
+                    
 
         # self.syn_inputs[projecting.name, 
         #                 projecting.population_num] =( (self.connectivity_matrix[(projecting.name, 
@@ -1219,6 +1228,7 @@ class Nucleus:
         
         '''SNN: return pop activity as mean number of spikes per second == Hz'''
         self.pop_act[t] = np.average(self.spikes[:, t], axis=0)/ (dt/1000)
+        
 
 
         
@@ -6901,12 +6911,57 @@ def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay
     return inputs , np.zeros_like(inputs)
 
 
+# def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
+
+#     I_rise_prime_1 = (-I_rise + inputs) / tau_rise
+#     # I_rise_updated = I_rise + I_rise_prime  # dt incorporated in tau
+#     I_rise_updated = I_rise + 0.5*I_rise_prime_1
+    
+#     I_rise_prime_2 = (-I_rise_updated + inputs) / tau_rise
+#     I_rise_updated += 0.5*I_rise_prime_2
+    
+    
+    
+#     I_prime = (-I + I_rise) / tau_decay
+#     # I = I + I_prime  # dt incorporated in tau
+#     I_updated = I + 0.5*I_prime
+#     I_prime_2 = (-I_updated + I_rise) / tau_decay
+#     I_updated += 0.5*I_prime_2
+    
+#     return I_updated, I_rise_updated
+
 def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
 
-    I_rise = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
-    I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
-    return I, I_rise
+    I_rise_updated_1 = I_rise + 0.5*(-I_rise + inputs) / tau_rise
+    I_rise_updated_2 = I_rise_updated_1 + 0.5*(-I_rise_updated_1 + inputs) / tau_rise
 
+    
+    
+    I_updated_1 = I + 0.5*(-I + I_rise) / tau_decay
+    I_updated_2 = I_updated_1 + 0.5*(-I_updated_1 + I_rise) / tau_decay
+
+    
+    return I_updated_2, I_rise_updated_2
+
+# def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
+#     # I_rise_updated = I_rise + (inputs - I_rise)*np.exp(-1/tau_rise)
+#     # I_rise_updated = 0.0
+#     # I_updated = I*np.exp(-1/tau_decay) + tau_decay*inputs
+    
+#     I_rise_updated = I_rise + (-I_rise + inputs) / tau_rise  # dt incorporated in tau
+#     I = I + (-I + I_rise) / tau_decay  # dt incorporated in tau
+#     return I, I_rise_updated
+    
+    # I + (inputs - I)* (1/tau_decay)
+    # = I*(1 - (1/tau_decay)) + inputs * (1/tau_decay)
+    
+    # = I*np.exp(-1/tau_decay) + (1- np.exp(-1/tau_decay))*inputs
+    
+    # I_updated = I + (inputs - I)*np.exp(-1/tau_decay)
+    # I_rise_updated = inputs - I_rise*np.exp(-1/tau_rise)
+    # I_updated = I_rise - I*np.exp(-1/tau_decay)
+
+    # return I_updated, I_rise_updated
 
 def fwd_Euler(dt, y, f):
 
