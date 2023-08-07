@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-# root = r'C:\Users\Shiva\BG_Oscillations'
+root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -413,8 +413,8 @@ bins = {'D2': {'rest' : {'max': 10,
                          'step': 0.3},
                'awake_rest' : {'max': 10,
                                'step': 0.1},
-               'DD_anesth' : {'max': 16,
-                               'step': 0.5},
+               'DD_anesth' : {'max': 25,
+                               'step': 2},
                'mvt' : {'max': 16,
                         'step': 0.5}},
         
@@ -422,17 +422,17 @@ bins = {'D2': {'rest' : {'max': 10,
                             'step': 5},
                     'awake_rest' : {'max': 140,
                                     'step': 5},
-                    'DD_anesth' : {'max': 100,
+                    'DD_anesth' : {'max': 80,
                                     'step': 4},
-                    'mvt' : {'max': 100,
+                    'mvt' : {'max': 80,
                              'step': 3}},
         
         'FSI': { 'rest' : {'max': 15,
                            'step': 0.5},
                  'awake_rest' : {'max': 60,
                                  'step': 2},
-                 'DD_anesth' : {'max': 15,
-                                 'step': 0.5},
+                 'DD_anesth' : {'max': 25,
+                                 'step': 2},
                  'mvt' : {'max': 80,
                           'step': 2}},
         
@@ -440,8 +440,8 @@ bins = {'D2': {'rest' : {'max': 10,
                            'step': 2},
                 'awake_rest': {'max': 60,
                                'step': 2},
-                'DD_anesth': {'max': 60,
-                               'step': 2},
+                'DD_anesth': {'max': 80,
+                               'step': 4},
                 'mvt': {'max': 60,
                         'step': 2}},
         
@@ -449,8 +449,8 @@ bins = {'D2': {'rest' : {'max': 10,
                            'step': 2},
                 'awake_rest': {'max': 20,
                                'step': 0.5},
-                'DD_anesth': {'max': 60,
-                               'step': 2},
+                'DD_anesth': {'max': 50,
+                               'step': 3},
                 'mvt': {'max': 60,
                         'step': 2}},
         
@@ -1759,7 +1759,7 @@ plt.close('all')
 name = 'D2'
 # name = 'FSI'
 # name = 'STN'
-# name = 'Proto'
+name = 'Proto'
 # name = 'Arky'
 
 state = 'rest'
@@ -1771,7 +1771,7 @@ state = 'rest'
 # state = 'induction_STN_excitation'
 # state = 'induction_Proto_inhibition'
 
-noise_variance[state][name] = 0
+# noise_variance[state][name] = 0
 
 # change time constant
 # neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
@@ -1797,7 +1797,7 @@ FSI_on_log = False
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1    
-t_sim = 4000
+t_sim = 10000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -1819,16 +1819,13 @@ keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
 set_input_from_response_curve = True
-save_init = True
-
-
 save_init = False
 der_ext_I_from_curve = True
 if_plot = True
 noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
 use_saved_FR_ext = False
-# use_saved_FR_ext = True
+use_saved_FR_ext = True
 
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
@@ -1925,7 +1922,7 @@ for name in list(nuclei_dict.keys()):
     
 if name in ['STN', 'Arky', 'Proto'] and state in ['rest', 'DD_anesth']:
     state_dict = {'rest': 'CTRL', 'DD_anesth': 'Park'}
-    xls = pd.ExcelFile(os.path.join('/home/shiva/BG_Oscillations/Modeling_Data_Nico/Brice_paper', 'FR_Brice_data.xlsx'))
+    xls = pd.ExcelFile(os.path.join(root,'Modeling_Data_Nico','Brice_paper', 'FR_Brice_data.xlsx'))
     if name == 'STN':
         col = 'w'
     else:
@@ -3803,7 +3800,7 @@ save_pdf_png(fig, os.path.join(path, 'SNN_spectrum_' + status),
              size=(6, 5))
 # %% STN-Proto
 
-# plt.close('all')
+plt.close('all')
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
@@ -3813,7 +3810,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 # [56.68052174163756 95.81024733582602]
 
 
-dt = 0.025
+dt = 0.1
 t_sim = 500
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim 
@@ -3831,7 +3828,7 @@ state = 'rest' # set
 # g = -0.025 # rest tau_m STN = 7.75
 # g = -0.023 # rest tau_m STN = 10.38
 # g = -0.02 # rest tau_m STN = 13
-g =-0.01
+g =-0.012
 
 # g = -0.04
 # state = 'DD_anesth' # set
@@ -4252,8 +4249,8 @@ G = {}
 
 state = 'rest' # set
 g = -0.045 # G(DF) = g x 1.6
-g = -0.04 # noise = 0
-noise_variance[state] = {name: 0 for name in name_list}
+# g = -0.04 # noise = 0
+# noise_variance[state] = {name: 0 for name in name_list}
 
 # state = 'DD_anesth' # set
 # g = -0.03 # anesthetized G(DF) = g x 1.6
@@ -4439,7 +4436,7 @@ name_list = [name1, name2, name3]
 
 
 state = 'rest' # set 
-g = -0.03 # rest G(DA) = g x 1.6 hetero
+g = -0.0 # rest G(DA) = g x 1.6 hetero
 
 # state = 'DD_anesth' # set 
 # g = -0.03 # 'DD_anesth'  G(DA) = g x 1.6 hetero
@@ -7802,9 +7799,9 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
-dt = 0.01
-t_sim = 2600
-t_base =  2000
+dt = 0.1
+t_sim = 6600
+t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
 t_transition = plot_start + t_base# int(t_sim / 5)3
@@ -7833,8 +7830,7 @@ print( " transition from " , state_1, ' to ', state_2)
 name_list = [name3, name5, name4,  name2, name1]
 
 G = {}
-noise_variance[state_2] = {name: 0 for name in name_list}
-noise_variance[state_1] = {name: 0 for name in name_list}
+
 
 ### Uniform Gs
 # g = -0.0035
@@ -7870,31 +7866,33 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 10.5},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 10.5},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 10.5},#30 * 66/63}, ## free
       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
       (name4, name3) :{'mean': g * K[name4, name3] * 3},
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 
-g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/noise = 0
-G = { (name2, name1) :{'mean': g * K[name2, name1] * 7},#}, ## free
-      (name3, name2) :{'mean': g * K[name3, name2] * 7},#11.}, ## free
-      (name1, name3) :{'mean': g * K[name1, name3] * 7},#30 * 66/63}, ## free
-      (name2, name4) :{'mean': g * K[name2, name4] * 2},#0.01}, ## free
-      (name4, name3) :{'mean': g * K[name4, name3] * 2.1},
-      (name3, name5) :{'mean': -g * K[name3, name5] * 1.45},
-      (name5, name3) :{'mean': g * K[name5, name3] * 2.},# 4.7},
-      (name3, name3) :{'mean': g * K[name3, name3] * 0.3}}#2.}}#, 
-      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/noise = 0
+# G = { (name2, name1) :{'mean': g * K[name2, name1] * 7},#}, ## free
+#       (name3, name2) :{'mean': g * K[name3, name2] * 7},#11.}, ## free
+#       (name1, name3) :{'mean': g * K[name1, name3] * 7},#30 * 66/63}, ## free
+#       (name2, name4) :{'mean': g * K[name2, name4] * 2},#0.01}, ## free
+#       (name4, name3) :{'mean': g * K[name4, name3] * 2.1},
+#       (name3, name5) :{'mean': -g * K[name3, name5] * 1.45},
+#       (name5, name3) :{'mean': g * K[name5, name3] * 2.},# 4.7},
+#       (name3, name3) :{'mean': g * K[name3, name3] * 0.3}}#2.}}#, 
+#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
       
-# G = {k0: {'mean': v1 * 0.5 for k1,v1 in v0.items()}
-#      for k0,v0 in G.items()}
+# noise_variance[state_2] = {name: 0 for name in name_list}
+# noise_variance[state_1] = {name: 0 for name in name_list}
+# G = {k0: {'mean': v1 * 0.3 for k1,v1 in v0.items()}
+#       for k0,v0 in G.items()}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz what is this?
@@ -8098,13 +8096,38 @@ ylim = (-2, 60)
 
 D_mvt = t_sim - t_transition
 plot_end_rest = t_transition - 10
-plot_start_rest =  t_transition - 710
+plot_start_rest = 0# t_transition - 710
 plot_start_DD = t_sim - 700
 plot_end_DD = t_sim
 
+# fig_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins =bins,
+#                                 ax = None, zorder = 1, 
+#                         alpha = 0.8, log_hist = False, box_plot = False, 
+#                         n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
+#                         label_fontsize = 18, ticklabel_fontsize = 12, start =  int(plot_start_rest / dt), 
+#                         end =  int(plot_end_rest / dt), 
+#                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = state_1)
+
+    
+# save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_1),
+#                   size=( len(nuclei_dict.keys())*4, 4))
+ylims_FR_dist = {'D2': 80, 'FSI': 40, 'Proto': 16, 'STN': 16, 'Arky': 16}
+fig_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins =bins,
+                                ax = None, zorder = 1, 
+                        alpha = 0.8, log_hist = False, box_plot = False, 
+                        n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
+                        label_fontsize = 18, ticklabel_fontsize = 12, start =  int(plot_start_DD / dt), 
+                        end =  int(plot_end_DD / dt), ylim= ylims_FR_dist, 
+                        hatched = False, label_type = 'dt',
+                        annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = state_2)
+
+    
+save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_1),
+                  size=( len(nuclei_dict.keys())*4, 4))
+
 if 'DD' in state_2:
     
-    fig = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
+    fig_rest = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
                 Act[state_1], Act[state_2], 
                 t_transition, D_mvt, ax=None, title_fontsize=15,  tick_label_fontsize = 8,
                 plot_start = plot_start_rest, title='', legend_loc='upper left', plot_end= plot_end_rest, FR_lines = False,
@@ -8117,33 +8140,26 @@ if 'DD' in state_2:
 
 
     
-    save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
+    save_pdf(fig_rest, os.path.join(path, 'SNN_firing_' + status + '_' + state_1),
                   size=(5, 1.7))
     
-    # fig = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
-    #            Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
-    #            plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
-    #            legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
-    #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
-    #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
-    #            y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
-    #            xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
-    #           inset_ylim = (0.5, 5.5), 
-               # inset_yticks = [0.5, 5.5])
-    # fig_filtered = plot(nuclei_dict, color_dict, dt, t_list, 
-    #            Act[state_1], Act[state_2], t_transition, D_mvt, ax=None, title_fontsize=15, 
-    #             title='',  legend_fontsize = 15, label_fontsize = 25,
-    #            legend_loc='upper left', vspan=True, ylim=ylim,
-    #            include_FR=False, continuous_firing_base_lines=False, plt_mvt=True, alpha_mvt=0.8, 
-    #            axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False,
-    #            plot_filtered=True, low_f = low_f, high_f = high_f, threshold_peak_by_max = 0.5)
-    # set_y_ticks_one_ax(fig.gca(), )
+    fig_DD = plot(nuclei_dict, color_dict, dt, t_list- np.full_like(t_list, plot_start_DD / dt), 
+                Act[state_1], Act[state_2], t_transition - plot_start_DD, D_mvt, ax=None, title_fontsize=15, 
+                plot_start = plot_start_DD, title='',  legend_fontsize = 8, label_fontsize = 10,
+                legend_loc='upper left', plot_end= plot_end_DD, vspan=False,# ylim=ylim,
+                include_FR=False, continuous_firing_base_lines=False, plt_mvt=False, alpha_mvt=0.8,  FR_lines = False,
+                axvspan_color = axvspan_color[state_2], ncol_legend = 1, legend = False, x_ticks = [0, 350, 700], 
+                y_ticks = [0, 60], ylim = (0, 65), D2_as_inset = True, n_minor_x = None, n_minor_y = 4,
+                xlim = (0, (plot_end_DD - plot_start_DD )), tick_label_fontsize = 10, lw = 0.8,
+              inset_ylim = (0.5, 5.5), 
+                inset_yticks = [0.5, 5.5])
+
     
-    # set_x_ticks_one_ax(fig.gca(), )
-    # set_minor_locator(fig.gca(), n = 4, axis = 'both')
+    # set_x_ticks_one_ax(fig_DD.gca(), )
+    set_minor_locator(fig_DD.gca(), n = 4, axis = 'both')
     
-    # save_pdf(fig, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
-    #              size=(5, 2.))
+    save_pdf(fig_DD, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2),
+                  size=(5, 2.))
 
     # fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
     #                                                              labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
@@ -8186,19 +8202,19 @@ cut_plateau_epsilon = 0.1
 lim_oscil_perc = 10
 low_pass_filter = False
 
-# fig, ax = plt.subplots(1, 1)
-# find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-#                           low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
-#                           fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
+fig, ax = plt.subplots(1, 1)
+find_freq_all_nuclei(dt, nuclei_dict, duration_DD, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
+                          low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict, spec_figsize=(6, 5), find_beta_band_power=False,
+                          fft_method='Welch', n_windows=n_windows_DD, include_beta_band_in_legend=False)
 
-# ax.set_xlim(5, 70)
-# ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
-# # ax.set_ylim(-0.01, 40)
-# ax.legend(fontsize=10, frameon=False)
-# ax.tick_params(axis='both', labelsize=15)
-# ylim = ax.get_ylim()
-# save_pdf(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
-#               size=(5, 3))
+ax.set_xlim(5, 70)
+ax.axvspan(5, 70, alpha=0.2, color=axvspan_color[state_2])
+# ax.set_ylim(-0.01, 40)
+ax.legend(fontsize=10, frameon=False)
+ax.tick_params(axis='both', labelsize=15)
+ylim = ax.get_ylim()
+save_pdf(fig, os.path.join(path, 'SNN_spec_' + status + '_plot_' + state_2),
+              size=(5, 3))
 
 fig, ax = plt.subplots(1, 1)
 find_freq_all_nuclei(dt, nuclei_dict, duration_base, lim_oscil_perc, peak_threshold, smooth_kern_window, smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
@@ -8564,11 +8580,11 @@ amplitude_dict = {'inhibition':{'Proto': 7.1, 'STN': 2.30},
 amplitude_dict = {'inhibition':{'Proto': 6.5, 'STN': 2.30}, 
                   'excitation': {'D2': 15, 'STN': 4.9}} ### N = 1000 log-normal G SD = 10**1
 
-amplitude_dict = {'inhibition':{'Proto': 6.7, 'STN': 2.30}, 
-                  'excitation': {'D2': 15, 'STN': 7.2}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
+# amplitude_dict = {'inhibition':{'Proto': 6.7, 'STN': 2.30}, 
+#                   'excitation': {'D2': 15, 'STN': 7.2}} ### N = 1000 log-normal G SD = 10**1 tau_m STN = 13 ms
 
-amplitude_dict = {'inhibition':{'Proto': 4, 'STN': 2.30}, 
-                  'excitation': {'D2': 15, 'STN': 2.43}} ### N = 1000 log-normal G SD = 10**1 noise = 0
+# amplitude_dict = {'inhibition':{'Proto': 4, 'STN': 2.30}, 
+#                   'excitation': {'D2': 15, 'STN': 2.43}} ### N = 1000 log-normal G SD = 10**1 noise = 0
 
 freq_dict = {induction_nuc_name: 20} 
 start_dict = {induction_nuc_name : int(t_transition / dt) }
@@ -8607,16 +8623,16 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
 
 
 
-# g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
-# G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
-#       (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
-#       (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
-#       (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
-#       (name4, name3) :{'mean': g * K[name4, name3] * 3},
-#       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
-#       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
-#       (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
-#       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 11},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 11},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.25}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
 # g = -0.0025 ## log-normal syn weight dist F = 17.5 Hz not tuned in DD?
@@ -10923,7 +10939,7 @@ N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 
-dt = 0.01
+dt = 0.1
 t_sim = 11000
 t_list = np.arange(int(t_sim/dt))
 t_mvt = t_sim
@@ -10946,6 +10962,7 @@ g = -0.029 # rest tau_m = 5
 # g = -0.02 # rest tau_m  = 13
 # state = 'DD_anesth' # set
 # g = -0.01 # 'DD_anesth'
+g = -0.012 # rest tau_m = 5 noise = 0
 
 # state = 'awake_rest' # set
 # g = -0.014 # 'awake_rest'
@@ -10957,6 +10974,8 @@ G = {}
 plot_start = t_sim - 600
 plot_start_raster = plot_start
 
+noise_variance[state][name1] = 0
+noise_variance[state][name2] = 0
 
 G = {(name2, name1) :{'mean': -g * K[name2, name1] },
      (name1, name2) :{'mean': g * K[name1, name2]  }}

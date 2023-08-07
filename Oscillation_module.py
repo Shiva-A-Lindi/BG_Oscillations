@@ -3410,7 +3410,6 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
                                                                          'membrane_time_constant']['mean'], 2)
                                                                         ).replace('.', '-') +
                                                        '.pkl')
-            print(filename_dict[nucleus.name])
     return filename_dict
 
 def reset_connections(nuclei_dict, K_real, N, N_real):
@@ -6930,18 +6929,7 @@ def _dirac_delta_input(inputs, dt, I_rise=None, I=None, tau_rise=None, tau_decay
     
 #     return I_updated, I_rise_updated
 
-def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
 
-    I_rise_updated_1 = I_rise + 0.5*(-I_rise + inputs) / tau_rise
-    I_rise_updated_2 = I_rise_updated_1 + 0.5*(-I_rise_updated_1 + inputs) / tau_rise
-
-    
-    
-    I_updated_1 = I + 0.5*(-I + I_rise) / tau_decay
-    I_updated_2 = I_updated_1 + 0.5*(-I_updated_1 + I_rise) / tau_decay
-
-    
-    return I_updated_2, I_rise_updated_2
 
 # def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
 #     # I_rise_updated = I_rise + (inputs - I_rise)*np.exp(-1/tau_rise)
@@ -6962,6 +6950,20 @@ def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
     # I_updated = I_rise - I*np.exp(-1/tau_decay)
 
     # return I_updated, I_rise_updated
+
+def exp_rise_and_decay(inputs, dt,  I_rise=0, I=0, tau_rise=5, tau_decay=5):
+
+    I_rise_updated_1 = I_rise + 0.5*(-I_rise + inputs) / tau_rise
+    I_rise_updated_2 = I_rise_updated_1 + 0.5*(-I_rise_updated_1 + inputs) / tau_rise
+
+    
+    # I_rise = I_rise_updated_2
+    
+    I_updated_1 = I + 0.5*(-I + I_rise) / tau_decay
+    I_updated_2 = I_updated_1 + 0.5*(-I_updated_1 + I_rise) / tau_decay
+
+    
+    return I_updated_2, I_rise_updated_2
 
 def fwd_Euler(dt, y, f):
 
@@ -7203,19 +7205,35 @@ def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'a
     return figs
 
 def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
-                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, 
+                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, end = None,
                          n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
-                         label_fontsize = 18, ticklabel_fontsize = 12,
-                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest'):
+                         label_fontsize = 18, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
+                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
-    fig, ax = get_axes(ax)
     
+    count = 0
+    fig, axes = plt.subplots(1, len(nuclei_dict.keys()), 
+                           figsize = ( len(nuclei_dict.keys())*3, 3))
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
-            FR_mean_neurons_all = np.average(nucleus.spikes[:,start:], axis = 1) / (dt/1000)
+            if len(nuclei_dict.keys()) <2:
+                ax = axes
+            else:
+                ax = axes[count]
+                
+            if isinstance(bins, dict):
+                
+                bins_ = np.arange(0, bins[nucleus.name][state]['max'], 
+                                 bins[nucleus.name][state]['step'])
+                
+            else:
+                bins_ = bins
+            count +=1
+            end = end or nucleus.spike.shape[1]
+            FR_mean_neurons_all = np.average(nucleus.spikes[:,start:end], axis = 1) / (dt/1000)
                                                                                                           
             if only_non_zero:
                 FR_mean_neurons = FR_mean_neurons_all[ FR_mean_neurons_all > 0]
@@ -7227,15 +7245,20 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                                                                     round( np.std(FR_mean_neurons) , 2) ))
             else: FR_mean_neurons = FR_mean_neurons_all
             FR_std_neurons = np.std(FR_mean_neurons) 
-            freq, edges = np.histogram(FR_mean_neurons, bins = bins)
+            freq, edges = np.histogram(FR_mean_neurons, bins = bins_)
             width = np.diff(edges[:-1])
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , 
                                                              round( FR_std_neurons, 2) ),
-                        xy=(0.5,0.5),xycoords='axes fraction', color = color_dict[nucleus.name],
+                        xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
              fontsize= annotate_fontsize, alpha = alpha)
             
             print(r' FR = {0} ±  {1}  Hz'.format( round (np.average( FR_mean_neurons_all) , 2) , 
                                                   round(np.std(FR_mean_neurons_all) , 2) ))
+            
+            if label_type == 'name':
+                label = nucleus.name
+            else:
+                label = f"dt={dt}"
             if box_plot:
                 bp = ax.boxplot(FR_mean_neurons, labels = [nucleus.name], patch_artist=True, whis = (0,100), 
                                 widths = 0.6, zorder = 0 )
@@ -7247,27 +7270,47 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                                linewidth = 0.5) 
                 xs = np.random.normal(1, 0.04, n_pts)
                 ax.scatter(xs, FR_mean_neurons[:n_pts], c= color_dict[nucleus.name], alpha=0.4, s = 10, ec = 'k', zorder = 1)
+            
 
             else:
-                ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
-                       label='Simulation',  alpha =alpha, zorder = zorder)
+                if hatched:
+                    plt.rcParams['hatch.linewidth'] = 3
+                    if nucleus.name == 'STN':
+                        edgecolor = 'w'
+                    else:
+                        edgecolor = 'k'
+                    ax.bar(edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                            alpha =0.2, zorder = 1, label= label,
+                           hatch = '/', edgecolor = edgecolor, lw = 1)
+                else:
+                    ax.bar(edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                       label= label,  alpha =alpha, zorder = zorder)
+            
+            ax.set_title(nucleus.name, fontsize = title_fontsize)
+            ax.set_xlabel('Firing Rate (spk/s)', fontsize=label_fontsize)
+            # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+            ax.set_xticks([0, int(bins[nucleus.name][state]['max'])])
+            if ylim != None:
+                ax.set_yticks([0, int(ylim[nucleus.name]/2), int(ylim[nucleus.name])])
+                ax.set_ylim([0,int(ylim[nucleus.name])])
+            remove_frame(ax)
+            if count == 1:
+                ax.set_ylabel('% of population', fontsize= label_fontsize)
+
                 
     if log_hist and not box_plot:
         ax.set_xscale("log")
         
-    ax.set_title(state + ' ' + nucleus.name, fontsize = title_fontsize)
-    ax.set_xlabel('Firing Rate (spk/s)', fontsize=label_fontsize)
-    ax.set_ylabel('% of population', fontsize= label_fontsize)
-    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-    ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
-    ax.locator_params(axis='y', nbins=nbins)
-    ax.locator_params(axis='x', nbins=nbins)
-    ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
-    remove_frame(ax)
+
+    # if only_non_zero:
+    #     ax.set_title(' Only spontaneously active' , fontsize=15)
     
-    if only_non_zero:
-        ax.set_title(' Only spontaneously active' , fontsize=15)
-        
+    set_minor_locator_all_axes(fig, n_x = 4, axis = 'x', 
+                               tick_length = 4, tick_label_fontsize = ticklabel_fontsize)
+    set_minor_locator_all_axes(fig,  n_y = 1,  axis = 'y', 
+                               tick_length = 4, tick_label_fontsize = ticklabel_fontsize)
     return fig
 
 def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
@@ -7770,8 +7813,8 @@ def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before
                    std * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
     noise = fwd_Euler(dt, noise_dt_before, noise_prime)
     
-    return np.zeros_like(noise)
-    # return noise
+    # return np.zeros_like(noise)
+    return noise
 
 
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
