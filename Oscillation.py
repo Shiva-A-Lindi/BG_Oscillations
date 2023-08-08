@@ -7799,8 +7799,8 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
-dt = 0.1
-t_sim = 3600
+dt = 0.5
+t_sim = 2600
 t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
@@ -8111,6 +8111,11 @@ plot_end_DD = t_sim
     
 # save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_1),
 #                   size=( len(nuclei_dict.keys())*4, 4))
+
+
+save_neuron_mean_FR(nuclei_dict, dt, path, start =  int(plot_start_DD / dt))
+
+
 ylims_FR_dist = {'D2': 80, 'FSI': 40, 'Proto': 16, 'STN': 16, 'Arky': 16}
 fig_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins =bins,
                                 ax = None, zorder = 1, 
@@ -8118,21 +8123,21 @@ fig_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins =bins,
                         n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
                         label_fontsize = 18, ticklabel_fontsize = 12, start =  int(plot_start_DD / dt), 
                         end =  int(plot_end_DD / dt), ylim= ylims_FR_dist, 
-                        hatched = False, label_type = 'dt',
+                        hatched = False, label_type = 'dt',path = path, save_pkl = True,
                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = state_2)
 
     
-save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_1),
+save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_2),
                   size=( len(nuclei_dict.keys())*4, 4))
 
 ylims_CV_ISI = {'D2': 10, 'FSI': 25, 'Proto': 26, 'STN': 26, 'Arky': 30}
 xlims_CV_ISI = {'D2': 3, 'FSI': 3, 'Proto': 3, 'STN': 3, 'Arky': 3}
 
 fig_CV_ISI = plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 20, ax = None, zorder = 1, 
-                          alpha = 0.2, start = 0, log_hist = False, xlim = xlims_CV_ISI, 
-                          ylim = ylims_CV_ISI, label_type = 'dt')
+                          alpha = 0.2, start =  int(plot_start_DD / dt), log_hist = False, xlim = xlims_CV_ISI, 
+                          ylim = ylims_CV_ISI, label_type = 'dt', path = path, save_pkl= True)
 
-save_pdf(fig_CV_ISI, os.path.join(path, 'SNN_CV_ISI_dist_' + status + '_' + state_1),
+save_pdf(fig_CV_ISI, os.path.join(path, 'SNN_CV_ISI_dist_' + status + '_' + state_2),
                   size=( len(nuclei_dict.keys())*2.5, 2.5))
 if 'DD' in state_2:
     
@@ -8254,7 +8259,27 @@ ax.tick_params(axis='both', labelsize=15)
 # save_pdf(fig, os.path.join(path, 'SNN_phase_' + status + '_plot_' + state_1),
 #               size=(3, 1.5 * len (name_list)))
 
+# %% plot dt effects
 
+dt_list = [0.1, 0.5]
+fig_CV_ISI_dist = plot_CV_ISI_distribution_from_files(dt_list, color_dict, ax = None, zorder = 1, 
+                          alpha = 0.2, start =  int(plot_start_DD / dt), log_hist = False, xlim = xlims_CV_ISI, 
+                          ylim = ylims_CV_ISI, label_type = 'dt', path = path, save_pkl= True)
+fig_FR_dist = plot_FR_distribution_from_files(dt_list, color_dict, bins =bins,
+                                ax = None, zorder = 1, 
+                                alpha = 0.8, log_hist = False, box_plot = False, 
+                                n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
+                                label_fontsize = 18, ticklabel_fontsize = 12, start =  int(plot_start_DD / dt), 
+                                end =  int(plot_end_DD / dt), ylim= ylims_FR_dist, 
+                                hatched = False, label_type = 'dt',path = path, save_pkl = True,
+                                annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = state_2)
+
+
+fig_mean_FR = plot_mean_FR_distribution(dt_list, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, ticklabel_fontsize = 12,
+                          title_fontsize = 18, legend_fontsize = 15, label_fontsize = 18,
+                          ylim = None, xlim = None, hatched = False, label_type = 'name',
+                          tick_length = 8, path = path)
 # %% transition to DD all nuclei weak Arky connections added
 path_lacie = path
 mod_dict = {'DD' : {'STN': [21, 28], 'Proto' : [17, 20], 'Arky' : [9, 16]}}

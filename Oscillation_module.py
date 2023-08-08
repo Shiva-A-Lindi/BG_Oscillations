@@ -7162,6 +7162,42 @@ def get_axes(ax, figsize=(6, 5)):
         
     return plt.gcf(), ax
 
+def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, mean_neurons = False):
+    
+    ''' plot the interspike interval distribution of neurons of different populations '''
+    
+    fig, ax = get_axes(ax)
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            
+            if mean_neurons:
+                ISI, ISI_std = get_mean_sd_ISI_of_neurons(nucleus, start, dt)
+                ylabel = '% populatoin'
+            else:
+                ISI, ISI_std = get_all_ISI_of_neurons(nucleus, start, dt)   
+                ylabel = '% spike count'                           
+
+            
+            freq, edges = np.histogram(ISI, bins = bins)
+            width = np.diff(edges[:-1])
+            
+
+            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                    label=nucleus.name,  alpha =alpha, zorder = zorder)
+            ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI) , 2) , round( ISI_std, 2) ),
+                        xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
+                        fontsize=14, alpha = alpha)
+            
+    if log_hist:
+        ax.set_xscale("log")
+        
+    ax.set_xlabel('ISI (ms)', fontsize=15)
+    ax.set_ylabel(ylabel, fontsize=15)
+    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+    
+    return fig
 
 def plot_exper_FR_distribution(xls, name_list, state_list, color_dict, bins = 'auto', 
                                alpha = 0.2, hatch = '/', zorder = 1, edgecolor = None,
@@ -7213,18 +7249,19 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                          n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
                          label_fontsize = 18, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
                          annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False,
-                         tick_length = 8):
+                         tick_length = 8, save_pkl = True, path = None):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
-    
+    FR_dist = {}
     count = 0
     fig, axes = plt.subplots(1, len(nuclei_dict.keys()), 
                            figsize = ( len(nuclei_dict.keys())*3, 3))
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
-            if len(nuclei_dict.keys()) <2:
+            FR_dist[nucleus.name] = {}
+            if len(nuclei_dict.keys()) < 2:
                 ax = axes
             else:
                 ax = axes[count]
@@ -7249,9 +7286,16 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                 print(r'non-silent only FR = {0} ±  {1}  Hz'.format( round (np.average( FR_mean_neurons) , 2) , 
                                                                     round( np.std(FR_mean_neurons) , 2) ))
             else: FR_mean_neurons = FR_mean_neurons_all
+            
+            
             FR_std_neurons = np.std(FR_mean_neurons) 
             freq, edges = np.histogram(FR_mean_neurons, bins = bins_)
             width = np.diff(edges[:-1])
+
+            FR_dist[nucleus.name]['bins'] = edges[:-1]
+            FR_dist[nucleus.name]['freq'] = freq / nucleus.n * 100
+            FR_dist[nucleus.name]['width'] = np.append(width, width[-1])
+
             ax.annotate( r'$ FR = {0} \pm {1}\; Hz$'.format( round (np.average( FR_mean_neurons) , 2) , 
                                                              round( FR_std_neurons, 2) ),
                         xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
@@ -7308,7 +7352,8 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     if log_hist and not box_plot:
         ax.set_xscale("log")
         
-
+    if save_pkl:
+        pickle_obj(FR_dist, os.path.join(path, f"FR_dist_dt_{dt}.pkl"))
     # if only_non_zero:
     #     ax.set_title(' Only spontaneously active' , fontsize=15)
     
@@ -7319,51 +7364,96 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     
     return fig
 
-def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
-                          alpha = 0.2, start = 0, log_hist = False, mean_neurons = False):
-    
-    ''' plot the interspike interval distribution of neurons of different populations '''
-    
-    fig, ax = get_axes(ax)
-    for nuclei_list in nuclei_dict.values():
-        for nucleus in nuclei_list:
-            
-            if mean_neurons:
-                ISI, ISI_std = get_mean_sd_ISI_of_neurons(nucleus, start, dt)
-                ylabel = '% populatoin'
-            else:
-                ISI, ISI_std = get_all_ISI_of_neurons(nucleus, start, dt)   
-                ylabel = '% spike count'                           
 
-            
-            freq, edges = np.histogram(ISI, bins = bins)
-            width = np.diff(edges[:-1])
-            
 
-            ax.bar( edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
-                    label=nucleus.name,  alpha =alpha, zorder = zorder)
-            ax.annotate( r'$ ISI = {0} \pm {1}\; ms$'.format( round (np.average( ISI) , 2) , round( ISI_std, 2) ),
-                        xy=(0.1,0.8),xycoords='axes fraction', color = color_dict[nucleus.name],
-                        fontsize=14, alpha = alpha)
-            
-    if log_hist:
-        ax.set_xscale("log")
+def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, zorder = 1, 
+                         alpha = 0.2, start = 0, log_hist = False, box_plot = False, end = None,
+                         n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
+                         label_fontsize = 18, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
+                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False,
+                         tick_length = 8, save_pkl = True, path = None, axes = []):
+    
+    ''' plot the firing rate distribution of neurons of different populations '''
+    
+    
+    n_pop = len(color_dict.keys())
+    if len(axes) == 0:
         
-    ax.set_xlabel('ISI (ms)', fontsize=15)
-    ax.set_ylabel(ylabel, fontsize=15)
-    # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-    ax.legend(fontsize=15,  framealpha = 0.1, frameon = False)
+        
+        fig, axes = plt.subplots(1, n_pop, 
+                           figsize = (n_pop * 3, 3))
+    else:
+        fig = axes[0].get_figure()
+        
+    for i, dt in enumerate(dt_list):
+        
+        count = 0
+
+        FR_dist = load_pickle(f'FR_dist_dt_{dt}.pkl')
+            
+        for name in FR_dist.keys():
+            
+
+            ax = axes[count]
+                
+
+            count +=1
+
+
+            if label_type == 'name':
+                label = name
+            else:
+                label = f"dt={dt}"
+
+            if i == 1:
+                plt.rcParams['hatch.linewidth'] = 3
+                if name == 'STN':
+                    edgecolor = 'w'
+                else:
+                    edgecolor = 'k'
+                ax.bar(FR_dist[name]['bins'], 
+                       FR_dist[name]['freq'],  
+                       FR_dist[name]['width'],
+                       align = 'edge', facecolor = color_dict[name],
+                        alpha =0.2, zorder = 1, label= label,
+                       hatch = '/', edgecolor = edgecolor, lw = 1)
+            else:
+                ax.bar(FR_dist[name]['bins'], 
+                       FR_dist[name]['freq'],  
+                       FR_dist[name]['width'],
+                       align = 'edge', facecolor = color_dict[name],
+                   label= label,  alpha =1, zorder = 0)
+        
+            ax.set_title(name, fontsize = title_fontsize)
+            ax.set_xlabel('Firing Rate (spk/s)', fontsize=label_fontsize)
+            # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+            ax.set_xticks([0, int(bins[name][state]['max'])])
+            if ylim != None:
+                ax.set_yticks([0, int(ylim[name]/2), int(ylim[name])])
+                ax.set_ylim([0,int(ylim[name])])
+            remove_frame(ax)
+            if count == 1:
+                ax.set_ylabel('% of population', fontsize= label_fontsize)
+
+                
+    if log_hist and not box_plot:
+        ax.set_xscale("log")
+
+    
+    set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
+                               tick_length = tick_length, tick_label_fontsize = ticklabel_fontsize)
+
     
     return fig
-
-
 
 
 def plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
                           alpha = 0.2, start = 0, log_hist = False, ticklabel_fontsize = 12,
                           title_fontsize = 18, legend_fontsize = 15, label_fontsize = 18,
                           ylim = None, xlim = None, hatched = False, label_type = 'name',
-                          tick_length = 8):
+                          tick_length = 8, path = None, save_pkl = True):
     
     ''' plot the interspike interval distribution of neurons of different populations '''
     
@@ -7371,19 +7461,24 @@ def plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, 
                            figsize = ( len(nuclei_dict.keys())*2, 2))
     count = 0
     
+    CV_ISI_dist = {}
+    
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
+            CV_ISI_dist[nucleus.name] = {}
             
             ax = axes[count]
             count +=1
             _, CV_ISI= get_all_ISI_of_neurons(nucleus, start, dt)   
-            ylabel = '% population'                           
 
             bins_list = np.linspace(0, xlim[nucleus.name], num = bins)
             freq, edges = np.histogram(CV_ISI, bins = bins_list)
             width = np.diff(edges[:-1])
             
+            CV_ISI_dist[nucleus.name]['bins'] = edges[:-1]
+            CV_ISI_dist[nucleus.name]['freq'] = freq / nucleus.n * 100
+            CV_ISI_dist[nucleus.name]['width'] = np.append(width, width[-1])
             if label_type == 'name':
                 label = nucleus.name
             else:
@@ -7421,6 +7516,10 @@ def plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, 
     if log_hist:
         ax.set_xscale("log")
         
+    print(save_pkl)
+    if save_pkl:
+        print('gaga')
+        pickle_obj(CV_ISI_dist, os.path.join(path, f"CV_ISI_dt_{dt}.pkl"))
     ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False)
     
     set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
@@ -7428,6 +7527,153 @@ def plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, 
 
     
     return fig
+
+def plot_CV_ISI_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, ticklabel_fontsize = 12,
+                          title_fontsize = 18, legend_fontsize = 15, label_fontsize = 18,
+                          ylim = None, xlim = None, hatched = False, label_type = 'name',
+                          tick_length = 8, path = None, save_pkl = True, axes = []):
+    n_pop = len(color_dict.keys())
+
+    if len(axes) == 0:
+        
+        fig, axes = plt.subplots(1, n_pop, 
+                           figsize = (n_pop * 3, 3))
+    else:
+        fig = axes[0].get_figure()
+        
+        
+    for i, dt in enumerate(dt_list):
+        count = 0
+
+        CV_ISI_dist = load_pickle(os.path.join(path, f'CV_ISI_dt_{dt}.pkl'))
+            
+        for name in CV_ISI_dist.keys():
+                        
+            ax = axes[count]
+            count +=1
+
+            if label_type == 'name':
+                label = name
+            else:
+                label = f"dt={dt}"
+                
+            if i == 1:
+                plt.rcParams['hatch.linewidth'] = 3
+                if name == 'STN':
+                    edgecolor = 'w'
+                else:
+                    edgecolor = 'k'
+                ax.bar(CV_ISI_dist[name]['bins'],
+                       CV_ISI_dist[name]['freq'], 
+                       width=CV_ISI_dist[name]['width'], 
+                       align = 'edge', facecolor = color_dict[name],
+                        alpha =0.2, zorder = 1, label= label,
+                       hatch = '/', edgecolor = edgecolor, lw = 1)
+            else:
+                ax.bar(CV_ISI_dist[name]['bins'],
+                       CV_ISI_dist[name]['freq'], 
+                       width=CV_ISI_dist[name]['width'], 
+                       align = 'edge', facecolor = color_dict[name],
+                   label= label,  alpha =1, zorder = 0)
+
+            
+            ax.set_title(name, fontsize = title_fontsize)
+            # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+            ax.set_xticks([0, int(xlim[name])])
+            ax.set_xlim([0, int(xlim[name])])
+            ax.set_xlabel('CV ISI', fontsize=15)
+
+            if ylim != None:
+                ax.set_yticks([0, int(ylim[name])])
+                ax.set_ylim([0,int(ylim[name])])
+            remove_frame(ax)
+            if count == 1:
+                ax.set_ylabel('% of population', fontsize= label_fontsize)
+                
+    if log_hist:
+        ax.set_xscale("log")
+        
+    
+
+    ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False)
+    
+    set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
+                               tick_length = tick_length, tick_label_fontsize = ticklabel_fontsize)
+
+    
+    return fig
+
+def save_neuron_mean_FR(nuclei_dict, dt, path, start = 0):
+    
+    mean_FR_dict = {}
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            
+          mean_FR_dict[nucleus.name] = np.sum(nucleus.spikes[:, start:] / (dt * nucleus.spikes[:, start:].shape[1] / 1000), axis = 1)
+          print(mean_FR_dict[nucleus.name])
+
+    pickle_obj(mean_FR_dict, os.path.join(path, f'Mean_neuron_FR_dt_{dt}.pkl'))
+
+
+def plot_mean_FR_distribution(dt_list, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, ticklabel_fontsize = 12,
+                          title_fontsize = 18, legend_fontsize = 15, label_fontsize = 18,
+                          ylim = None, xlim = None, hatched = False, label_type = 'name',
+                          tick_length = 8, path = None):
+    
+    ''' plot the interspike interval distribution of neurons of different populations '''
+    
+    n_pop = len(color_dict.keys())
+
+    fig, axes = plt.subplots(1, n_pop, 
+                           figsize = ( n_pop*2, 2))
+    count = 0
+    
+
+        
+    for name in color_dict.keys():
+        
+        mean_FR_dict_1 = load_pickle(os.path.join(path, f'Mean_neuron_FR_dt_{dt_list[0]}.pkl'))
+        mean_FR_dict_2 = load_pickle(os.path.join(path, f'Mean_neuron_FR_dt_{dt_list[1]}.pkl'))
+                                                           
+        ax = axes[count]
+        count +=1
+
+        print(mean_FR_dict_1[name], mean_FR_dict_2[name])
+        ax.scatter(mean_FR_dict_1[name], mean_FR_dict_2[name])
+        ax.set_title(name, fontsize = title_fontsize)
+        # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+        ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+        ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+        
+        if xlim != None:
+
+            ax.set_xticks([0, int(xlim[name])])
+            ax.set_xlim([0, int(xlim[name])])
+
+        if ylim != None:
+            ax.set_yticks([0, int(ylim[name])])
+            ax.set_ylim([0,int(ylim[name])])
+        
+        if count == 1:
+            ax.set_ylabel('', fontsize= label_fontsize)
+        ax.set_xlabel('CV ISI', fontsize=15)
+        remove_frame(ax)
+
+    if log_hist:
+        ax.set_xscale("log")
+        
+    
+    set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
+                               tick_length = tick_length, tick_label_fontsize = ticklabel_fontsize)
+
+    
+    return fig
+
 
 def get_mean_sd_ISI_of_neurons(nucleus, start, dt):
     
