@@ -4039,7 +4039,8 @@ def set_minor_locator(ax, n = 2, axis = 'x'):
         ax.xaxis.set_minor_locator(minor_locator)
     
 def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x', 
-                               tick_length = 8, tick_label_fontsize = 8):
+                               tick_length = 8, tick_label_fontsize = 8,
+                               ratio = 0.5):
     
     
     for ax in fig.axes:
@@ -4059,8 +4060,11 @@ def set_minor_locator_all_axes(fig, n_x = 2, n_y = 2,  n = 2, axis = 'x',
             ax.yaxis.set_minor_locator(minor_locator_y)
             minor_locator_x = AutoMinorLocator(n_x)
             ax.xaxis.set_minor_locator(minor_locator_x)
+            
         ax.tick_params(which = 'major', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length)
-        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length/2)
+        ax.tick_params(which = 'minor', axis='both', labelsize=tick_label_fontsize, pad=1, length = tick_length * ratio)
+        
+        
    
 def create_FR_dict_from_sim(nuclei_dict, start, stop, state = 'rest'):
 
@@ -7208,7 +7212,8 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                          alpha = 0.2, start = 0, log_hist = False, box_plot = False, end = None,
                          n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
                          label_fontsize = 18, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
-                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False):
+                         annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False,
+                         tick_length = 8):
     
     ''' plot the firing rate distribution of neurons of different populations '''
     
@@ -7307,10 +7312,11 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
     # if only_non_zero:
     #     ax.set_title(' Only spontaneously active' , fontsize=15)
     
-    set_minor_locator_all_axes(fig, n_x = 4, axis = 'x', 
-                               tick_length = 4, tick_label_fontsize = ticklabel_fontsize)
-    set_minor_locator_all_axes(fig,  n_y = 1,  axis = 'y', 
-                               tick_length = 4, tick_label_fontsize = ticklabel_fontsize)
+    
+    set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
+                               tick_length = tick_length, tick_label_fontsize = ticklabel_fontsize)
+
+    
     return fig
 
 def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
@@ -7350,6 +7356,79 @@ def plot_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zor
     
     return fig
 
+
+
+
+def plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, ticklabel_fontsize = 12,
+                          title_fontsize = 18, legend_fontsize = 15, label_fontsize = 18,
+                          ylim = None, xlim = None, hatched = False, label_type = 'name',
+                          tick_length = 8):
+    
+    ''' plot the interspike interval distribution of neurons of different populations '''
+    
+    fig, axes = plt.subplots(1, len(nuclei_dict.keys()), 
+                           figsize = ( len(nuclei_dict.keys())*2, 2))
+    count = 0
+    
+    for nuclei_list in nuclei_dict.values():
+        for nucleus in nuclei_list:
+            
+            
+            ax = axes[count]
+            count +=1
+            _, CV_ISI= get_all_ISI_of_neurons(nucleus, start, dt)   
+            ylabel = '% population'                           
+
+            bins_list = np.linspace(0, xlim[nucleus.name], num = bins)
+            freq, edges = np.histogram(CV_ISI, bins = bins_list)
+            width = np.diff(edges[:-1])
+            
+            if label_type == 'name':
+                label = nucleus.name
+            else:
+                label = f"dt={dt}"
+                
+            if hatched:
+                plt.rcParams['hatch.linewidth'] = 3
+                if nucleus.name == 'STN':
+                    edgecolor = 'w'
+                else:
+                    edgecolor = 'k'
+                ax.bar(edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                        alpha =0.2, zorder = 1, label= label,
+                       hatch = '/', edgecolor = edgecolor, lw = 1)
+            else:
+                ax.bar(edges[:-1], freq / nucleus.n * 100,  width=np.append(width, width[-1]), align = 'edge', facecolor = color_dict[nucleus.name],
+                   label= label,  alpha =alpha, zorder = 1)
+
+            
+            ax.set_title(nucleus.name, fontsize = title_fontsize)
+            # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
+            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
+            ax.set_xticks([0, int(xlim[nucleus.name])])
+            ax.set_xlim([0, int(xlim[nucleus.name])])
+            ax.set_xlabel('CV ISI', fontsize=15)
+
+            if ylim != None:
+                ax.set_yticks([0, int(ylim[nucleus.name])])
+                ax.set_ylim([0,int(ylim[nucleus.name])])
+            remove_frame(ax)
+            if count == 1:
+                ax.set_ylabel('% of population', fontsize= label_fontsize)
+                
+    if log_hist:
+        ax.set_xscale("log")
+        
+    ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False)
+    
+    set_minor_locator_all_axes(fig, n_x = 4, n_y  = 4, axis = 'both', 
+                               tick_length = tick_length, tick_label_fontsize = ticklabel_fontsize)
+
+    
+    return fig
+
 def get_mean_sd_ISI_of_neurons(nucleus, start, dt):
     
     ISI_mean_neurons = np.array (
@@ -7366,16 +7445,19 @@ def get_mean_sd_ISI_of_neurons(nucleus, start, dt):
 def get_all_ISI_of_neurons(nucleus, start, dt):
     
     ISI_all_t_neurons = np.array([])
+    CV_ISI_all_t_neurons = np.array([])
+
     for i in range(nucleus.n):
         if len(np.where(nucleus.spikes[i,start:] == 1)[0]) >= 2:
             ISIs = np.diff( np.where(nucleus.spikes[i,start:] == 1)[0] 
                                              ) * dt
             if len(ISIs) > 0:
                 ISI_all_t_neurons = np.append( ISI_all_t_neurons, ISIs )
+                CV_ISI_all_t_neurons = np.append(CV_ISI_all_t_neurons, np.std(ISIs)/np.average(ISIs))
 
     ISI_all_t_neurons_sd = np.std(ISI_all_t_neurons) 
     
-    return  ISI_all_t_neurons, ISI_all_t_neurons_sd
+    return  ISI_all_t_neurons, CV_ISI_all_t_neurons
 
 def plot_spike_amp_distribution(nuclei_dict, dt, color_dict, bins = 50):
     

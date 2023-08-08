@@ -27,7 +27,7 @@ from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
-root = r'C:\Users\Shiva\BG_Oscillations'
+# root = r'C:\Users\Shiva\BG_Oscillations'
 # root = '/Users/apple/BG_Oscillations'
 path_lacie = '/media/shiva/LaCie/Membrane_pot_dists'
 
@@ -7800,7 +7800,7 @@ K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
 dt = 0.1
-t_sim = 6600
+t_sim = 3600
 t_base =  1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 300
@@ -8125,6 +8125,15 @@ fig_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins =bins,
 save_pdf(fig_dist, os.path.join(path, 'SNN_FR_dist_' + status + '_' + state_1),
                   size=( len(nuclei_dict.keys())*4, 4))
 
+ylims_CV_ISI = {'D2': 10, 'FSI': 25, 'Proto': 26, 'STN': 26, 'Arky': 30}
+xlims_CV_ISI = {'D2': 3, 'FSI': 3, 'Proto': 3, 'STN': 3, 'Arky': 3}
+
+fig_CV_ISI = plot_CV_ISI_distribution(nuclei_dict, dt, color_dict, bins = 20, ax = None, zorder = 1, 
+                          alpha = 0.2, start = 0, log_hist = False, xlim = xlims_CV_ISI, 
+                          ylim = ylims_CV_ISI, label_type = 'dt')
+
+save_pdf(fig_CV_ISI, os.path.join(path, 'SNN_CV_ISI_dist_' + status + '_' + state_1),
+                  size=( len(nuclei_dict.keys())*2.5, 2.5))
 if 'DD' in state_2:
     
     fig_rest = plot(nuclei_dict, color_dict, dt, t_list - np.full_like(t_list, plot_start_rest / dt), 
