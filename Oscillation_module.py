@@ -648,6 +648,7 @@ class Nucleus:
         self.multiply_connectivity_mat_by_G(N)
         
     def normalize_synaptic_weight(self):
+
         self.synaptic_weight = {key:  val * (self.neuronal_consts['spike_thresh']['mean'] - 
                                              self.neuronal_consts['u_rest']['mean']) 
                                 for key, val in self.synaptic_weight.items() }
@@ -4944,6 +4945,12 @@ def save_pdf(fig, figname, size = (8,6)):
     fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
+    
+def save_svg(fig, figname, size = (8,6)):
+    fig.set_size_inches(size, forward=False)
+    fig.savefig(figname + '.svg', dpi = 500, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+
 def set_x_tick_colors(ax, color_list):
     
     [t.set_color(i) for (i,t) in
@@ -7308,6 +7315,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
                 label = nucleus.name
             else:
                 label = f"dt={dt}"
+                
             if box_plot:
                 bp = ax.boxplot(FR_mean_neurons, labels = [nucleus.name], patch_artist=True, whis = (0,100), 
                                 widths = 0.6, zorder = 0 )
@@ -7369,7 +7377,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
 def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, zorder = 1, 
                          alpha = 0.2, start = 0, log_hist = False, box_plot = False, end = None,
                          n_pts = 50, only_non_zero = False, legend_fontsize = 15, 
-                         label_fontsize = 18, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
+                         label_fontsize = 14, ticklabel_fontsize = 12, ylim = None, label_type = 'name',
                          annotate_fontsize = 14, nbins = 4, title_fontsize = 18, state = 'rest', hatched = False,
                          tick_length = 8, save_pkl = True, path = None, axes = []):
     
@@ -7389,7 +7397,7 @@ def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, z
         
         count = 0
 
-        FR_dist = load_pickle(f'FR_dist_dt_{dt}.pkl')
+        FR_dist = load_pickle(os.path.join(path, f'FR_dist_dt_{dt}.pkl'))
             
         for name in FR_dist.keys():
             
@@ -7399,7 +7407,7 @@ def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, z
 
             count +=1
 
-
+                
             if label_type == 'name':
                 label = name
             else:
@@ -7409,14 +7417,24 @@ def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, z
                 plt.rcParams['hatch.linewidth'] = 3
                 if name == 'STN':
                     edgecolor = 'w'
+                    hatch = 'w'
                 else:
                     edgecolor = 'k'
+                    hatch = 'k'
+
                 ax.bar(FR_dist[name]['bins'], 
                        FR_dist[name]['freq'],  
                        FR_dist[name]['width'],
                        align = 'edge', facecolor = color_dict[name],
                         alpha =0.2, zorder = 1, label= label,
                        hatch = '/', edgecolor = edgecolor, lw = 1)
+                ax.bar(FR_dist[name]['bins'], 
+                       FR_dist[name]['freq'],  
+                       FR_dist[name]['width'],
+                       align = 'edge',  color='none',
+                       edgecolor= hatch, hatch="/", lw=1., zorder = 2,
+                       alpha = 0.5, label = label)
+
             else:
                 ax.bar(FR_dist[name]['bins'], 
                        FR_dist[name]['freq'],  
@@ -7425,13 +7443,15 @@ def plot_FR_distribution_from_files(dt_list, color_dict, bins = 50, ax = None, z
                    label= label,  alpha =1, zorder = 0)
         
             ax.set_title(name, fontsize = title_fontsize)
-            ax.set_xlabel('Firing Rate (spk/s)', fontsize=label_fontsize)
+            ax.set_xlabel('FR (spk/s)', fontsize=label_fontsize)
             # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            if count == n_pop:
+
+                ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
             ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
             ax.set_xticks([0, int(bins[name][state]['max'])])
             if ylim != None:
-                ax.set_yticks([0, int(ylim[name]/2), int(ylim[name])])
+                ax.set_yticks([0, int(ylim[name])])
                 ax.set_ylim([0,int(ylim[name])])
             remove_frame(ax)
             if count == 1:
@@ -7570,6 +7590,12 @@ def plot_CV_ISI_distribution_from_files(dt_list, color_dict, bins = 50, ax = Non
                        align = 'edge', facecolor = color_dict[name],
                         alpha =0.2, zorder = 1, label= label,
                        hatch = '/', edgecolor = edgecolor, lw = 1)
+                ax.bar(CV_ISI_dist[name]['bins'], 
+                       CV_ISI_dist[name]['freq'],  
+                       CV_ISI_dist[name]['width'],
+                       align = 'edge',  color='none',
+                       edgecolor= edgecolor, hatch="/", lw=1., zorder = 2,
+                       alpha = 0.5, label = label)
             else:
                 ax.bar(CV_ISI_dist[name]['bins'],
                        CV_ISI_dist[name]['freq'], 
@@ -7578,9 +7604,11 @@ def plot_CV_ISI_distribution_from_files(dt_list, color_dict, bins = 50, ax = Non
                    label= label,  alpha =1, zorder = 0)
 
             
+            
             ax.set_title(name, fontsize = title_fontsize)
             # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
-            ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
+            if count == n_pop:
+                ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
             ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
             ax.set_xticks([0, int(xlim[name])])
             ax.set_xlim([0, int(xlim[name])])
@@ -7614,7 +7642,6 @@ def save_neuron_mean_FR(nuclei_dict, dt, path, start = 0):
         for nucleus in nuclei_list:
             
           mean_FR_dict[nucleus.name] = np.sum(nucleus.spikes[:, start:] / (dt * nucleus.spikes[:, start:].shape[1] / 1000), axis = 1)
-          print(mean_FR_dict[nucleus.name])
 
     pickle_obj(mean_FR_dict, os.path.join(path, f'Mean_neuron_FR_dt_{dt}.pkl'))
 
@@ -7643,8 +7670,7 @@ def plot_mean_FR_distribution(dt_list, color_dict, bins = 50, ax = None, zorder 
         ax = axes[count]
         count +=1
 
-        print(mean_FR_dict_1[name], mean_FR_dict_2[name])
-        ax.scatter(mean_FR_dict_1[name], mean_FR_dict_2[name])
+        ax.scatter(mean_FR_dict_1[name], mean_FR_dict_2[name], s = 1, color = color_dict[name])
         ax.set_title(name, fontsize = title_fontsize)
         # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
         ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
@@ -8141,8 +8167,8 @@ def OU_noise_generator(amplitude, std, n, dt, sqrt_dt, tau= 10,  noise_dt_before
                    std * np.sqrt(2 / tau) * noise_generator(amplitude, 1, n, dt, sqrt_dt)
     noise = fwd_Euler(dt, noise_dt_before, noise_prime)
     
-    # return np.zeros_like(noise)
-    return noise
+    return np.zeros_like(noise)
+    # return noise
 
 
 def plot_fft_spectrum(peak_freq, f, pxx, N, ax=None, c='navy', label='fft', figsize=(6, 5), 
