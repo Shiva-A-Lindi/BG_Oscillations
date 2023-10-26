@@ -112,10 +112,11 @@ class Nucleus:
         plot_spike_thresh_hist = False, plot_RMP_to_APth = False, external_input_bool = False, hetero_trans_delay = True,
         keep_ex_voltage_trace = False, hetero_tau = True, Act = None, upscaling_spk_counts = 2, spike_history = 'long-term',
         rtest_p_val_thresh = 0.05, refractory_period = 2, syn_w_dist = 'log-normal'):
+        
+        self.random_seed = random_seed
 
         if random_seed != None:
             
-            self.random_seed = random_seed
             np.random.seed(self.random_seed)
 
 
@@ -274,22 +275,22 @@ class Nucleus:
                 self.representative_inp['ext_pop', '1'] = np.zeros(n_timebins)
                 self.ext_input_all_t = np.zeros((self.n, n_timebins))
                 
-            if external_input_bool :
+            if external_input_bool:
                 self.external_inp_t_series = np.zeros(n_timebins)
 
             if self.keep_mem_pot_all_t:
                 self.all_mem_pot = np.zeros((self.n, n_timebins))
                 
-            if keep_noise_all_t : 
+            if keep_noise_all_t: 
                 self.noise_all_t = np.zeros((self.n, n_timebins))
                 
                         
-            self.set_init_distribution( self.T_specs, self.tau_specs, FR_ext_specs, poisson_prop, dt, t_sim,  
+            self.set_init_distribution(self.T_specs, self.tau_specs, FR_ext_specs, poisson_prop, dt, t_sim,  
                                        plot_initial_V_m_dist = plot_initial_V_m_dist, 
                                        plot_spike_thresh_hist= plot_spike_thresh_hist,
                                        plot_RMP_to_APth = plot_RMP_to_APth,
                                        hetero_trans_delay = hetero_trans_delay,
-                                       hetero_tau = hetero_tau )
+                                       hetero_tau = hetero_tau, init_seed = random_seed)
             
             self.normalize_synaptic_weight()
             
@@ -340,8 +341,10 @@ class Nucleus:
                               t_sim, plot_initial_V_m_dist = False,
                               plot_spike_thresh_hist = False, plot_RMP_to_APth = False,
                               keep_ex_voltage_trace = False, hetero_trans_delay = True,
-                              hetero_tau = True):
+                              hetero_tau = True, init_seed = None):
         
+        if init_seed != None:
+            np.random.seed(init_seed)
         self.FR_ext_specs = FR_ext_specs
 
         if self.init_method == 'homogeneous':
@@ -634,7 +637,7 @@ class Nucleus:
         if self.keep_mem_pot_all_t:
             self.all_mem_pot[:, 0] = self.mem_potential.copy()
           
-    def reset_synaptic_weights(self, G, N):
+    def reset_synaptic_weights(self, G, N, init_seed = None):
 
         # filter based on the receiving nucleus
         self.synaptic_weight_specs = {k: v for k, v in G.items() if k[0] == self.name}
@@ -645,7 +648,7 @@ class Nucleus:
             self.normalize_synaptic_weight()
         
         self.revert_connectivity_mat_to_binary()
-        self.multiply_connectivity_mat_by_G(N)
+        self.multiply_connectivity_mat_by_G(N, init_seed = init_seed)
         
     def normalize_synaptic_weight(self):
 
@@ -708,12 +711,17 @@ class Nucleus:
                 
             self.connectivity_matrix[projecting] = build_connection_matrix(self.n, N[proj_name], 
                                                                            n_connections, 
-                                                                           same_pop = same_pop)
+                                                                           same_pop = same_pop,
+                                                                           random_seed = self.random_seed)
             
         self.multiply_connectivity_mat_by_G(N, plot_syn_weight_hist = plot_syn_weight_hist)
         
         
-    def reset_connections(self, K_real, N, N_real):
+    def reset_connections(self, K_real, N, N_real, init_seed = 
+                          None):
+        
+        if init_seed != None:
+            np.random.seed(init_seed)
     
         K = calculate_number_of_connections(N, N_real, K_real)
 
@@ -727,8 +735,10 @@ class Nucleus:
                                     for k, v in self.connectivity_matrix.items()
                                     }
         
-    def initialize_synaptic_weight(self, proj_name, N, plot_syn_weight_hist = False):
+    def initialize_synaptic_weight(self, proj_name, N, plot_syn_weight_hist = False, init_seed = None):
         
+        if init_seed != None:
+            np.random.seed(init_seed)
         key = (self.name, proj_name)
         
         if self.init_method == 'heterogeneous' and self.G_heterogeneity:
@@ -778,14 +788,19 @@ class Nucleus:
                            title = self.name, xlabel = r'$G_{' + ' ' + self.name + '-' + proj_name + '}$')
         return synaptic_weights
     
-    def multiply_connectivity_mat_by_G(self, N, plot_syn_weight_hist = False):
+    def multiply_connectivity_mat_by_G(self, N, plot_syn_weight_hist = False,
+                                       init_seed = None):
         
+    
         for projecting in self.receiving_from_list:
             
             proj_name = projecting[0]
     
-            synaptic_weights = self.initialize_synaptic_weight(proj_name, N, plot_syn_weight_hist = plot_syn_weight_hist)
+            synaptic_weights = self.initialize_synaptic_weight(proj_name, N,
+                                                               plot_syn_weight_hist = plot_syn_weight_hist, 
+                                                               init_seed = init_seed)
                 
+            
             self.connectivity_matrix[proj_name,projecting[1]] = synaptic_weights * \
                                                                 self.connectivity_matrix[proj_name,projecting[1]]
              
@@ -3413,8 +3428,11 @@ def create_FR_ext_filename_dict(nuclei_dict, path, dt):
                                                        '.pkl')
     return filename_dict
 
-def reset_connections(nuclei_dict, K_real, N, N_real):
+def reset_connections(nuclei_dict, K_real, N, N_real, init_seed = 
+                      None):
     
+    if init_seed != None:
+        np.random.seeed(inti_seed)
     K = calculate_number_of_connections(N, N_real, K_real)
     
     for nuclei_list in nuclei_dict.values():
@@ -3557,19 +3575,19 @@ def set_init_all_nuclei(nuclei_dict, list_of_nuc_with_trans_inp=None, filepaths=
                 filepath = os.path.join(nucleus.path, filepaths[nucleus.name])
             nucleus.set_init_from_pickle(filepath)
 
-def reset_synaptic_weights_all_nuclei(nuclei_dict, G, N):
+def reset_synaptic_weights_all_nuclei(nuclei_dict, G, N, init_seed = None):
     
     for nuclei_list in nuclei_dict.values():
         for nucleus in nuclei_list:
             
-            nucleus.reset_synaptic_weights(G, N)
+            nucleus.reset_synaptic_weights(G, N, init_seed = init_seed)
     
     return nuclei_dict
 
 def reinitialize_nuclei_SNN( nuclei_dict, N, K_real, N_real, G, noise_amplitude, noise_variance, A, A_mvt, D_mvt, t_mvt, 
                              t_list, dt, state = 'rest', poisson_prop = None, mem_pot_init_method=None, 
                              set_noise=True, end_of_nonlinearity=25, reset_init_dist = False, t_sim = None, 
-                             normalize_G_by_N = False, reset_connections = True):
+                             normalize_G_by_N = False, reset_connections = True, init_seed = None):
     
     
     for nuclei_list in nuclei_dict.values():
@@ -3577,13 +3595,14 @@ def reinitialize_nuclei_SNN( nuclei_dict, N, K_real, N_real, G, noise_amplitude,
             
             nucleus.clear_history(mem_pot_init_method = mem_pot_init_method)
             if reset_connections:
-                nucleus.reset_connections(K_real,N, N_real)
+                nucleus.reset_connections(K_real,N, N_real, init_seed = init_seed)
             
             if reset_init_dist:
                 nucleus.set_init_distribution( nucleus.T_specs, nucleus.tau_specs, 
-                                              nucleus.FR_ext_specs, poisson_prop, dt, nucleus.t_sim)
+                                              nucleus.FR_ext_specs, poisson_prop,
+                                              dt, nucleus.t_sim, init_seed = init_seed)
                 
-            nucleus.reset_synaptic_weights(G, N)
+            nucleus.reset_synaptic_weights(G, N, init_seed = init_seed)
             
             if normalize_G_by_N:
                 nucleus.normalize_synaptic_weight_by_N()
@@ -5487,7 +5506,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
                                     total_phase = 720, phase_projection = None, troughs = False, nuc_order = None, save_pxx = True, len_f_pxx = 200, normalize_spec = True,
                                     plot_sig_thresh = False, plot_peak_sig = False, min_f = 100, max_f = 300, n_std_thresh= 2, AUC_ratio_thresh = 0.8, save_pop_act = True,
                                     state = 'rest', end_phase = None, threshold_by_percentile = 75,
-                                    only_rtest_entrained = True):
+                                    only_rtest_entrained = True, init_seeds = None):
 
     if set_seed:
         np.random.seed(1956)
@@ -5519,7 +5538,7 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
         
         G = set_G_dist_specs(G, order_mag_sigma = 1)
 
-        print(G)
+        # print(G)
         if plot_spectrum:
             ax_spec = fig_spec.add_subplot(n_iter, 1, count+1)
 
@@ -5533,9 +5552,10 @@ def synaptic_weight_exploration_SNN(path, nuclei_dict, filepath, duration_base, 
             nuclei_dict = reinitialize_nuclei_SNN(nuclei_dict, N, K_all[state], N_real, G, noise_amplitude, noise_variance[state], Act[state],
                                                    A_mvt, D_mvt, t_mvt, t_list, dt, set_noise=False, 
                                                    reset_init_dist= reset_init_dist, poisson_prop = poisson_prop, 
-                                                   normalize_G_by_N= True, reset_connections = reset_connections)
+                                                   normalize_G_by_N= True, reset_connections = reset_connections,
+                                                   init_seed = init_seeds[j])
                     
-
+            # print(nuclei_dict['Proto'][0].connectivity_matrix[('Proto','1')][nuclei_dict['Proto'][0].connectivity_matrix[('Proto','1')].nonzero()])
             nuclei_dict = run(receiving_class_dict, t_list, dt, nuclei_dict)
             
             if save_pop_act:
@@ -9282,7 +9302,7 @@ def transfer_func(Threshold, gain, x):
     
 
 
-def build_connection_matrix(n_receiving, n_projecting, n_connections, same_pop = False):
+def build_connection_matrix(n_receiving, n_projecting, n_connections, same_pop = False, random_seed = False):
     
     ''' 
         return a matrix with Jij=0 or 1. 1 showing a projection from neuron j in 
@@ -9292,6 +9312,10 @@ def build_connection_matrix(n_receiving, n_projecting, n_connections, same_pop =
                     if the neuron type of pre and post are the same this value shows if they 
                     are in the same population as to avoid connecting a neuron to itself    
     '''
+
+    if random_seed != None:
+
+        np.random.seed(random_seed)
     connection_prob = np.random.rand(n_receiving, n_projecting)
     
     if same_pop: # if connecting the population to itself, avoid autapses
@@ -9436,7 +9460,7 @@ def plot( nuclei_dict, color_dict,  dt, t_list, A, A_mvt, t_mvt, D_mvt, ax = Non
         axins.plot(t_list[int(0.1 * duration) :  - int(0.1 * duration)] * dt, 
                    nuclei_dict['D2'][0].pop_act[plot_start + int(0.1 * duration): plot_end - int(0.1 * duration)], 
                    line_type[int(nucleus.population_num)-1], label = label, c = color_dict['D2'],
-                   lw = lw, alpha = 1)
+                   lw = lw, alpha = alpha)
         axins.set_ylim(inset_ylim)
         axins.set_yticks(inset_yticks)
         if x_ticks != None:
