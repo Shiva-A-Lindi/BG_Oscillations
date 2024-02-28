@@ -1805,27 +1805,31 @@ D_mvt = t_sim - t_mvt
 
 G = {}
 receiving_pop_list = {(name, '1'): []}
-
 pop_list = [1]
 
 g = -0.01
-init_method = 'heterogeneous'
 syn_input_integ_method = 'exp_rise_and_decay'
 ext_input_integ_method = 'dirac_delta_input'
+
 ext_inp_method = 'const+noise'
+
 mem_pot_init_method = 'draw_from_data'
 # mem_pot_init_method = 'uniform'
+
+use_saved_FR_ext = False
+use_saved_FR_ext = True
+save_init = False
+if_plot = True
+
+
+init_method = 'heterogeneous'
 keep_mem_pot_all_t = True
 keep_noise_all_t = True
 set_FR_range_from_theory = False
 set_input_from_response_curve = True
-save_init = False
 der_ext_I_from_curve = True
-if_plot = True
-noise_method = 'Gaussian'
 noise_method = 'Ornstein-Uhlenbeck'
-use_saved_FR_ext = False
-use_saved_FR_ext = True
+
 
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
@@ -1842,33 +1846,7 @@ class Nuc_keep_V_m(Nucleus):
         self.reset_potential_with_interpolation(spiking_ind,dt)
         self.all_mem_pot[:, t] = self.mem_potential
 
-    # def cal_ext_inp(self, dt, t):
 
-    #     # choose method of exerting external input from dictionary of methods
-    #     I_ext = self.ext_inp_method_dict[self.ext_inp_method](dt)
-
-    #     self.noise_all_t[:, t] = self.noise.reshape(-1,)
-    #     # print(self.rest_ext_input.shape, self.noise.shape)
-    #     self.I_syn['ext_pop', '1'], self.I_rise['ext_pop', '1'] = self.input_integ_method_dict[self. ext_input_integ_method](
-    #         I_ext, dt,
-    #         I_rise=self.I_rise['ext_pop', '1'],
-    #         I=self.I_syn['ext_pop', '1'],
-    #         tau_rise=self.tau_ext_pop['rise'],
-    #         tau_decay=self.tau_ext_pop['decay'])
-
-    # def constant_ext_input_with_noise(self, dt):
-
-
-    #     self.noise =  self.noise_generator_dict [self.noise_method] (self.noise_amplitude,
-    #                                                                  self.noise_std,
-    #                                                                  self.n,
-    #                                                                  dt,
-    #                                                                  self.sqrt_dt,
-    #                                                                  tau=self.noise_tau,
-    #                                                                  noise_dt_before=self.noise
-    #                                                                  )
-
-    #     return self.rest_ext_input + self.noise.reshape(-1,)
 
 
 nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, 
@@ -1882,12 +1860,6 @@ nuc = [Nuc_keep_V_m(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noi
                     plot_spike_thresh_hist= False, plot_RMP_to_APth = False) for i in pop_list]
 
 
- # {name:  [Nucleus(i, gain, threshold, neuronal_consts, tau, ext_inp_delay, noise_variance[state], noise_amplitude, N, Act[state], A_mvt, name, G, T, t_sim, dt,
- #               synaptic_time_constant, receiving_pop_list, smooth_kern_window, oscil_peak_threshold, neuronal_model='spiking', set_input_from_response_curve=set_input_from_response_curve,
- #               poisson_prop=poisson_prop, init_method=init_method, der_ext_I_from_curve=der_ext_I_from_curve, mem_pot_init_method=mem_pot_init_method,  keep_mem_pot_all_t=keep_mem_pot_all_t,
- #               ext_input_integ_method=ext_input_integ_method, syn_input_integ_method=syn_input_integ_method, path=path_lacie, save_init=save_init,
- #               syn_component_weight=syn_component_weight, noise_method=noise_method, state = state, 
- #               hetero_trans_delay = hetero_trans_delays, hetero_tau = hetero_tau, Act  = Act) for i in pop_list] for name in name_list}
 
 nuclei_dict = {name: nuc}
 nucleus = nuc[0]
@@ -1906,6 +1878,7 @@ receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, 
                                                        use_saved_FR_ext=use_saved_FR_ext, normalize_G_by_N=True, state=state, time = True)
 
 nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
+
 if save_mem_pot_dist:
     save_all_mem_potential(nuclei_dict, path, state)
     
@@ -1921,12 +1894,14 @@ for name in list(nuclei_dict.keys()):
         dt, sampling_t_distance_ms=1))
     
 if name in ['STN', 'Arky', 'Proto'] and state in ['rest', 'DD_anesth']:
+
     state_dict = {'rest': 'CTRL', 'DD_anesth': 'Park'}
     xls = pd.ExcelFile(os.path.join(root,'Modeling_Data_Nico','Brice_paper', 'FR_Brice_data.xlsx'))
     if name == 'STN':
         col = 'w'
     else:
         col = 'k'
+
     figs = plot_exper_FR_distribution(xls, [name], [state_dict[state]],
                                       color_dict, bins=np.arange(
                                           0, bins[name][state]['max'], bins[name][state]['step']),
@@ -1967,6 +1942,7 @@ try:
               size=(6, 5))
 except NameError:
     pass
+
 # fig_ISI_dist = plot_ISI_distribution(nuclei_dict, dt, color_dict, bins=np.logspace(0, 4, 50),
 #                                      ax=None, alpha=1, zorder=0, start=int(t_sim / dt / 2), log_hist=True)
 
@@ -1990,30 +1966,7 @@ fig = plot(nuclei_dict, color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt
 # # save_pdf_png(fig, os.path.join(path, name + '_Firing_'),
 # #              size=(12, 4))
 
-# peak_threshold = 0.1
-# smooth_window_ms = 3
-# smooth_window_ms = 5
-# cut_plateau_epsilon = 0.1
-# lim_oscil_perc = 10
-# low_pass_filter = False
 
-# fig_spec, ax = plt.subplots(1, 1)
-# _, f, pxx = find_freq_all_nuclei(dt, nuclei_dict, duration, lim_oscil_perc, peak_threshold, smooth_kern_window,
-#                                       smooth_window_ms, cut_plateau_epsilon, False, 'fft', False,
-#                                       low_pass_filter, 0, 2000, plot_spectrum=True, ax=ax, c_spec=color_dict,
-#                                       spec_figsize=(6, 5), find_beta_band_power=False, fft_method='Welch', n_windows=3,
-#                                       include_beta_band_in_legend=False)
-# ax.set_xlim(0, 70)
-# save_pdf_png(fig_spec, os.path.join(path, name + '_spec_' + state + '_'),
-#              size=(4, 4))
-
-# fig_raster = raster_plot_all_nuclei(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
-#                                     plot_start=int(t_sim/2), plot_end=t_sim, tick_label_fontsize=12,
-#                                     title_fontsize=25, lw=1, linelengths=1, n_neuron=50,
-#                                     include_nuc_name=True, set_xlim=True,
-#                                     remove_ax_frame=False, y_tick_length=2, x_tick_length=3)
-# save_pdf_png(fig_raster, os.path.join(path, name + '_Raster_' + state + '_'),
-#              size=(12, 4))
 
 # %% check noise variance
 
