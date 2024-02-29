@@ -1825,14 +1825,13 @@ fig.savefig(os.path.join(path, filename), dpi=300, facecolor='w', edgecolor='w',
 
 # %% Deriving F_ext from response curve of collective behavior in heterogeneous mode
 
-
-ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
-
 plt.close('all')
+
+########################################## Choose nucleus and state to fit I_ext for ##########################################
 name = 'D2'
 # name = 'FSI'
 # name = 'STN'
-name = 'Proto'
+# name = 'Proto'
 # name = 'Arky'
 
 state = 'rest'
@@ -1844,33 +1843,37 @@ state = 'rest'
 # state = 'induction_STN_excitation'
 # state = 'induction_Proto_inhibition'
 
-# noise_variance[state][name] = 0
 
-# change time constant
-# neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
-# rest
-FR_ext_range['STN'][state] = np.array([12/1000, 16/1000])
-FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
-FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
-FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
-FR_ext_range['D2'][state] = np.array([32/1000, 43/1000])
 
-#DD
-# FR_ext_range['STN'][state] = np.array([14/1000, 17/1000])
-# FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
-# FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
-# FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
-# FR_ext_range['D2'][state] = np.array([38/1000, 47/1000])
+######################################## Parameters to change ###################################
+#################################################################################################
+mem_pot_init_method = 'draw_from_data' # USE AFTER YOU SAVED A COPY OF INIT 
+# mem_pot_init_method = 'uniform' # USE FIRST ROUND WHEN NO INIT SAVED
+ 
+save_mem_pot_dist = True 
+# save_mem_pot_dist = False
+
+use_saved_FR_ext = False  # USE FOR THE FIRST ROUND WHEN WITH NO ESTIMATE OF F_EXT SAVED
+# use_saved_FR_ext = True  # USE TO REFINE THE SAVED ESTIMATE OF F_EXT
+
+if_plot = True # IF YOU  WANT TO SEE FIT GRAPHICALLY
+
+t_sim = 2000 # INCREASE FOR BETTER ACCURACY (NOTE: IT WILL INCREASE THE SAVED MEM_DIST FILESIZE)
+
+
+root = r'C:\Users\Shiva\BG_Oscillations' # set directory
+path = os.path.join(root, 'Outputs_SNN')
+path_lacie = path
+nicos_data_path = os.path.join(root,'Modeling_Data_Nico','Brice_paper', 'FR_Brice_data.xlsx')
+##################################################################################################
+##################################################################################################
 
 print('desired activity =', Act[state][name])
-save_mem_pot_dist = True
-save_mem_pot_dist = False
 
-FSI_on_log = False
+
 N_sim = 1000
 N = dict.fromkeys(N, N_sim)
 dt = 0.1    
-t_sim = 10000
 t_list = np.arange(int(t_sim/dt))
 duration = [int(t_sim/dt/2), int(t_sim/dt)]
 t_mvt = t_sim
@@ -1879,20 +1882,8 @@ D_mvt = t_sim - t_mvt
 G = {}
 receiving_pop_list = {(name, '1'): []}
 pop_list = [1]
-
 g = -0.01
-syn_input_integ_method = 'exp_rise_and_decay'
-ext_input_integ_method = 'dirac_delta_input'
 
-ext_inp_method = 'const+noise'
-
-mem_pot_init_method = 'draw_from_data'
-# mem_pot_init_method = 'uniform'
-
-use_saved_FR_ext = False
-use_saved_FR_ext = True
-save_init = False
-if_plot = True
 
 
 init_method = 'heterogeneous'
@@ -1902,10 +1893,40 @@ set_FR_range_from_theory = False
 set_input_from_response_curve = True
 der_ext_I_from_curve = True
 noise_method = 'Ornstein-Uhlenbeck'
-
-
+syn_input_integ_method = 'exp_rise_and_decay'
+ext_input_integ_method = 'dirac_delta_input'
+ext_inp_method = 'const+noise'
+FSI_on_log = False
 poisson_prop = {name: {'n': 10000, 'firing': 0.0475, 'tau': {
     'rise': {'mean': 1, 'var': .5}, 'decay': {'mean': 5, 'var': 3}}, 'g': 0.01}}
+
+###### JN  REVISIONS 
+########################################### Uncomment If you want to change the time constant ##########################################
+
+# ta_m = np.linspace(5.13, 13, endpoint = True, num = 4)
+# neuronal_consts['STN']['membrane_time_constant']= {'mean': ta_m[-1], 'var': 0.6 , 'truncmin': 2, 'truncmax': 25}  # for JN review process
+
+###################################################### If no noise ######################################################################
+# noise_variance[state][name] = 0
+
+# range of I_ext to explore for fitting 
+# rest
+# FR_ext_range['STN'][state] = np.array([12/1000, 16/1000])
+# FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
+# FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
+# FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
+# FR_ext_range['D2'][state] = np.array([32/1000, 43/1000])
+
+#DD
+# FR_ext_range['STN'][state] = np.array([14/1000, 17/1000])
+# FR_ext_range['Proto'][state] = np.array([8/1000, 10/1000])
+# FR_ext_range['Arky'][state] = np.array([7/1000, 10/1000])
+# FR_ext_range['FSI'][state] = np.array([68/1000, 75/1000])
+# FR_ext_range['D2'][state] = np.array([38/1000, 47/1000])
+
+##################################################################################################
+
+
 
 class Nuc_keep_V_m(Nucleus):
 
@@ -1944,6 +1965,7 @@ n_FR = 20
 all_FR_list = {name: FR_ext_range[name][state]
                for name in list(nuclei_dict.keys())}
 
+##### THIS FUNCTION FITS THE EXTERNAL INPUT CURVE AFTER GENERATING DATA POINTS WITH RUNNING SIMULATIONS 
 receiving_class_dict, nuclei_dict = set_connec_ext_inp(path, Act[state], A_mvt, D_mvt, t_mvt, dt, N, N_real, K_real, 
                                                        receiving_pop_list, nuclei_dict, t_list, all_FR_list=all_FR_list,
                                                         n_FR=n_FR, if_plot=if_plot, end_of_nonlinearity=end_of_nonlinearity,
@@ -1955,7 +1977,7 @@ nuclei_dict = run(receiving_class_dict, t_list, dt,  {name: nuc})
 if save_mem_pot_dist:
     save_all_mem_potential(nuclei_dict, path, state)
     
-    
+############################################### Plot results of fit ###################################################
 for name in list(nuclei_dict.keys()):
     print('mean I0 ', name, np.round( np.average( nuclei_dict[name][0].rest_ext_input)) , 2) 
     print('mean Noise ', name, np.average(
@@ -1969,7 +1991,7 @@ for name in list(nuclei_dict.keys()):
 if name in ['STN', 'Arky', 'Proto'] and state in ['rest', 'DD_anesth']:
 
     state_dict = {'rest': 'CTRL', 'DD_anesth': 'Park'}
-    xls = pd.ExcelFile(os.path.join(root,'Modeling_Data_Nico','Brice_paper', 'FR_Brice_data.xlsx'))
+    xls = pd.ExcelFile(nicos_data_path)
     if name == 'STN':
         col = 'w'
     else:
@@ -1985,7 +2007,7 @@ if name in ['STN', 'Arky', 'Proto'] and state in ['rest', 'DD_anesth']:
     fig_FR_dist = plot_FR_distribution(nuclei_dict, dt, color_dict, bins=np.arange(0, bins[name][state]['max'], bins[name][state]['step']),
                                     ax=figs[name].gca(), alpha=1, zorder=0, start=int(t_sim / dt / 2),
                                      legend_fontsize = 18, label_fontsize = 20, ticklabel_fontsize = 20,
-                                     annotate_fontsize = 20, nbins = 4, state = state)
+                                     annotate_fontsize = 20, nbins = 4, state = state, path = path)
 
 elif state in list (bins[name].keys() ):
     if name == '':
@@ -2009,7 +2031,7 @@ elif state in list (bins[name].keys() ):
                                         ax = None, alpha = 1, zorder = 0, start = int(t_sim / dt / 2),
                                         log_hist = log_hist, only_non_zero= only_non_zero, box_plot =box_plot,
                                         legend_fontsize = 18, label_fontsize = 20, ticklabel_fontsize = 20,
-                                        annotate_fontsize = 20, nbins = 4, state = state)
+                                        annotate_fontsize = 20, nbins = 4, state = state, path = path)
 try:
     save_pdf_png(fig_FR_dist, os.path.join(path, name + '_FR_dist_' + state + '_'),
               size=(6, 5))
@@ -2026,10 +2048,9 @@ except NameError:
 
 
 status = 'set_FR'
-
-    
 # fig, ax = plot_mem_pot_dist_all_nuc(nuclei_dict, color_dict)
 
+######################################## Plot average population firing rate time course derived from the fit ##########################################################
 nucleus.smooth_pop_activity(dt, window_ms=5)
 fig = plot(nuclei_dict, color_dict, dt,  t_list, Act[state], A_mvt, t_mvt, D_mvt, ax=None,
             title_fontsize=15, plot_start=int(t_sim / 2), title=str(dt),

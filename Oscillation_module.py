@@ -7288,10 +7288,11 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
         for nucleus in nuclei_list:
             
             FR_dist[nucleus.name] = {}
-            if len(nuclei_dict.keys()) < 2:
-                ax = axes
-            else:
-                ax = axes[count]
+            if ax == None:
+                if len(nuclei_dict.keys()) < 2:
+                    ax = axes
+                else:
+                    ax = axes[count]
                 
             if isinstance(bins, dict):
                 
@@ -7301,7 +7302,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
             else:
                 bins_ = bins
             count +=1
-            end = end or nucleus.spike.shape[1]
+            end = end or nucleus.spikes.shape[1]
             FR_mean_neurons_all = np.average(nucleus.spikes[:,start:end], axis = 1) / (dt/1000)
                                                                                                           
             if only_non_zero:
@@ -7368,7 +7369,7 @@ def plot_FR_distribution(nuclei_dict, dt, color_dict, bins = 50, ax = None, zord
             # ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0))
             ax.legend(fontsize=legend_fontsize,  framealpha = 0.1, frameon = False, loc = 'upper right')
             ax.tick_params(axis='both', labelsize=ticklabel_fontsize)
-            ax.set_xticks([0, int(bins[nucleus.name][state]['max'])])
+            ax.set_xticks([0, bins[-1]])#int(bins[nucleus.name][state]['max'])])
             if ylim != None:
                 ax.set_yticks([0, int(ylim[nucleus.name]/2), int(ylim[nucleus.name])])
                 ax.set_ylim([0,int(ylim[nucleus.name])])
