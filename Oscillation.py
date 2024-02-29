@@ -23,7 +23,7 @@ from itertools import chain
 import xlsxwriter
 import matplotlib.animation as animation
 import math
-from pygifsicle import optimize
+# from pygifsicle import optimize
 import itertools, random
 
 root = '/Users/shivaa.lindi/BG_Oscillations'
@@ -829,7 +829,7 @@ def solve_3_nuclei(f, tau_inh, tau_exc, sum_T):
     + (3 * tau_inh**2 * f ** 2 - 1) 
         * np.sin(sum_T/1000 * f) 
         / np.cos(sum_T/1000 * f)
-    -3 * tau_inh)
+    -3 * tau_inh * f)
 
 def freq_vs_tau_inh_theory(tau_exc, sum_T, tau_inh_list, func = solve_2_nuclei, x0 = 0):
     
@@ -847,12 +847,12 @@ def freq_vs_tau_inh_theory(tau_exc, sum_T, tau_inh_list, func = solve_2_nuclei, 
 
 def freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6, n = 100, plot = True):
     
-    tau_inh_list = np.linspace(4, 24, n) / 1000
+    tau_inh_list = np.linspace(4, 24, n, endpoint=True) / 1000
 
     func_dict = {'Proto loop': {'func': solve_1_nucleus, 'x0': np.linspace(500,400, n)},
                  'STN loop': {'func': solve_2_nuclei, 'x0':  np.linspace(100,60, n)},
-                 'FSI loop': {'func': solve_3_nuclei, 'x0': np.linspace(130,45, n)},#120},
-                 'Arky loop': {'func': solve_3_nuclei, 'x0': np.linspace(100, 50, n)}} 
+                 'FSI loop': {'func': solve_3_nuclei, 'x0': np.linspace(130,115, n)},#120},
+                 'Arky loop': {'func': solve_3_nuclei, 'x0': np.linspace(100, 60, n)}} 
     
     data = {'Proto loop': None,
             'STN loop': None,
@@ -880,7 +880,7 @@ def freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6, n = 100, plot = True)
         data[loop] = {'tau': tau[nonzero],
                       'f': f[nonzero]}
     ax.legend()
-    pickle_obj(data, os.path.join(path, 'theory_frequencies.pkl'))
+    pickle_obj(data, os.path.join(path_rate, 'theory_frequencies.pkl'))
     
 plt.close('all')
 freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6/1000, plot = True)
@@ -888,6 +888,79 @@ freq_vs_tau_inh_theory_all_loops(T, path, tau_exc = 6/1000, plot = True)
 #                                                  T[name_1, name_2]['mean'] + T[name_2, name_1]['mean'], 
 #                                                  n = 20)
 
+# %% Theory frequency vs. tau
+
+plt.close('all')
+
+label_list = ['Proto loop', 'STN loop',  'FSI loop', 'Arky loop']
+g_tau_2_ind = 0
+color_list = create_color_map(
+    len(filename_list), colormap=plt.get_cmap('viridis'))
+color_list = [color_dict['Proto'], color_dict['STN'],
+              color_dict['FSI'], color_dict['Arky']]
+marker_list = ['o', 's', 'v', '^']
+key_list = [('Proto', 'Proto'), ('STN', 'Proto'),
+            ('Proto', 'D2'), ('Proto', 'D2')]
+c_list = ['stable_freq'] * len(filename_list)
+
+y_list = c_list
+colormap = 'hot'
+title = ''
+c_label = 'frequency (Hz)'
+name_list = ['Proto'] * len(filename_list)
+markerstyle = ['+', 's', 'o', '^']
+fig, ax2 = plt.subplots(1, 1, sharex=True, figsize=(6, 5))
+i = 1
+
+data_theory = load_pickle(os.path.join(path, 'theory_frequencies.pkl'))
+def plot__(ax):
+    for i in range(len(label_list)):
+        # i = 0; filename_list[i] = 'data_STN_GPe_syn_t_scale_g_ratio_1.pkl'
+        # pkl_file = open(filename_list[i], 'rb')
+        # data = pickle.load(pkl_file)
+        # x_spec = data['tau'][key_list[i]][:, 0]
+        # print(data[(name_list[i], y_list[i])].shape)
+        # y_spec = data[(name_list[i], y_list[i])][:, 0]
+        # c_spec = data[(name_list[i], c_list[i])][:, 0]
+        # # ax.plot(x_spec,y_spec, marker = 's', c = color_list[i], lw = 1, label= label_list[i],zorder = 1, mec = 'k')
+        # ax.scatter(x_spec, y_spec, marker = marker_list[i],
+        #            c=color_list[i], lw=0.2, label=label_list[i], zorder=1, s=40)  # ,  ec = 'k')
+        ax.plot(
+            data_theory[label_list[i]]['tau'],
+            data_theory[label_list[i]]['f'], 
+            c=color_list[i], lw=2, zorder=2)
+        print(            data_theory[label_list[i]]['tau'],
+            data_theory[label_list[i]]['f'])
+plot__(ax2)
+
+tick_length = 10
+tick_size = 8
+ax2.set_xlabel(r'$\tau_{decay}^{inhibition}$', fontsize=20)
+ax2.set_ylabel('Frequency (Hz)',  fontsize=20)
+
+# fig.text( -0.01, 0.5, 'Frequency (Hz)', va='center', rotation='vertical', fontsize = 18)
+
+fig = set_y_ticks(fig, [])
+fig = set_x_ticks(fig, [])
+
+set_minor_locator(ax2, n = 2, axis = 'y')
+set_minor_locator(ax2, n = 2, axis = 'x')
+ax2.tick_params(axis='both', which='minor', labelsize=tick_size,  length = tick_length/2)
+ax2.tick_params(axis='both', which='major', labelsize=tick_size, length = tick_length)
+ax2.tick_params(axis='both', labelsize=22, length = 8)
+
+remove_frame(ax2)
+ax2.set_xlim(3, 25)
+ax2.set_ylim(0, 80)
+leg = ax2.legend(fontsize=18, frameon=False,loc = 'lower right',
+            bbox_to_anchor=(1, .09), bbox_transform=ax2.transAxes)
+ax2.axhspan(12, 30, color='lightgrey', alpha=0.5, zorder=0)
+
+ax2.set_title(r'$\tau_{decay}^{inhibition} \in [5, 25] \; ms$', fontsize = 20)
+for i, text in enumerate(leg.get_texts()):
+    text.set_color(color_list[i])
+
+save_pdf_png(fig, os.path.join(path_rate, 'theory'), size=(5, 6))
 # %% beta induction schematic
 
 filename = 'excitation'
@@ -7803,8 +7876,8 @@ N = dict.fromkeys(N, N_sim)
 K = calculate_number_of_connections(N, N_real, K_real)
 K_small = calculate_number_of_connections(dict.fromkeys(N, 1000), N_real, K_real)
 K_ratio = {key :v/K[key] for key, v in K_small.items()}
-dt = 0.01
-t_sim = 800
+dt = 0.1
+t_sim = 700
 t_base = 100#1500# 1000
 t_list = np.arange(int(t_sim/dt))
 plot_start = 0#300
@@ -7873,8 +7946,6 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 11},#}, ## free
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 g = -0.0025 ## log-normal syn weight dist F = 18.5 Hz/ JN submission
-
-g = -0.0005 ## to check dt invariance
 G = { (name2, name1) :{'mean': g * K[name2, name1] * 10.5},#}, ## free
       (name3, name2) :{'mean': g * K[name3, name2] * 10.5},#11.}, ## free
       (name1, name3) :{'mean': g * K[name1, name3] * 10.5},#30 * 66/63}, ## free
@@ -7883,6 +7954,18 @@ G = { (name2, name1) :{'mean': g * K[name2, name1] * 10.5},#}, ## free
       (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
       (name5, name3) :{'mean': g * K[name5, name3] * 4.7},# 4.7},
       (name3, name3) :{'mean': g * K[name3, name3] * 1.3}}#2.}}#, 
+      # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
+
+
+g = -0.001 ## to check dt invariance without noise
+G = { (name2, name1) :{'mean': g * K[name2, name1] * 10.5},#}, ## free
+      (name3, name2) :{'mean': g * K[name3, name2] * 10.5},#11.}, ## free
+      (name1, name3) :{'mean': g * K[name1, name3] * 10.5},#30 * 66/63}, ## free
+      (name2, name4) :{'mean': g * K[name2, name4] * 4},#0.01}, ## free
+      (name4, name3) :{'mean': g * K[name4, name3] * 3},
+      (name3, name5) :{'mean': -g * K[name3, name5] * 2.4},
+      (name5, name3) :{'mean': g * K[name5, name3] * 4.},# 4.7},
+      (name3, name3) :{'mean': g * K[name3, name3] * 1.}}#2.}}#, 
       # (name1, name5) :{'mean': g * K[name1, name5] * 1}}
 
 
@@ -8151,10 +8234,10 @@ save_pdf(fig_CV_ISI, os.path.join(path, 'SNN_CV_ISI_dist_' + status + '_' + stat
 
 x_ticks = [0, 350, 700]
 lw =0.8
-x_ticks = [0, 700, 1400]
+x_ticks = [0, 500, 1000, 1500, 2000]
 lw = 0.4
-plot_start_DD = 0#t_sim - 700
-plot_end_DD = 600
+# plot_start_DD = t_transition + 100 + 1000
+# plot_end_DD = t_transition + 2100
 
 if dt == 0.01:
     alpha = 0.4
@@ -8196,8 +8279,9 @@ if 'DD' in state_2:
     set_minor_locator(fig_DD.gca(), n = 4, axis = 'both')
     
     save_pdf(fig_DD, os.path.join(path, 'SNN_firing_' + status + '_plot_' + state_2+ '_' 
-                                    + str(dt).replace('.','-') + '_' + str(g).replace('.','-')),
-                  size=(5, 2.))
+                                    + str(dt).replace('.','-') + '_' + str(g).replace('.','-') 
+                                    + '_' + str(plot_end_DD)),
+                  size=(8, 2.))
 
     # fig_state_1, fig_state_2 = raster_plot_all_nuclei_transition(nuclei_dict, color_dict, dt, outer=None, fig=None,  title='',
     #                                                              labelsize=8, title_fontsize=15, lw=0.6, linelengths=2, 
@@ -18132,6 +18216,7 @@ for i, text in enumerate(leg.get_texts()):
     text.set_color(color_list[i])
 
 save_pdf_png(fig, os.path.join(path_rate, figname), size=(5, 6))
+
 # %% RATE MODEL : G vs. tau_inhibition (All Loops)
 plt.close('all')
 filename_list = ['Tau_sweep_GPe-GPe_tau_ratio_PP_1_PP_1_n_30_T_10000.pkl',

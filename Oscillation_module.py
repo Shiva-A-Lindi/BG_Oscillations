@@ -30,7 +30,7 @@ from scipy import signal, stats
 import scipy.sparse as sp
 
 from tempfile import TemporaryFile
-from pygifsicle import optimize
+# from pygifsicle import optimize
 from PIL import Image
 from astropy.stats import rayleightest
 import itertools, random
